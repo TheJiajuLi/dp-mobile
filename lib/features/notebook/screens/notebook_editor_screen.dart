@@ -59,12 +59,7 @@ window.runCode = async (code, lang) => {
   }
 };
 
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    window.flutter_inappwebview
-      ?.callHandler('compilerReady');
-  }, 500);
-});
+window.flutter_inappwebview.callHandler('compilerReady');
 </script>
 </body>
 </html>
@@ -189,50 +184,86 @@ result
       _showSnack('运行环境初始化中，请稍候...');
       return;
     }
+
+    // compiler.js 可能还没加载完（首次要拉 Pyodide），耐心等最多 30 秒，
+    // 而不是直接判失败——这是之前"运行完成（无输出）"的根因之一
     if (!_webReady) {
-      _showSnack('Pyodide 加载中，首次需要约 30 秒...');
-      return;
+      _setOutput(cell, '⏳ Python 环境加载中，请稍候...', 'info');
+      var waited = 0;
+      while (!_webReady && waited < 30) {
+        await Future.delayed(const Duration(seconds: 1));
+        waited++;
+      }
+      if (!mounted) return;
+      if (!_webReady) {
+        _setOutput(cell, '❌ Python 环境加载超时，请重试', 'error');
+        return;
+      }
     }
 
     setState(() => _running[cell.id] = true);
 
     final isSql = cell.type == 'sql';
     final effectiveCode = isSql ? _wrapSql(cell.code) : cell.code;
-    const effectiveLang = 'python';
 
     try {
-      // 转义代码字符串，安全地塞进 JS 模板字符串
-      final escapedCode = effectiveCode
-          .replaceAll('\\', '\\\\')
-          .replaceAll('`', '\\`')
-          .replaceAll('\$', '\\\$');
-
-      final result = await _webCtrl!.evaluateJavascript(
-        source: 'window.runCode(`$escapedCode`, "$effectiveLang")',
+      // jsonEncode 生成一个能安全塞进 JS 的字符串字面量，比手写转义链靠谱
+      final rawResult = await _webCtrl!.evaluateJavascript(
+        source: '''
+(async function() {
+  try {
+    if (typeof window.runCode !== 'function') {
+      return JSON.stringify([{
+        type: 'error',
+        content: 'compiler未就绪，请重试'
+      }]);
+    }
+    const result = await window.runCode(
+      ${jsonEncode(effectiveCode)},
+      "python"
+    );
+    return result;
+  } catch(e) {
+    return JSON.stringify([{
+      type: 'error',
+      content: e.message || String(e)
+    }]);
+  }
+})()
+''',
       );
 
-      if (result == null) {
+      if (rawResult == null || rawResult.toString().trim() == 'null') {
         _setOutput(cell, '运行完成（无输出）', 'text');
         return;
       }
 
-      final outputs = jsonDecode(result.toString()) as List;
-
-      String? foundOutput;
-      String? foundType;
-      for (final out in outputs) {
-        final type = out['type'] as String;
-        final content = out['content'] as String? ?? '';
-        // 跳过调试信息
-        if (['viz-suggestion', 'missing-package', 'debug'].contains(type)) {
-          continue;
-        }
-        foundOutput = content;
-        foundType = type;
-        break;
+      var resultStr = rawResult.toString();
+      // 有的平台会把字符串结果再包一层引号，先剥掉
+      if (resultStr.startsWith('"') && resultStr.endsWith('"')) {
+        resultStr = jsonDecode(resultStr) as String;
       }
 
-      _setOutput(cell, foundOutput ?? '运行完成（无输出）', foundType ?? 'text');
+      try {
+        final outputs = jsonDecode(resultStr) as List;
+        String? foundOutput;
+        String? foundType;
+        for (final out in outputs) {
+          final type = out['type'] as String? ?? 'text';
+          final content = out['content'] as String? ?? '';
+          // 跳过调试信息
+          if (['viz-suggestion', 'missing-package', 'debug'].contains(type)) {
+            continue;
+          }
+          foundOutput = content;
+          foundType = type;
+          break;
+        }
+        _setOutput(cell, foundOutput ?? '运行完成（无输出）', foundType ?? 'text');
+      } catch (_) {
+        // 不是合法 JSON，当纯文本输出，好过直接吞掉
+        _setOutput(cell, resultStr, 'text');
+      }
     } catch (e) {
       _setOutput(cell, '执行出错：$e', 'error');
     } finally {
@@ -549,36 +580,34 @@ result
               ]))),
         ])),
 
-        // 隐藏的 WebView，承载 Pyodide/compiler.js，Python、SQL、JavaScript 都走它
+        // 隐藏的 WebView，承载 Pyodide/compiler.js，Python、SQL、JavaScript 都走它。
+        // 挪到屏幕外而不是用 Opacity(0) 藏起来——平台视图（原生 WebView）不走
+        // Flutter 自己的合成管线，Opacity/裁剪类 widget 包住它会导致触摸命中
+        // 测试异常，实测表现是吞掉了下层 ListView/横向工具栏的滚动手势
         Positioned(
-          left: 0, top: 0, width: 1, height: 1,
-          child: Opacity(
-            opacity: 0,
-            child: IgnorePointer(
-              child: InAppWebView(
-                initialData: InAppWebViewInitialData(
-                  data: _compilerHtml,
-                  baseUrl: WebUri('https://dreamingpolar.com'),
-                ),
-                initialSettings: InAppWebViewSettings(
-                  allowsInlineMediaPlayback: true,
-                  mediaPlaybackRequiresUserGesture: false,
-                  javaScriptEnabled: true,
-                  allowUniversalAccessFromFileURLs: true,
-                  allowFileAccessFromFileURLs: true,
-                ),
-                onWebViewCreated: (ctrl) {
-                  _webCtrl = ctrl;
-                  ctrl.addJavaScriptHandler(
-                    handlerName: 'compilerReady',
-                    callback: (args) {
-                      setState(() => _webReady = true);
-                      debugPrint('[Notebook] Pyodide编译器就绪');
-                    },
-                  );
-                },
-              ),
+          left: -9999, top: -9999, width: 1, height: 1,
+          child: InAppWebView(
+            initialData: InAppWebViewInitialData(
+              data: _compilerHtml,
+              baseUrl: WebUri('https://dreamingpolar.com'),
             ),
+            initialSettings: InAppWebViewSettings(
+              allowsInlineMediaPlayback: true,
+              mediaPlaybackRequiresUserGesture: false,
+              javaScriptEnabled: true,
+              allowUniversalAccessFromFileURLs: true,
+              allowFileAccessFromFileURLs: true,
+            ),
+            onWebViewCreated: (ctrl) {
+              _webCtrl = ctrl;
+              ctrl.addJavaScriptHandler(
+                handlerName: 'compilerReady',
+                callback: (args) {
+                  setState(() => _webReady = true);
+                  debugPrint('[Notebook] Pyodide编译器就绪');
+                },
+              );
+            },
           ),
         ),
       ]),
