@@ -93,9 +93,9 @@ class HomeScreen extends ConsumerWidget {
         context.go(entry.route!);
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('即将上线，敬请期待')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('即将上线，敬请期待')));
     }
   }
 
@@ -186,7 +186,9 @@ class HomeScreen extends ConsumerWidget {
                     );
                   }
                   return Column(
-                    children: list.map((t) => _TutorialTile(tutorial: t)).toList(),
+                    children: list
+                        .map((t) => _TutorialTile(tutorial: t))
+                        .toList(),
                   );
                 },
                 loading: () => Column(
@@ -197,7 +199,10 @@ class HomeScreen extends ConsumerWidget {
                   child: Center(
                     child: Text(
                       '加载失败：$e',
-                      style: const TextStyle(color: AppColors.danger, fontSize: 13),
+                      style: const TextStyle(
+                        color: AppColors.danger,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -321,50 +326,64 @@ class _TutorialTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tutorial.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      onTap: () => context.push('/tutorial/${tutorial.id}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.border, width: 0.5),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tutorial.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    tutorial.username,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.favorite_border,
+                  size: 14,
+                  color: AppColors.textMuted,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(width: 4),
                 Text(
-                  tutorial.username,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  '${tutorial.likes}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Row(
-            children: [
-              const Icon(Icons.favorite_border, size: 14, color: AppColors.textMuted),
-              const SizedBox(width: 4),
-              Text(
-                '${tutorial.likes}',
-                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/tutorial_model.dart';
@@ -13,7 +14,11 @@ const _tags = ['全部', 'Python', '数据分析', '机器学习', '可视化', 
 const _coverPalette = [
   (bg: Color(0xFFEEF2FF), icon: Icons.terminal, fg: Color(0xFF6366F1)),
   (bg: Color(0xFFECFDF5), icon: Icons.functions, fg: Color(0xFF16A34A)),
-  (bg: Color(0xFFFFF7ED), icon: Icons.smart_toy_outlined, fg: Color(0xFFD97706)),
+  (
+    bg: Color(0xFFFFF7ED),
+    icon: Icons.smart_toy_outlined,
+    fg: Color(0xFFD97706),
+  ),
   (bg: Color(0xFFFDF2F8), icon: Icons.auto_awesome, fg: Color(0xFFDB2777)),
   (bg: Color(0xFFEFF6FF), icon: Icons.grid_on, fg: Color(0xFF2563EB)),
 ];
@@ -44,7 +49,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   }
 
   void _onScroll() {
-    if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 200) {
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 200) {
       ref.read(communityProvider.notifier).loadMore();
     }
   }
@@ -63,11 +69,19 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
                 controller: _searchCtrl,
-                onChanged: (v) => ref.read(communityProvider.notifier).setSearchQuery(v),
+                onChanged: (v) =>
+                    ref.read(communityProvider.notifier).setSearchQuery(v),
                 decoration: InputDecoration(
                   hintText: '搜索教程、作者...',
-                  hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-                  prefixIcon: const Icon(Icons.search, color: AppColors.textMuted, size: 20),
+                  hintStyle: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 14,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
                   filled: true,
                   fillColor: const Color(0xFFF2F2F5),
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
@@ -89,12 +103,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   final tag = _tags[index];
                   final selected = state.selectedTag == tag;
                   return GestureDetector(
-                    onTap: () => ref.read(communityProvider.notifier).setTag(tag),
+                    onTap: () =>
+                        ref.read(communityProvider.notifier).setTag(tag),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: selected ? AppColors.primary : const Color(0xFFF2F2F5),
+                        color: selected
+                            ? AppColors.primary
+                            : const Color(0xFFF2F2F5),
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
@@ -124,7 +141,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     );
   }
 
-  Widget _buildBody(BuildContext context, CommunityState state, List<TutorialModel> list) {
+  Widget _buildBody(
+    BuildContext context,
+    CommunityState state,
+    List<TutorialModel> list,
+  ) {
     if (state.isLoading && state.tutorials.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -153,7 +174,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: const [
           SizedBox(height: 80),
-          Center(child: Text('暂无教程', style: TextStyle(color: AppColors.textMuted))),
+          Center(
+            child: Text('暂无教程', style: TextStyle(color: AppColors.textMuted)),
+          ),
         ],
       );
     }
@@ -172,11 +195,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         final tutorial = list[index];
         return _TutorialCard(
           tutorial: tutorial,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('教程详情页即将上线')),
-            );
-          },
+          onTap: () => context.push('/tutorial/${tutorial.id}'),
         );
       },
     );
@@ -207,7 +226,10 @@ class _TutorialCard extends StatelessWidget {
             SizedBox(
               height: 110,
               width: double.infinity,
-              child: _CoverImage(coverImage: tutorial.coverImage, title: tutorial.title),
+              child: _CoverImage(
+                coverImage: tutorial.coverImage,
+                title: tutorial.title,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(10),
@@ -226,35 +248,60 @@ class _TutorialCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _AuthorAvatar(avatar: tutorial.avatar, username: tutorial.username),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          tutorial.username,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                  GestureDetector(
+                    onTap: tutorial.username.isEmpty
+                        ? null
+                        : () => context.push('/users/${tutorial.username}'),
+                    child: Row(
+                      children: [
+                        _AuthorAvatar(
+                          avatar: tutorial.avatar,
+                          username: tutorial.username,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            tutorial.username,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.favorite, size: 12, color: Color(0xFFEF4444)),
+                      const Icon(
+                        Icons.favorite,
+                        size: 12,
+                        color: Color(0xFFEF4444),
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         '${tutorial.likes}',
-                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                       const SizedBox(width: 10),
-                      const Icon(Icons.visibility_outlined, size: 12, color: AppColors.textMuted),
+                      const Icon(
+                        Icons.visibility_outlined,
+                        size: 12,
+                        color: AppColors.textMuted,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         '${tutorial.views}',
-                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -297,9 +344,10 @@ class _CoverPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entry = _coverPalette[title.isNotEmpty
-        ? title.codeUnitAt(0) % _coverPalette.length
-        : 0];
+    final entry =
+        _coverPalette[title.isNotEmpty
+            ? title.codeUnitAt(0) % _coverPalette.length
+            : 0];
     return Container(
       color: entry.bg,
       alignment: Alignment.center,
@@ -334,7 +382,10 @@ class _AuthorAvatar extends StatelessWidget {
     if (avatar!.startsWith('data:image')) {
       try {
         final raw = avatar!.split(',').last;
-        return CircleAvatar(radius: 8, backgroundImage: MemoryImage(base64Decode(raw)));
+        return CircleAvatar(
+          radius: 8,
+          backgroundImage: MemoryImage(base64Decode(raw)),
+        );
       } catch (_) {
         return _letter();
       }

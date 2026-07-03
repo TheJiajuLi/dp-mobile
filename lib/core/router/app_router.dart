@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/aria/screens/aria_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/community/screens/community_screen.dart';
+import '../../features/community/screens/tutorial_detail_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/messages/models/conversation_model.dart';
 import '../../features/messages/screens/chat_screen.dart';
@@ -36,6 +37,12 @@ final appRouter = GoRouter(
       builder: (context, state) => ChatScreen(
         conversationId: state.pathParameters['conversationId']!,
         conversation: state.extra as Conversation?,
+      ),
+    ),
+    GoRoute(
+      path: '/tutorial/:id',
+      builder: (context, state) => TutorialDetailScreen(
+        tutorialId: state.pathParameters['id']!,
       ),
     ),
     GoRoute(
