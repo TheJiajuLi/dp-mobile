@@ -70,4 +70,17 @@ class AuthService {
       return false;
     }
   }
+
+  // 后台静默换新 token，不阻塞启动流程。失败（比如临时网络问题）不强制登出——
+  // tryAutoLogin 已经用 /auth/me 验证过 session 有效，这里只是顺手延长有效期
+  Future<void> silentRefresh() async {
+    final userId = await _storage.read(key: AppConstants.keyCurrentUserId);
+    if (userId == null || userId.isEmpty) return;
+    final res = await _api.post('/auth/refresh');
+    if (!res.success || res.data == null) return;
+    final newToken = res.data['accessToken'] as String?;
+    if (newToken != null) {
+      await _storage.write(key: AppConstants.keyToken(userId), value: newToken);
+    }
+  }
 }

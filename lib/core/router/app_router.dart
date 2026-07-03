@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import '../../features/aria/screens/aria_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/splash_screen.dart';
 import '../../features/community/screens/community_screen.dart';
 import '../../features/community/screens/tutorial_detail_screen.dart';
 import '../../features/home/screens/home_screen.dart';
@@ -16,8 +17,9 @@ import '../../features/publish/screens/publish_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
 final appRouter = GoRouter(
-  initialLocation: '/login',
+  initialLocation: '/splash',
   routes: [
+    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(path: '/publish', builder: (context, state) => const PublishScreen()),
     GoRoute(
