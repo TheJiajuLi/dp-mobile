@@ -12,10 +12,8 @@ final recentTutorialsProvider = FutureProvider<List<TutorialModel>>((ref) async 
     throw Exception(res.message ?? '加载失败');
   }
 
-  final data = res.data;
-  final List list = data is List
-      ? data
-      : (data is Map ? (data['data'] ?? data['tutorials'] ?? []) as List : []);
+  // GET /auth/tutorials 返回 {tutorials:[...], total, page, pages}，不是裸数组
+  final list = (res.data as Map)['tutorials'] as List;
 
   return list.map((e) => TutorialModel.fromJson(e as Map<String, dynamic>)).toList();
 });

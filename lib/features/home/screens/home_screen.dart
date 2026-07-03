@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,6 +27,7 @@ class _AppEntry {
   final Color color;
   final _EntryStatus status;
   final String? route;
+  final bool usePush;
 
   const _AppEntry({
     required this.name,
@@ -33,6 +35,7 @@ class _AppEntry {
     required this.color,
     required this.status,
     this.route,
+    this.usePush = false,
   });
 }
 
@@ -42,7 +45,8 @@ const _appEntries = <_AppEntry>[
     icon: Icons.code,
     color: Color(0xFF6366F1),
     status: _EntryStatus.live,
-    route: '/aria',
+    route: '/notebook',
+    usePush: true,
   ),
   _AppEntry(
     name: 'ARIA 分析助手',
@@ -82,7 +86,11 @@ class HomeScreen extends ConsumerWidget {
 
   void _onEntryTap(BuildContext context, _AppEntry entry) {
     if (entry.route != null) {
-      context.go(entry.route!);
+      if (entry.usePush) {
+        context.push(entry.route!);
+      } else {
+        context.go(entry.route!);
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('即将上线，敬请期待')),
@@ -209,11 +217,15 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     ImageProvider? provider;
     if (avatar != null && avatar!.isNotEmpty) {
-      try {
-        final raw = avatar!.contains(',') ? avatar!.split(',').last : avatar!;
-        provider = MemoryImage(base64Decode(raw));
-      } catch (_) {
-        provider = null;
+      // 旧数据是 base64（data:image 开头），新数据是 COS URL
+      if (avatar!.startsWith('data:image')) {
+        try {
+          provider = MemoryImage(base64Decode(avatar!.split(',').last));
+        } catch (_) {
+          provider = null;
+        }
+      } else {
+        provider = CachedNetworkImageProvider(avatar!);
       }
     }
     return CircleAvatar(
@@ -334,7 +346,7 @@ class _TutorialTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  tutorial.author,
+                  tutorial.username,
                   style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                 ),
               ],

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
@@ -37,7 +38,23 @@ class ApiClient {
         },
       ),
     );
-    dio.interceptors.add(PrettyDioLogger(requestBody: true, responseBody: true));
+    dio.interceptors.add(
+      PrettyDioLogger(
+        requestBody: true,
+        responseBody: true,
+        compact: true,
+        maxWidth: 120,
+        logPrint: (obj) {
+          final str = obj.toString();
+          // 截断 base64 图片数据，避免日志被一大坨 base64 刷屏
+          final truncated = str.replaceAllMapped(
+            RegExp(r'(data:image/[^;]+;base64,)[A-Za-z0-9+/=]{50,}'),
+            (m) => '${m.group(1)}[base64 截断...]',
+          );
+          debugPrint(truncated);
+        },
+      ),
+    );
   }
 
   Future<ApiResponse<dynamic>> get(
