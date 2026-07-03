@@ -8,7 +8,9 @@ import '../../features/messages/screens/chat_screen.dart';
 import '../../features/messages/screens/messages_screen.dart';
 import '../../features/notebook/screens/notebook_editor_screen.dart';
 import '../../features/notebook/screens/notebook_home_screen.dart';
+import '../../features/profile/screens/follow_list_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/profile/screens/user_profile_screen.dart';
 import '../../features/publish/screens/publish_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
@@ -34,6 +36,26 @@ final appRouter = GoRouter(
       builder: (context, state) => ChatScreen(
         conversationId: state.pathParameters['conversationId']!,
         conversation: state.extra as Conversation?,
+      ),
+    ),
+    GoRoute(
+      path: '/users/:identifier',
+      builder: (context, state) => UserProfileScreen(
+        identifier: state.pathParameters['identifier']!,
+      ),
+    ),
+    GoRoute(
+      path: '/users/:userId/followers',
+      builder: (context, state) => FollowListScreen(
+        userId: state.pathParameters['userId']!,
+        type: 'followers',
+      ),
+    ),
+    GoRoute(
+      path: '/users/:userId/following',
+      builder: (context, state) => FollowListScreen(
+        userId: state.pathParameters['userId']!,
+        type: 'following',
       ),
     ),
     StatefulShellRoute.indexedStack(

@@ -78,6 +78,15 @@ class ApiClient {
     }
   }
 
+  Future<ApiResponse<dynamic>> delete(String path, {dynamic data}) async {
+    try {
+      final res = await dio.delete(path, data: data);
+      return ApiResponse.success(res.data, statusCode: res.statusCode);
+    } on DioException catch (e) {
+      return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
+    }
+  }
+
   // 显式传入 token，不依赖拦截器读取本地存储
   // 用于登录流程中 userId 尚未落盘、拦截器还找不到 token 的场景
   Future<ApiResponse<dynamic>> getWithToken(String path, {required String token}) async {

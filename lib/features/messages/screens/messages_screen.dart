@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../profile/models/user_profile_model.dart';
 import '../models/conversation_model.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
@@ -83,6 +84,17 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                         ),
                       const SizedBox(width: 12),
                       const Icon(Icons.search, size: 22),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: _showAddMenu,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFEEF0FF), borderRadius: BorderRadius.circular(8)),
+                          child: const Icon(Icons.add, color: _primary, size: 20),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -120,6 +132,221 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAddMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              decoration:
+                  BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            _menuItem(
+              Icons.person_add_outlined,
+              '添加好友',
+              '通过 @handle 搜索用户',
+              _primary,
+              const Color(0xFFEEF0FF),
+              () {
+                Navigator.pop(ctx);
+                _showAddFriendSearch();
+              },
+            ),
+            const SizedBox(height: 12),
+            _menuItem(
+              Icons.group_add_outlined,
+              '建群',
+              '创建讨论群组',
+              const Color(0xFF16A34A),
+              const Color(0xFFE8F8F0),
+              () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('建群功能即将上线')));
+              },
+            ),
+            const SizedBox(height: 12),
+            _menuItem(
+              Icons.forum_outlined,
+              '建论坛',
+              '创建技术交流论坛',
+              const Color(0xFFD97706),
+              const Color(0xFFFFF7E6),
+              () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('论坛功能即将上线')));
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _menuItem(
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+    Color bgColor,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration:
+            BoxDecoration(color: const Color(0xFFF8F8F8), borderRadius: BorderRadius.circular(14)),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ),
+            const Spacer(),
+            const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddFriendSearch() {
+    final ctrl = TextEditingController();
+    List<UserProfile> results = [];
+    bool searching = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          Future<void> doSearch(String query) async {
+            final q = query.trim();
+            if (q.isEmpty) return;
+            setSheet(() => searching = true);
+            final res = await ref
+                .read(apiClientProvider)
+                .get('/auth/users/search', queryParameters: {'handle': q});
+            final list = res.success && res.data != null
+                ? ((res.data['users'] as List?) ?? [])
+                    .map((j) => UserProfile.fromJson(j as Map<String, dynamic>))
+                    .toList()
+                : <UserProfile>[];
+            setSheet(() {
+              results = list;
+              searching = false;
+            });
+          }
+
+          return Container(
+            height: MediaQuery.of(ctx).size.height * 0.85,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            child: Column(
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration:
+                      BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                ),
+                const SizedBox(height: 16),
+                const Text('添加好友', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: '输入 @handle 搜索用户',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    suffixIcon: TextButton(
+                      onPressed: () => doSearch(ctrl.text),
+                      child: const Text('搜索'),
+                    ),
+                  ),
+                  onSubmitted: doSearch,
+                ),
+                const SizedBox(height: 16),
+                if (searching)
+                  const CircularProgressIndicator()
+                else
+                  Expanded(
+                    child: results.isEmpty
+                        ? const Center(
+                            child: Text('搜索用户的 @handle', style: TextStyle(color: Colors.grey)))
+                        : ListView.builder(
+                            itemCount: results.length,
+                            itemBuilder: (ctx, i) {
+                              final u = results[i];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: _primary,
+                                  child: Text(_initial(u.username),
+                                      style: const TextStyle(
+                                          color: Colors.white, fontWeight: FontWeight.w700)),
+                                ),
+                                title:
+                                    Text(u.username, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                subtitle: u.handle != null
+                                    ? Text('@${u.handle}', style: const TextStyle(color: Colors.grey))
+                                    : null,
+                                trailing: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    context.push('/users/${u.username}');
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: _primary,
+                                      shape:
+                                          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12)),
+                                  child: const Text('查看',
+                                      style: TextStyle(color: Colors.white, fontSize: 13)),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
