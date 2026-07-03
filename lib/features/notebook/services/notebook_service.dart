@@ -12,7 +12,19 @@ class NotebookService {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key('nb_recent'));
     if (raw == null) return [];
-    return List<Map<String, dynamic>>.from(jsonDecode(raw));
+    final list = List<Map<String, dynamic>>.from(jsonDecode(raw));
+
+    // 按 name 去重，只保留最靠前（最近更新）的那条；顺便兜底旧数据里
+    // 已经攒下的重复项，不用等用户再手动清一遍才干净
+    final seenNames = <String>{};
+    final deduped = <Map<String, dynamic>>[];
+    for (final item in list) {
+      final name = item['name'] as String? ?? '';
+      if (seenNames.contains(name)) continue;
+      seenNames.add(name);
+      deduped.add(item);
+    }
+    return deduped.take(5).toList();
   }
 
   Future<Notebook> create(String name, String lang) async {
@@ -65,8 +77,8 @@ class NotebookService {
     final updated = [
       {'id': nb.id, 'name': nb.name, 'lang': nb.lang,
        'cellCount': nb.cells.length, 'updatedAt': nb.updatedAt},
-      ...recent.where((r) => r['id'] != nb.id),
-    ].take(10).toList();
+      ...recent.where((r) => r['id'] != nb.id && r['name'] != nb.name),
+    ].take(5).toList();
     await prefs.setString(_key('nb_recent'), jsonEncode(updated));
   }
 
