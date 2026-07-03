@@ -135,11 +135,17 @@ class _State extends ConsumerState<NotebookHomeScreen> {
         Container(color: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: const Row(children: [
+                Icon(Icons.arrow_back_ios, size: 16, color: _primary),
+                Text('返回', style: TextStyle(fontSize: 13, color: _primary)),
+              ]),
+            ),
+            const SizedBox(width: 8),
             const Text('极梦 Notebook',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const Spacer(),
-            Icon(Icons.search, color: Colors.grey[400], size: 22),
-            const SizedBox(width: 12),
             GestureDetector(onTap: _showNewSheet,
               child: Container(width: 32, height: 32,
                 decoration: BoxDecoration(color: _primary,

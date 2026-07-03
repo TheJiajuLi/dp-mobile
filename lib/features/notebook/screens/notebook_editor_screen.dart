@@ -221,16 +221,50 @@ result
       }
     }
 
+    // 预扫描 input() 调用，运行前一次性弹框收集，不做运行时阻塞
+    // （Pyodide 跑在 WebView 主线程，Atomics.wait 那套同步阻塞方案在这里用不了）
+    final inputCount = _countInputCalls(cell.code);
+    var userInputs = <String>[];
+    if (inputCount > 0) {
+      final inputs = await _collectInputs(cell.code, inputCount);
+      if (!mounted || inputs == null) return; // 用户取消
+      userInputs = inputs;
+    }
+
+    if (!mounted) return;
     setState(() => _running[cell.id] = true);
 
     final isSql = cell.type == 'sql';
-    final effectiveCode = isSql ? _wrapSql(cell.code) : cell.code;
+    var effectiveCode = isSql ? _wrapSql(cell.code) : cell.code;
+
+    if (userInputs.isNotEmpty) {
+      // 把 input() 换成从预收集队列里取值的 mock；用完立刻还原，
+      // 否则会一直污染 Pyodide 的全局解释器状态，影响后面其它 cell 的 input()
+      final indentedCode = effectiveCode
+          .split('\n')
+          .map((l) => '    $l')
+          .join('\n');
+      effectiveCode =
+          '''
+import builtins, js
+_orig_input = builtins.input
+def _mock_input(prompt=''):
+    return js.window._mockInput(str(prompt))
+builtins.input = _mock_input
+try:
+$indentedCode
+finally:
+    builtins.input = _orig_input
+''';
+    }
 
     try {
       // 用 JavaScriptHandler 双向通信，比 evaluateJavascript 的返回值更可靠
       // （evaluateJavascript 在不同平台/版本下对返回值的类型编组不一致）
       final completer = Completer<String>();
       _pendingRuns[cell.id] = completer;
+
+      final inputsJson = jsonEncode(userInputs);
 
       await _webCtrl!.evaluateJavascript(
         source:
@@ -244,9 +278,37 @@ result
       );
       return;
     }
-    const outputs = await window.runCode(${jsonEncode(effectiveCode)}, "python");
+    window._inputQueue = $inputsJson;
+    window._inputIndex = 0;
+    window._inputLog = '';
+    window._mockInput = (prompt) => {
+      if (window._inputIndex < window._inputQueue.length) {
+        const val = window._inputQueue[window._inputIndex++];
+        window._inputLog += (prompt || '') + val + '\\n';
+        return val;
+      }
+      return '';
+    };
+    const rawOutputs = await window.runCode(${jsonEncode(effectiveCode)}, "python");
+    let list;
+    try {
+      list = JSON.parse(rawOutputs);
+      if (!Array.isArray(list)) list = [list];
+    } catch(_) {
+      list = [{type:'text', content: String(rawOutputs)}];
+    }
+    // 把"终端回显"拼进已有的文本输出里，而不是单独插一条——
+    // 否则 Flutter 端只取第一条输出时会把真正的 print() 结果盖掉
+    if (window._inputLog) {
+      const idx = list.findIndex(o => o && o.type === 'text');
+      if (idx >= 0) {
+        list[idx].content = window._inputLog + (list[idx].content || '');
+      } else {
+        list.unshift({type:'text', content: window._inputLog});
+      }
+    }
     window.flutter_inappwebview.callHandler(
-      'onRunResult', ${jsonEncode(cell.id)}, outputs
+      'onRunResult', ${jsonEncode(cell.id)}, JSON.stringify(list)
     );
   } catch(e) {
     window.flutter_inappwebview.callHandler(
@@ -300,6 +362,93 @@ result
       setState(() => _running[cell.id] = false);
       _scheduleSave();
     }
+  }
+
+  // 统计 input() 调用次数（简单正则，不是真正的 Python 解析——字符串/注释里
+  // 出现的 "input(" 也会被计入，属于已知限制）
+  int _countInputCalls(String code) {
+    final regex = RegExp(r'\binput\s*\(');
+    return regex.allMatches(code).length;
+  }
+
+  // 预收集用户输入：运行前一次性弹框问完，而不是运行时暂停等待
+  Future<List<String>?> _collectInputs(String code, int count) async {
+    // 尽量提取 input() 里的提示文字，提取不到就用默认占位
+    final prompts = <String>[];
+    final regex = RegExp("input\\s*\\(\\s*['\"]?(.*?)['\"]?\\s*\\)");
+    for (final m in regex.allMatches(code)) {
+      prompts.add(m.group(1)?.trim() ?? '请输入');
+    }
+    while (prompts.length < count) {
+      prompts.add('请输入');
+    }
+
+    final controllers = List.generate(count, (_) => TextEditingController());
+
+    final result = await showDialog<List<String>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          '代码需要输入',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '请提前填写所有输入值：',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              ...List.generate(
+                count,
+                (i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: TextField(
+                    controller: controllers[i],
+                    decoration: InputDecoration(
+                      labelText: prompts[i].isEmpty
+                          ? '输入 ${i + 1}'
+                          : prompts[i],
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () =>
+                Navigator.pop(ctx, controllers.map((c) => c.text).toList()),
+            child: const Text('运行', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    for (final c in controllers) {
+      c.dispose();
+    }
+    return result;
   }
 
   // JavaScript 直接在承载 Pyodide 的隐藏 WebView 里 eval
