@@ -1,9 +1,21 @@
+// 语言支持一览，目前 NotebookCell.type 仍以 String 存储（见下方字段注释），
+// 这个 enum 作为受支持语言的权威列表，供 UI（工具栏/校验）引用。
+enum CellLanguage {
+  python,
+  latex,
+  markdown,
+  sql,
+  javascript,
+  r, // 占位，即将支持
+  julia, // 占位，即将支持
+}
+
 class NotebookCell {
   final String id;
-  final String type; // python / r / latex / markdown / html
+  final String type; // python / sql / javascript / latex / markdown / r / julia / html
   String code;
   String? output;
-  String? outputType; // text / error / image / latex / html
+  String? outputType; // text / error / image / latex / html / markdown / info
   bool isRunning;
 
   NotebookCell({
