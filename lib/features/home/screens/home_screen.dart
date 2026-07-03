@@ -54,6 +54,7 @@ const _appEntries = <_AppEntry>[
     color: Color(0xFF16A34A),
     status: _EntryStatus.live,
     route: '/aria',
+    usePush: true,
   ),
   _AppEntry(
     name: '数据网格 Grid',

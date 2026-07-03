@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
+import '../../features/messages/providers/messages_provider.dart';
 
 class MainShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -44,12 +46,18 @@ class MainShell extends StatelessWidget {
                   onTap: () => _onTap(1),
                 ),
                 _PublishButton(onTap: () => context.push('/publish')),
-                _NavItem(
-                  icon: Icons.auto_awesome_outlined,
-                  activeIcon: Icons.auto_awesome,
-                  label: 'ARIA',
-                  selected: navigationShell.currentIndex == 2,
-                  onTap: () => _onTap(2),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final unread = ref.watch(unreadCountProvider);
+                    return _NavItem(
+                      icon: Icons.mail_outline,
+                      activeIcon: Icons.mail,
+                      label: '消息',
+                      selected: navigationShell.currentIndex == 2,
+                      badgeCount: unread,
+                      onTap: () => _onTap(2),
+                    );
+                  },
                 ),
                 _NavItem(
                   icon: Icons.person_outline,
@@ -73,6 +81,7 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final int badgeCount;
 
   const _NavItem({
     required this.icon,
@@ -80,6 +89,7 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -93,7 +103,12 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(selected ? activeIcon : icon, color: color, size: 24),
+            Badge(
+              isLabelVisible: badgeCount > 0,
+              label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
+              backgroundColor: Colors.red,
+              child: Icon(selected ? activeIcon : icon, color: color, size: 24),
+            ),
             const SizedBox(height: 2),
             Text(
               label,

@@ -1,0 +1,481 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/network/api_client.dart';
+import '../../auth/auth_service.dart';
+import '../models/conversation_model.dart';
+import '../models/message_model.dart';
+
+const _primary = Color(0xFF6366F1);
+
+String _initial(String? name) {
+  if (name == null || name.isEmpty) return '?';
+  return name.substring(0, 1).toUpperCase();
+}
+
+class ChatScreen extends ConsumerStatefulWidget {
+  final String conversationId;
+  final Conversation? conversation;
+
+  const ChatScreen({
+    super.key,
+    required this.conversationId,
+    this.conversation,
+  });
+
+  @override
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends ConsumerState<ChatScreen> {
+  final _ctrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
+  List<ChatMessage> _messages = [];
+  bool _loading = true;
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+    // 每 5 秒拉新消息
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _loadMessages());
+  }
+
+  Future<void> _loadMessages() async {
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/conversations/${widget.conversationId}/messages');
+    if (!res.success || res.data == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final list = (res.data['messages'] as List)
+          .map((j) => ChatMessage.fromJson(j as Map<String, dynamic>))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _messages = list;
+        _loading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollCtrl.hasClients) {
+          _scrollCtrl.animateTo(
+            _scrollCtrl.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _send({
+    String? text,
+    String type = 'text',
+    Map<String, dynamic>? metadata,
+  }) async {
+    final content = text ?? _ctrl.text.trim();
+    if (content.isEmpty) return;
+
+    final otherId = widget.conversation?.otherUserId ?? '';
+    if (otherId.isEmpty) return;
+
+    _ctrl.clear();
+    final res = await ref.read(apiClientProvider).post('/auth/messages', data: {
+      'toUserId': otherId,
+      'content': content,
+      'type': type,
+      if (metadata != null) 'metadata': metadata,
+    });
+    if (!res.success) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('发送失败：${res.message}')));
+      return;
+    }
+    await _loadMessages();
+  }
+
+  void _showAttachMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              decoration:
+                  BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _attachBtn(Icons.code, '代码', () {
+                  Navigator.pop(ctx);
+                  _showCodeInput();
+                }),
+                _attachBtn(Icons.functions, '公式', () {
+                  Navigator.pop(ctx);
+                  _showLatexInput();
+                }),
+                _attachBtn(Icons.article_outlined, '教程', () {
+                  Navigator.pop(ctx);
+                  // TODO: 选择教程分享
+                }),
+                _attachBtn(Icons.image, '图片', () {
+                  Navigator.pop(ctx);
+                  // TODO: 图片选择
+                }),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCodeInput() {
+    final codeCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('发送代码', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            Container(
+              decoration:
+                  BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                controller: codeCtrl,
+                maxLines: 6,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Colors.white),
+                decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '# 输入代码...',
+                    hintStyle: TextStyle(color: Colors.grey)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _send(text: codeCtrl.text.trim(), type: 'code');
+                },
+                child: const Text('发送', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLatexInput() {
+    final latexCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('发送公式', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: latexCtrl,
+              decoration: InputDecoration(
+                hintText: r'$$E = mc^2$$',
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _send(text: latexCtrl.text.trim(), type: 'code', metadata: {'language': 'latex'});
+                },
+                child: const Text('发送', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _attachBtn(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration:
+                BoxDecoration(color: const Color(0xFFEEF0FF), borderRadius: BorderRadius.circular(14)),
+            child: Icon(icon, color: _primary, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scrollCtrl.dispose();
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUserId = ref.watch(currentUserProvider)?.id ?? '';
+    final otherName = widget.conversation?.otherUsername ?? '用户';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F8F8),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 顶部栏
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, size: 18),
+                    onPressed: () => context.pop(),
+                  ),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: _primary,
+                    child: Text(_initial(otherName),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(otherName,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  ),
+                  const Icon(Icons.more_horiz, size: 22),
+                ],
+              ),
+            ),
+
+            // 消息列表
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      controller: _scrollCtrl,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _messages.length,
+                      itemBuilder: (ctx, i) => _buildBubble(_messages[i], currentUserId),
+                    ),
+            ),
+
+            // 输入栏
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: _showAttachMenu,
+                    child: const Icon(Icons.add_circle_outline, size: 26, color: Colors.grey),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration:
+                          BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(20)),
+                      child: TextField(
+                        controller: _ctrl,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: '发消息...',
+                          hintStyle: TextStyle(color: Colors.grey),
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onSubmitted: (_) => _send(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _send,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle),
+                      child: const Icon(Icons.send, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBubble(ChatMessage msg, String currentUserId) {
+    final isMe = msg.senderId == currentUserId;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: const Color(0xFF16A34A),
+              child: Text(_initial(msg.senderUsername),
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                _buildBubbleContent(msg, isMe),
+                const SizedBox(height: 3),
+                Text(_formatTime(msg.createdAt),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ),
+          if (isMe) ...[
+            const SizedBox(width: 8),
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: _primary,
+              child: Text(_initial(msg.senderUsername),
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBubbleContent(ChatMessage msg, bool isMe) {
+    if (msg.type == 'code' && msg.metadata?['language'] == 'latex') {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isMe ? _primary : Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isMe ? 18 : 4),
+            bottomRight: Radius.circular(isMe ? 4 : 18),
+          ),
+          border: isMe ? null : Border.all(color: Colors.grey.shade200),
+        ),
+        child: Math.tex(
+          msg.content.replaceAll(r'$$', '').trim(),
+          textStyle: TextStyle(fontSize: 16, color: isMe ? Colors.white : Colors.black),
+          onErrorFallback: (err) => Text(msg.content,
+              style: TextStyle(fontSize: 13, color: isMe ? Colors.white : Colors.red)),
+        ),
+      );
+    }
+
+    if (msg.type == 'code') {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration:
+            BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
+        child: Text(msg.content,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Colors.white, height: 1.5)),
+      );
+    }
+
+    // 普通文字气泡
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isMe ? _primary : Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(18),
+          topRight: const Radius.circular(18),
+          bottomLeft: Radius.circular(isMe ? 18 : 4),
+          bottomRight: Radius.circular(isMe ? 4 : 18),
+        ),
+        border: isMe ? null : Border.all(color: Colors.grey.shade200),
+      ),
+      child: Text(msg.content,
+          style: TextStyle(fontSize: 15, color: isMe ? Colors.white : Colors.black, height: 1.4)),
+    );
+  }
+
+  String _formatTime(int tsMs) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(tsMs);
+    final now = DateTime.now();
+    if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+    return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+}

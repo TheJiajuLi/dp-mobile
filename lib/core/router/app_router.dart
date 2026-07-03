@@ -3,6 +3,9 @@ import '../../features/aria/screens/aria_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/community/screens/community_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/messages/models/conversation_model.dart';
+import '../../features/messages/screens/chat_screen.dart';
+import '../../features/messages/screens/messages_screen.dart';
 import '../../features/notebook/screens/notebook_editor_screen.dart';
 import '../../features/notebook/screens/notebook_home_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
@@ -24,6 +27,15 @@ final appRouter = GoRouter(
         nbId: state.pathParameters['id']!,
       ),
     ),
+    // ARIA 不再是底部导航的一个 tab，改由首页九宫格 push 进来
+    GoRoute(path: '/aria', builder: (context, state) => const AriaScreen()),
+    GoRoute(
+      path: '/messages/chat/:conversationId',
+      builder: (context, state) => ChatScreen(
+        conversationId: state.pathParameters['conversationId']!,
+        conversation: state.extra as Conversation?,
+      ),
+    ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
           MainShell(navigationShell: navigationShell),
@@ -43,7 +55,10 @@ final appRouter = GoRouter(
         ),
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/aria', builder: (context, state) => const AriaScreen()),
+            GoRoute(
+              path: '/messages',
+              builder: (context, state) => const MessagesScreen(),
+            ),
           ],
         ),
         StatefulShellBranch(
