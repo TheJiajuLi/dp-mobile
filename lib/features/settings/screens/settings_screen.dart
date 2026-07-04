@@ -322,7 +322,7 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             Text('版本：v1.0.0'),
             SizedBox(height: 4),
-            Text('数据分析，为创造而生。'),
+            Text('极梦，为创造而生。'),
             SizedBox(height: 4),
             Text('© 2026 Dreaming Polar'),
           ],

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/models/tutorial_model.dart';
+import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 import '../../notebook/services/notebook_service.dart';
 import '../models/user_profile_model.dart';
@@ -26,22 +27,6 @@ const _coverPalette = [
   (bg: Color(0xFFFDF2F8), icon: Icons.code, fg: Color(0xFFDB2777)),
   (bg: Color(0xFFEFF6FF), icon: Icons.table_chart, fg: Color(0xFF2563EB)),
 ];
-
-// 星座：emoji 符号 + 中文名
-const _zodiacs = <String, (String, String)>{
-  'aries': ('♈', '白羊座'),
-  'taurus': ('♉', '金牛座'),
-  'gemini': ('♊', '双子座'),
-  'cancer': ('♋', '巨蟹座'),
-  'leo': ('♌', '狮子座'),
-  'virgo': ('♍', '处女座'),
-  'libra': ('♎', '天秤座'),
-  'scorpio': ('♏', '天蝎座'),
-  'sagittarius': ('♐', '射手座'),
-  'capricorn': ('♑', '摩羯座'),
-  'aquarius': ('♒', '水瓶座'),
-  'pisces': ('♓', '双鱼座'),
-};
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle
@@ -71,6 +56,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   bool _loading = true;
 
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
+
+  ZodiacSign? get _zodiacSign {
+    for (final sign in ZodiacSign.values) {
+      if (sign.name == _zodiac) return sign;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -547,8 +539,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       color: Colors.grey,
                                     ),
                                   ),
-                                if (_zodiac.isNotEmpty &&
-                                    _zodiacs.containsKey(_zodiac)) ...[
+                                if (_zodiacSign != null) ...[
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -559,13 +550,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       color: const Color(0xFFEEF0FF),
                                       borderRadius: BorderRadius.circular(99),
                                     ),
-                                    child: Text(
-                                      '${_zodiacs[_zodiac]!.$1} ${_zodiacs[_zodiac]!.$2}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF4F46E5),
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ZodiacIcon(sign: _zodiacSign!, size: 14),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _zodiacSign!.chineseName,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF4F46E5),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
