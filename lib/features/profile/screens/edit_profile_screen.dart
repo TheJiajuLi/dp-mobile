@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
@@ -28,6 +30,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   String _zodiac = '';
   bool _saving = false;
   bool _loaded = false;
+  bool _uploadingAvatar = false;
   String? _error;
   UserModel? _user;
 
@@ -108,6 +111,61 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       setState(() => _error = e.toString().replaceAll('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar(ImageSource source) async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+
+    final bytes = await file.readAsBytes();
+
+    setState(() => _uploadingAvatar = true);
+
+    try {
+      final formData = FormData.fromMap({
+        'avatar': MultipartFile.fromBytes(
+          bytes,
+          filename: 'avatar.jpg',
+          contentType: DioMediaType('image', 'jpeg'),
+        ),
+      });
+
+      // ApiClient.post 内部吞掉了 DioException，不会抛异常——失败与否
+      // 要看 res.success，不能只靠 try/catch
+      final res = await ref
+          .read(apiClientProvider)
+          .post('/auth/update-avatar', data: formData);
+      if (!res.success) {
+        throw Exception(res.message ?? '上传失败，请重试');
+      }
+
+      final newAvatar = (res.data as Map)['avatar'] as String?;
+      if (newAvatar != null && _user != null) {
+        final updated = _user!.copyWith(avatar: newAvatar);
+        ref.read(authServiceProvider).updateCurrentUser(updated);
+        setState(() => _user = updated);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('头像已更新')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上传失败：${e.toString().replaceAll('Exception: ', '')}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
     }
   }
 
@@ -393,6 +451,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Widget _buildAvatarPreview() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        _buildAvatarImage(),
+        if (_uploadingAvatar)
+          const CircleAvatar(
+            radius: 45,
+            backgroundColor: Colors.black45,
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAvatarImage() {
     final avatar = _user?.avatar;
     if (avatar != null && avatar.isNotEmpty) {
       if (avatar.startsWith('data:image')) {
@@ -569,7 +642,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               title: const Text('从相册选择'),
               onTap: () {
                 Navigator.pop(ctx);
-                // TODO: 接入头像上传（POST /auth/update-avatar）
+                _pickAndUploadAvatar(ImageSource.gallery);
               },
             ),
             ListTile(
@@ -577,7 +650,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               title: const Text('拍照'),
               onTap: () {
                 Navigator.pop(ctx);
-                // TODO: 接入相机拍照 + 头像上传
+                _pickAndUploadAvatar(ImageSource.camera);
               },
             ),
           ],

@@ -37,11 +37,16 @@ class UserModel {
     'created_at': createdAt,
   };
 
-  UserModel copyWith({String? username, String? bio, String? website}) => UserModel(
+  UserModel copyWith({
+    String? username,
+    String? bio,
+    String? website,
+    String? avatar,
+  }) => UserModel(
     id: id,
     username: username ?? this.username,
     email: email,
-    avatar: avatar,
+    avatar: avatar ?? this.avatar,
     bio: bio ?? this.bio,
     website: website ?? this.website,
     createdAt: createdAt,
