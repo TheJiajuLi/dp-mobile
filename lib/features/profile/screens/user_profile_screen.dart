@@ -339,6 +339,15 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               },
             ),
             ListTile(
+              leading: const Icon(Icons.switch_account_outlined, color: Colors.grey),
+              title: const Text('切换账号'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await ref.read(authServiceProvider).logout();
+                if (mounted) context.go('/login');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('退出登录', style: TextStyle(color: Colors.red)),
               onTap: () async {
@@ -720,30 +729,35 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       ),
 
                       // Tabs
+                      // Material 的 TabBar 就算只放 icon 不放文字，也会按
+                      // 默认单行高度（46）留白，图标只占 20，上下各空出一大截，
+                      // 紧接着下面的九宫格就显得中间空了一条——用固定高度的
+                      // SizedBox 把它按下去
                       Container(
                         color: Colors.white,
-                        child: TabBar(
-                          controller: _tabCtrl,
-                          labelColor: _primary,
-                          unselectedLabelColor: Colors.grey,
-                          indicatorColor: _primary,
-                          indicatorWeight: 2,
-                          // 去掉 TabBar 默认的内边距，紧跟在统计数字下面，
-                          // 不然看起来数字和 tab 图标之间空隙很大
-                          labelPadding: EdgeInsets.zero,
-                          tabs: [
-                            const Tab(icon: Icon(Icons.grid_view, size: 20)),
-                            if (_showNotebookTab)
+                        child: SizedBox(
+                          height: 36,
+                          child: TabBar(
+                            controller: _tabCtrl,
+                            labelColor: _primary,
+                            unselectedLabelColor: Colors.grey,
+                            indicatorColor: _primary,
+                            indicatorWeight: 2,
+                            labelPadding: EdgeInsets.zero,
+                            tabs: [
+                              const Tab(icon: Icon(Icons.grid_view, size: 20)),
+                              if (_showNotebookTab)
+                                const Tab(
+                                  icon: Icon(Icons.menu_book_outlined, size: 20),
+                                ),
                               const Tab(
-                                icon: Icon(Icons.menu_book_outlined, size: 20),
+                                icon: Icon(Icons.bookmark_outline, size: 20),
                               ),
-                            const Tab(
-                              icon: Icon(Icons.bookmark_outline, size: 20),
-                            ),
-                            const Tab(
-                              icon: Icon(Icons.favorite_outline, size: 20),
-                            ),
-                          ],
+                              const Tab(
+                                icon: Icon(Icons.favorite_outline, size: 20),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

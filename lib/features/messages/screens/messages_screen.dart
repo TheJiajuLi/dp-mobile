@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,40 @@ const _primary = Color(0xFF6366F1);
 String _initial(String? name) {
   if (name == null || name.isEmpty) return '?';
   return name.substring(0, 1).toUpperCase();
+}
+
+// 跟全项目其它头像渲染的地方保持一致：data:image 是旧的 base64 头像，
+// 否则是 COS 图片 URL
+Widget _buildAvatar(String? avatar, String username, {double radius = 24}) {
+  if (avatar != null && avatar.isNotEmpty) {
+    if (avatar.startsWith('data:image')) {
+      try {
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: MemoryImage(base64Decode(avatar.split(',').last)),
+        );
+      } catch (_) {
+        // 解码失败落到下面的首字母占位
+      }
+    } else {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: CachedNetworkImageProvider(avatar),
+      );
+    }
+  }
+  return CircleAvatar(
+    radius: radius,
+    backgroundColor: _primary,
+    child: Text(
+      _initial(username),
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+        fontSize: radius * 0.67,
+      ),
+    ),
+  );
 }
 
 class MessagesScreen extends ConsumerStatefulWidget {
@@ -315,12 +351,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                             itemBuilder: (ctx, i) {
                               final u = results[i];
                               return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: _primary,
-                                  child: Text(_initial(u.username),
-                                      style: const TextStyle(
-                                          color: Colors.white, fontWeight: FontWeight.w700)),
-                                ),
+                                leading: _buildAvatar(u.avatar, u.username),
                                 title:
                                     Text(u.username, style: const TextStyle(fontWeight: FontWeight.w600)),
                                 subtitle: u.handle != null
@@ -438,12 +469,7 @@ class _NotifTab extends StatelessWidget {
             leading: Stack(
               clipBehavior: Clip.none,
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: _primary.withValues(alpha: 0.15),
-                  child: Text(_initial(n.fromUsername ?? '系'),
-                      style: const TextStyle(fontWeight: FontWeight.w700, color: _primary)),
-                ),
+                _buildAvatar(n.fromAvatar, n.fromUsername ?? '系', radius: 22),
                 Positioned(
                   bottom: -2,
                   right: -2,
@@ -532,13 +558,7 @@ class _DmTab extends ConsumerWidget {
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           onTap: () => context.push('/messages/chat/${conv.id}', extra: conv),
-          leading: CircleAvatar(
-            radius: 24,
-            backgroundColor: _primary,
-            child: Text(_initial(conv.otherUsername),
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-          ),
+          leading: _buildAvatar(conv.otherAvatar, conv.otherUsername),
           title: Row(
             children: [
               Text(conv.otherUsername,

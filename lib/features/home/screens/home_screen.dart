@@ -132,7 +132,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                '${greetingText()}，${user?.username ?? ''} 👋',
+                '${greetingText()}，${user?.username ?? ''}',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
