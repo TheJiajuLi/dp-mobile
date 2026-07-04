@@ -48,43 +48,27 @@ class AuthService {
     }
   }
 
-  // 跟 login() 走同一套模式：注册接口本身只返回 {accessToken, username}
-  // （CONTEXT.md 里确认过，没有 id），所以拿到 token 后还是要单独调
-  // /auth/me 换完整 profile，再按 userId 落盘。跟 login() 不同的是这里
-  // 抛具体异常而不是返回 bool——注册失败的原因（邮箱重复/用户名重复等）
-  // 比登录失败更值得让用户看到具体文案，不能只给一句通用提示。
+  // /auth/register 本身不返回 token（实测只有 {message: '注册成功'} / 409 时
+  // {message: '该邮箱已注册'}），拿 token 得走一遍完整的 /auth/login。
+  // 抛具体异常而不是返回 bool——注册失败的原因（邮箱重复等）比登录失败
+  // 更值得让用户看到具体文案，不能只给一句通用提示。
   Future<void> register({
     required String username,
     required String email,
     required String password,
   }) async {
-    final res = await _api.post(
+    final registerRes = await _api.post(
       '/auth/register',
       data: {'username': username, 'email': email, 'password': password},
     );
-    if (!res.success || res.data == null) {
-      throw Exception(res.message ?? '注册失败，请重试');
-    }
-    final token = res.data['accessToken'] as String?;
-    final regUsername = res.data['username'] as String? ?? username;
-    if (token == null) {
-      throw Exception('注册失败，请重试');
+    if (!registerRes.success) {
+      throw Exception(registerRes.message ?? '注册失败，请重试');
     }
 
-    final meRes = await _api.getWithToken('/auth/me', token: token);
-    if (!meRes.success || meRes.data == null) {
-      throw Exception('注册成功，但获取用户信息失败，请重新登录');
+    final loggedIn = await login(email, password);
+    if (!loggedIn) {
+      throw Exception('注册成功，但自动登录失败，请手动登录');
     }
-    final user = UserModel.fromJson(meRes.data);
-
-    await _storage.write(key: AppConstants.keyCurrentUserId, value: user.id);
-    await _storage.write(key: AppConstants.keyToken(user.id), value: token);
-    await _storage.write(
-      key: AppConstants.keyUsername(user.id),
-      value: regUsername,
-    );
-
-    _ref.read(currentUserProvider.notifier).state = user;
   }
 
   // 编辑资料成功后，用最新数据直接刷新内存态，避免为了这一次更新再打一次 /auth/me

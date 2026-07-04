@@ -163,50 +163,45 @@ class HomeScreen extends ConsumerWidget {
                   );
                 },
               ),
-              const SizedBox(height: 28),
-              const Text(
-                '最近教程',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
               tutorialsAsync.when(
                 data: (list) {
-                  if (list.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: Text(
-                          '暂无教程',
-                          style: TextStyle(color: AppColors.textMuted),
+                  // 没有自己创建的教程就整块隐藏，不展示占位文案
+                  if (list.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 28),
+                      const Text(
+                        '最近教程',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                    );
-                  }
-                  return Column(
-                    children: list
-                        .map((t) => _TutorialTile(tutorial: t))
-                        .toList(),
+                      const SizedBox(height: 12),
+                      ...list.map((t) => _TutorialTile(tutorial: t)),
+                    ],
                   );
                 },
                 loading: () => Column(
-                  children: List.generate(3, (_) => const _TutorialSkeleton()),
-                ),
-                error: (e, st) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: Text(
-                      '加载失败：$e',
-                      style: const TextStyle(
-                        color: AppColors.danger,
-                        fontSize: 13,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 28),
+                    const Text(
+                      '最近教程',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    ...List.generate(3, (_) => const _TutorialSkeleton()),
+                  ],
                 ),
+                // 加载失败静默隐藏——首页仪表盘不需要为这一小块内容展示报错
+                error: (e, st) => const SizedBox.shrink(),
               ),
             ],
           ),

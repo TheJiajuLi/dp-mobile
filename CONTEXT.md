@@ -23,7 +23,8 @@ base: `https://api.dreamingpolar.com`
 GET  /auth/me → {id, username, email, avatar, bio, created_at}
 POST /auth/login → {accessToken, username}（注意：没有 user 字段）
 POST /auth/refresh → {accessToken, user}
-POST /auth/register → {accessToken, username}
+POST /auth/register → 201 {message: '注册成功'} / 409 {message: '该邮箱已注册'}
+  （实测确认：不返回 accessToken，成功后需要再调 POST /auth/login 换 token）
 ```
 
 ### 教程
