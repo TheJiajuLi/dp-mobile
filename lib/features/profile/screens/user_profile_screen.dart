@@ -397,7 +397,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 ? () => _todo('更换背景即将上线，敬请期待')
                                 : null,
                             child: Container(
-                              height: 130,
+                              height: 160,
                               width: double.infinity,
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
@@ -448,7 +448,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               ),
                             ),
                           Positioned(
-                            bottom: -40,
+                            top: 120,
                             left: 16,
                             child: Stack(
                               children: [
@@ -487,6 +487,22 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     ),
                                   ),
                               ],
+                            ),
+                          ),
+                          // 用户名紧跟在头像右侧，卡在头像露出白底那一半的
+                          // 高度上——不要再让它单独飘在下面一段
+                          Positioned(
+                            top: 168,
+                            left: 112,
+                            right: 16,
+                            child: Text(
+                              _profile!.username,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
@@ -572,20 +588,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       ),
                       const SizedBox(height: 12),
 
-                      // 用户信息
+                      // 用户信息（用户名已经显示在头像右侧了，这里只放
+                      // handle/星座/简介/链接）
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              _profile!.username,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
                             Row(
                               children: [
                                 if (_profile!.handle != null)
@@ -702,6 +711,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           unselectedLabelColor: Colors.grey,
                           indicatorColor: _primary,
                           indicatorWeight: 2,
+                          // 去掉 TabBar 默认的内边距，紧跟在统计数字下面，
+                          // 不然看起来数字和 tab 图标之间空隙很大
+                          labelPadding: EdgeInsets.zero,
                           tabs: [
                             const Tab(icon: Icon(Icons.grid_view, size: 20)),
                             if (_showNotebookTab)
@@ -738,7 +750,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 crossAxisCount: 3,
                                 crossAxisSpacing: 2,
                                 mainAxisSpacing: 2,
-                                childAspectRatio: 3 / 4,
+                                childAspectRatio: 1.0,
                               ),
                           itemCount: _tutorials.length,
                           itemBuilder: (ctx, i) {
@@ -763,7 +775,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   crossAxisCount: 3,
                                   crossAxisSpacing: 2,
                                   mainAxisSpacing: 2,
-                                  childAspectRatio: 3 / 4,
+                                  childAspectRatio: 1.0,
                                 ),
                             itemCount: _notebooks.length,
                             itemBuilder: (ctx, i) {
@@ -803,7 +815,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           children: [
             Text(
               value,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 2),
             Text(

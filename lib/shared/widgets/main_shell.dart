@@ -50,8 +50,8 @@ class MainShell extends StatelessWidget {
                   builder: (context, ref, _) {
                     final unread = ref.watch(unreadCountProvider);
                     return _NavItem(
-                      icon: Icons.mail_outline,
-                      activeIcon: Icons.mail,
+                      icon: Icons.chat_bubble_outline,
+                      activeIcon: Icons.chat_bubble,
                       label: '消息',
                       selected: navigationShell.currentIndex == 2,
                       badgeCount: unread,
