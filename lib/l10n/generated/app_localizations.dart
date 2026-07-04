@@ -929,7 +929,7 @@ abstract class AppLocalizations {
   /// No description provided for @addFriendSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Search users by @handle'**
+  /// **'Search by @handle — following each other makes you friends'**
   String get addFriendSubtitle;
 
   /// No description provided for @createGroup.
@@ -1130,17 +1130,41 @@ abstract class AppLocalizations {
   /// **'Follow'**
   String get followThisUser;
 
-  /// No description provided for @waitingForReplyHint.
+  /// No description provided for @mutualFollowUnlimitedMessagesHint.
   ///
   /// In en, this message translates to:
-  /// **'You can send more once they reply'**
-  String get waitingForReplyHint;
+  /// **'Follow each other to become friends and message without limits'**
+  String get mutualFollowUnlimitedMessagesHint;
 
   /// No description provided for @goFollow.
   ///
   /// In en, this message translates to:
   /// **'Follow'**
   String get goFollow;
+
+  /// No description provided for @mutualFollowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You and {username} are now following each other'**
+  String mutualFollowTitle(String username);
+
+  /// No description provided for @mutualFollowBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re friends now!\nYou can message each other freely, without the stranger limit.'**
+  String get mutualFollowBody;
+
+  /// No description provided for @followedWaitingForFollowBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Followed {username} — you\'ll become friends once they follow back'**
+  String followedWaitingForFollowBack(String username);
+
+  /// No description provided for @mutualFollowBecomeFriendsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Following each other makes you friends — friends can message without limits'**
+  String get mutualFollowBecomeFriendsHint;
 
   /// No description provided for @defaultUserName.
   ///

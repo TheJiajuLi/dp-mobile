@@ -615,7 +615,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             if (_strangerLimited)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 color: const Color(0xFFFFF7E6),
                 child: Row(
                   children: [
@@ -623,18 +623,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        l10n.waitingForReplyHint,
-                        style: const TextStyle(fontSize: 12, color: Color(0xFFD97706)),
+                        l10n.mutualFollowUnlimitedMessagesHint,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFD97706),
+                          height: 1.4,
+                        ),
                       ),
                     ),
                     GestureDetector(
                       onTap: _goToOtherProfile,
-                      child: Text(
-                        l10n.goFollow,
-                        style: const TextStyle(
-                          fontSize: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
                           color: _primary,
-                          fontWeight: FontWeight.w600,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          l10n.goFollow,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),

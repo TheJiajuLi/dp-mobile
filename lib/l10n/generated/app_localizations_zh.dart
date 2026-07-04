@@ -437,7 +437,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addFriend => '添加好友';
 
   @override
-  String get addFriendSubtitle => '通过 @handle 搜索用户';
+  String get addFriendSubtitle => '搜索@handle，互相关注即成好友';
 
   @override
   String get createGroup => '建群';
@@ -548,10 +548,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get followThisUser => '关注对方';
 
   @override
-  String get waitingForReplyHint => '等待对方回复后可继续发消息';
+  String get mutualFollowUnlimitedMessagesHint => '互相关注成为好友后可无限制发消息';
 
   @override
   String get goFollow => '去关注';
+
+  @override
+  String mutualFollowTitle(String username) {
+    return '你和 $username 互相关注了';
+  }
+
+  @override
+  String get mutualFollowBody => '你们现在是好友了！\n可以互相发私信，不受陌生人限制。';
+
+  @override
+  String followedWaitingForFollowBack(String username) {
+    return '已关注 $username，等对方回关即成为好友';
+  }
+
+  @override
+  String get mutualFollowBecomeFriendsHint => '互相关注即成为好友，好友之间可以无限制发消息';
 
   @override
   String get defaultUserName => '用户';

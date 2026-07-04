@@ -392,7 +392,31 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                   },
                   onSubmitted: doSearch,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF0FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: _primary, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.mutualFollowBecomeFriendsHint,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF4F46E5),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 if (searching)
                   const CircularProgressIndicator()
                 else

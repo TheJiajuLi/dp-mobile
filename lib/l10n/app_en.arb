@@ -187,7 +187,7 @@
   "tabDirectMessages": "Chats",
   "tabGroups": "Groups",
   "addFriend": "Add Friend",
-  "addFriendSubtitle": "Search users by @handle",
+  "addFriendSubtitle": "Search by @handle — following each other makes you friends",
   "createGroup": "Create Group",
   "createGroupSubtitle": "Create a discussion group",
   "createForum": "Create Forum",
@@ -249,8 +249,26 @@
   "messageLimitBody": "You've sent this person a message.\n\nYou can't send another until they reply.\n\nThis limit doesn't apply once you follow each other.",
   "gotIt": "Got it",
   "followThisUser": "Follow",
-  "waitingForReplyHint": "You can send more once they reply",
+  "mutualFollowUnlimitedMessagesHint": "Follow each other to become friends and message without limits",
   "goFollow": "Follow",
+  "mutualFollowTitle": "You and {username} are now following each other",
+  "@mutualFollowTitle": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "mutualFollowBody": "You're friends now!\nYou can message each other freely, without the stranger limit.",
+  "followedWaitingForFollowBack": "Followed {username} — you'll become friends once they follow back",
+  "@followedWaitingForFollowBack": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "mutualFollowBecomeFriendsHint": "Following each other makes you friends — friends can message without limits",
   "defaultUserName": "User",
   "back": "Back",
   "appNotebookTitle": "Dreaming Polar Notebook",

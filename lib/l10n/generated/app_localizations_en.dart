@@ -444,7 +444,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addFriend => 'Add Friend';
 
   @override
-  String get addFriendSubtitle => 'Search users by @handle';
+  String get addFriendSubtitle =>
+      'Search by @handle — following each other makes you friends';
 
   @override
   String get createGroup => 'Create Group';
@@ -555,10 +556,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get followThisUser => 'Follow';
 
   @override
-  String get waitingForReplyHint => 'You can send more once they reply';
+  String get mutualFollowUnlimitedMessagesHint =>
+      'Follow each other to become friends and message without limits';
 
   @override
   String get goFollow => 'Follow';
+
+  @override
+  String mutualFollowTitle(String username) {
+    return 'You and $username are now following each other';
+  }
+
+  @override
+  String get mutualFollowBody =>
+      'You\'re friends now!\nYou can message each other freely, without the stranger limit.';
+
+  @override
+  String followedWaitingForFollowBack(String username) {
+    return 'Followed $username — you\'ll become friends once they follow back';
+  }
+
+  @override
+  String get mutualFollowBecomeFriendsHint =>
+      'Following each other makes you friends — friends can message without limits';
 
   @override
   String get defaultUserName => 'User';

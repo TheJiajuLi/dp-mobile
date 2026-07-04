@@ -344,6 +344,99 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final current = ref.read(myFollowingCountProvider);
     ref.read(myFollowingCountProvider.notifier).state =
         (current ?? 0) + (willFollow ? 1 : -1);
+
+    if (willFollow) {
+      await _checkMutualFollowAndNotify();
+    }
+  }
+
+  // 实测确认：GET /auth/users/:id/follow-status 永远是"当前登录用户是否
+  // 关注了 :id"，查的是调用者自己的方向，没法用来问"对方是否关注了我"——
+  // 刚关注完对方之后拿这个接口查对方的 follow-status，问到的其实还是
+  // "我是否关注了对方"（当然是 true，没有意义）。真正能确认"对方是否
+  // 关注我"的办法是查自己的粉丝列表 GET /auth/users/:myId/followers，
+  // 看对方 id 在不在里面——这个列表本来就是"谁关注了我"，方向是对的
+  Future<void> _checkMutualFollowAndNotify() async {
+    final l10n = AppLocalizations.of(context)!;
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    if (currentUserId == null || _profile == null) return;
+
+    final res = await ref.read(apiClientProvider).get('/auth/users/$currentUserId/followers');
+    if (!mounted) return;
+    final followers = (res.success && res.data != null)
+        ? ((res.data['followers'] as List?) ?? [])
+        : const [];
+    final theyFollowMe = followers.any((f) => f['id']?.toString() == _profile!.id);
+
+    if (theyFollowMe) {
+      _showMutualFollowDialog();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l10n.followedWaitingForFollowBack(_profile!.username))),
+            ],
+          ),
+          duration: const Duration(seconds: 3),
+          backgroundColor: _primary,
+        ),
+      );
+    }
+  }
+
+  void _showMutualFollowDialog() {
+    final l10n = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(color: Color(0xFFEEF0FF), shape: BoxShape.circle),
+              child: const Icon(Icons.favorite, color: _primary, size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.mutualFollowTitle(_profile!.username),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.mutualFollowBody,
+              style: const TextStyle(fontSize: 13, color: Colors.grey, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startChat();
+            },
+            child: Text(l10n.sendMessageAction, style: const TextStyle(color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.gotIt, style: const TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _startChat() async {
