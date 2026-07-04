@@ -139,7 +139,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   ? 17
                   : 15,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
         );
@@ -260,10 +260,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Text(
             content,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               height: 1.7,
-              color: Colors.black87,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
         );
@@ -310,14 +310,14 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: coverImage?.isNotEmpty == true ? 220 : 0,
             pinned: true,
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
+            backgroundColor: Theme.of(context).cardColor,
+            foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
             elevation: 0,
             flexibleSpace: coverImage?.isNotEmpty == true
                 ? FlexibleSpaceBar(
@@ -423,8 +423,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          color: Theme.of(context).cardColor,
+          border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
         ),
         child: Row(
           children: [

@@ -61,11 +61,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('云端存储'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: Theme.of(context).cardColor,
+        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
       ),
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -75,9 +75,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade100),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,7 +130,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     ),
                   ),
                   Container(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     child: Column(
                       children: _files.map((f) {
                         final name = f['filename'] as String? ?? '未知文件';

@@ -248,8 +248,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration:
-            BoxDecoration(color: const Color(0xFFF8F8F8), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).inputDecorationTheme.fillColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Row(
           children: [
             Container(

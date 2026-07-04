@@ -170,14 +170,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: !_loaded
             ? const Center(child: CircularProgressIndicator(color: _primary))
             : Column(
                 children: [
                   Container(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 14,
@@ -229,7 +229,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       child: Column(
                         children: [
                           Container(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             padding: const EdgeInsets.all(20),
                             child: Column(
                               children: [
@@ -283,7 +283,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           const SizedBox(height: 8),
 
                           Container(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -321,7 +321,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           const SizedBox(height: 8),
 
                           Container(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -473,7 +473,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Widget _section(String title, List<Widget> rows) {
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).cardColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -503,8 +503,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFF5F5F5))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
         crossAxisAlignment: maxLines > 1
@@ -529,7 +529,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
-              style: const TextStyle(fontSize: 15, color: Color(0xFF1C1C1E)),
+              style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
             ),
           ),
         ],
@@ -540,8 +543,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Widget _linkRow(int idx, TextEditingController ctrl) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFF5F5F5))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
         children: [
@@ -566,7 +569,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
-              style: const TextStyle(fontSize: 14, color: Color(0xFF1C1C1E)),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
             ),
           ),
           GestureDetector(
@@ -591,9 +597,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(20),
         child: Column(

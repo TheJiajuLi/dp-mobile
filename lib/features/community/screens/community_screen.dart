@@ -73,17 +73,17 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                     ref.read(communityProvider.notifier).setSearchQuery(v),
                 decoration: InputDecoration(
                   hintText: '搜索教程、作者...',
-                  hintStyle: const TextStyle(
-                    color: AppColors.textMuted,
+                  hintStyle: TextStyle(
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                     fontSize: 14,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                     size: 20,
                   ),
                   filled: true,
-                  fillColor: const Color(0xFFF2F2F5),
+                  fillColor: Theme.of(context).inputDecorationTheme.fillColor,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -111,7 +111,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                       decoration: BoxDecoration(
                         color: selected
                             ? AppColors.primary
-                            : const Color(0xFFF2F2F5),
+                            : Theme.of(context).inputDecorationTheme.fillColor,
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
@@ -119,7 +119,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: selected ? Colors.white : AppColors.textMuted,
+                          color: selected
+                              ? Colors.white
+                              : Theme.of(context).textTheme.bodySmall?.color,
                         ),
                       ),
                     ),
@@ -172,10 +174,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     if (list.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 80),
+        children: [
+          const SizedBox(height: 80),
           Center(
-            child: Text('暂无教程', style: TextStyle(color: AppColors.textMuted)),
+            child: Text(
+              '暂无教程',
+              style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+            ),
           ),
         ],
       );
@@ -217,7 +222,7 @@ class _TutorialCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+          border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -264,9 +269,9 @@ class _TutorialCard extends StatelessWidget {
                             tutorial.username,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: AppColors.textMuted,
+                              color: Theme.of(context).textTheme.bodySmall?.color,
                             ),
                           ),
                         ),
@@ -284,23 +289,23 @@ class _TutorialCard extends StatelessWidget {
                       const SizedBox(width: 3),
                       Text(
                         '${tutorial.likes}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
                         ),
                       ),
                       const SizedBox(width: 10),
-                      const Icon(
+                      Icon(
                         Icons.visibility_outlined,
                         size: 12,
-                        color: AppColors.textMuted,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                       ),
                       const SizedBox(width: 3),
                       Text(
                         '${tutorial.views}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.textMuted,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
                         ),
                       ),
                     ],
@@ -331,7 +336,7 @@ class _CoverImage extends StatelessWidget {
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
-      placeholder: (context, url) => Container(color: AppColors.border),
+      placeholder: (context, url) => Container(color: Theme.of(context).dividerColor),
       errorWidget: (context, url, error) => _CoverPlaceholder(title: title),
     );
   }
@@ -398,7 +403,7 @@ class _AuthorAvatar extends StatelessWidget {
         child: CachedNetworkImage(
           imageUrl: avatar!,
           fit: BoxFit.cover,
-          placeholder: (context, url) => Container(color: AppColors.border),
+          placeholder: (context, url) => Container(color: Theme.of(context).dividerColor),
           errorWidget: (context, url, error) => _letter(),
         ),
       ),

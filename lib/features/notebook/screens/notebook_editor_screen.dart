@@ -684,7 +684,7 @@ finally:
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           SafeArea(
@@ -692,7 +692,7 @@ finally:
               children: [
                 // 顶部栏
                 Container(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 10,
@@ -816,7 +816,7 @@ finally:
 
                 // 底部工具栏
                 Container(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -945,7 +945,7 @@ finally:
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isRunning
@@ -1074,11 +1074,11 @@ finally:
                 _scheduleSave();
               },
               maxLines: null,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 13,
                 height: 1.6,
-                color: Color(0xFF1C1C1E),
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
               decoration: InputDecoration(
                 border: InputBorder.none,
@@ -1110,11 +1110,11 @@ finally:
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8F8F8),
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(12),
                 ),
-                border: Border(top: BorderSide(color: Colors.grey.shade100)),
+                border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
               ),
               child: _buildOutput(output, outputType),
             ),
@@ -1211,11 +1211,11 @@ th{background:#f5f5f5;font-weight:600}
       default:
         return SelectableText(
           output,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 12,
             height: 1.6,
-            color: Color(0xFF1C1C1E),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         );
     }
@@ -1238,9 +1238,9 @@ class _ToolBtn extends StatelessWidget {
       margin: const EdgeInsets.only(right: 6),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Theme.of(context).inputDecorationTheme.fillColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
@@ -1248,10 +1248,10 @@ class _ToolBtn extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF1C1C1E),
+              color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
         ],

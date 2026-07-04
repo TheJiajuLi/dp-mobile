@@ -40,9 +40,9 @@ class _State extends ConsumerState<NotebookHomeScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: EdgeInsets.fromLTRB(20, 12, 20,
             MediaQuery.of(ctx).viewInsets.bottom + 24),
@@ -61,7 +61,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
               controller: ctrl, autofocus: true,
               decoration: InputDecoration(
                 hintText: 'Notebook 名称',
-                filled: true, fillColor: Colors.grey[100],
+                filled: true, fillColor: Theme.of(ctx).inputDecorationTheme.fillColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none),
@@ -123,10 +123,10 @@ class _State extends ConsumerState<NotebookHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(child: Column(children: [
         // 顶部栏
-        Container(color: Colors.white,
+        Container(color: Theme.of(context).cardColor,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(children: [
             GestureDetector(
@@ -159,9 +159,9 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                 Container(width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(color: Colors.white,
+                  decoration: BoxDecoration(color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.shade100)),
+                    border: Border.all(color: Theme.of(context).dividerColor)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('${greetingText()} 👋',
                       style: TextStyle(fontSize: 14, color: Colors.grey[500])),
@@ -276,9 +276,9 @@ class _RecentCard extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: Colors.white,
+          decoration: BoxDecoration(color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade100)),
+            border: Border.all(color: Theme.of(context).dividerColor)),
           child: Row(children: [
             Container(width: 48, height: 48,
               decoration: BoxDecoration(color: colors[idx][0],
@@ -329,9 +329,9 @@ class _TemplateCard extends StatelessWidget {
     child: Container(width: 95, height: 110,
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white,
+      decoration: BoxDecoration(color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade100)),
+        border: Border.all(color: Theme.of(context).dividerColor)),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Container(width: 44, height: 44,
           decoration: BoxDecoration(color: bg,

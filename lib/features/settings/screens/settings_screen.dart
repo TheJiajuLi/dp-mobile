@@ -130,7 +130,7 @@ class SettingsScreen extends ConsumerWidget {
                     _SettingsRow(
                       icon: Icons.delete_outline,
                       iconColor: Colors.grey,
-                      iconBg: const Color(0xFFF5F5F5),
+                      iconBg: Theme.of(context).dividerColor,
                       title: '清除缓存',
                       onTap: () => _clearCache(context, ref),
                     ),
@@ -183,7 +183,7 @@ class SettingsScreen extends ConsumerWidget {
                     _SettingsRow(
                       icon: Icons.info_outline,
                       iconColor: Colors.grey,
-                      iconBg: const Color(0xFFF5F5F5),
+                      iconBg: Theme.of(context).dividerColor,
                       title: '关于极梦',
                       subtitle: 'v1.0.0',
                       onTap: () => context.push('/settings/about'),
@@ -191,14 +191,14 @@ class SettingsScreen extends ConsumerWidget {
                     _SettingsRow(
                       icon: Icons.description_outlined,
                       iconColor: Colors.grey,
-                      iconBg: const Color(0xFFF5F5F5),
+                      iconBg: Theme.of(context).dividerColor,
                       title: '用户协议',
                       onTap: () => context.push('/settings/about'),
                     ),
                     _SettingsRow(
                       icon: Icons.privacy_tip_outlined,
                       iconColor: Colors.grey,
-                      iconBg: const Color(0xFFF5F5F5),
+                      iconBg: Theme.of(context).dividerColor,
                       title: '隐私政策',
                       onTap: () => context.push('/settings/about'),
                     ),
@@ -529,8 +529,8 @@ class _SettingsRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFF5F5F5))),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
         ),
         child: Row(
           children: [

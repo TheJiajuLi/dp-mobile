@@ -16,11 +16,11 @@ class AboutScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('关于极梦'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: Theme.of(context).cardColor,
+        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
       ),
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ListView(
         children: [
           const SizedBox(height: 40),
@@ -67,7 +67,7 @@ class AboutScreen extends StatelessWidget {
 
           // 信息列表
           Container(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             child: Column(
               children: [
                 const ListTile(

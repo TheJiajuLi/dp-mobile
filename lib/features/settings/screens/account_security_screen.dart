@@ -14,16 +14,16 @@ class AccountSecurityScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('账号安全'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: Theme.of(context).cardColor,
+        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
       ),
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ListView(
         children: [
           const SizedBox(height: 8),
           Container(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             child: Column(
               children: [
                 _SecurityRow(
@@ -119,9 +119,9 @@ class AccountSecurityScreen extends ConsumerWidget {
           }
 
           return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: Theme.of(ctx).cardColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             padding: EdgeInsets.fromLTRB(
               20,
@@ -280,7 +280,10 @@ class _SecurityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-    title: Text(title, style: TextStyle(color: titleColor ?? const Color(0xFF1C1C1E))),
+    title: Text(
+      title,
+      style: TextStyle(color: titleColor ?? Theme.of(context).textTheme.bodyLarge?.color),
+    ),
     subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
     trailing: const Icon(Icons.chevron_right, color: Colors.grey),
     onTap: onTap,

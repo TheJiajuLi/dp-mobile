@@ -45,7 +45,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -65,28 +65,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     '极梦',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 '为创造而生',
-                style: TextStyle(fontSize: 15, color: AppColors.textMuted),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
               ),
               const SizedBox(height: 48),
               // 邮箱
-              const Text(
+              Text(
                 '邮箱',
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -97,18 +100,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 decoration: InputDecoration(
                   hintText: 'your@email.com',
                   filled: true,
-                  fillColor: AppColors.surface,
+                  fillColor: Theme.of(context).cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppColors.border,
+                    borderSide: BorderSide(
+                      color: Theme.of(context).dividerColor,
                       width: 0.5,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppColors.border,
+                    borderSide: BorderSide(
+                      color: Theme.of(context).dividerColor,
                       width: 0.5,
                     ),
                   ),
@@ -127,11 +130,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 16),
               // 密码
-              const Text(
+              Text(
                 '密码',
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -142,18 +145,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 decoration: InputDecoration(
                   hintText: '请输入密码',
                   filled: true,
-                  fillColor: AppColors.surface,
+                  fillColor: Theme.of(context).cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppColors.border,
+                    borderSide: BorderSide(
+                      color: Theme.of(context).dividerColor,
                       width: 0.5,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppColors.border,
+                    borderSide: BorderSide(
+                      color: Theme.of(context).dividerColor,
                       width: 0.5,
                     ),
                   ),
@@ -173,7 +176,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       _obscure
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      color: AppColors.textMuted,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),

@@ -54,9 +54,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.bg,
-      body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
     );
   }
 }

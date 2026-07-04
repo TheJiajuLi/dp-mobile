@@ -176,6 +176,15 @@ class ApiClient {
     }
   }
 
+  Future<ApiResponse<dynamic>> put(String path, {dynamic data}) async {
+    try {
+      final res = await dio.put(path, data: data);
+      return ApiResponse.success(res.data, statusCode: res.statusCode);
+    } on DioException catch (e) {
+      return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
+    }
+  }
+
   Future<ApiResponse<dynamic>> delete(String path, {dynamic data}) async {
     try {
       final res = await dio.delete(path, data: data);

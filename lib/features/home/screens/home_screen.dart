@@ -142,7 +142,10 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 greetingSubtext(),
-                style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
               ),
               const SizedBox(height: 24),
               GridView.builder(
@@ -268,7 +271,7 @@ class _AppEntryCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: AppColors.border, width: 0.5),
+          border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
         ),
         child: Stack(
           children: [
@@ -306,7 +309,7 @@ class _AppEntryCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: live
                       ? const Color(0xFF16A34A).withValues(alpha: 0.12)
-                      : AppColors.border,
+                      : Theme.of(context).dividerColor,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -314,7 +317,9 @@ class _AppEntryCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
-                    color: live ? const Color(0xFF16A34A) : AppColors.textMuted,
+                    color: live
+                        ? const Color(0xFF16A34A)
+                        : Theme.of(context).textTheme.bodySmall?.color,
                   ),
                 ),
               ),
@@ -341,7 +346,7 @@ class _TutorialTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.border, width: 0.5),
+          border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
         ),
         child: Row(
           children: [
@@ -362,9 +367,9 @@ class _TutorialTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     tutorial.username,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textMuted,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ],
@@ -373,17 +378,17 @@ class _TutorialTile extends StatelessWidget {
             const SizedBox(width: 12),
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.favorite_border,
                   size: 14,
-                  color: AppColors.textMuted,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   '${tutorial.likes}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                   ),
                 ),
               ],
@@ -406,10 +411,10 @@ class _TutorialSkeleton extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
       ),
       child: Shimmer.fromColors(
-        baseColor: AppColors.border,
+        baseColor: Theme.of(context).dividerColor,
         highlightColor: Theme.of(context).scaffoldBackgroundColor,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

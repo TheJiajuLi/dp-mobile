@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,6 +61,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   bool _loading = true;
   bool _startingChat = false;
   bool _uploadingAvatar = false;
+  String? _coverImageUrl;
+  bool _uploadingCover = false;
 
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
 
@@ -136,12 +139,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     });
   }
 
-  // 星座/个人链接目前只存在本地 SharedPreferences（后端还没有这两个字段，
-  // 也还没有编辑资料页能写入它们——现在只打通"读取并展示"这一条链路）
+  // 星座/个人链接/背景图目前只存在本地 SharedPreferences（后端没有这几个
+  // 字段——背景图倒是可以真的传去 COS，只是没有专门的"背景图 URL"字段能
+  // 存回用户资料，只能借用 /auth/files/upload 传完之后自己存本地）
   Future<void> _loadLocalPrefs(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     final zodiac = prefs.getString('${userId}_zodiac') ?? '';
     final linksJson = prefs.getString('${userId}_links') ?? '[]';
+    final coverImageUrl = prefs.getString('${userId}_cover_image');
     var links = <String>[];
     try {
       final decoded = jsonDecode(linksJson);
@@ -151,7 +156,61 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     setState(() {
       _zodiac = zodiac;
       _links = links.take(3).toList();
+      _coverImageUrl = coverImageUrl;
     });
+  }
+
+  Future<void> _pickAndUploadCover() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 640,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+
+    final bytes = await file.readAsBytes();
+    setState(() => _uploadingCover = true);
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: 'cover.jpg',
+          contentType: DioMediaType('image', 'jpeg'),
+        ),
+      });
+
+      // ApiClient.post 内部吞掉了 DioException，不会抛异常——失败与否要看
+      // res.success，不能只靠 try/catch
+      final res = await ref
+          .read(apiClientProvider)
+          .post('/auth/files/upload', data: formData);
+      if (!res.success) {
+        throw Exception(res.message ?? '上传失败，请重试');
+      }
+
+      final url = (res.data as Map)['url'] as String?;
+      if (url != null) {
+        final userId = _profile?.id ?? '';
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('${userId}_cover_image', url);
+        setState(() => _coverImageUrl = url);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('背景已更新')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上传失败：${e.toString().replaceAll('Exception: ', '')}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingCover = false);
+    }
   }
 
   Future<void> _loadNotebooks() async {
@@ -504,19 +563,32 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         clipBehavior: Clip.none,
                         children: [
                           GestureDetector(
-                            onTap: isSelfView
-                                ? () => _todo('更换背景即将上线，敬请期待')
+                            onTap: isSelfView && !_uploadingCover
+                                ? _pickAndUploadCover
                                 : null,
-                            child: Container(
-                              height: 160,
-                              width: double.infinity,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
-                                ),
-                              ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                _coverImageUrl != null
+                                    ? CachedNetworkImage(
+                                        imageUrl: _coverImageUrl!,
+                                        width: double.infinity,
+                                        height: 160,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (context, url, error) =>
+                                            const _CoverGradient(),
+                                      )
+                                    : const _CoverGradient(),
+                                if (_uploadingCover)
+                                  Container(
+                                    width: double.infinity,
+                                    height: 160,
+                                    color: Colors.black45,
+                                    child: const CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           if (widget.showBackButton)
@@ -962,6 +1034,26 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   void dispose() {
     _tabCtrl.dispose();
     super.dispose();
+  }
+}
+
+// 没设置背景图时的默认渐变，也是加载失败时的兜底
+class _CoverGradient extends StatelessWidget {
+  const _CoverGradient();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 160,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+        ),
+      ),
+    );
   }
 }
 

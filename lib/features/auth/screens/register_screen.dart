@@ -78,7 +78,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -89,10 +89,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               // 返回按钮
               GestureDetector(
                 onTap: () => context.pop(),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_ios,
                   size: 20,
-                  color: Colors.black87,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
               const SizedBox(height: 32),
@@ -250,10 +250,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Widget _label(String text) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.w500,
-      color: Colors.black87,
+      color: Theme.of(context).textTheme.bodyLarge?.color,
     ),
   );
 
@@ -276,7 +276,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       prefixIcon: Icon(icon, color: Colors.grey[400], size: 20),
       suffixIcon: suffix,
       filled: true,
-      fillColor: Colors.grey[50],
+      fillColor: Theme.of(context).inputDecorationTheme.fillColor,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey[200]!),

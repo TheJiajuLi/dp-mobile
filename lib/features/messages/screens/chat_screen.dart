@@ -164,9 +164,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -214,9 +214,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
         child: Column(
@@ -267,22 +267,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('发送公式', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             TextField(
               controller: latexCtrl,
+              autofocus: true,
               decoration: InputDecoration(
-                hintText: r'$$E = mc^2$$',
+                hintText: r'例：\frac{1}{2}',
                 filled: true,
-                fillColor: Colors.grey[100],
+                fillColor: Theme.of(ctx).inputDecorationTheme.fillColor,
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
@@ -296,8 +298,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     backgroundColor: _primary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 onPressed: () {
+                  final latex = latexCtrl.text.trim();
+                  // 之前这里不管输入框是不是空的都先 pop 再发，空输入时
+                  // _send() 内部会因为 content.isEmpty 直接 return——弹窗
+                  // 已经关了，但什么都没发出去，跟"点了没反应"一样
+                  if (latex.isEmpty) return;
                   Navigator.pop(ctx);
-                  _send(text: latexCtrl.text.trim(), type: 'code', metadata: {'language': 'latex'});
+                  // 用独立的 type='latex'，不是 type='code' + metadata。
+                  // 实测两种后端都接受、都能正确存取，但依赖 metadata 里的
+                  // language 字段才能认出这是公式，比直接用 type 多一层
+                  // 容易失配的环节——type 字段是消息模型里保证一定有的
+                  _send(text: latex, type: 'latex');
                 },
                 child: const Text('发送', style: TextStyle(color: Colors.white)),
               ),
@@ -341,13 +352,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final otherName = widget.conversation?.otherUsername ?? '用户';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
             // 顶部栏
             Container(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               child: Row(
                 children: [
@@ -385,7 +396,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
             // 输入栏
             Container(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
                 children: [
@@ -397,8 +408,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration:
-                          BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(20)),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).inputDecorationTheme.fillColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: TextField(
                         controller: _ctrl,
                         decoration: const InputDecoration(
@@ -468,22 +481,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildBubbleContent(ChatMessage msg, bool isMe) {
-    if (msg.type == 'code' && msg.metadata?['language'] == 'latex') {
+    // type=='latex' 是现在发公式走的路径；旧的 type=='code'+metadata.language
+    // 这个组合以前也用来发过公式，两个都认，历史消息不会突然变回代码块
+    final isLatex = msg.type == 'latex' || (msg.type == 'code' && msg.metadata?['language'] == 'latex');
+    if (isLatex) {
+      final tex = msg.content.replaceAll(r'$$', '').replaceAll(r'\[', '').replaceAll(r'\]', '').trim();
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isMe ? _primary : Colors.white,
+          color: isMe ? _primary : Theme.of(context).cardColor,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),
             bottomLeft: Radius.circular(isMe ? 18 : 4),
             bottomRight: Radius.circular(isMe ? 4 : 18),
           ),
-          border: isMe ? null : Border.all(color: Colors.grey.shade200),
+          border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Math.tex(
-          msg.content.replaceAll(r'$$', '').trim(),
-          textStyle: TextStyle(fontSize: 16, color: isMe ? Colors.white : Colors.black),
+          tex,
+          textStyle: TextStyle(
+            fontSize: 16,
+            color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+          ),
           onErrorFallback: (err) => Text(msg.content,
               style: TextStyle(fontSize: 13, color: isMe ? Colors.white : Colors.red)),
         ),
@@ -504,17 +524,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: isMe ? _primary : Colors.white,
+        color: isMe ? _primary : Theme.of(context).cardColor,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
           bottomLeft: Radius.circular(isMe ? 18 : 4),
           bottomRight: Radius.circular(isMe ? 4 : 18),
         ),
-        border: isMe ? null : Border.all(color: Colors.grey.shade200),
+        border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Text(msg.content,
-          style: TextStyle(fontSize: 15, color: isMe ? Colors.white : Colors.black, height: 1.4)),
+          style: TextStyle(
+            fontSize: 15,
+            color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+            height: 1.4,
+          )),
     );
   }
 
