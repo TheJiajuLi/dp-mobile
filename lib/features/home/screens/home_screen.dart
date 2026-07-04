@@ -117,7 +117,7 @@ class HomeScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    '极梦',
+                    '应用中心',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
@@ -126,7 +126,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   GestureDetector(
                     onTap: () => context.go('/profile'),
-                    child: _Avatar(avatar: user?.avatar),
+                    child: _Avatar(avatar: user?.avatar, username: user?.username),
                   ),
                 ],
               ),
@@ -213,7 +213,8 @@ class HomeScreen extends ConsumerWidget {
 
 class _Avatar extends StatelessWidget {
   final String? avatar;
-  const _Avatar({this.avatar});
+  final String? username;
+  const _Avatar({this.avatar, this.username});
 
   @override
   Widget build(BuildContext context) {
@@ -230,12 +231,21 @@ class _Avatar extends StatelessWidget {
         provider = CachedNetworkImageProvider(avatar!);
       }
     }
+    // 没头像时跟个人主页保持一致，用首字母圆形占位，
+    // 不要用灰底人形图标——两处观感不一样会让人以为头像没同步
     return CircleAvatar(
       radius: 18,
-      backgroundColor: AppColors.border,
+      backgroundColor: AppColors.primary,
       backgroundImage: provider,
       child: provider == null
-          ? const Icon(Icons.person, color: AppColors.textMuted, size: 20)
+          ? Text(
+              (username?.isNotEmpty ?? false) ? username![0].toUpperCase() : '?',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            )
           : null,
     );
   }

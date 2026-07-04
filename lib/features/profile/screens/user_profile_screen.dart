@@ -313,14 +313,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          Container(
-                            height: 130,
-                            width: double.infinity,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+                          GestureDetector(
+                            onTap: isSelfView
+                                ? () => _todo('更换背景即将上线，敬请期待')
+                                : null,
+                            child: Container(
+                              height: 130,
+                              width: double.infinity,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+                                ),
                               ),
                             ),
                           ),
@@ -359,42 +364,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       color: Colors.white,
                                       size: 18,
                                     ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (isSelfView)
-                            Positioned(
-                              right: 12,
-                              bottom: 12,
-                              child: GestureDetector(
-                                onTap: () => _todo('更换背景即将上线，敬请期待'),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.3),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.camera_alt_outlined,
-                                        color: Colors.white,
-                                        size: 14,
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        '更换背景',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ),
