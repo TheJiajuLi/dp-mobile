@@ -330,7 +330,10 @@ class _TemplateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
-    child: Container(width: 95, height: 110,
+    // 英文文案（如"Machine Learning"）比中文长不少，固定95宽+不限行数的
+    // Text 在英文下会把卡片撑到底部溢出——加宽一点，并且把文字限制在2行
+    // 内、超出省略号收尾，两种语言都不会再溢出
+    child: Container(width: 108, height: 110,
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Theme.of(context).cardColor,
@@ -343,7 +346,8 @@ class _TemplateCard extends StatelessWidget {
           child: Icon(icon, color: color, size: 22)),
         const SizedBox(height: 8),
         Text(name, style: const TextStyle(fontSize: 12,
-          fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+          fontWeight: FontWeight.w600), textAlign: TextAlign.center,
+          maxLines: 2, overflow: TextOverflow.ellipsis),
       ])),
   );
 }

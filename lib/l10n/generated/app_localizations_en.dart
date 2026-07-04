@@ -432,7 +432,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabNotifications => 'Notifications';
 
   @override
-  String get tabDirectMessages => 'Direct Messages';
+  String get tabDirectMessages => 'Chats';
 
   @override
   String get tabGroups => 'Groups';
@@ -462,7 +462,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createForumComingSoon => 'Forum creation coming soon';
 
   @override
-  String get searchUserHandleHint => 'Enter @handle to search users';
+  String get searchUserHandleHint => 'Enter @handle, without the @ symbol';
 
   @override
   String get search => 'Search';
@@ -920,28 +920,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get publicProfileSubtitle =>
-      'When off, other users can\'t view your profile (feature in progress, not yet active)';
+      'When off, other users can\'t view your profile';
 
   @override
   String get publicFavorites => 'Public Favorites List';
 
   @override
   String get publicFavoritesSubtitle =>
-      'Allow other users to see your favorites (feature in progress, not yet active)';
+      'Allow other users to see what you\'ve favorited';
 
   @override
   String get allowComments => 'Allow Comments';
 
   @override
   String get allowCommentsSubtitle =>
-      'When off, other users can\'t comment on your tutorials (feature in progress, not yet active)';
+      'When off, other users can\'t comment on your tutorials';
 
   @override
   String get allowMessages => 'Allow Direct Messages';
 
   @override
   String get allowMessagesSubtitle =>
-      'When off, other users can\'t message you (feature in progress, not yet active)';
+      'When off, other users can\'t send you direct messages';
 
   @override
   String get storageSpace => 'Storage';

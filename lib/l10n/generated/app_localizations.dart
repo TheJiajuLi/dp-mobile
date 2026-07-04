@@ -905,7 +905,7 @@ abstract class AppLocalizations {
   /// No description provided for @tabDirectMessages.
   ///
   /// In en, this message translates to:
-  /// **'Direct Messages'**
+  /// **'Chats'**
   String get tabDirectMessages;
 
   /// No description provided for @tabGroups.
@@ -965,7 +965,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchUserHandleHint.
   ///
   /// In en, this message translates to:
-  /// **'Enter @handle to search users'**
+  /// **'Enter @handle, without the @ symbol'**
   String get searchUserHandleHint;
 
   /// No description provided for @search.
@@ -1811,7 +1811,7 @@ abstract class AppLocalizations {
   /// No description provided for @publicProfileSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'When off, other users can\'t view your profile (feature in progress, not yet active)'**
+  /// **'When off, other users can\'t view your profile'**
   String get publicProfileSubtitle;
 
   /// No description provided for @publicFavorites.
@@ -1823,7 +1823,7 @@ abstract class AppLocalizations {
   /// No description provided for @publicFavoritesSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Allow other users to see your favorites (feature in progress, not yet active)'**
+  /// **'Allow other users to see what you\'ve favorited'**
   String get publicFavoritesSubtitle;
 
   /// No description provided for @allowComments.
@@ -1835,7 +1835,7 @@ abstract class AppLocalizations {
   /// No description provided for @allowCommentsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'When off, other users can\'t comment on your tutorials (feature in progress, not yet active)'**
+  /// **'When off, other users can\'t comment on your tutorials'**
   String get allowCommentsSubtitle;
 
   /// No description provided for @allowMessages.
@@ -1847,7 +1847,7 @@ abstract class AppLocalizations {
   /// No description provided for @allowMessagesSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'When off, other users can\'t message you (feature in progress, not yet active)'**
+  /// **'When off, other users can\'t send you direct messages'**
   String get allowMessagesSubtitle;
 
   /// No description provided for @storageSpace.

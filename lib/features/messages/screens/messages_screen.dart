@@ -150,9 +150,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                     controller: _tabCtrl,
                     labelColor: _primary,
                     unselectedLabelColor: Colors.grey,
-                    labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                     unselectedLabelStyle:
-                        const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                        const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                     indicatorColor: _primary,
                     indicatorWeight: 2,
                     tabs: [
@@ -301,9 +301,14 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
+          // 用户习惯性会把 @ 也打进去（毕竟提示文案和别处显示都带 @），
+          // 但后端 handle 字段本身不含 @，原样传过去只会一直查不到人
           Future<void> doSearch(String query) async {
-            final q = query.trim();
-            if (q.isEmpty) return;
+            final q = query.trim().replaceAll('@', '');
+            if (q.isEmpty) {
+              setSheet(() => results = []);
+              return;
+            }
             setSheet(() => searching = true);
             final res = await ref
                 .read(apiClientProvider)
@@ -352,6 +357,15 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       child: Text(l10n.search),
                     ),
                   ),
+                  // 边输边搜——不用等用户点搜索按钮或按回车。少于2个字符先不发
+                  // 请求，避免每敲一个字母就打一次接口
+                  onChanged: (v) {
+                    if (v.trim().replaceAll('@', '').length < 2) {
+                      setSheet(() => results = []);
+                      return;
+                    }
+                    doSearch(v);
+                  },
                   onSubmitted: doSearch,
                 ),
                 const SizedBox(height: 16),
@@ -376,7 +390,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                 trailing: ElevatedButton(
                                   onPressed: () {
                                     Navigator.pop(ctx);
-                                    context.push('/users/${u.username}');
+                                    // handle 更精准（唯一且不会变），username 只是兜底——
+                                    // 两者路由都认，但优先用 handle 避免同名撞车
+                                    context.push('/users/${u.handle ?? u.username}');
                                   },
                                   style: ElevatedButton.styleFrom(
                                       backgroundColor: _primary,
@@ -402,7 +418,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(text),
+        // 英文文案（"Direct Messages"之类）比中文长很多，不换成 Flexible+
+        // ellipsis 的话，非可滚动 TabBar 三等分宽度下会直接溢出
+        Flexible(
+          child: Text(text, overflow: TextOverflow.ellipsis, maxLines: 1),
+        ),
         if (count > 0) ...[
           const SizedBox(width: 4),
           Container(

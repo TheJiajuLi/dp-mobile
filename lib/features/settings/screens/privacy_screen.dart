@@ -25,6 +25,11 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
     _load();
   }
 
+  // 实测（2026-07-04）：PUT /auth/users/privacy 已经上线能正常写入了，但
+  // GET /auth/me 返回里完全没有 publicProfile/publicFavorites/
+  // allowComments/allowMessages 这几个字段——只能写，读不回来。所以这几个
+  // 开关的初始状态还是只能读本地 SharedPreferences（本地已经是唯一能读到
+  // 当前值的地方），不能像后端已经返回的字段那样直接从 /auth/me 取
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = ref.read(currentUserProvider)?.id ?? '';
@@ -45,9 +50,8 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
     await _syncToBackend();
   }
 
-  // 实测 PUT /auth/users/privacy 目前是 404，后端还没做这个接口——真上线
-  // 后这里会自动生效，不用等接口就绪再改代码。失败就悄悄忽略：本地已经
-  // 存下了这次改动，不能因为后端还没跟上就打断用户操作或弹错误
+  // 失败就悄悄忽略：本地已经存下了这次改动，不能因为这一次网络请求失败
+  // 就打断用户操作或弹错误——本地状态本来就是这几个开关唯一能读回的地方
   Future<void> _syncToBackend() async {
     try {
       await ref.read(apiClientProvider).put(

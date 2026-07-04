@@ -455,7 +455,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get createForumComingSoon => '论坛功能即将上线';
 
   @override
-  String get searchUserHandleHint => '输入 @handle 搜索用户';
+  String get searchUserHandleHint => '输入 @handle，不含@符号';
 
   @override
   String get search => '搜索';
@@ -901,25 +901,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get publicProfile => '公开个人主页';
 
   @override
-  String get publicProfileSubtitle => '关闭后其他用户无法查看你的主页（功能完善中，暂未生效）';
+  String get publicProfileSubtitle => '关闭后其他用户无法查看你的主页';
 
   @override
   String get publicFavorites => '公开收藏列表';
 
   @override
-  String get publicFavoritesSubtitle => '允许其他用户查看你的收藏（功能完善中，暂未生效）';
+  String get publicFavoritesSubtitle => '允许其他用户查看你收藏的内容';
 
   @override
   String get allowComments => '允许评论';
 
   @override
-  String get allowCommentsSubtitle => '关闭后其他用户无法评论你的教程（功能完善中，暂未生效）';
+  String get allowCommentsSubtitle => '关闭后其他用户无法评论你的教程';
 
   @override
   String get allowMessages => '允许私信';
 
   @override
-  String get allowMessagesSubtitle => '关闭后其他用户无法给你发消息（功能完善中，暂未生效）';
+  String get allowMessagesSubtitle => '关闭后其他用户无法给你发私信';
 
   @override
   String get storageSpace => '存储空间';
