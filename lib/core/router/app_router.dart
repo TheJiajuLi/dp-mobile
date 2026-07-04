@@ -18,6 +18,10 @@ import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/follow_list_screen.dart';
 import '../../features/profile/screens/user_profile_screen.dart';
 import '../../features/publish/screens/publish_screen.dart';
+import '../../features/settings/screens/account_security_screen.dart';
+import '../../features/settings/screens/payment_screen.dart';
+import '../../features/settings/screens/settings_screen.dart';
+import '../../features/settings/screens/subscription_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
 final appRouter = GoRouter(
@@ -42,6 +46,19 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/edit-profile',
       builder: (context, state) => const EditProfileScreen(),
+    ),
+    GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+    GoRoute(
+      path: '/settings/security',
+      builder: (context, state) => const AccountSecurityScreen(),
+    ),
+    GoRoute(
+      path: '/settings/payment',
+      builder: (context, state) => const PaymentScreen(),
+    ),
+    GoRoute(
+      path: '/settings/subscription',
+      builder: (context, state) => const SubscriptionScreen(),
     ),
     GoRoute(
       path: '/messages/chat/:conversationId',

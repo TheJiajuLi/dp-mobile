@@ -217,8 +217,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // 设置入口目前只有退出登录——完整的设置页（账号安全/通知/隐私/主题/
-  // 语言/云存储/创作中心/升级Pro/关于/切换账号）还没做，是单独的大功能
   void _showSettingsSheet() {
     showModalBottomSheet(
       context: context,
@@ -243,14 +241,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             const SizedBox(height: 12),
             ListTile(
               leading: const Icon(Icons.settings_outlined, color: Colors.grey),
-              title: const Text('更多设置'),
+              title: const Text('全部设置'),
               subtitle: const Text(
-                '账号安全 / 通知 / 隐私等即将上线',
+                '账号安全 / 通知 / 主题 / 会员中心等',
                 style: TextStyle(fontSize: 12),
               ),
               onTap: () {
                 Navigator.pop(ctx);
-                _todo('更多设置即将上线，敬请期待');
+                context.push('/settings');
               },
             ),
             ListTile(
