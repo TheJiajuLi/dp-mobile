@@ -1,15 +1,15 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(174,174) scale(0.66)">
-    <polygon points="0,1024 120,720 240,800 380,580 512,680 650,600 780,650 1024,1024" fill="white" opacity="0.12"/>
-    <polyline points="80,820 200,640 340,710 480,530 580,590 700,490 820,540 950,440" fill="none" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="200" cy="640" r="32" fill="white"/>
-    <circle cx="480" cy="530" r="38" fill="white"/>
-    <circle cx="700" cy="490" r="32" fill="white"/>
-    <circle cx="950" cy="440" r="44" fill="white"/>
-    <circle cx="220" cy="200" r="18" fill="white" opacity="0.5"/>
-    <circle cx="380" cy="140" r="24" fill="white" opacity="0.7"/>
-    <circle cx="580" cy="170" r="16" fill="white" opacity="0.45"/>
-    <circle cx="760" cy="120" r="14" fill="white" opacity="0.35"/>
-    <circle cx="500" cy="100" r="12" fill="white" opacity="0.3"/>
+<svg width="1024" height="1024" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(17,17) scale(0.66)">
+    <polygon points="12,72 35,32 50,52 65,24 88,72"
+      fill="none" stroke="white" stroke-width="3"
+      stroke-linejoin="round"/>
+    <polyline points="8,58 25,42 42,50 58,30 75,38 92,20"
+      fill="none" stroke="white" stroke-width="2"
+      stroke-opacity="0.7" stroke-linecap="round"
+      stroke-linejoin="round"/>
+    <circle cx="22" cy="20" r="2.5" fill="white" opacity="0.9"/>
+    <circle cx="55" cy="12" r="2" fill="white" opacity="0.7"/>
+    <circle cx="82" cy="18" r="1.5" fill="white" opacity="0.6"/>
+    <circle cx="70" cy="8" r="1.5" fill="white" opacity="0.5"/>
   </g>
 </svg>

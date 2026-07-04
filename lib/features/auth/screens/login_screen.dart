@@ -70,35 +70,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 60),
+              const SizedBox(height: 48),
               // Logo
-              Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SvgPicture.asset(
-                      'assets/images/app_icon.svg',
-                      width: 44,
-                      height: 44,
+              Center(
+                child: Column(
+                  children: [
+                    SvgPicture.asset(
+                      'assets/icons/logo.svg',
+                      width: 80,
+                      height: 80,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    l10n.appName,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.appName,
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primary,
+                        letterSpacing: -1,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.appSlogan,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Theme.of(context).textTheme.bodySmall?.color,
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.appSlogan,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF8B8FD4),
+                        letterSpacing: 6,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 48),

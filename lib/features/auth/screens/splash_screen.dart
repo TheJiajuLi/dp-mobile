@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../auth_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -14,11 +16,31 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animCtrl;
+  late final Animation<double> _fade;
+  late final Animation<double> _scale;
+
   @override
   void initState() {
     super.initState();
+    // Logo 一次性淡入+轻微放大的入场动画，不是循环动画——启动页停留时间
+    // 通常很短（tryAutoLogin 一般几百毫秒就有结果），循环动画反而容易让
+    // 这一闪而过的页面显得拖沓
+    _animCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _fade = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _scale = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutBack),
+    );
+    _animCtrl.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) => _restore());
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _restore() async {
@@ -54,9 +76,48 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      body: Center(
+        child: FadeTransition(
+          opacity: _fade,
+          child: ScaleTransition(
+            scale: _scale,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SvgPicture.asset('assets/icons/logo.svg', width: 100, height: 100),
+                const SizedBox(height: 20),
+                Text(
+                  l10n.appName,
+                  style: const TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                    letterSpacing: -1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.appSlogan,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF8B8FD4),
+                    letterSpacing: 6,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
