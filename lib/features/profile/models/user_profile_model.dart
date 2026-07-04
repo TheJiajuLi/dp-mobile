@@ -15,6 +15,11 @@ class UserProfile {
   final int tutorialCount;
   final int createdAt; // 毫秒
   bool isFollowing;
+  // 小红书风格的"IP属地"，系统判定、不可编辑，跟上面用户自己填的
+  // location（"所在地"）是两码事。实测确认 2026-07-05 GET /auth/users/
+  // profile/:identifier 不返回这个字段，先按 gender/location/zodiac
+  // 同款套路加上，等后端上线直接生效
+  final String? ipLocation;
 
   UserProfile({
     required this.id,
@@ -31,6 +36,7 @@ class UserProfile {
     required this.tutorialCount,
     required this.createdAt,
     this.isFollowing = false,
+    this.ipLocation,
   });
 
   UserProfile copyWith({String? avatar}) => UserProfile(
@@ -48,6 +54,7 @@ class UserProfile {
     tutorialCount: tutorialCount,
     createdAt: createdAt,
     isFollowing: isFollowing,
+    ipLocation: ipLocation,
   );
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -65,5 +72,6 @@ class UserProfile {
     tutorialCount: (j['tutorial_count'] as num?)?.toInt() ?? 0,
     // 后端时间戳是秒级，×1000 转毫秒
     createdAt: ((j['created_at'] as num?) ?? 0).toInt() * 1000,
+    ipLocation: j['ip_location']?.toString(),
   );
 }

@@ -383,6 +383,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get followersCountLabel => '粉丝';
 
   @override
+  String ipLocationLabel(String location) {
+    return 'IP属地：$location';
+  }
+
+  @override
   String get creatorCenter => '创作者中心';
 
   @override

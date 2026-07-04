@@ -16,6 +16,11 @@ class UserModel {
   final String? zodiac;
   final int followerCount;
   final int followingCount;
+  // 小红书风格的"IP属地"——IP 反查出的地区，系统判定、用户不可编辑，
+  // 跟上面用户自己填的 location（"所在地"）是两码事。实测确认 2026-07-05
+  // 当天 GET /auth/me 完全不返回这个字段，先按后端还没上线的其它字段
+  // （gender/location/birthday/zodiac）同款套路加上，等后端加了字段直接生效
+  final String? ipLocation;
 
   const UserModel({
     required this.id,
@@ -32,6 +37,7 @@ class UserModel {
     this.zodiac,
     this.followerCount = 0,
     this.followingCount = 0,
+    this.ipLocation,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -49,6 +55,7 @@ class UserModel {
     zodiac: json['zodiac'] as String?,
     followerCount: (json['follower_count'] as num?)?.toInt() ?? 0,
     followingCount: (json['following_count'] as num?)?.toInt() ?? 0,
+    ipLocation: json['ip_location'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -66,6 +73,7 @@ class UserModel {
     'zodiac': zodiac,
     'follower_count': followerCount,
     'following_count': followingCount,
+    'ip_location': ipLocation,
   };
 
   UserModel copyWith({
@@ -79,6 +87,7 @@ class UserModel {
     String? zodiac,
     int? followerCount,
     int? followingCount,
+    String? ipLocation,
   }) => UserModel(
     id: id,
     username: username ?? this.username,
@@ -94,5 +103,6 @@ class UserModel {
     zodiac: zodiac ?? this.zodiac,
     followerCount: followerCount ?? this.followerCount,
     followingCount: followingCount ?? this.followingCount,
+    ipLocation: ipLocation ?? this.ipLocation,
   );
 }

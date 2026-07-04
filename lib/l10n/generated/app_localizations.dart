@@ -818,6 +818,12 @@ abstract class AppLocalizations {
   /// **'Followers'**
   String get followersCountLabel;
 
+  /// No description provided for @ipLocationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'IP: {location}'**
+  String ipLocationLabel(String location);
+
   /// No description provided for @creatorCenter.
   ///
   /// In en, this message translates to:

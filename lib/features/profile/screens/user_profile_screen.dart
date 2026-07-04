@@ -115,6 +115,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         followingCount: currentUser.followingCount,
         tutorialCount: 0,
         createdAt: (currentUser.createdAt ?? 0) * 1000,
+        ipLocation: currentUser.ipLocation,
       );
       await _loadLocalPrefs(profile);
       if (!widget.showBackButton) {
@@ -915,6 +916,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final displayBio = isSelfView ? (currentUser?.bio ?? _profile?.bio) : _profile?.bio;
     final displayGender = isSelfView ? (currentUser?.gender ?? _profile?.gender) : _profile?.gender;
     final displayLocation = isSelfView ? (currentUser?.location ?? _profile?.location) : _profile?.location;
+    final displayIpLocation =
+        isSelfView ? (currentUser?.ipLocation ?? _profile?.ipLocation) : _profile?.ipLocation;
     final displayZodiacName = isSelfView ? (currentUser?.zodiac ?? _zodiac) : _zodiac;
     ZodiacSign? displayZodiacSign;
     if (displayZodiacName != null) {
@@ -1293,6 +1296,35 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 ],
                               ),
                             ],
+                            // 小红书风格"IP属地"——系统判定、不可编辑，跟
+                            // 上面用户自己填的"所在地"是两码事，所以样式
+                            // 特意做得更淡、更不起眼，不跟自报的信息抢视觉
+                            if (displayIpLocation != null && displayIpLocation.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4, bottom: 2),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 12,
+                                      color: (Theme.of(context).textTheme.bodySmall?.color ??
+                                              Colors.grey)
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      l10n.ipLocationLabel(displayIpLocation),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: (Theme.of(context).textTheme.bodyLarge?.color ??
+                                                Colors.black)
+                                            .withValues(alpha: 0.35),
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             if (_links.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               ..._links.map(

@@ -169,6 +169,14 @@
   "followingCountLabel": "Following",
   "likesCountLabel": "Likes",
   "followersCountLabel": "Followers",
+  "ipLocationLabel": "IP: {location}",
+  "@ipLocationLabel": {
+    "placeholders": {
+      "location": {
+        "type": "String"
+      }
+    }
+  },
   "creatorCenter": "Creator Center",
   "creatorCenterComingSoon": "Creator Center coming soon, stay tuned",
   "readCountLabel": "Views",

@@ -120,6 +120,7 @@
   "followingCountLabel": "关注",
   "likesCountLabel": "获赞",
   "followersCountLabel": "粉丝",
+  "ipLocationLabel": "IP属地：{location}",
   "creatorCenter": "创作者中心",
   "creatorCenterComingSoon": "创作中心即将上线，敬请期待",
   "readCountLabel": "阅读量",

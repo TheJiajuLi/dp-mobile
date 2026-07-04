@@ -389,6 +389,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get followersCountLabel => 'Followers';
 
   @override
+  String ipLocationLabel(String location) {
+    return 'IP: $location';
+  }
+
+  @override
   String get creatorCenter => 'Creator Center';
 
   @override
