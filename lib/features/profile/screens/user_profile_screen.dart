@@ -55,6 +55,7 @@ class UserProfileScreen extends ConsumerStatefulWidget {
 
 class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     with SingleTickerProviderStateMixin {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final bool _showNotebookTab = !widget.showBackButton;
   late final TabController _tabCtrl;
   UserProfile? _profile;
@@ -878,7 +879,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final topPad = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 抽屉只在自己主页有意义（里面是消息/收藏/设置/退出登录这些），
+      // 别人的主页不给这个入口；_profile 还没加载完之前也不能建（下面
+      // 用了 tutorialCount 之类的字段）
+      drawer: (isSelfView && _profile != null)
+          ? _buildProfileDrawer(l10n, _profile!.tutorialCount, _totalLikes)
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
@@ -933,6 +941,29 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   color: Colors.white,
                                 ),
                                 onPressed: () => context.pop(),
+                              ),
+                            ),
+                          // 左上角汉堡菜单——点开一个从左侧滑入的抽屉，
+                          // 网易云"我的"页那套，不是铺在主页面里的常驻列表
+                          if (isSelfView)
+                            Positioned(
+                              top: topPad + 12,
+                              left: 12,
+                              child: GestureDetector(
+                                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.menu,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
                               ),
                             ),
                           Positioned(
@@ -1303,99 +1334,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ),
                       ),
 
-                      // 仿网易云音乐"我的"页的功能列表——只在自己主页显示。
-                      // 我的消息/我的Notebook/深色模式是真数据/真入口；
-                      // 我的收藏/浏览历史/草稿箱后端和专门页面都还没有，
-                      // 先用统一的"即将上线"占位，不编造数字
-                      if (isSelfView) ...[
-                        Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: Theme.of(context).dividerColor,
-                        ),
-                        _profileMenuItem(
-                          icon: Icons.mail_outline,
-                          label: l10n.myMessages,
-                          badgeCount: ref.watch(unreadCountProvider),
-                          onTap: () => context.go('/messages'),
-                        ),
-                        _profileMenuItem(
-                          icon: Icons.bookmark_outline,
-                          label: l10n.myFavorites,
-                          onTap: () => _todo(l10n.comingSoonStayTuned),
-                        ),
-                        _profileMenuItem(
-                          icon: Icons.history,
-                          label: l10n.browsingHistory,
-                          onTap: () => _todo(l10n.comingSoonStayTuned),
-                        ),
-                        _profileMenuItem(
-                          icon: Icons.menu_book_outlined,
-                          label: l10n.myNotebookMenuLabel,
-                          trailingText: _notebooks.isNotEmpty ? '${_notebooks.length}' : null,
-                          onTap: () => context.push('/notebook'),
-                        ),
-                        Divider(
-                          height: 1,
-                          thickness: 1,
-                          indent: 52,
-                          color: Theme.of(context).dividerColor,
-                        ),
-                        _profileMenuItem(
-                          icon: Icons.article_outlined,
-                          label: l10n.creatorCenter,
-                          trailingText: _totalViews > 0
-                              ? l10n.readCountWithValue(_formatCount(_totalViews))
-                              : null,
-                          onTap: () => _todo(l10n.creatorCenterComingSoon),
-                        ),
-                        _profileMenuItem(
-                          icon: Icons.drafts_outlined,
-                          label: l10n.draftBox,
-                          onTap: () => _todo(l10n.comingSoonStayTuned),
-                        ),
-                        Divider(
-                          height: 1,
-                          thickness: 1,
-                          indent: 52,
-                          color: Theme.of(context).dividerColor,
-                        ),
-                        _profileMenuItem(
-                          icon: Icons.dark_mode_outlined,
-                          label: l10n.darkModeMenuLabel,
-                          trailingText: _themeLabel(l10n, ref.watch(themeProvider)),
-                          onTap: () => context.push('/settings'),
-                        ),
-                        const SizedBox(height: 12),
-                        // 原来放在头图右上角悬浮按钮里的三个入口，现在跟
-                        // 网易云音乐一样摆在这份列表最下面一整行
-                        Container(
-                          color: Theme.of(context).cardColor,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          child: Row(
-                            children: [
-                              _bottomActionButton(
-                                icon: Icons.settings_outlined,
-                                label: l10n.allSettings,
-                                onTap: () => context.push('/settings'),
-                              ),
-                              _bottomActionButton(
-                                icon: Icons.switch_account_outlined,
-                                label: l10n.switchAccount,
-                                onTap: () => context.push('/switch-account'),
-                              ),
-                              _bottomActionButton(
-                                icon: Icons.logout,
-                                label: l10n.logout,
-                                color: const Color(0xFFDC2626),
-                                onTap: _logout,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-
                       // Tabs
                       // Material 的 TabBar 就算只放 icon 不放文字，也会按
                       // 默认单行高度（46）留白，图标只占 20，上下各空出一大截，
@@ -1549,6 +1487,241 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   Widget _divider() =>
       Container(width: 0.5, height: 32, color: Colors.grey.shade200);
+
+  // 网易云音乐"我的"页那套——从左侧滑入的抽屉，不是铺在主页面里的常驻
+  // 列表。头部复用主页面已经算好的这几个数字，不在这里重新读一遍 provider
+  Widget _buildProfileDrawer(AppLocalizations l10n, int tutorialCount, int totalLikes) {
+    // 头部用户信息按要求直接读 currentUserProvider（/auth/me 的实时数据），
+    // 不是从主页面已经算好的 displayUsername/_profile 传下来的——这样
+    // 别处改了头像/资料后，抽屉这边不用等 _profile 重新加载就能跟着更新。
+    // tutorialCount/totalLikes 这两项 UserModel 上没有，只能继续从主页面传
+    final currentUser = ref.watch(currentUserProvider);
+    final username = currentUser?.username ?? '';
+    final handle = currentUser?.handle;
+    final followerCount = currentUser?.followerCount ?? 0;
+    final followingCount = currentUser?.followingCount ?? 0;
+
+    return Drawer(
+      width: 290,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF6366F1), Color(0xFF7C3AED)],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAvatar(radius: 32),
+                  const SizedBox(height: 12),
+                  Text(
+                    username,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (handle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '@$handle',
+                      style: const TextStyle(fontSize: 13, color: Colors.white70),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _drawerStatItem('$tutorialCount', l10n.tutorial),
+                      _drawerStatItem(_formatCount(totalLikes), l10n.likesCountLabel),
+                      _drawerStatItem(_formatCount(followerCount), l10n.followersCountLabel),
+                      _drawerStatItem(_formatCount(followingCount), l10n.followingCountLabel),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // 会员卡——升级跳去已经真实存在的订阅页（/settings/subscription），
+            // 不是纯装饰；极梦 Pro 这个具体权益文案目前只是占位说法，后端
+            // 还没有真正的会员等级/权益体系
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/settings/subscription');
+              },
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF18122B),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD97706),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.workspace_premium, color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        l10n.proMembershipMenuLabel,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD97706),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        l10n.upgradeAction,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  // 我的消息/我的Notebook/深色模式是真数据/真入口；
+                  // 我的收藏/浏览历史/草稿箱后端和专门页面都还没有，先用
+                  // 统一的"即将上线"占位，不编造数字
+                  _profileMenuItem(
+                    icon: Icons.mail_outline,
+                    label: l10n.myMessages,
+                    badgeCount: ref.watch(unreadCountProvider),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.go('/messages');
+                    },
+                  ),
+                  _profileMenuItem(
+                    icon: Icons.bookmark_outline,
+                    label: l10n.myFavorites,
+                    onTap: () => _todo(l10n.comingSoonStayTuned),
+                  ),
+                  _profileMenuItem(
+                    icon: Icons.history,
+                    label: l10n.browsingHistory,
+                    onTap: () => _todo(l10n.comingSoonStayTuned),
+                  ),
+                  _profileMenuItem(
+                    icon: Icons.menu_book_outlined,
+                    label: l10n.myNotebookMenuLabel,
+                    trailingText: _notebooks.isNotEmpty ? '${_notebooks.length}' : null,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/notebook');
+                    },
+                  ),
+                  Divider(height: 1, thickness: 1, indent: 52, color: Theme.of(context).dividerColor),
+                  _profileMenuItem(
+                    icon: Icons.article_outlined,
+                    label: l10n.creatorCenter,
+                    trailingText: _totalViews > 0
+                        ? l10n.readCountWithValue(_formatCount(_totalViews))
+                        : null,
+                    onTap: () => _todo(l10n.creatorCenterComingSoon),
+                  ),
+                  _profileMenuItem(
+                    icon: Icons.drafts_outlined,
+                    label: l10n.draftBox,
+                    onTap: () => _todo(l10n.comingSoonStayTuned),
+                  ),
+                  Divider(height: 1, thickness: 1, indent: 52, color: Theme.of(context).dividerColor),
+                  _profileMenuItem(
+                    icon: Icons.dark_mode_outlined,
+                    label: l10n.darkModeMenuLabel,
+                    trailingText: _themeLabel(l10n, ref.watch(themeProvider)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/settings');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              color: Theme.of(context).cardColor,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Row(
+                children: [
+                  _bottomActionButton(
+                    icon: Icons.settings_outlined,
+                    label: l10n.allSettings,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/settings');
+                    },
+                  ),
+                  _bottomActionButton(
+                    icon: Icons.switch_account_outlined,
+                    label: l10n.switchAccount,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/switch-account');
+                    },
+                  ),
+                  _bottomActionButton(
+                    icon: Icons.logout,
+                    label: l10n.logout,
+                    color: const Color(0xFFDC2626),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _logout();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _drawerStatItem(String value, String label) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+        ],
+      ),
+    );
+  }
 
   Widget _profileMenuItem({
     required IconData icon,

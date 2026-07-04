@@ -1664,6 +1664,18 @@ abstract class AppLocalizations {
   /// **'Upgrade to Pro'**
   String get upgradePro;
 
+  /// No description provided for @proMembershipMenuLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dreaming Polar Pro'**
+  String get proMembershipMenuLabel;
+
+  /// No description provided for @upgradeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get upgradeAction;
+
   /// No description provided for @paymentMethod.
   ///
   /// In en, this message translates to:

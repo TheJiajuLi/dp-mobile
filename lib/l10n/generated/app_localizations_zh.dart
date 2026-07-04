@@ -837,6 +837,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get upgradePro => '升级 Pro';
 
   @override
+  String get proMembershipMenuLabel => '极梦 Pro';
+
+  @override
+  String get upgradeAction => '升级';
+
+  @override
   String get paymentMethod => '支付方式';
 
   @override

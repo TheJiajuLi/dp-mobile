@@ -418,6 +418,8 @@
   "myMembership": "My Membership",
   "currentFreeVersion": "Current: Free",
   "upgradePro": "Upgrade to Pro",
+  "proMembershipMenuLabel": "Dreaming Polar Pro",
+  "upgradeAction": "Upgrade",
   "paymentMethod": "Payment Method",
   "paymentMethodSubtitle": "Manage linked payment methods",
   "subscriptionManagement": "Subscription Management",

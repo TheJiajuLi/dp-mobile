@@ -852,6 +852,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get upgradePro => 'Upgrade to Pro';
 
   @override
+  String get proMembershipMenuLabel => 'Dreaming Polar Pro';
+
+  @override
+  String get upgradeAction => 'Upgrade';
+
+  @override
   String get paymentMethod => 'Payment Method';
 
   @override

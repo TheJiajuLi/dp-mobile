@@ -261,6 +261,8 @@
   "myMembership": "我的会员",
   "currentFreeVersion": "当前：免费版",
   "upgradePro": "升级 Pro",
+  "proMembershipMenuLabel": "极梦 Pro",
+  "upgradeAction": "升级",
   "paymentMethod": "支付方式",
   "paymentMethodSubtitle": "管理绑定的支付方式",
   "subscriptionManagement": "订阅管理",
