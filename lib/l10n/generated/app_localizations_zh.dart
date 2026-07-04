@@ -962,6 +962,60 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unknownFile => '未知文件';
 
   @override
+  String get desktopPlatformTag => '桌面端';
+
+  @override
+  String filesCountLabel(int count) {
+    return '$count个文件';
+  }
+
+  @override
+  String get clearCategory => '清空此分类';
+
+  @override
+  String get deleteFile => '删除文件';
+
+  @override
+  String confirmDeleteFileMessage(String name) {
+    return '确定删除「$name」？';
+  }
+
+  @override
+  String willFreeSpace(String size) {
+    return '将释放 $size 存储空间';
+  }
+
+  @override
+  String get actionCannotBeUndone => '此操作不可恢复';
+
+  @override
+  String get deleteAction => '删除';
+
+  @override
+  String deletedFreedSpace(String size) {
+    return '已删除，释放 $size 空间';
+  }
+
+  @override
+  String get fileDeleteFailed => '删除失败';
+
+  @override
+  String get fileDeleteFailedRetry => '删除失败，请重试';
+
+  @override
+  String confirmClearCategoryMessage(int count) {
+    return '确定删除该分类下的 $count 个文件？';
+  }
+
+  @override
+  String get deleteAllAction => '全部删除';
+
+  @override
+  String deletedCountFreedSpace(int count, String size) {
+    return '已删除 $count 个文件，释放 $size 空间';
+  }
+
+  @override
   String get proMembershipComingSoon => 'Pro 会员即将上线，敬请期待';
 
   @override

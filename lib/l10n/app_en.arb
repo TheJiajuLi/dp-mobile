@@ -450,6 +450,65 @@
   },
   "noFilesYet": "No files yet",
   "unknownFile": "Unknown file",
+  "desktopPlatformTag": "Desktop",
+  "filesCountLabel": "{count} files",
+  "@filesCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "clearCategory": "Clear category",
+  "deleteFile": "Delete file",
+  "confirmDeleteFileMessage": "Delete \"{name}\"?",
+  "@confirmDeleteFileMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "willFreeSpace": "This will free up {size} of storage",
+  "@willFreeSpace": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "actionCannotBeUndone": "This action cannot be undone",
+  "deleteAction": "Delete",
+  "deletedFreedSpace": "Deleted, freed up {size}",
+  "@deletedFreedSpace": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "fileDeleteFailed": "Delete failed",
+  "fileDeleteFailedRetry": "Delete failed, please try again",
+  "confirmClearCategoryMessage": "Delete all {count} files in this category?",
+  "@confirmClearCategoryMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteAllAction": "Delete all",
+  "deletedCountFreedSpace": "Deleted {count} files, freed up {size}",
+  "@deletedCountFreedSpace": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "proMembershipComingSoon": "Pro membership coming soon, stay tuned",
   "noSubscriptionHistory": "No subscription history yet",
   "versionNumber": "Version",

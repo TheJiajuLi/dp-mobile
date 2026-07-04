@@ -53,6 +53,235 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     return '${(bytes / 1024 / 1024).toStringAsFixed(0)}MB';
   }
 
+  // 实测确认：GET /auth/storage/usage 里 categories[key].files 的每一项
+  // 完全没有 id 字段（只有 filename/file_type/size_bytes/cos_key/
+  // created_at/platform），跟 GET /auth/files 那个裸数组不一样。但
+  // DELETE /auth/files/:id 只能按 id 删——cos_key 的格式固定是
+  // "users/{userId}/{fileId}-{原始文件名}"，{fileId} 正好是标准 UUID
+  // （36个字符，第37个字符是分隔用的'-'），从这里能可靠地反推出 id。
+  // 反推失败（cos_key 缺失或格式对不上）就不显示删除按钮，不冒险删错
+  static final _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  String? _extractFileId(String? cosKey) {
+    if (cosKey == null || cosKey.isEmpty) return null;
+    final lastSegment = cosKey.split('/').last;
+    if (lastSegment.length <= 37 || lastSegment[36] != '-') return null;
+    final candidate = lastSegment.substring(0, 36);
+    return _uuidPattern.hasMatch(candidate) ? candidate : null;
+  }
+
+  Widget _buildFileItem(dynamic f, String categoryKey) {
+    final l10n = AppLocalizations.of(context)!;
+    final name = f['filename'] as String? ?? l10n.unknownFile;
+    final size = (f['size_bytes'] as num?)?.toInt() ?? 0;
+    final platform = f['platform'] as String? ?? 'mobile';
+    final fileId = _extractFileId(f['cos_key'] as String?);
+    final isTutorial = categoryKey == 'tutorials';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 52),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (platform != 'mobile')
+                      Container(
+                        margin: const EdgeInsets.only(left: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          l10n.desktopPlatformTag,
+                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                        ),
+                      ),
+                  ],
+                ),
+                if (size > 0)
+                  Text(
+                    _fmt(size),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+              ],
+            ),
+          ),
+          // 教程在创作中心管理；反推不出 id 的文件也不给删除按钮
+          if (!isTutorial && fileId != null)
+            GestureDetector(
+              onTap: () => _confirmDelete(fileId, name, size),
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFDC2626)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(String fileId, String name, int size) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.deleteFile),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.confirmDeleteFileMessage(name)),
+            const SizedBox(height: 8),
+            if (size > 0)
+              Text(
+                l10n.willFreeSpace(_fmt(size)),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF16A34A)),
+              ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.actionCannotBeUndone,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.deleteAction, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    await _deleteFile(fileId, size);
+  }
+
+  Future<void> _deleteFile(String fileId, int size) async {
+    final l10n = AppLocalizations.of(context)!;
+    final res = await ref.read(apiClientProvider).delete('/auth/files/$fileId');
+    if (!mounted) return;
+
+    if (res.success) {
+      // 直接改本地这份聚合数据容易因为字段类型/嵌套结构猜错而出岔子——
+      // 存储用量这种非高频操作，重新拉一次准确数据更省心
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.deletedFreedSpace(_fmt(size))),
+          backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res.message ?? l10n.fileDeleteFailed)),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteAll(String categoryKey, List files) async {
+    final l10n = AppLocalizations.of(context)!;
+    // 只统计真的能删（反推得出 id）的文件，跟实际会执行的删除数量对得上
+    final deletable = files
+        .map((f) => (f: f, id: _extractFileId(f['cos_key'] as String?)))
+        .where((e) => e.id != null)
+        .toList();
+    final totalSize = deletable.fold<int>(
+      0,
+      (s, e) => s + ((e.f['size_bytes'] as num?)?.toInt() ?? 0),
+    );
+    if (deletable.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.clearCategory),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.confirmClearCategoryMessage(deletable.length)),
+            const SizedBox(height: 8),
+            Text(
+              l10n.willFreeSpace(_fmt(totalSize)),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF16A34A)),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.actionCannotBeUndone,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.deleteAllAction, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    var deleted = 0;
+    for (final e in deletable) {
+      final res = await ref.read(apiClientProvider).delete('/auth/files/${e.id}');
+      if (res.success) deleted++;
+    }
+
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.deletedCountFreedSpace(deleted, _fmt(totalSize))),
+        backgroundColor: const Color(0xFF16A34A),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -273,49 +502,48 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                 ),
                               ),
                             ]
-                          : files.map((f) {
-                              final name =
-                                  f['filename'] as String? ?? f['title'] as String? ?? l10n.unknownFile;
-                              final size = (f['size_bytes'] as num?)?.toInt() ?? 0;
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
+                          : [
+                              // 教程在创作中心管理，这里不重复放清空入口
+                              if (key != 'tutorials')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
                                   color: Theme.of(context).scaffoldBackgroundColor,
-                                  border: Border(
-                                    bottom: BorderSide(color: Theme.of(context).dividerColor),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        l10n.filesCountLabel(files.length),
+                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                      ),
+                                      const Spacer(),
+                                      GestureDetector(
+                                        onTap: () => _confirmDeleteAll(key, files),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFEF2F2),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            l10n.clearCategory,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFFDC2626),
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    const SizedBox(width: 52),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            name,
-                                            style: const TextStyle(fontSize: 13),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          if (size > 0)
-                                            Text(
-                                              _fmt(size),
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
+                              ...files.map((f) => _buildFileItem(f, key)),
+                            ],
                   ],
                 );
               }).toList(),

@@ -984,6 +984,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unknownFile => 'Unknown file';
 
   @override
+  String get desktopPlatformTag => 'Desktop';
+
+  @override
+  String filesCountLabel(int count) {
+    return '$count files';
+  }
+
+  @override
+  String get clearCategory => 'Clear category';
+
+  @override
+  String get deleteFile => 'Delete file';
+
+  @override
+  String confirmDeleteFileMessage(String name) {
+    return 'Delete \"$name\"?';
+  }
+
+  @override
+  String willFreeSpace(String size) {
+    return 'This will free up $size of storage';
+  }
+
+  @override
+  String get actionCannotBeUndone => 'This action cannot be undone';
+
+  @override
+  String get deleteAction => 'Delete';
+
+  @override
+  String deletedFreedSpace(String size) {
+    return 'Deleted, freed up $size';
+  }
+
+  @override
+  String get fileDeleteFailed => 'Delete failed';
+
+  @override
+  String get fileDeleteFailedRetry => 'Delete failed, please try again';
+
+  @override
+  String confirmClearCategoryMessage(int count) {
+    return 'Delete all $count files in this category?';
+  }
+
+  @override
+  String get deleteAllAction => 'Delete all';
+
+  @override
+  String deletedCountFreedSpace(int count, String size) {
+    return 'Deleted $count files, freed up $size';
+  }
+
+  @override
   String get proMembershipComingSoon =>
       'Pro membership coming soon, stay tuned';
 

@@ -1922,6 +1922,90 @@ abstract class AppLocalizations {
   /// **'Unknown file'**
   String get unknownFile;
 
+  /// No description provided for @desktopPlatformTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Desktop'**
+  String get desktopPlatformTag;
+
+  /// No description provided for @filesCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} files'**
+  String filesCountLabel(int count);
+
+  /// No description provided for @clearCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear category'**
+  String get clearCategory;
+
+  /// No description provided for @deleteFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete file'**
+  String get deleteFile;
+
+  /// No description provided for @confirmDeleteFileMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\"?'**
+  String confirmDeleteFileMessage(String name);
+
+  /// No description provided for @willFreeSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'This will free up {size} of storage'**
+  String willFreeSpace(String size);
+
+  /// No description provided for @actionCannotBeUndone.
+  ///
+  /// In en, this message translates to:
+  /// **'This action cannot be undone'**
+  String get actionCannotBeUndone;
+
+  /// No description provided for @deleteAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deleteAction;
+
+  /// No description provided for @deletedFreedSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted, freed up {size}'**
+  String deletedFreedSpace(String size);
+
+  /// No description provided for @fileDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete failed'**
+  String get fileDeleteFailed;
+
+  /// No description provided for @fileDeleteFailedRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete failed, please try again'**
+  String get fileDeleteFailedRetry;
+
+  /// No description provided for @confirmClearCategoryMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all {count} files in this category?'**
+  String confirmClearCategoryMessage(int count);
+
+  /// No description provided for @deleteAllAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete all'**
+  String get deleteAllAction;
+
+  /// No description provided for @deletedCountFreedSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted {count} files, freed up {size}'**
+  String deletedCountFreedSpace(int count, String size);
+
   /// No description provided for @proMembershipComingSoon.
   ///
   /// In en, this message translates to:
