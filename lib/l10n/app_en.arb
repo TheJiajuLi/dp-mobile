@@ -411,7 +411,7 @@
   "paymentMethodComingSoon": "Payment method management is coming soon, stay tuned",
   "privacySettings": "Privacy Settings",
   "publicProfile": "Public Profile",
-  "publicProfileSubtitle": "When off, other users can't view your profile",
+  "publicProfileSubtitle": "When off, only mutual followers can view your profile — other users will see \"This profile is private\"",
   "publicFavorites": "Public Favorites List",
   "publicFavoritesSubtitle": "Allow other users to see what you've favorited",
   "allowComments": "Allow Comments",

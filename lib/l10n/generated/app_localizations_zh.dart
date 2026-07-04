@@ -892,7 +892,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get publicProfile => '公开个人主页';
 
   @override
-  String get publicProfileSubtitle => '关闭后其他用户无法查看你的主页';
+  String get publicProfileSubtitle => '关闭后仅互相关注的好友可查看你的主页，其他用户将看到「该主页已设为私密」';
 
   @override
   String get publicFavorites => '公开收藏列表';

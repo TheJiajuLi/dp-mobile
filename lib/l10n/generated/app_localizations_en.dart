@@ -910,7 +910,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get publicProfileSubtitle =>
-      'When off, other users can\'t view your profile';
+      'When off, only mutual followers can view your profile — other users will see \"This profile is private\"';
 
   @override
   String get publicFavorites => 'Public Favorites List';

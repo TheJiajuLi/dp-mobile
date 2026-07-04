@@ -1793,7 +1793,7 @@ abstract class AppLocalizations {
   /// No description provided for @publicProfileSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'When off, other users can\'t view your profile'**
+  /// **'When off, only mutual followers can view your profile — other users will see \"This profile is private\"'**
   String get publicProfileSubtitle;
 
   /// No description provided for @publicFavorites.

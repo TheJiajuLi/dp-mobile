@@ -282,7 +282,7 @@
   "paymentMethodComingSoon": "支付方式管理即将上线，敬请期待",
   "privacySettings": "隐私设置",
   "publicProfile": "公开个人主页",
-  "publicProfileSubtitle": "关闭后其他用户无法查看你的主页",
+  "publicProfileSubtitle": "关闭后仅互相关注的好友可查看你的主页，其他用户将看到「该主页已设为私密」",
   "publicFavorites": "公开收藏列表",
   "publicFavoritesSubtitle": "允许其他用户查看你收藏的内容",
   "allowComments": "允许评论",
