@@ -113,8 +113,10 @@ setTimeout(() => {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // 统一更新单个 cell 的输出：同步进内存态 map（驱动 UI）和 cell 字段（用于持久化）
+  // 统一更新单个 cell 的输出：同步进内存态 map（驱动 UI）和 cell 字段（用于持久化）。
+  // 加 mounted 守卫——cell 执行途中用户可能已经退出这个页面
   void _setOutput(NotebookCell cell, String? output, String? outputType) {
+    if (!mounted) return;
     setState(() {
       _outputs[cell.id] = output;
       _outputTypes[cell.id] = outputType;
@@ -239,17 +241,26 @@ result
 
     if (userInputs.isNotEmpty) {
       // 把 input() 换成从预收集队列里取值的 mock；用完立刻还原，
-      // 否则会一直污染 Pyodide 的全局解释器状态，影响后面其它 cell 的 input()
+      // 否则会一直污染 Pyodide 的全局解释器状态，影响后面其它 cell 的 input()。
+      //
+      // 不走 js.window——Pyodide 沙箱里没有 window（不是浏览器主文档环境），
+      // 也拿不到 pyodide.globals.set，因为我们只从 compiler.js 导入了黑盒的
+      // compile()/runCode()，手上没有它内部那个 pyodide 实例的引用。
+      // 直接把输入值当 Python list 字面量写进生成的源码里最简单可靠，
+      // JSON 数组语法本身就是合法的 Python list 字面量，不需要任何桥接。
       final indentedCode = effectiveCode
           .split('\n')
           .map((l) => '    $l')
           .join('\n');
       effectiveCode =
           '''
-import builtins, js
+import builtins
+_input_queue = ${jsonEncode(userInputs)}
 _orig_input = builtins.input
 def _mock_input(prompt=''):
-    return js.window._mockInput(str(prompt))
+    val = _input_queue.pop(0) if _input_queue else ''
+    print(f"{prompt}{val}")
+    return val
 builtins.input = _mock_input
 try:
 $indentedCode
@@ -264,8 +275,6 @@ finally:
       final completer = Completer<String>();
       _pendingRuns[cell.id] = completer;
 
-      final inputsJson = jsonEncode(userInputs);
-
       await _webCtrl!.evaluateJavascript(
         source:
             '''
@@ -278,37 +287,9 @@ finally:
       );
       return;
     }
-    window._inputQueue = $inputsJson;
-    window._inputIndex = 0;
-    window._inputLog = '';
-    window._mockInput = (prompt) => {
-      if (window._inputIndex < window._inputQueue.length) {
-        const val = window._inputQueue[window._inputIndex++];
-        window._inputLog += (prompt || '') + val + '\\n';
-        return val;
-      }
-      return '';
-    };
-    const rawOutputs = await window.runCode(${jsonEncode(effectiveCode)}, "python");
-    let list;
-    try {
-      list = JSON.parse(rawOutputs);
-      if (!Array.isArray(list)) list = [list];
-    } catch(_) {
-      list = [{type:'text', content: String(rawOutputs)}];
-    }
-    // 把"终端回显"拼进已有的文本输出里，而不是单独插一条——
-    // 否则 Flutter 端只取第一条输出时会把真正的 print() 结果盖掉
-    if (window._inputLog) {
-      const idx = list.findIndex(o => o && o.type === 'text');
-      if (idx >= 0) {
-        list[idx].content = window._inputLog + (list[idx].content || '');
-      } else {
-        list.unshift({type:'text', content: window._inputLog});
-      }
-    }
+    const outputs = await window.runCode(${jsonEncode(effectiveCode)}, "python");
     window.flutter_inappwebview.callHandler(
-      'onRunResult', ${jsonEncode(cell.id)}, JSON.stringify(list)
+      'onRunResult', ${jsonEncode(cell.id)}, outputs
     );
   } catch(e) {
     window.flutter_inappwebview.callHandler(
@@ -359,7 +340,7 @@ finally:
       _setOutput(cell, '运行出错：$e', 'error');
     } finally {
       _pendingRuns.remove(cell.id);
-      setState(() => _running[cell.id] = false);
+      if (mounted) setState(() => _running[cell.id] = false);
       _scheduleSave();
     }
   }
@@ -457,6 +438,7 @@ finally:
       _showSnack('运行环境初始化中，请稍候...');
       return;
     }
+    if (!mounted) return;
     setState(() => _running[cell.id] = true);
     try {
       // 捕获 console.log 输出，返回值统一走 JSON.stringify，避免不同平台
@@ -497,7 +479,7 @@ finally:
     } catch (e) {
       _setOutput(cell, e.toString(), 'error');
     } finally {
-      setState(() => _running[cell.id] = false);
+      if (mounted) setState(() => _running[cell.id] = false);
       _scheduleSave();
     }
   }
@@ -898,6 +880,7 @@ finally:
                     );
                     debugPrint('[WebView] runCode type: $test');
 
+                    if (!mounted) return;
                     setState(() => _webReady = true);
                     debugPrint('[Notebook] ✅ Pyodide就绪');
                   },
