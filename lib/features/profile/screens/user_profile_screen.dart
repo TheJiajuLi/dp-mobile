@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/avatar_upload.dart';
@@ -17,6 +18,7 @@ import '../../../shared/utils/gender_label.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/models/conversation_model.dart';
+import '../../messages/providers/messages_provider.dart';
 import '../../notebook/services/notebook_service.dart';
 import '../models/user_profile_model.dart';
 
@@ -649,67 +651,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  void _showSettingsSheet() {
-    final l10n = AppLocalizations.of(context)!;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      // 原因同 _showAvatarOptions()：backgroundColor 传 transparent 后
-      // 弹层自带的 Material 没有颜色，下面 ListTile 的水波纹会往上找到
-      // 那层透明 Material 而不是这个 Container，导致水波纹画不出来。
-      // 用 Material 直接当最外层，给 ListTile 一个真正带颜色的画布
-      builder: (ctx) => Material(
-        color: Theme.of(ctx).cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: const Icon(Icons.settings_outlined, color: Colors.grey),
-                title: Text(l10n.allSettings),
-                subtitle: Text(
-                  l10n.allSettingsSubtitle,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/settings');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.switch_account_outlined, color: Colors.grey),
-                title: Text(l10n.switchAccount),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/switch-account');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: Text(l10n.logout, style: const TextStyle(color: Colors.red)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await ref.read(authServiceProvider).logout();
-                  if (mounted) context.go('/login');
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _logout() async {
+    await ref.read(authServiceProvider).logout();
+    if (mounted) context.go('/login');
   }
 
   // 对方主页设置了"不公开"：只展示头像/用户名/id 这几项基础信息（像
@@ -989,29 +933,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   color: Colors.white,
                                 ),
                                 onPressed: () => context.pop(),
-                              ),
-                            ),
-                          if (isSelfView)
-                            Positioned(
-                              top: topPad + 12,
-                              right: 12,
-                              child: GestureDetector(
-                                onTap: _showSettingsSheet,
-                                child: Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(
-                                      alpha: 0.3,
-                                    ),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.menu,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
-                                ),
                               ),
                             ),
                           Positioned(
@@ -1382,77 +1303,94 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ),
                       ),
 
-                      // 创作者中心（仅自己主页可见——目前只是入口占位，还
-                      // 没有专门的数据统计页面，先在这展示能拿到的真实数据，
-                      // 后端没有的指标（收藏/评论）就老实显示占位符，不编数字）
+                      // 仿网易云音乐"我的"页的功能列表——只在自己主页显示。
+                      // 我的消息/我的Notebook/深色模式是真数据/真入口；
+                      // 我的收藏/浏览历史/草稿箱后端和专门页面都还没有，
+                      // 先用统一的"即将上线"占位，不编造数字
                       if (isSelfView) ...[
                         Divider(
                           height: 1,
                           thickness: 1,
                           color: Theme.of(context).dividerColor,
                         ),
-                        GestureDetector(
-                          onTap: () =>
-                              _todo(l10n.creatorCenterComingSoon),
-                          child: Container(
-                            color: Theme.of(context).cardColor,
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      l10n.creatorCenter,
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: Theme.of(
-                                          context,
-                                        ).textTheme.bodyLarge?.color,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Icon(
-                                      Icons.chevron_right,
-                                      size: 18,
-                                      color: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall?.color,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    _creatorStatItem(
-                                      _formatCount(_totalViews),
-                                      l10n.readCountLabel,
-                                    ),
-                                    _creatorStatItem('-', l10n.bookmarksCountLabel),
-                                    _creatorStatItem('-', l10n.commentsCountLabel),
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(
-                                          context,
-                                        ).inputDecorationTheme.fillColor,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.notifications_none,
-                                        size: 18,
-                                        color: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                        _profileMenuItem(
+                          icon: Icons.mail_outline,
+                          label: l10n.myMessages,
+                          badgeCount: ref.watch(unreadCountProvider),
+                          onTap: () => context.go('/messages'),
+                        ),
+                        _profileMenuItem(
+                          icon: Icons.bookmark_outline,
+                          label: l10n.myFavorites,
+                          onTap: () => _todo(l10n.comingSoonStayTuned),
+                        ),
+                        _profileMenuItem(
+                          icon: Icons.history,
+                          label: l10n.browsingHistory,
+                          onTap: () => _todo(l10n.comingSoonStayTuned),
+                        ),
+                        _profileMenuItem(
+                          icon: Icons.menu_book_outlined,
+                          label: l10n.myNotebookMenuLabel,
+                          trailingText: _notebooks.isNotEmpty ? '${_notebooks.length}' : null,
+                          onTap: () => context.push('/notebook'),
+                        ),
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          indent: 52,
+                          color: Theme.of(context).dividerColor,
+                        ),
+                        _profileMenuItem(
+                          icon: Icons.article_outlined,
+                          label: l10n.creatorCenter,
+                          trailingText: _totalViews > 0
+                              ? l10n.readCountWithValue(_formatCount(_totalViews))
+                              : null,
+                          onTap: () => _todo(l10n.creatorCenterComingSoon),
+                        ),
+                        _profileMenuItem(
+                          icon: Icons.drafts_outlined,
+                          label: l10n.draftBox,
+                          onTap: () => _todo(l10n.comingSoonStayTuned),
+                        ),
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          indent: 52,
+                          color: Theme.of(context).dividerColor,
+                        ),
+                        _profileMenuItem(
+                          icon: Icons.dark_mode_outlined,
+                          label: l10n.darkModeMenuLabel,
+                          trailingText: _themeLabel(l10n, ref.watch(themeProvider)),
+                          onTap: () => context.push('/settings'),
+                        ),
+                        const SizedBox(height: 12),
+                        // 原来放在头图右上角悬浮按钮里的三个入口，现在跟
+                        // 网易云音乐一样摆在这份列表最下面一整行
+                        Container(
+                          color: Theme.of(context).cardColor,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Row(
+                            children: [
+                              _bottomActionButton(
+                                icon: Icons.settings_outlined,
+                                label: l10n.allSettings,
+                                onTap: () => context.push('/settings'),
+                              ),
+                              _bottomActionButton(
+                                icon: Icons.switch_account_outlined,
+                                label: l10n.switchAccount,
+                                onTap: () => context.push('/switch-account'),
+                              ),
+                              _bottomActionButton(
+                                icon: Icons.logout,
+                                label: l10n.logout,
+                                color: const Color(0xFFDC2626),
+                                onTap: _logout,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -1612,31 +1550,81 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   Widget _divider() =>
       Container(width: 0.5, height: 32, color: Colors.grey.shade200);
 
-  Widget _creatorStatItem(String value, String label) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
+  Widget _profileMenuItem({
+    required IconData icon,
+    required String label,
+    String? trailingText,
+    int badgeCount = 0,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        color: Theme.of(context).cardColor,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: Theme.of(context).textTheme.bodySmall?.color),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyLarge?.color),
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Theme.of(context).textTheme.bodySmall?.color,
-            ),
-          ),
-        ],
+            if (badgeCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(99)),
+                child: Text(
+                  badgeCount > 99 ? '99+' : '$badgeCount',
+                  style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              )
+            else if (trailingText != null) ...[
+              Text(
+                trailingText,
+                style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodySmall?.color),
+              ),
+              const SizedBox(width: 4),
+            ],
+            const SizedBox(width: 2),
+            Icon(Icons.chevron_right, size: 18, color: Theme.of(context).textTheme.bodySmall?.color),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _bottomActionButton({
+    required IconData icon,
+    required String label,
+    Color? color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: color ?? Theme.of(context).textTheme.bodySmall?.color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: color ?? Theme.of(context).textTheme.bodySmall?.color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _themeLabel(AppLocalizations l10n, ThemePreference pref) => switch (pref) {
+    ThemePreference.system => l10n.themeSystem,
+    ThemePreference.light => l10n.themeLight,
+    ThemePreference.dark => l10n.themeDark,
+  };
 
   String _formatCount(int n) {
     if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';

@@ -179,9 +179,21 @@
   },
   "creatorCenter": "Creator Center",
   "creatorCenterComingSoon": "Creator Center coming soon, stay tuned",
+  "myMessages": "My Messages",
+  "myFavorites": "My Favorites",
+  "browsingHistory": "Browsing History",
+  "myNotebookMenuLabel": "My Notebook",
+  "draftBox": "Drafts",
+  "darkModeMenuLabel": "Dark Mode",
   "readCountLabel": "Views",
-  "bookmarksCountLabel": "Bookmarks",
-  "commentsCountLabel": "Comments",
+  "readCountWithValue": "{count} views",
+  "@readCountWithValue": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
   "noTutorialsPublished": "No tutorials published yet",
   "noNotebooksYet": "No notebooks yet",
   "bookmarksComingSoon": "Bookmarks coming soon",

@@ -836,23 +836,53 @@ abstract class AppLocalizations {
   /// **'Creator Center coming soon, stay tuned'**
   String get creatorCenterComingSoon;
 
+  /// No description provided for @myMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'My Messages'**
+  String get myMessages;
+
+  /// No description provided for @myFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'My Favorites'**
+  String get myFavorites;
+
+  /// No description provided for @browsingHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Browsing History'**
+  String get browsingHistory;
+
+  /// No description provided for @myNotebookMenuLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'My Notebook'**
+  String get myNotebookMenuLabel;
+
+  /// No description provided for @draftBox.
+  ///
+  /// In en, this message translates to:
+  /// **'Drafts'**
+  String get draftBox;
+
+  /// No description provided for @darkModeMenuLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark Mode'**
+  String get darkModeMenuLabel;
+
   /// No description provided for @readCountLabel.
   ///
   /// In en, this message translates to:
   /// **'Views'**
   String get readCountLabel;
 
-  /// No description provided for @bookmarksCountLabel.
+  /// No description provided for @readCountWithValue.
   ///
   /// In en, this message translates to:
-  /// **'Bookmarks'**
-  String get bookmarksCountLabel;
-
-  /// No description provided for @commentsCountLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Comments'**
-  String get commentsCountLabel;
+  /// **'{count} views'**
+  String readCountWithValue(String count);
 
   /// No description provided for @noTutorialsPublished.
   ///

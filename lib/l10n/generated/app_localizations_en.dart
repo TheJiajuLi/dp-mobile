@@ -401,13 +401,30 @@ class AppLocalizationsEn extends AppLocalizations {
       'Creator Center coming soon, stay tuned';
 
   @override
+  String get myMessages => 'My Messages';
+
+  @override
+  String get myFavorites => 'My Favorites';
+
+  @override
+  String get browsingHistory => 'Browsing History';
+
+  @override
+  String get myNotebookMenuLabel => 'My Notebook';
+
+  @override
+  String get draftBox => 'Drafts';
+
+  @override
+  String get darkModeMenuLabel => 'Dark Mode';
+
+  @override
   String get readCountLabel => 'Views';
 
   @override
-  String get bookmarksCountLabel => 'Bookmarks';
-
-  @override
-  String get commentsCountLabel => 'Comments';
+  String readCountWithValue(String count) {
+    return '$count views';
+  }
 
   @override
   String get noTutorialsPublished => 'No tutorials published yet';

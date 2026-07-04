@@ -394,13 +394,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get creatorCenterComingSoon => '创作中心即将上线，敬请期待';
 
   @override
+  String get myMessages => '我的消息';
+
+  @override
+  String get myFavorites => '我的收藏';
+
+  @override
+  String get browsingHistory => '浏览历史';
+
+  @override
+  String get myNotebookMenuLabel => '我的Notebook';
+
+  @override
+  String get draftBox => '草稿箱';
+
+  @override
+  String get darkModeMenuLabel => '深色模式';
+
+  @override
   String get readCountLabel => '阅读量';
 
   @override
-  String get bookmarksCountLabel => '收藏数';
-
-  @override
-  String get commentsCountLabel => '评论数';
+  String readCountWithValue(String count) {
+    return '$count 阅读';
+  }
 
   @override
   String get noTutorialsPublished => '还没有发布的教程';
