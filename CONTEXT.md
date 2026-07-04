@@ -1,182 +1,257 @@
-# 极梦产品开发背景文档
+# 极梦 Flutter 开发上下文
 
-## 已有 Web 端参考代码
+## 产品定位
+极梦（Dreaming Polar）— 数据科学内容社区
+定位：知乎 + 小红书 + Kaggle 的融合
+Slogan：极梦，为创造而生
+品牌色：#6366F1
 
-前端仓库：https://github.com/TheJiajuLi/dreamingpolar.com
+## 技术栈
+- Flutter + Dart
+- 状态管理：Riverpod（currentUserProvider 存登录用户）
+- 路由：GoRouter
+- 网络：ApiClient（封装 Dio，自动注入 Bearer token）
+- 本地存储：flutter_secure_storage + shared_preferences
+- 图片：cached_network_image + flutter_svg
 
-里面有：
-- mobile.html（现有移动端，Flutter 是重写）
-- community.html（社区页面）
-- write.html（写教程编辑器）
-- tutorial.html（教程详情页）
-- profile.html（用户主页）
-
-Flutter 开发时可以参考这些文件的业务逻辑和 API 调用方式。
-
-## 后端 API 完整列表
-
-base: `https://api.dreamingpolar.com`
+## 后端API完整列表
+base: https://api.dreamingpolar.com
 
 ### 认证
-
-```
-GET  /auth/me → {id, username, email, avatar, bio, created_at}
-POST /auth/login → {accessToken, username}（注意：没有 user 字段）
+POST /auth/login → {accessToken, username}
+  注意：注册成功后自动调用login获取token
 POST /auth/refresh → {accessToken, user}
-POST /auth/register → 201 {message: '注册成功'} / 409 {message: '该邮箱已注册'}
-  （实测确认：不返回 accessToken，成功后需要再调 POST /auth/login 换 token）
-```
+  走HttpOnly Cookie（dp_refresh），不需要手动传token
+POST /auth/register → {message:'注册成功'}
+  成功后自动调用login
+GET /auth/me → {id,username,email,avatar,bio,created_at}
+PATCH /auth/me → 更新用户名/简介/website
+POST /auth/change-password → {oldPassword,newPassword}
+DELETE /auth/account → 注销账号
 
 ### 教程
-
-```
 GET /auth/tutorials?status=published&author=xxx&page=1&limit=12
-→ {tutorials:[{id,title,cover_image,summary,tags,likes,views,
-   created_at,username,avatar,user_id}], total, page, pages}
-
-POST /auth/tutorials
-→ body: {title, summary, cover_image, tags(array),
-         blocks(JSON string), status('draft'|'published')}
-
-PUT    /auth/tutorials/:id → 同上
-DELETE /auth/tutorials/:id
-POST   /auth/tutorials/:id/like
+→ {tutorials:[{id,title,cover_image,summary,tags,likes,views,created_at,username,avatar,user_id}], total,page,pages}
+  注意：author支持username或user_id精确匹配
+POST /auth/tutorials → {title,summary,cover_image,tags(array),blocks(JSON string),status}
+PUT /auth/tutorials/:id → 同上
+DELETE /auth/tutorials/:id → 同时删除COS封面图
+POST /auth/tutorials/:id/like
 DELETE /auth/tutorials/:id/like
-GET    /auth/tutorials/:id/comments
-POST   /auth/tutorials/:id/comments → {content}
-```
+GET /auth/tutorials/:id/comments
+POST /auth/tutorials/:id/comments → {content}
 
 ### 用户
-
-```
-GET /auth/users/:username
-→ {id, username, bio, avatar, created_at}
-```
+GET /auth/users/search?handle=xxx → {users:[...]}
+GET /auth/users/profile/:identifier → {id,username,handle,avatar,bio,website,follower_count,following_count,tutorial_count}
+PUT /auth/users/handle → 修改handle（30天一次）
+POST /auth/users/:targetId/follow
+DELETE /auth/users/:targetId/follow
+GET /auth/users/:targetId/follow-status → {isFollowing}
+GET /auth/users/:userId/followers → {followers:[...]}
+GET /auth/users/:userId/following → {following:[...]}
+PUT /auth/users/privacy → {publicProfile,publicFavorites,allowComments,allowMessages}
 
 ### 文件
+GET /auth/files → {files:[{id,filename,file_type,size_bytes,cos_key,url,platform}]}
+POST /auth/files/upload (multipart,field='file') → {id,filename,url,cos_key}
+POST /auth/update-avatar (multipart,field='avatar') → {avatar:'COS URL'}
+  注意：固定key avatars/${userId}.jpg，覆盖式上传
+GET /auth/storage/usage → {quota,membership,totalBytes,categories:{notebooks,tutorials,media,docs}}
 
-```
-GET  /auth/files → {files:[{id,filename,file_type,size_bytes,cos_key,url}]}
-POST /auth/files/upload (multipart, field='file')
-→ {id, filename, url, cos_key}
-```
+### 消息
+GET /auth/notifications → {notifications:[...],unread}
+POST /auth/notifications/read → {ids:[]} 空数组=全部已读
+GET /auth/notifications/unread-count → {unread}
+GET /auth/conversations → {conversations:[...]}
+GET /auth/conversations/:id/messages → {messages:[...]}
+POST /auth/messages → {toUserId,content,type,metadata}
+  type: text/code/image/latex/tutorial
 
-### 头像
+### ARIA
+POST /api/chat
+headers: Authorization: Bearer token
+body: {messages:[{role,content}],dataframe_context:{varName,columns,rowCount,sampleRows}}
 
-```
-POST /auth/update-avatar (multipart, field='avatar')
-→ {avatar: 'COS URL'}
-```
+### 存储配额
+免费版：200MB，Pro：5GB，Pro Max：20GB
+头像不计入配额（avatars/目录排除）
+删除教程时自动清理COS封面图
 
-## Block 格式（教程内容）
+## Block格式（教程内容）
+blocks是JSON字符串：
+[{id, type(text|code|latex|heading|image|callout), content, language, executable, level, variant, imageUrl, caption}]
 
-`blocks` 字段是 JSON 字符串，格式：
+## 已实现的功能模块
 
-```json
-[
-  {
-    "id": "唯一id",
-    "type": "text|code|latex|heading|image|callout",
-    "content": "内容",
-    "language": "python|javascript|sql",
-    "executable": true,
-    "level": 2,
-    "variant": "tip|warning|info",
-    "imageUrl": "",
-    "caption": ""
-  }
-]
-```
+### 路由结构
+/splash → 启动页（自动登录检查）
+/login → 登录页
+/register → 注册页
+/home → 首页（应用市场九宫格）
+/community → 社区（瀑布流）
+/publish → 发布（Block编辑器）
+/messages → 消息中心
+/messages/chat/:conversationId → 聊天页
+/profile → 我的（个人主页）
+/edit-profile → 编辑资料
+/settings → 设置
+/settings/security → 账号安全
+/settings/security/history → 登录记录
+/settings/privacy → 隐私设置
+/settings/storage → 云端存储
+/settings/about → 关于极梦
+/settings/payment → 支付方式（占位）
+/settings/subscription → 订阅管理（占位）
+/notebook → Power Notebook首页
+/notebook/:id → Notebook编辑器
+/users/:identifier → 他人主页
+/users/:userId/followers → 粉丝列表
+/users/:userId/following → 关注列表
+/tutorial/:id → 教程详情页
 
-字段说明：
-- `language`/`executable`：`type: code` 时使用
-- `level`（2/3/4）：`type: heading` 时使用
-- `variant`：`type: callout` 时使用
-- `imageUrl`/`caption`：`type: image` 时使用
+### 底部导航
+首页 / 社区 / +发布 / 消息 / 我的
 
-## 踩过的坑
+### 首页
+应用市场九宫格，已上线：Power Notebook、ARIA分析助手
+即将上线：数据网格Grid、可视化工厂、数学建模
 
-1. **账号数据隔离（最重要）**
-   所有本地缓存必须带 userId 前缀：`'${userId}_tutorials'`、`'${userId}_profile'`。
-   退出登录清空当前用户所有缓存。
-   切换账号时强制重新 fetch，不用缓存。
+### 社区
+2列瀑布流，搜索栏+标签筛选（本地过滤）
+下拉刷新+上拉加载更多（分页）
+教程卡片：封面图/占位色+标题+作者+点赞/浏览数
 
-2. **时间戳是秒级**
-   `created_at` 是 Unix 秒级时间戳。
-   显示时：`DateTime.fromMillisecondsSinceEpoch(ts * 1000)`
+### Power Notebook
+- 首页：最近打开列表（可左滑删除）+模板+新建底部弹窗
+- 编辑器：Cell列表，支持Python/LaTeX/Markdown/JS/SQL
+- Python运行：隐藏WebView加载compiler.js（Pyodide）
+- LaTeX渲染：flutter_math_fork
+- input()支持：预收集弹窗
+- 导入：file_picker，支持csv/xlsx/json/py/ipynb/tex/md
+- 数据持久化：SharedPreferences，key带userId前缀
 
-3. **教程列表格式**
-   `GET /auth/tutorials` 返回 `{tutorials:[...], total, page, pages}`，不是直接数组，要取 `data['tutorials']`。
+### 用户主页
+- 小红书风格：封面图+头像+统计+四tab
+- 星座badge（ZodiacBadge组件）
+- 个人链接（最多3条，url_launcher跳转）
+- 关注/取消关注（实时更新计数）
+- 发消息按钮（跳转聊天页，携带conversation对象）
+- 九宫格：教程/Notebook/收藏/点赞四tab
 
-4. **tags 字段**
-   `tags` 可能是 JSON 数组字符串，也可能已经是 List。需要兼容：
-   ```dart
-   if (tags is String) jsonDecode(tags) else tags
-   ```
+### 编辑资料
+- 用户名/简介保存到后端 PATCH /auth/me
+- 星座选择（ZodiacPicker，存${userId}_zodiac）
+- 个人链接（最多3条，存${userId}_links）
+- 头像上传（相册→COS，覆盖式，key:avatars/${userId}.jpg）
+- 封面图上传（相册→COS，存${userId}_cover_image）
 
-5. **cover_image 可能为空**
-   没有封面图时用颜色+图标占位，根据标题首字符哈希选颜色。
+### 消息中心
+- 通知tab：点赞/评论/关注，30秒轮询
+- 私信tab：会话列表，未读角标
+- 聊天页：文字/代码/LaTeX/图片消息
+- 5秒轮询更新消息
+- 加号菜单：添加好友（搜索@handle）/建群/建论坛
 
-6. **avatar 可能是 base64**
-   旧数据的 avatar 是 base64 字符串（`data:image/jpeg;base64,...`），需要用 `Image.memory(base64Decode(base64String))` 显示。
-   新数据的 avatar 是 COS URL，用 `Image.network` 显示。
-   判断方式：`avatar.startsWith('data:image') ? base64 : url`
+### 设置页
+- 账号安全：修改密码/登录记录（含地理位置）/注销账号
+- 通用：主题（ThemePreference）/字体/通知开关/清缓存
+- 隐私：公开主页/收藏/评论/消息开关（存后端）
+- 云端存储：分类文件夹，API实时读取，存储检查机制
+- 会员中心：订阅/支付（占位）
+- 关于极梦：版本/官网/协议
 
-7. **ARIA API**
-   ```
-   POST /api/chat
-   headers: Authorization: Bearer token
-   body: {
-     messages: [{role:'user'|'assistant', content:'...'}],
-     dataframe_context: {varName, columns, rowCount, sampleRows}
-   }
-   ```
+### Token刷新
+- 403时自动refresh，单飞去重（_refreshing Future）
+- CookieJar持久化（PersistCookieJar）
+- 强制登出走 appRouter.go('/login')
+- App回到前台触发silentRefresh()
 
-## COS 存储
+## 共享组件
+lib/shared/widgets/
+- main_shell.dart — 底部导航Shell
+- zodiac_icon.dart — 十二星座SVG图标+ZodiacPicker
+lib/shared/models/
+- user_model.dart — UserModel
+- tutorial_model.dart — TutorialModel（含tags兼容解析）
 
-```
-bucket: dp-1317483118
-region: ap-hongkong
+## 踩过的坑（必读）
+
+### 1. 账号数据隔离（最重要）
+所有缓存key必须带userId前缀：
+'${userId}_tutorials'，'${userId}_nb_recent'
+退出登录时只清当前用户缓存，不能deleteAll()
+
+### 2. 时间戳秒级
+DateTime.fromMillisecondsSinceEpoch(created_at * 1000)
+
+### 3. 教程列表格式
+返回{tutorials:[...],total,page,pages}，不是直接数组
+
+### 4. tags兼容
+if (tags is String) jsonDecode(tags) else tags
+
+### 5. cover_image可能为空
+无封面时按标题首字符hashCode选色（紫/绿/橙/粉/蓝）
+
+### 6. avatar格式
+新数据全是COS URL，老数据可能是base64
+avatar.startsWith('data:image')
+  ? Image.memory(base64Decode(去掉前缀))
+  : CachedNetworkImage(url)
+
+### 7. ApiClient不抛异常
+ApiClient内部catch DioException，返回ApiResponse.error()
+调用方必须检查res.success，不能用try/catch
+包括ApiClient.delete()也一样
+
+### 8. currentUserProvider
+获取当前登录用户：ref.watch(currentUserProvider)→UserModel?
+userId = ref.watch(currentUserProvider)?.id
+不存在authProvider或authProvider.userId
+
+### 9. token存储key
+AppConstants.tokenKey(userId) = 'user_${userId}_token'
+不要用裸字符串'access_token'
+
+### 10. Cookie自动管理
+已配置cookie_jar + dio_cookie_manager
+refresh token走HttpOnly Cookie（dp_refresh）
+Dio会自动携带，不需要手动处理
+
+### 11. 主题Provider
+用ThemePreference（不是AppTheme，有命名冲突）
+themeProvider → ThemePreference.system/light/dark
+
+### 12. ChatScreen必须携带conversation对象
+context.push('/messages/chat/${convId}', extra: conversation)
+_send()靠conversation.otherUserId发消息
+extra为null时发送按钮静默失效
+
+### 13. Avatar覆盖式上传
+固定key：avatars/${userId}.jpg
+每次上传覆盖同一文件，不累积
+
+### 14. 存储检查
+发送文件前调用StorageChecker.checkAndPrompt()
+超过50%显示警告，100%阻断并提示升级
+
+## COS存储
+bucket: dp-1317483118，region: ap-hongkong
 URL: https://dp-1317483118.cos.ap-hongkong.myqcloud.com/${cosKey}
-```
-
-存储桶公共读，图片 URL 可直接访问。
+公共读，图片URL可直接访问
+头像目录：avatars/（不计入配额）
+封面图目录：covers/
+用户文件目录：files/
 
 ## 品牌设计
+主色：#6366F1（紫蓝）
+Logo：方案C（极光数据——山脉剪影+数据折线+星点）
+Slogan：极梦，为创造而生
+风格：小红书+知乎+网易云，干净简洁
 
-- 主色：`#6366f1`（紫蓝色）
-- 品牌名：极梦
-- 英文：Dreaming Polar
-- 字体：系统默认（iOS 用 SF Pro）
-- 风格：参考小红书 + 知乎，干净简洁
-
-## 当前 Flutter 项目结构
-
-```
-lib/
-├── main.dart
-├── core/
-│   ├── constants/
-│   │   └── app_constants.dart（baseUrl、userId 前缀缓存 key）
-│   ├── network/
-│   │   ├── api_client.dart（Dio 封装，拦截器自动注入 Bearer token）
-│   │   └── api_response.dart（统一响应模型）
-│   ├── router/
-│   │   └── app_router.dart（GoRouter，StatefulShellRoute 底部导航）
-│   └── theme/
-│       └── app_theme.dart（主题色 #6366f1，iOS 风格设计系统）
-├── features/
-│   ├── auth/（登录注册）
-│   │   ├── auth_service.dart
-│   │   └── screens/login_screen.dart
-│   ├── home/（首页九宫格）
-│   │   ├── providers/tutorials_provider.dart
-│   │   └── screens/home_screen.dart
-│   ├── community/（社区，占位待开发）
-│   ├── publish/（发布教程，占位待开发）
-│   ├── profile/（个人主页，占位待开发）
-│   └── aria/（ARIA 助手，占位待开发）
-└── shared/
-    ├── models/（user_model.dart, tutorial_model.dart）
-    └── widgets/（main_shell.dart 底部导航）
-```
+## 服务器信息
+腾讯云香港，IP: 150.109.77.250
+后端目录：/root/dp-auth-backend
+进程管理：pm2，服务名dp-auth，端口3001
+数据库：MySQL，内网10.5.0.6:3306，库名dp_users
