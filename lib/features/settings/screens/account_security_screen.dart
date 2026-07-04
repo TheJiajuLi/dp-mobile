@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../auth/auth_service.dart';
@@ -226,8 +227,25 @@ class AccountSecurityScreen extends ConsumerWidget {
               // 这里会自动走真实的删除+登出流程，不用等接口就绪再改代码
               final res = await ref.read(apiClientProvider).delete('/auth/account');
               if (res.success) {
+                final userId = ref.read(currentUserProvider)?.id;
                 await ref.read(authServiceProvider).logout();
-                if (context.mounted) context.go('/login');
+                // 只清这个账号自己的本地数据（星座/链接/登录记录/隐私开关/
+                // Notebook 本地文档/社区分页缓存，都是 '${userId}_' 前缀）。
+                // 不能用 prefs.clear()——那会把设备上其它账号的数据、以及
+                // 主题/字体/通知这些全局 App 设置也一起清掉
+                if (userId != null && userId.isNotEmpty) {
+                  final prefs = await SharedPreferences.getInstance();
+                  final keys = prefs.getKeys().where((k) => k.startsWith('${userId}_'));
+                  for (final key in keys.toList()) {
+                    await prefs.remove(key);
+                  }
+                }
+                if (context.mounted) {
+                  context.go('/login');
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('账号已注销')));
+                }
                 return;
               }
               if (!context.mounted) return;

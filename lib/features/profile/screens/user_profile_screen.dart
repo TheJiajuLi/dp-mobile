@@ -276,9 +276,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -390,9 +390,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -489,7 +489,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final topPad = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
@@ -665,10 +665,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 onPressed: _toggleFollow,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _profile!.isFollowing
-                                      ? Colors.grey[200]
+                                      ? Theme.of(context).cardColor
                                       : _primary,
                                   foregroundColor: _profile!.isFollowing
-                                      ? Colors.black87
+                                      ? Theme.of(context).textTheme.bodyLarge?.color
                                       : Colors.white,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
@@ -692,7 +692,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 icon: const Icon(Icons.edit, size: 16),
                                 label: const Text('编辑资料'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.black87,
+                                  foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
                                   side: BorderSide(color: Colors.grey.shade300),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
@@ -786,7 +786,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
                       // 统计数据
                       Container(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
@@ -824,7 +824,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       // 紧接着下面的九宫格就显得中间空了一条——用固定高度的
                       // SizedBox 把它按下去
                       Container(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         child: SizedBox(
                           height: 36,
                           child: TabBar(

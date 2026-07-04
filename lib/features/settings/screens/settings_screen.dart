@@ -31,12 +31,12 @@ class SettingsScreen extends ConsumerWidget {
     final fontSize = ref.watch(fontSizeProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
             Container(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               padding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 14,
@@ -48,9 +48,13 @@ class SettingsScreen extends ConsumerWidget {
                     child: const Icon(Icons.arrow_back_ios, size: 18),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     '设置',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
                   ),
                 ],
               ),
@@ -238,9 +242,9 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -255,9 +259,13 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               '主题',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(ctx).textTheme.bodyLarge?.color,
+              ),
             ),
             const SizedBox(height: 16),
             Consumer(
@@ -293,9 +301,9 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -310,9 +318,13 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               '字体大小',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(ctx).textTheme.bodyLarge?.color,
+              ),
             ),
             const SizedBox(height: 16),
             Consumer(
@@ -404,9 +416,9 @@ class _NotifSettingsSheet extends ConsumerWidget {
     final notifier = ref.read(notifProvider.notifier);
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -421,9 +433,13 @@ class _NotifSettingsSheet extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             '通知设置',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
           ),
           const SizedBox(height: 8),
           _toggle('点赞通知', settings.likes, (v) => notifier.toggle('likes', v)),
@@ -481,7 +497,7 @@ class _SettingsGroup extends StatelessWidget {
   const _SettingsGroup(this.children);
   @override
   Widget build(BuildContext context) =>
-      Container(color: Colors.white, child: Column(children: children));
+      Container(color: Theme.of(context).cardColor, child: Column(children: children));
 }
 
 class _SettingsRow extends StatelessWidget {
@@ -536,7 +552,7 @@ class _SettingsRow extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 15,
-                      color: titleColor ?? const Color(0xFF1C1C1E),
+                      color: titleColor ?? Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   if (subtitle != null)

@@ -61,7 +61,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     final list = state.filtered;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -215,7 +215,7 @@ class _TutorialCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
         ),
@@ -240,10 +240,10 @@ class _TutorialCard extends StatelessWidget {
                     tutorial.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                       height: 1.3,
                     ),
                   ),

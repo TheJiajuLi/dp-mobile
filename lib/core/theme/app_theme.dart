@@ -30,6 +30,7 @@ class AppTheme {
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.bg,
     colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+    cardColor: Colors.white,
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.surface,
       foregroundColor: AppColors.textPrimary,
@@ -45,21 +46,21 @@ class AppTheme {
     ),
   );
 
-  // 注意：绝大多数页面直接写死 AppColors.bg / Colors.white / Colors.black87
-  // 这类字面量，不是从 Theme.of(context) 取色，所以切到这套 dark 只会影响
-  // 还没被硬编码颜色覆盖的 Material 组件，不会让已经写死颜色的页面背景真的
-  // 变暗——要做到全局生效，需要把各页面硬编码颜色逐步换成读 Theme，这是
-  // 后续单独的活，这里先把开关/持久化的基础设施打通
+  // 这一套只覆盖到了"主背景/卡片背景/正文文字"这三类最影响观感的颜色——
+  // 各页面里 Colors.grey/边框/图标强调色等次要颜色还是写死的，暗色下不会
+  // 完全跟系统默认灰阶一致。要做到像素级完整的暗色适配，还需要把这些
+  // 次要颜色也逐一换成读 Theme，这次先把最显眼的白底黑字问题解决掉
   static ThemeData get dark => ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: const Color(0xFF121212),
+    scaffoldBackgroundColor: const Color(0xFF1C1C1E),
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       brightness: Brightness.dark,
     ),
+    cardColor: const Color(0xFF2C2C2E),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF1C1C1E),
+      backgroundColor: Color(0xFF2C2C2E),
       foregroundColor: Colors.white,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
