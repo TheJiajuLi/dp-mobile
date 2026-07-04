@@ -55,7 +55,6 @@ class UserProfileScreen extends ConsumerStatefulWidget {
 
 class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     with SingleTickerProviderStateMixin {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final bool _showNotebookTab = !widget.showBackButton;
   late final TabController _tabCtrl;
   UserProfile? _profile;
@@ -879,14 +878,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final topPad = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      // 抽屉只在自己主页有意义（里面是消息/收藏/设置/退出登录这些），
-      // 别人的主页不给这个入口；_profile 还没加载完之前也不能建（下面
-      // 用了 tutorialCount 之类的字段）
-      drawer: (isSelfView && _profile != null)
-          ? _buildProfileDrawer(l10n, _profile!.tutorialCount, _totalLikes)
-          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
@@ -950,7 +942,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               top: topPad + 12,
                               left: 12,
                               child: GestureDetector(
-                                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                                onTap: () => _openProfileDrawer(
+                                  l10n,
+                                  _profile!.tutorialCount,
+                                  _totalLikes,
+                                ),
                                 child: Container(
                                   width: 34,
                                   height: 34,
@@ -1490,7 +1486,42 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   // 网易云音乐"我的"页那套——从左侧滑入的抽屉，不是铺在主页面里的常驻
   // 列表。头部复用主页面已经算好的这几个数字，不在这里重新读一遍 provider
-  Widget _buildProfileDrawer(AppLocalizations l10n, int tutorialCount, int totalLikes) {
+  // Scaffold.drawer 只能盖住它自己那个 Scaffold 的范围——UserProfileScreen
+  // 这个 Scaffold 是嵌在 MainShell 的 body 里的，MainShell 自己另有一个
+  // Scaffold 管着底部导航栏，drawer 天然盖不到底部导航栏那块，也逃不出
+  // 顶部状态栏那圈 SafeArea。改用 showGeneralDialog 强制推到根 Navigator
+  // 上（默认 useRootNavigator: true），叠在包括底部导航栏在内的整个 App
+  // 上面，才能做到真正贴边全高
+  void _openProfileDrawer(AppLocalizations l10n, int tutorialCount, int totalLikes) {
+    showGeneralDialog(
+      context: context,
+      barrierLabel: '',
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, _, __) => Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: 290,
+          height: double.infinity,
+          child: _buildProfileDrawer(ctx, l10n, tutorialCount, totalLikes),
+        ),
+      ),
+      transitionBuilder: (ctx, animation, _, child) => SlideTransition(
+        position: Tween<Offset>(begin: const Offset(-1, 0), end: Offset.zero).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildProfileDrawer(
+    BuildContext ctx,
+    AppLocalizations l10n,
+    int tutorialCount,
+    int totalLikes,
+  ) {
     // 头部用户信息按要求直接读 currentUserProvider（/auth/me 的实时数据），
     // 不是从主页面已经算好的 displayUsername/_profile 传下来的——这样
     // 别处改了头像/资料后，抽屉这边不用等 _profile 重新加载就能跟着更新。
@@ -1500,212 +1531,222 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final handle = currentUser?.handle;
     final followerCount = currentUser?.followerCount ?? 0;
     final followingCount = currentUser?.followingCount ?? 0;
+    final safePadding = MediaQuery.of(ctx).padding;
 
-    return Drawer(
-      width: 290,
-      // Material 3 的 Drawer 默认自带圆角+悬浮阴影，看起来像一张浮在上面
-      // 的卡片，边角还会露出底下的内容——改成没有圆角的矩形，贴边覆盖到底
-      shape: const RoundedRectangleBorder(),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF6366F1), Color(0xFF7C3AED)],
-                ),
+    return Material(
+      color: Theme.of(ctx).scaffoldBackgroundColor,
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            // 顶部 padding 单独加状态栏高度，而不是套 SafeArea——SafeArea
+            // 会把整个 Container 往下推，紫色渐变就没法一路铺到最顶上，
+            // 状态栏那块会露出后面 scaffoldBackgroundColor 的白色/黑色
+            padding: EdgeInsets.fromLTRB(20, safePadding.top + 20, 20, 20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF6366F1), Color(0xFF7C3AED)],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildAvatar(radius: 32),
-                  const SizedBox(height: 12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAvatar(radius: 32),
+                const SizedBox(height: 12),
+                Text(
+                  username,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                if (handle != null) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    username,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  if (handle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '@$handle',
-                      style: const TextStyle(fontSize: 13, color: Colors.white70),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _drawerStatItem('$tutorialCount', l10n.tutorial),
-                      _drawerStatItem(_formatCount(totalLikes), l10n.likesCountLabel),
-                      _drawerStatItem(_formatCount(followerCount), l10n.followersCountLabel),
-                      _drawerStatItem(_formatCount(followingCount), l10n.followingCountLabel),
-                    ],
+                    '@$handle',
+                    style: const TextStyle(fontSize: 13, color: Colors.white70),
                   ),
                 ],
-              ),
-            ),
-            // 会员卡——升级跳去已经真实存在的订阅页（/settings/subscription），
-            // 不是纯装饰；极梦 Pro 这个具体权益文案目前只是占位说法，后端
-            // 还没有真正的会员等级/权益体系
-            GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/settings/subscription');
-              },
-              child: Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF18122B),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
+                const SizedBox(height: 16),
+                Row(
                   children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD97706),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.workspace_premium, color: Colors.white, size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        l10n.proMembershipMenuLabel,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD97706),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        l10n.upgradeAction,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                    _drawerStatItem('$tutorialCount', l10n.tutorial),
+                    _drawerStatItem(_formatCount(totalLikes), l10n.likesCountLabel),
+                    _drawerStatItem(_formatCount(followerCount), l10n.followersCountLabel),
+                    _drawerStatItem(_formatCount(followingCount), l10n.followingCountLabel),
                   ],
                 ),
-              ),
+              ],
             ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  // 我的消息/我的Notebook/深色模式是真数据/真入口；
-                  // 我的收藏/浏览历史/草稿箱后端和专门页面都还没有，先用
-                  // 统一的"即将上线"占位，不编造数字
-                  _profileMenuItem(
-                    icon: Icons.mail_outline,
-                    label: l10n.myMessages,
-                    badgeCount: ref.watch(unreadCountProvider),
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.go('/messages');
-                    },
-                  ),
-                  _profileMenuItem(
-                    icon: Icons.bookmark_outline,
-                    label: l10n.myFavorites,
-                    onTap: () => _todo(l10n.comingSoonStayTuned),
-                  ),
-                  _profileMenuItem(
-                    icon: Icons.history,
-                    label: l10n.browsingHistory,
-                    onTap: () => _todo(l10n.comingSoonStayTuned),
-                  ),
-                  _profileMenuItem(
-                    icon: Icons.menu_book_outlined,
-                    label: l10n.myNotebookMenuLabel,
-                    trailingText: _notebooks.isNotEmpty ? '${_notebooks.length}' : null,
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/notebook');
-                    },
-                  ),
-                  Divider(height: 1, thickness: 1, indent: 52, color: Theme.of(context).dividerColor),
-                  _profileMenuItem(
-                    icon: Icons.article_outlined,
-                    label: l10n.creatorCenter,
-                    trailingText: _totalViews > 0
-                        ? l10n.readCountWithValue(_formatCount(_totalViews))
-                        : null,
-                    onTap: () => _todo(l10n.creatorCenterComingSoon),
-                  ),
-                  _profileMenuItem(
-                    icon: Icons.drafts_outlined,
-                    label: l10n.draftBox,
-                    onTap: () => _todo(l10n.comingSoonStayTuned),
-                  ),
-                  Divider(height: 1, thickness: 1, indent: 52, color: Theme.of(context).dividerColor),
-                  _profileMenuItem(
-                    icon: Icons.dark_mode_outlined,
-                    label: l10n.darkModeMenuLabel,
-                    trailingText: _themeLabel(l10n, ref.watch(themeProvider)),
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/settings');
-                    },
-                  ),
-                ],
+          ),
+          // 会员卡——升级跳去已经真实存在的订阅页（/settings/subscription），
+          // 不是纯装饰；极梦 Pro 这个具体权益文案目前只是占位说法，后端
+          // 还没有真正的会员等级/权益体系
+          GestureDetector(
+            onTap: () {
+              Navigator.pop(ctx);
+              context.push('/settings/subscription');
+            },
+            child: Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF18122B),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            Container(
-              color: Theme.of(context).cardColor,
-              padding: const EdgeInsets.symmetric(vertical: 14),
               child: Row(
                 children: [
-                  _bottomActionButton(
-                    icon: Icons.settings_outlined,
-                    label: l10n.allSettings,
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/settings');
-                    },
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD97706),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.workspace_premium, color: Colors.white, size: 18),
                   ),
-                  _bottomActionButton(
-                    icon: Icons.switch_account_outlined,
-                    label: l10n.switchAccount,
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/switch-account');
-                    },
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      l10n.proMembershipMenuLabel,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                  _bottomActionButton(
-                    icon: Icons.logout,
-                    label: l10n.logout,
-                    color: const Color(0xFFDC2626),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _logout();
-                    },
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD97706),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      l10n.upgradeAction,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                // 我的消息/我的Notebook/深色模式是真数据/真入口；
+                // 我的收藏/浏览历史/草稿箱后端和专门页面都还没有，先用
+                // 统一的"即将上线"占位，不编造数字
+                _profileMenuItem(
+                  icon: Icons.mail_outline,
+                  label: l10n.myMessages,
+                  badgeCount: ref.watch(unreadCountProvider),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.go('/messages');
+                  },
+                ),
+                _profileMenuItem(
+                  icon: Icons.bookmark_outline,
+                  label: l10n.myFavorites,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _todo(l10n.comingSoonStayTuned);
+                  },
+                ),
+                _profileMenuItem(
+                  icon: Icons.history,
+                  label: l10n.browsingHistory,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _todo(l10n.comingSoonStayTuned);
+                  },
+                ),
+                _profileMenuItem(
+                  icon: Icons.menu_book_outlined,
+                  label: l10n.myNotebookMenuLabel,
+                  trailingText: _notebooks.isNotEmpty ? '${_notebooks.length}' : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/notebook');
+                  },
+                ),
+                Divider(height: 1, thickness: 1, indent: 52, color: Theme.of(ctx).dividerColor),
+                _profileMenuItem(
+                  icon: Icons.article_outlined,
+                  label: l10n.creatorCenter,
+                  trailingText: _totalViews > 0
+                      ? l10n.readCountWithValue(_formatCount(_totalViews))
+                      : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _todo(l10n.creatorCenterComingSoon);
+                  },
+                ),
+                _profileMenuItem(
+                  icon: Icons.drafts_outlined,
+                  label: l10n.draftBox,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _todo(l10n.comingSoonStayTuned);
+                  },
+                ),
+                Divider(height: 1, thickness: 1, indent: 52, color: Theme.of(ctx).dividerColor),
+                _profileMenuItem(
+                  icon: Icons.dark_mode_outlined,
+                  label: l10n.darkModeMenuLabel,
+                  trailingText: _themeLabel(l10n, ref.watch(themeProvider)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/settings');
+                  },
+                ),
+              ],
+            ),
+          ),
+          Container(
+            color: Theme.of(ctx).cardColor,
+            padding: EdgeInsets.fromLTRB(0, 14, 0, 14 + safePadding.bottom),
+            child: Row(
+              children: [
+                _bottomActionButton(
+                  icon: Icons.settings_outlined,
+                  label: l10n.allSettings,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/settings');
+                  },
+                ),
+                _bottomActionButton(
+                  icon: Icons.switch_account_outlined,
+                  label: l10n.switchAccount,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/switch-account');
+                  },
+                ),
+                _bottomActionButton(
+                  icon: Icons.logout,
+                  label: l10n.logout,
+                  color: const Color(0xFFDC2626),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _logout();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
