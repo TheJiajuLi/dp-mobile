@@ -7,6 +7,7 @@ import '../../../core/font_size_provider.dart';
 import '../../../core/notification_provider.dart';
 import '../../../core/theme_provider.dart';
 import '../../auth/auth_service.dart';
+import '../providers/storage_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -119,13 +120,41 @@ class SettingsScreen extends ConsumerWidget {
                       trailing: '简体中文',
                       onTap: () => _todo(context, '多语言即将上线，敬请期待'),
                     ),
-                    _SettingsRow(
-                      icon: Icons.cloud_outlined,
-                      iconColor: const Color(0xFF16A34A),
-                      iconBg: const Color(0xFFE8F8F0),
-                      title: '云端存储',
-                      subtitle: '已用 234 MB / 1 GB',
-                      onTap: () => context.push('/settings/storage'),
+                    Consumer(
+                      builder: (ctx, ref, _) {
+                        final storage = ref.watch(storageUsageProvider);
+                        return storage.when(
+                          data: (data) {
+                            final total = (data['totalBytes'] as num?)?.toInt() ?? 0;
+                            final quota =
+                                (data['quota'] as num?)?.toInt() ?? 200 * 1024 * 1024;
+                            return _SettingsRow(
+                              icon: Icons.cloud_outlined,
+                              iconColor: const Color(0xFF16A34A),
+                              iconBg: const Color(0xFFE8F8F0),
+                              title: '云端存储',
+                              subtitle: '已用 ${_formatBytes(total)} / ${_formatQuota(quota)}',
+                              onTap: () => context.push('/settings/storage'),
+                            );
+                          },
+                          loading: () => _SettingsRow(
+                            icon: Icons.cloud_outlined,
+                            iconColor: const Color(0xFF16A34A),
+                            iconBg: const Color(0xFFE8F8F0),
+                            title: '云端存储',
+                            subtitle: '加载中...',
+                            onTap: () => context.push('/settings/storage'),
+                          ),
+                          error: (_, __) => _SettingsRow(
+                            icon: Icons.cloud_outlined,
+                            iconColor: const Color(0xFF16A34A),
+                            iconBg: const Color(0xFFE8F8F0),
+                            title: '云端存储',
+                            subtitle: '点击查看详情',
+                            onTap: () => context.push('/settings/storage'),
+                          ),
+                        );
+                      },
                     ),
                     _SettingsRow(
                       icon: Icons.delete_outline,
@@ -235,6 +264,19 @@ class SettingsScreen extends ConsumerWidget {
 
   void _todo(BuildContext context, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  String _formatBytes(int b) {
+    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(0)}KB';
+    if (b < 1024 * 1024 * 1024) return '${(b / 1024 / 1024).toStringAsFixed(1)}MB';
+    return '${(b / 1024 / 1024 / 1024).toStringAsFixed(1)}GB';
+  }
+
+  String _formatQuota(int b) {
+    if (b >= 1024 * 1024 * 1024) {
+      return '${(b / 1024 / 1024 / 1024).toStringAsFixed(0)}GB';
+    }
+    return '${(b / 1024 / 1024).toStringAsFixed(0)}MB';
   }
 
   void _showThemePicker(BuildContext context, WidgetRef ref) {

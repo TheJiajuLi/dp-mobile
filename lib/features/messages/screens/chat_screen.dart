@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/utils/storage_checker.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
@@ -79,6 +82,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollCtrl = ScrollController();
   List<ChatMessage> _messages = [];
   bool _loading = true;
+  bool _sendingImage = false;
   Timer? _pollTimer;
 
   @override
@@ -159,6 +163,87 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     await _loadMessages();
   }
 
+  Future<void> _sendImage() async {
+    if (_sendingImage) return;
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 80,
+    );
+    if (file == null) return;
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+
+    // 存储检查放在拿到文件字节之后——发送前才知道这张图实际多大，
+    // 挑图之前根本没有 estimatedBytes 可用
+    final ok = await StorageChecker.checkAndPrompt(
+      context,
+      ref,
+      estimatedBytes: bytes.length,
+    );
+    if (!ok) return;
+    if (!mounted) return;
+
+    setState(() => _sendingImage = true);
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: 'img_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          contentType: DioMediaType('image', 'jpeg'),
+        ),
+      });
+
+      // ApiClient.post 内部吞掉了 DioException，不会抛异常——失败与否要看
+      // res.success，不能只靠 try/catch
+      final uploadRes = await ref
+          .read(apiClientProvider)
+          .post('/auth/files/upload', data: formData);
+      if (!uploadRes.success) {
+        throw Exception(uploadRes.message ?? '上传失败，请重试');
+      }
+
+      final imageUrl = (uploadRes.data as Map)['url'] as String?;
+      if (imageUrl == null) {
+        throw Exception('上传失败，请重试');
+      }
+
+      await _send(text: imageUrl, type: 'image');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('发图失败：${e.toString().replaceAll('Exception: ', '')}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingImage = false);
+    }
+  }
+
+  void _showImagePreview(BuildContext context, String url) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: CachedNetworkImage(imageUrl: url),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showAttachMenu() {
     showModalBottomSheet(
       context: context,
@@ -196,7 +281,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }),
                 _attachBtn(Icons.image, '图片', () {
                   Navigator.pop(ctx);
-                  // TODO: 图片选择
+                  _sendImage();
                 }),
               ],
             ),
@@ -394,6 +479,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
             ),
 
+            // 图片发送中提示——上传/发消息接口都要走一次网络请求，
+            // attach 菜单已经关掉了，不给点反馈会看起来跟点了没反应一样
+            if (_sendingImage)
+              Container(
+                width: double.infinity,
+                color: Theme.of(context).cardColor,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '发送图片中...',
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+                    ),
+                  ],
+                ),
+              ),
+
             // 输入栏
             Container(
               color: Theme.of(context).cardColor,
@@ -481,6 +589,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildBubbleContent(ChatMessage msg, bool isMe) {
+    if (msg.type == 'image') {
+      return GestureDetector(
+        onTap: () => _showImagePreview(context, msg.content),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CachedNetworkImage(
+            imageUrl: msg.content,
+            width: 200,
+            fit: BoxFit.cover,
+            placeholder: (ctx, url) => Container(
+              width: 200,
+              height: 150,
+              color: Colors.grey[200],
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+            errorWidget: (ctx, url, error) => Container(
+              width: 200,
+              height: 100,
+              color: Colors.grey[200],
+              child: const Icon(Icons.broken_image, color: Colors.grey),
+            ),
+          ),
+        ),
+      );
+    }
+
     // type=='latex' 是现在发公式走的路径；旧的 type=='code'+metadata.language
     // 这个组合以前也用来发过公式，两个都认，历史消息不会突然变回代码块
     final isLatex = msg.type == 'latex' || (msg.type == 'code' && msg.metadata?['language'] == 'latex');
