@@ -226,9 +226,12 @@ result
     // 预扫描 input() 调用，运行前一次性弹框收集，不做运行时阻塞
     // （Pyodide 跑在 WebView 主线程，Atomics.wait 那套同步阻塞方案在这里用不了）
     final inputCount = _countInputCalls(cell.code);
+    debugPrint('[Notebook] cell ${cell.id} inputCount=$inputCount code="${cell.code}"');
     var userInputs = <String>[];
     if (inputCount > 0) {
+      debugPrint('[Notebook] calling _collectInputs...');
       final inputs = await _collectInputs(cell.code, inputCount);
+      debugPrint('[Notebook] _collectInputs returned: $inputs (mounted=$mounted)');
       if (!mounted || inputs == null) return; // 用户取消
       userInputs = inputs;
     }
@@ -365,6 +368,10 @@ finally:
     }
 
     final controllers = List.generate(count, (_) => TextEditingController());
+    // 显式给每个输入框绑定自己的 FocusNode——不传的话 Flutter 会在弹窗因键盘
+    // 弹出触发的 MediaQuery 变化而重建时自动创建/回收 FocusNode，容易跟弹窗
+    // 自身的卸载顺序对不上，炸出 "_dependents.isEmpty" 这个断言
+    final focusNodes = List.generate(count, (_) => FocusNode());
 
     final result = await showDialog<List<String>>(
       context: context,
@@ -386,9 +393,11 @@ finally:
               ...List.generate(
                 count,
                 (i) => Padding(
+                  key: ValueKey('input_field_$i'),
                   padding: const EdgeInsets.only(bottom: 12),
                   child: TextField(
                     controller: controllers[i],
+                    focusNode: focusNodes[i],
                     decoration: InputDecoration(
                       labelText: prompts[i].isEmpty
                           ? '输入 ${i + 1}'
@@ -428,6 +437,9 @@ finally:
 
     for (final c in controllers) {
       c.dispose();
+    }
+    for (final f in focusNodes) {
+      f.dispose();
     }
     return result;
   }
@@ -988,21 +1000,25 @@ finally:
                         ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    badgeLabel,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: badgeColor,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      badgeLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: badgeColor,
+                      ),
                     ),
                   ),
                 ),
