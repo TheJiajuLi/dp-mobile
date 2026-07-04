@@ -1,24 +1,80 @@
+import 'dart:async';
+
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+
 import 'core/font_size_provider.dart';
+import 'core/network/api_client.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme_provider.dart';
+import 'features/auth/auth_service.dart';
 
-void main() {
-  runApp(const ProviderScope(child: MyApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // /auth/refresh 认的是登录时后端下发的 dp_refresh HttpOnly cookie，必须
+  // 落盘（PersistCookieJar）才能在 App 被系统整个杀掉重启后依然有效——
+  // 只是"划走切到后台但进程没被杀"的话，内存态的 cookie 本来就不会丢
+  final docsDir = await getApplicationDocumentsDirectory();
+  final cookieJar = PersistCookieJar(
+    ignoreExpires: false,
+    storage: FileStorage('${docsDir.path}/.cookies/'),
+  );
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        apiClientProvider.overrideWith(
+          (ref) => ApiClient(ref, cookieJar: cookieJar),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // App 从后台回来时顺手静默换新 token。真正兜底的其实是 ApiClient
+    // 拦截器里 403 自动刷新重试那套——即使这里没跑或跑失败，下一次真实
+    // 请求撞到过期 token 时也会自动补救，这里只是提前续一下，减少那次
+    // "刚好赶上过期"的请求被迫多绕一次刷新+重试
+    if (state == AppLifecycleState.resumed &&
+        ref.read(currentUserProvider) != null) {
+      unawaited(ref.read(authServiceProvider).silentRefresh());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final themePref = ref.watch(themeProvider);
     final fontSize = ref.watch(fontSizeProvider);
 
     return MaterialApp.router(
-      title: '极梦',
+      title: '',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: switch (themePref) {

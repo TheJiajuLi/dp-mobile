@@ -110,16 +110,21 @@ class AuthService {
     }
   }
 
-  // 后台静默换新 token，不阻塞启动流程。失败（比如临时网络问题）不强制登出——
-  // tryAutoLogin 已经用 /auth/me 验证过 session 有效，这里只是顺手延长有效期
-  Future<void> silentRefresh() async {
+  // 后台静默换新 token，不阻塞启动流程。失败（比如临时网络问题，或者
+  // refresh token/cookie 本身也过期了）不强制登出——调用方决定要不要
+  // 基于返回值做进一步处理（SplashScreen 会在这个失败时才跳登录页）。
+  // 注意：这里换到的新 access token 只是延长了有效期，currentUserProvider
+  // 里的用户数据不会跟着更新——那是 tryAutoLogin/login 走 /auth/me 才做的事
+  Future<bool> silentRefresh() async {
     final userId = await _storage.read(key: AppConstants.keyCurrentUserId);
-    if (userId == null || userId.isEmpty) return;
+    if (userId == null || userId.isEmpty) return false;
     final res = await _api.post('/auth/refresh');
-    if (!res.success || res.data == null) return;
+    if (!res.success || res.data == null) return false;
     final newToken = res.data['accessToken'] as String?;
     if (newToken != null) {
       await _storage.write(key: AppConstants.keyToken(userId), value: newToken);
+      return true;
     }
+    return false;
   }
 }

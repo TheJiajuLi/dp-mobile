@@ -22,15 +22,34 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _restore() async {
-    final ok = await ref.read(authServiceProvider).tryAutoLogin();
+    final authService = ref.read(authServiceProvider);
+
+    final loggedIn = await authService.tryAutoLogin();
     if (!mounted) return;
-    if (ok) {
+    if (loggedIn) {
       // 静默刷新 token，不阻塞跳转
-      unawaited(ref.read(authServiceProvider).silentRefresh());
+      unawaited(authService.silentRefresh());
       context.go('/home');
-    } else {
-      context.go('/login');
+      return;
     }
+
+    // tryAutoLogin 失败——大概率是 access token 过期。ApiClient 的拦截器
+    // 已经会在 /auth/me 收到 403 时自动用 refresh token 换新 token 重试，
+    // 所以正常情况下走不到这里；这里是兜底，防的是拦截器那层万一没生效的
+    // 边界情况。刷新成功后必须再跑一次 tryAutoLogin——silentRefresh 只换
+    // token，不会自己去查 /auth/me 把 currentUserProvider 填上
+    final refreshed = await authService.silentRefresh();
+    if (!mounted) return;
+    if (refreshed) {
+      final loggedInAfterRefresh = await authService.tryAutoLogin();
+      if (!mounted) return;
+      if (loggedInAfterRefresh) {
+        context.go('/home');
+        return;
+      }
+    }
+
+    context.go('/login');
   }
 
   @override

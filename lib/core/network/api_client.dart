@@ -1,18 +1,29 @@
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import '../constants/app_constants.dart';
+import '../router/app_router.dart';
+import '../../features/auth/auth_service.dart';
 import 'api_response.dart';
 
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
+// main() 里会用真正落盘的 PersistCookieJar override 掉这个默认实现——
+// 这里的内存版只是保证没走 override 时（比如测试）也不会直接崩
+final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(ref));
 
 class ApiClient {
+  final Ref _ref;
   final Dio dio;
   final _storage = const FlutterSecureStorage();
 
-  ApiClient()
+  // 多个请求同时撞上 403 时，只真正发一次 /auth/refresh，其余的等同一个
+  // Future，不然峰值时刻会打出一堆重复的刷新请求
+  Future<bool>? _refreshing;
+
+  ApiClient(this._ref, {CookieJar? cookieJar})
     : dio = Dio(
         BaseOptions(
           baseUrl: AppConstants.baseUrl,
@@ -20,6 +31,17 @@ class ApiClient {
           receiveTimeout: const Duration(seconds: 10),
         ),
       ) {
+    // /auth/refresh 认的是登录时后端用 Set-Cookie 下发的 dp_refresh
+    // （HttpOnly + Secure cookie），不是 Authorization 头。Dio 默认不会
+    // 存/带任何 cookie——没有这个 CookieManager，silentRefresh() 实测
+    // 永远拿到 401「未携带 Refresh Token」，是个从没真正生效过的空调用。
+    // dio_cookie_manager 明确不支持 Web（浏览器自己管 cookie），项目里
+    // 那个 web/ 目录是 flutter create 留下来没用过的默认脚手架，但这里
+    // 还是加个 kIsWeb 判断，免得哪天真跑到 Web 上直接断言崩溃
+    if (!kIsWeb) {
+      dio.interceptors.add(CookieManager(cookieJar ?? CookieJar()));
+    }
+
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -36,8 +58,39 @@ class ApiClient {
           }
           handler.next(options);
         },
+        onError: (err, handler) async {
+          // /auth/refresh 这个请求本身失败时不要再递归尝试刷新
+          if (err.requestOptions.extra['skipAuthRefresh'] == true) {
+            return handler.next(err);
+          }
+          // 实测确认：401 是完全没带 token（刷新也没意义，本来就没登录），
+          // 403「Token 无效或已过期」才是 access token 过期的信号
+          if (err.response?.statusCode != 403) {
+            return handler.next(err);
+          }
+
+          final refreshed = await _refreshToken();
+          if (!refreshed) {
+            await _forceLogout();
+            return handler.next(err);
+          }
+
+          try {
+            final userId =
+                await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
+            final newToken = await _storage.read(key: AppConstants.keyToken(userId));
+            final opts = err.requestOptions;
+            opts.headers['Authorization'] = 'Bearer $newToken';
+            final response = await dio.fetch(opts);
+            return handler.resolve(response);
+          } catch (_) {
+            // 用新 token 重试也失败，就把原始错误原样交回去，别吞掉
+            return handler.next(err);
+          }
+        },
       ),
     );
+
     dio.interceptors.add(
       PrettyDioLogger(
         requestBody: true,
@@ -55,6 +108,42 @@ class ApiClient {
         },
       ),
     );
+  }
+
+  Future<bool> _refreshToken() {
+    return _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
+  }
+
+  Future<bool> _doRefresh() async {
+    try {
+      final userId = await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
+      if (userId.isEmpty) return false;
+
+      final res = await dio.post(
+        '/auth/refresh',
+        options: Options(extra: {'skipAuthRefresh': true}),
+      );
+      final data = res.data;
+      final newToken = data is Map ? data['accessToken'] as String? : null;
+      if (res.statusCode == 200 && newToken != null) {
+        await _storage.write(key: AppConstants.keyToken(userId), value: newToken);
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _forceLogout() async {
+    final userId = await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
+    if (userId.isNotEmpty) {
+      await _storage.delete(key: AppConstants.keyToken(userId));
+      await _storage.delete(key: AppConstants.keyUsername(userId));
+    }
+    await _storage.delete(key: AppConstants.keyCurrentUserId);
+    _ref.read(currentUserProvider.notifier).state = null;
+    appRouter.go('/login');
   }
 
   Future<ApiResponse<dynamic>> get(
