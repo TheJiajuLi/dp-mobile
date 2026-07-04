@@ -1503,6 +1503,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
     return Drawer(
       width: 290,
+      // Material 3 的 Drawer 默认自带圆角+悬浮阴影，看起来像一张浮在上面
+      // 的卡片，边角还会露出底下的内容——改成没有圆角的矩形，贴边覆盖到底
+      shape: const RoundedRectangleBorder(),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         child: Column(
