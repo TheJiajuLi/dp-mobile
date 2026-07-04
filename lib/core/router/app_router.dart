@@ -18,10 +18,13 @@ import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/follow_list_screen.dart';
 import '../../features/profile/screens/user_profile_screen.dart';
 import '../../features/publish/screens/publish_screen.dart';
+import '../../features/settings/screens/about_screen.dart';
 import '../../features/settings/screens/account_security_screen.dart';
 import '../../features/settings/screens/login_history_screen.dart';
 import '../../features/settings/screens/payment_screen.dart';
+import '../../features/settings/screens/privacy_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
+import '../../features/settings/screens/storage_screen.dart';
 import '../../features/settings/screens/subscription_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
@@ -64,6 +67,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/subscription',
       builder: (context, state) => const SubscriptionScreen(),
+    ),
+    GoRoute(
+      path: '/settings/privacy',
+      builder: (context, state) => const PrivacyScreen(),
+    ),
+    GoRoute(
+      path: '/settings/storage',
+      builder: (context, state) => const StorageScreen(),
+    ),
+    GoRoute(
+      path: '/settings/about',
+      builder: (context, state) => const AboutScreen(),
     ),
     GoRoute(
       path: '/messages/chat/:conversationId',

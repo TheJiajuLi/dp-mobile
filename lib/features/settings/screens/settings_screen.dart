@@ -85,7 +85,7 @@ class SettingsScreen extends ConsumerWidget {
                       iconBg: const Color(0xFFE8F8F0),
                       title: '隐私',
                       subtitle: '谁可以看我的内容',
-                      onTap: () => _todo(context, '隐私设置即将上线，敬请期待'),
+                      onTap: () => context.push('/settings/privacy'),
                     ),
                   ]),
 
@@ -121,7 +121,7 @@ class SettingsScreen extends ConsumerWidget {
                       iconBg: const Color(0xFFE8F8F0),
                       title: '云端存储',
                       subtitle: '已用 234 MB / 1 GB',
-                      onTap: () => _todo(context, '云存储管理即将上线，敬请期待'),
+                      onTap: () => context.push('/settings/storage'),
                     ),
                     _SettingsRow(
                       icon: Icons.delete_outline,
@@ -182,21 +182,21 @@ class SettingsScreen extends ConsumerWidget {
                       iconBg: const Color(0xFFF5F5F5),
                       title: '关于极梦',
                       subtitle: 'v1.0.0',
-                      onTap: () => _showAbout(context),
+                      onTap: () => context.push('/settings/about'),
                     ),
                     _SettingsRow(
                       icon: Icons.description_outlined,
                       iconColor: Colors.grey,
                       iconBg: const Color(0xFFF5F5F5),
                       title: '用户协议',
-                      onTap: () => _todo(context, '用户协议即将上线，敬请期待'),
+                      onTap: () => context.push('/settings/about'),
                     ),
                     _SettingsRow(
                       icon: Icons.privacy_tip_outlined,
                       iconColor: Colors.grey,
                       iconBg: const Color(0xFFF5F5F5),
                       title: '隐私政策',
-                      onTap: () => _todo(context, '隐私政策即将上线，敬请期待'),
+                      onTap: () => context.push('/settings/about'),
                     ),
                   ]),
 
@@ -363,32 +363,6 @@ class SettingsScreen extends ConsumerWidget {
         context,
       ).showSnackBar(const SnackBar(content: Text('缓存已清除')));
     }
-  }
-
-  void _showAbout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('极梦'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('版本：v1.0.0'),
-            SizedBox(height: 4),
-            Text('为创造而生。'),
-            SizedBox(height: 4),
-            Text('© 2026 Dreaming Polar'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('确定', style: TextStyle(color: Color(0xFF6366F1))),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
