@@ -2,6 +2,7 @@ class UserModel {
   final String id;
   final String username;
   final String email;
+  final String? handle;
   final String? avatar;
   final String? bio;
   final String? website;
@@ -13,11 +14,14 @@ class UserModel {
   final String? location;
   final String? birthday; // YYYY-MM-DD
   final String? zodiac;
+  final int followerCount;
+  final int followingCount;
 
   const UserModel({
     required this.id,
     required this.username,
     required this.email,
+    this.handle,
     this.avatar,
     this.bio,
     this.website,
@@ -26,12 +30,15 @@ class UserModel {
     this.location,
     this.birthday,
     this.zodiac,
+    this.followerCount = 0,
+    this.followingCount = 0,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
     id: json['id'] ?? '',
     username: json['username'] ?? '',
     email: json['email'] ?? '',
+    handle: json['handle'] as String?,
     avatar: json['avatar'],
     bio: json['bio'],
     website: json['website'],
@@ -40,12 +47,15 @@ class UserModel {
     location: json['location'] as String?,
     birthday: json['birthday'] as String?,
     zodiac: json['zodiac'] as String?,
+    followerCount: (json['follower_count'] as num?)?.toInt() ?? 0,
+    followingCount: (json['following_count'] as num?)?.toInt() ?? 0,
   );
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'username': username,
     'email': email,
+    'handle': handle,
     'avatar': avatar,
     'bio': bio,
     'website': website,
@@ -54,6 +64,8 @@ class UserModel {
     'location': location,
     'birthday': birthday,
     'zodiac': zodiac,
+    'follower_count': followerCount,
+    'following_count': followingCount,
   };
 
   UserModel copyWith({
@@ -65,10 +77,13 @@ class UserModel {
     String? location,
     String? birthday,
     String? zodiac,
+    int? followerCount,
+    int? followingCount,
   }) => UserModel(
     id: id,
     username: username ?? this.username,
     email: email,
+    handle: handle,
     avatar: avatar ?? this.avatar,
     bio: bio ?? this.bio,
     website: website ?? this.website,
@@ -77,5 +92,7 @@ class UserModel {
     location: location ?? this.location,
     birthday: birthday ?? this.birthday,
     zodiac: zodiac ?? this.zodiac,
+    followerCount: followerCount ?? this.followerCount,
+    followingCount: followingCount ?? this.followingCount,
   );
 }

@@ -61,6 +61,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   String? _zodiac;
   List<String> _links = [];
   bool _loading = true;
+  // 对方设置了"主页不公开"——GET /auth/users/profile/:id 会整体 403
+  // 拒绝，不带任何资料数据。这种情况下退化成只显示头像/用户名/id 这几项
+  // 基础信息，发布的内容/收藏这些直接隐藏，而不是一直转圈
+  bool _profileBlocked = false;
   bool _startingChat = false;
   bool _uploadingAvatar = false;
   String? _coverImageUrl;
@@ -79,10 +83,85 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   Future<void> _loadProfile() async {
     final api = ref.read(apiClientProvider);
+    final currentUser = ref.read(currentUserProvider);
+    final isOwnProfile = currentUser != null &&
+        (widget.identifier == currentUser.username ||
+            widget.identifier == currentUser.handle ||
+            widget.identifier == currentUser.id);
+
+    // 自己的主页：直接用 currentUserProvider（/auth/me 的数据）拼，完全
+    // 不走 GET /auth/users/profile/:identifier——实测确认过，那个接口的
+    // "该用户已设置主页不公开" 403 连用户查看自己都拦：一旦自己把
+    // publicProfile 关掉，就会被自己的隐私设置锁在自己主页外面（403，
+    // 走到上面 _profileBlocked 那条兜底分支，显示"该用户已设置主页不
+    // 公开"——但"该用户"其实就是自己）。自己的资料本来就不该受这个
+    // 限制，也没有必要为了看自己的主页多打一次网络请求
+    if (isOwnProfile) {
+      final profile = UserProfile(
+        id: currentUser.id,
+        username: currentUser.username,
+        handle: currentUser.handle,
+        avatar: currentUser.avatar,
+        bio: currentUser.bio,
+        website: currentUser.website,
+        gender: currentUser.gender,
+        location: currentUser.location,
+        zodiac: currentUser.zodiac,
+        followerCount: currentUser.followerCount,
+        followingCount: currentUser.followingCount,
+        tutorialCount: 0,
+        createdAt: (currentUser.createdAt ?? 0) * 1000,
+      );
+      await _loadLocalPrefs(profile);
+      if (!widget.showBackButton) {
+        ref.read(myFollowingCountProvider.notifier).state = profile.followingCount;
+      }
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _profileBlocked = false;
+        _loading = false;
+      });
+      await _loadTutorials(currentUser.id, currentUser.username);
+      return;
+    }
 
     final profileRes = await api.get(
       '/auth/users/profile/${widget.identifier}',
     );
+
+    // 主页被对方设置为"不公开"：接口整体 403 拒绝，实测不带任何资料
+    // 字段（不是"隐藏部分字段"，是完全不给）。退回老的
+    // GET /auth/users/:identifier 兜底——这个接口不受隐私开关影响，
+    // 只能拿到 id/用户名/handle/头像 这几项基础信息，够拼一个 NetEase
+    // 风格的受限资料页：发布的内容/收藏这些都拿不到就不展示
+    if (!profileRes.success && profileRes.statusCode == 403) {
+      final basicRes = await api.get('/auth/users/${widget.identifier}');
+      if (!mounted) return;
+      if (basicRes.success && basicRes.data != null) {
+        final profile = UserProfile.fromJson(basicRes.data as Map<String, dynamic>);
+        // 关注状态接口不受隐私开关影响（实测私密资料照样 200），能拿就拿，
+        // 让受限视图里的关注按钮显示真实状态
+        final currentUserId = currentUser?.id;
+        if (currentUserId != null && currentUserId != profile.id) {
+          final followRes = await api.get('/auth/users/${profile.id}/follow-status');
+          if (followRes.success && followRes.data != null) {
+            profile.isFollowing = followRes.data['isFollowing'] == true;
+          }
+        }
+        if (!mounted) return;
+        setState(() {
+          _profile = profile;
+          _profileBlocked = true;
+          _tutorials = [];
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+      }
+      return;
+    }
+
     if (!profileRes.success || profileRes.data == null) {
       if (mounted) setState(() => _loading = false);
       return;
@@ -92,7 +171,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
 
     // 检查是否已关注
-    final currentUserId = ref.read(currentUserProvider)?.id;
+    final currentUserId = currentUser?.id;
     if (currentUserId != null && currentUserId != profile.id) {
       final followRes = await api.get(
         '/auth/users/${profile.id}/follow-status',
@@ -102,37 +181,37 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       }
     }
 
-    // 获取用户教程
-    // 实测 GET /auth/tutorials?author=xxx 这个后端参数目前不生效——传什么
-    // 都返回全站已发布教程，不是这个用户自己的。后端修好之前先客户端过滤，
-    // 否则每个人的主页都会显示别人的教程（数据串读）
+    await _loadLocalPrefs(profile);
+
+    if (!mounted) return;
+    setState(() {
+      _profile = profile;
+      _profileBlocked = false;
+      _loading = false;
+    });
+    await _loadTutorials(profile.id, profile.username);
+  }
+
+  // 实测 GET /auth/tutorials?author=xxx 这个后端参数目前不生效——传什么
+  // 都返回全站已发布教程，不是这个用户自己的。后端修好之前先客户端过滤，
+  // 否则每个人的主页都会显示别人的教程（数据串读）。自己的主页/别人的
+  // 主页都要这份过滤，抽成共用方法，不要两处各写一份容易走样
+  Future<void> _loadTutorials(String userId, String username) async {
+    final api = ref.read(apiClientProvider);
     var tuts = <TutorialModel>[];
     final tutRes = await api.get(
       '/auth/tutorials',
-      queryParameters: {'author': profile.username, 'status': 'published'},
+      queryParameters: {'author': username, 'status': 'published'},
     );
     if (tutRes.success && tutRes.data != null) {
       final rawList = (tutRes.data['tutorials'] as List?) ?? [];
       tuts = rawList
           .map((j) => TutorialModel.fromJson(j as Map<String, dynamic>))
-          .where((t) => t.userId == profile.id)
+          .where((t) => t.userId == userId)
           .toList();
     }
-
-    await _loadLocalPrefs(profile);
-
-    // 自己的主页：把抓到的真实关注数写进共享 provider，作为其他页面
-    // 关注/取关操作时更新的基准值
-    if (!widget.showBackButton) {
-      ref.read(myFollowingCountProvider.notifier).state = profile.followingCount;
-    }
-
     if (!mounted) return;
-    setState(() {
-      _profile = profile;
-      _tutorials = tuts;
-      _loading = false;
-    });
+    setState(() => _tutorials = tuts);
   }
 
   // 个人链接/背景图目前只存在本地 SharedPreferences（后端没有这几个
@@ -522,6 +601,147 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
+  // 对方主页设置了"不公开"：只展示头像/用户名/id 这几项基础信息（像
+  // 网易云那样），发布的内容/收藏这些直接不显示——不复用下面那套带
+  // Positioned 精确定位的头图布局，那套是为了让操作按钮/用户名跟正常
+  // 资料页的九宫格对齐设计的，这里没有九宫格，简单摆一个居中布局即可
+  Widget _buildBlockedProfile(AppLocalizations l10n, double topPad, bool isMe) {
+    return Column(
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const _CoverGradient(),
+            if (widget.showBackButton)
+              Positioned(
+                top: topPad + 8,
+                left: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                  onPressed: () => context.pop(),
+                ),
+              ),
+            Positioned(
+              bottom: -40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.fromBorderSide(
+                      BorderSide(color: Colors.white, width: 3),
+                    ),
+                  ),
+                  child: _buildAvatar(radius: 40),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 48),
+        Text(
+          _profile!.username,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+        if (_profile!.handle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            '@${_profile!.handle}',
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+        ],
+        const SizedBox(height: 16),
+        if (!isMe)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _startingChat ? null : _startChat,
+                icon: _startingChat
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _primary,
+                        ),
+                      )
+                    : const Icon(Icons.message_outlined, size: 16),
+                label: Text(l10n.sendMessageAction),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _primary,
+                  side: const BorderSide(color: _primary),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _toggleFollow,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _profile!.isFollowing
+                      ? Theme.of(context).cardColor
+                      : _primary,
+                  foregroundColor: _profile!.isFollowing
+                      ? Theme.of(context).textTheme.bodyLarge?.color
+                      : Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                ),
+                child: Text(
+                  _profile!.isFollowing ? l10n.followingAction : l10n.followAction,
+                ),
+              ),
+            ],
+          ),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_outline, size: 40, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.profileIsPrivate,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.profileIsPrivateSubtitle,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildAvatar({double radius = 40}) {
     final p = _profile;
     if (p?.avatar != null && p!.avatar!.isNotEmpty) {
@@ -597,6 +817,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
           ? Center(child: Text(l10n.userNotFound))
+          : _profileBlocked
+          ? _buildBlockedProfile(l10n, topPad, isMe)
           : NestedScrollView(
               headerSliverBuilder: (ctx, _) => [
                 SliverToBoxAdapter(

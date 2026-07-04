@@ -67,9 +67,29 @@ class ApiClient {
           if (err.requestOptions.extra['skipAuthRefresh'] == true) {
             return handler.next(err);
           }
-          // 实测确认：401 是完全没带 token（刷新也没意义，本来就没登录），
-          // 403「Token 无效或已过期」才是 access token 过期的信号
-          if (err.response?.statusCode != 403) {
+          // 同一个请求只允许被这层拦截器重试一次——防止下面的 message
+          // 匹配万一失手（后端文案变化等），也不会对着一个刷新完还是 403
+          // 的请求无限递归重试下去
+          if (err.requestOptions.extra['authRetried'] == true) {
+            return handler.next(err);
+          }
+          // 实测确认：401 是完全没带 token（刷新也没意义，本来就没登录）。
+          // 403 不能来者不拒地当成"token 过期"信号去刷新重试——后端有些
+          // 业务拒绝也复用 403（比如查看设置了"主页不公开"的用户资料时
+          // 返回 403 {"message":"该用户已设置主页不公开"}），这种 403
+          // 跟当前用户自己的 token 完全无关：刷新会成功（刷的是当前用户
+          // 自己有效的 token），但用新 token 重试同一个请求还是会撞上
+          // 同样的业务拒绝 403，从而再次触发这层拦截器——刷新+重试+403
+          // 无限递归，表现为页面一直转圈、且反复打 /auth/refresh 和目标
+          // 接口。必须先确认 message 真的是"Token 无效或已过期"这个
+          // access token 过期的专属文案，才值得刷新重试
+          final data = err.response?.data;
+          final message = data is Map ? data['message']?.toString() : null;
+          final isTokenExpired =
+              err.response?.statusCode == 403 &&
+              message != null &&
+              message.contains('Token 无效或已过期');
+          if (!isTokenExpired) {
             return handler.next(err);
           }
 
@@ -85,6 +105,7 @@ class ApiClient {
             final newToken = await _storage.read(key: AppConstants.keyToken(userId));
             final opts = err.requestOptions;
             opts.headers['Authorization'] = 'Bearer $newToken';
+            opts.extra['authRetried'] = true;
             final response = await dio.fetch(opts);
             return handler.resolve(response);
           } catch (_) {

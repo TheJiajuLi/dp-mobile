@@ -368,6 +368,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userNotFound => 'User not found';
 
   @override
+  String get profileIsPrivate => 'This user has set their profile to private';
+
+  @override
+  String get profileIsPrivateSubtitle =>
+      'Published content and favorites aren\'t visible';
+
+  @override
   String get sendMessageAction => 'Message';
 
   @override

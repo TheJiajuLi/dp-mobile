@@ -201,7 +201,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                 // 模板
                 _SectionHeader(title: l10n.templates),
                 const SizedBox(height: 10),
-                SizedBox(height: 110,
+                SizedBox(height: 122,
                   child: ListView(scrollDirection: Axis.horizontal, children: [
                     for (final t in [
                       (l10n.tagDataAnalysis, Icons.bar_chart, const Color(0xFF6366F1), const Color(0xFFEEF0FF), 'python'),
@@ -332,8 +332,10 @@ class _TemplateCard extends StatelessWidget {
     onTap: onTap,
     // 英文文案（如"Machine Learning"）比中文长不少，固定95宽+不限行数的
     // Text 在英文下会把卡片撑到底部溢出——加宽一点，并且把文字限制在2行
-    // 内、超出省略号收尾，两种语言都不会再溢出
-    child: Container(width: 108, height: 110,
+    // 内、超出省略号收尾。上一版只加了maxLines/ellipsis没提高度，2行文字
+    // 实测还是比留给它的34px高2px放不下——这次把卡片和外层横向ListView
+    // 的SizedBox都从110提到122，留出实打实的余量，不再卡在临界值上
+    child: Container(width: 108, height: 122,
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Theme.of(context).cardColor,

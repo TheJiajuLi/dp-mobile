@@ -32,7 +32,12 @@ import '../../shared/widgets/main_shell.dart';
 final appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
-    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
+    GoRoute(
+      path: '/splash',
+      builder: (context, state) => SplashScreen(
+        fromAccountSwitch: state.uri.queryParameters['fromSwitch'] == 'true',
+      ),
+    ),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
     GoRoute(

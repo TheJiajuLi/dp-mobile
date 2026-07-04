@@ -46,8 +46,11 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
     if (ok) {
       // 换账号之后首页/我的等 tab 的页面实例都还是旧账号加载出来的数据，
       // 走 /splash 重新过一遍启动流程，让整个底部导航 shell 重新搭建，
-      // 而不是指望每个页面自己去监听 currentUserProvider 变化刷新
-      context.go('/splash');
+      // 而不是指望每个页面自己去监听 currentUserProvider 变化刷新。
+      // 带上 fromSwitch=true——告诉 SplashScreen 这次不要在 token 验证
+      // 失败时去走 silentRefresh() 兜底（那个兜底假定当前 cookie 就是
+      // 当前账号的，刚切完账号这个假设不成立，兜底反而会串号）
+      context.go('/splash?fromSwitch=true');
       return;
     }
     setState(() {
