@@ -27,7 +27,13 @@ const _coverPalette = [
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle
-  const UserProfileScreen({super.key, required this.identifier});
+  // 作为底部导航"我的" tab 用时是根级页面，没有可以返回的上一页
+  final bool showBackButton;
+  const UserProfileScreen({
+    super.key,
+    required this.identifier,
+    this.showBackButton = true,
+  });
 
   @override
   ConsumerState<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -197,16 +203,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             clipBehavior: Clip.none,
                             children: [
                               Container(height: 120, color: const Color(0xFFEEF0FF), width: double.infinity),
-                              Positioned(
-                                top: 8,
-                                left: 8,
-                                child: SafeArea(
-                                  child: IconButton(
-                                    icon: const Icon(Icons.arrow_back_ios, color: Colors.black54),
-                                    onPressed: () => context.pop(),
+                              if (widget.showBackButton)
+                                Positioned(
+                                  top: 8,
+                                  left: 8,
+                                  child: SafeArea(
+                                    child: IconButton(
+                                      icon: const Icon(Icons.arrow_back_ios, color: Colors.black54),
+                                      onPressed: () => context.pop(),
+                                    ),
                                   ),
                                 ),
-                              ),
                               Positioned(bottom: -36, left: 16, child: _buildAvatar(radius: 36)),
                             ],
                           ),
