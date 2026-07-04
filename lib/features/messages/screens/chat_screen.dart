@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,47 @@ const _primary = Color(0xFF6366F1);
 String _initial(String? name) {
   if (name == null || name.isEmpty) return '?';
   return name.substring(0, 1).toUpperCase();
+}
+
+// 跟全项目其它头像渲染的地方（user_profile_screen/edit_profile_screen/
+// home_screen 等）保持同一套判断：data:image 开头是旧的 base64 头像，
+// 否则是 COS 的图片 URL，用 CachedNetworkImageProvider 而不是 NetworkImage
+// 才能吃到缓存
+Widget _buildAvatar(
+  String? avatar,
+  String username,
+  Color bgColor, {
+  double radius = 16,
+}) {
+  if (avatar != null && avatar.isNotEmpty) {
+    if (avatar.startsWith('data:image')) {
+      try {
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: MemoryImage(base64Decode(avatar.split(',').last)),
+        );
+      } catch (_) {
+        // 解码失败落到下面的首字母占位
+      }
+    } else {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: CachedNetworkImageProvider(avatar),
+      );
+    }
+  }
+  return CircleAvatar(
+    radius: radius,
+    backgroundColor: bgColor,
+    child: Text(
+      _initial(username),
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: radius * 0.75,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 }
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -300,11 +343,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     icon: const Icon(Icons.arrow_back_ios, size: 18),
                     onPressed: () => context.pop(),
                   ),
-                  CircleAvatar(
+                  _buildAvatar(
+                    widget.conversation?.otherAvatar,
+                    otherName,
+                    _primary,
                     radius: 18,
-                    backgroundColor: _primary,
-                    child: Text(_initial(otherName),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -386,12 +429,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: const Color(0xFF16A34A),
-              child: Text(_initial(msg.senderUsername),
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
-            ),
+            _buildAvatar(msg.senderAvatar, msg.senderUsername, const Color(0xFF16A34A)),
             const SizedBox(width: 8),
           ],
           Flexible(
@@ -407,12 +445,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
           if (isMe) ...[
             const SizedBox(width: 8),
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: _primary,
-              child: Text(_initial(msg.senderUsername),
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
-            ),
+            _buildAvatar(msg.senderAvatar, msg.senderUsername, _primary),
           ],
         ],
       ),

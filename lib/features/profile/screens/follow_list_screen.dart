@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +12,31 @@ import '../models/user_profile_model.dart';
 String _initial(String? name) {
   if (name == null || name.isEmpty) return '?';
   return name.substring(0, 1).toUpperCase();
+}
+
+// 跟全项目其它头像渲染的地方保持一致：data:image 是旧的 base64 头像，
+// 否则是 COS 图片 URL
+Widget _buildAvatar(String? avatar, String username) {
+  if (avatar != null && avatar.isNotEmpty) {
+    if (avatar.startsWith('data:image')) {
+      try {
+        return CircleAvatar(
+          backgroundImage: MemoryImage(base64Decode(avatar.split(',').last)),
+        );
+      } catch (_) {
+        // 解码失败落到下面的首字母占位
+      }
+    } else {
+      return CircleAvatar(backgroundImage: CachedNetworkImageProvider(avatar));
+    }
+  }
+  return CircleAvatar(
+    backgroundColor: const Color(0xFF6366F1),
+    child: Text(
+      _initial(username),
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+    ),
+  );
 }
 
 class FollowListScreen extends ConsumerStatefulWidget {
@@ -71,11 +99,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
             itemBuilder: (ctx, i) {
               final u = users[i];
               return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF6366F1),
-                  child: Text(_initial(u.username),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                ),
+                leading: _buildAvatar(u.avatar, u.username),
                 title: Text(u.username, style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: u.handle != null ? Text('@${u.handle}') : null,
                 onTap: () => context.push('/users/${u.username}'),

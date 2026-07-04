@@ -4,6 +4,7 @@ class TutorialModel {
   final String id;
   final String title;
   final String username;
+  final String? userId;
   final String? coverImage;
   final String? summary;
   final String? avatar;
@@ -16,6 +17,7 @@ class TutorialModel {
     required this.id,
     required this.title,
     required this.username,
+    this.userId,
     this.coverImage,
     this.summary,
     this.avatar,
@@ -30,6 +32,7 @@ class TutorialModel {
       id: json['id'].toString(),
       title: json['title']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
+      userId: json['user_id']?.toString(),
       coverImage: json['cover_image']?.toString(),
       summary: json['summary']?.toString(),
       avatar: json['avatar']?.toString(),

@@ -7,6 +7,12 @@ import '../../shared/models/user_model.dart';
 // 当前登录用户状态
 final currentUserProvider = StateProvider<UserModel?>((ref) => null);
 
+// 当前登录用户的"关注"数——UserProfileScreen 在查看自己主页时会用抓到的
+// 真实值初始化它，在任意其他用户主页上关注/取关时也会更新它，这样底部
+// 导航"我的" tab 里那个常驻的 UserProfileScreen 实例（IndexedStack 不会
+// 销毁它）能立刻反映变化，不用等它重新 initState
+final myFollowingCountProvider = StateProvider<int?>((ref) => null);
+
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.read(apiClientProvider), ref);
 });

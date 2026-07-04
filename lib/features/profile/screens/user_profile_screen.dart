@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/models/tutorial_model.dart';
@@ -54,6 +55,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   String _zodiac = '';
   List<String> _links = [];
   bool _loading = true;
+  bool _startingChat = false;
 
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
 
@@ -98,6 +100,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     }
 
     // 获取用户教程
+    // 实测 GET /auth/tutorials?author=xxx 这个后端参数目前不生效——传什么
+    // 都返回全站已发布教程，不是这个用户自己的。后端修好之前先客户端过滤，
+    // 否则每个人的主页都会显示别人的教程（数据串读）
     var tuts = <TutorialModel>[];
     final tutRes = await api.get(
       '/auth/tutorials',
@@ -107,10 +112,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       final rawList = (tutRes.data['tutorials'] as List?) ?? [];
       tuts = rawList
           .map((j) => TutorialModel.fromJson(j as Map<String, dynamic>))
+          .where((t) => t.userId == profile.id)
           .toList();
     }
 
     await _loadLocalPrefs(profile.id);
+
+    // 自己的主页：把抓到的真实关注数写进共享 provider，作为其他页面
+    // 关注/取关操作时更新的基准值
+    if (!widget.showBackButton) {
+      ref.read(myFollowingCountProvider.notifier).state = profile.followingCount;
+    }
 
     if (!mounted) return;
     setState(() {
@@ -159,6 +171,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       ).showSnackBar(SnackBar(content: Text('操作失败：${res.message}')));
       return;
     }
+    final willFollow = !_profile!.isFollowing;
     setState(() {
       if (_profile!.isFollowing) {
         _profile!.isFollowing = false;
@@ -168,45 +181,110 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         _profile!.followerCount++;
       }
     });
+
+    // 这里改的是"对方"的粉丝数（上面已经更新）。这个动作同时也让"我"的
+    // 关注数 +1/-1——这个数字显示在我自己主页那个常驻的 UserProfileScreen
+    // 实例上，不会自动重新加载，所以要通过共享 provider 通知它
+    final current = ref.read(myFollowingCountProvider);
+    ref.read(myFollowingCountProvider.notifier).state =
+        (current ?? 0) + (willFollow ? 1 : -1);
   }
 
   Future<void> _startChat() async {
-    if (_profile == null) return;
-    final api = ref.read(apiClientProvider);
+    if (_profile == null || _startingChat) return;
 
-    // 查找现有会话
-    final res = await api.get('/auth/conversations');
-    if (res.success && res.data != null) {
-      final convs = (res.data['conversations'] as List?) ?? [];
-      final existing = convs.cast<Map<String, dynamic>?>().firstWhere(
-        (c) => c?['other_user_id']?.toString() == _profile!.id,
-        orElse: () => null,
-      );
-      if (existing != null) {
-        if (!mounted) return;
-        context.push('/messages/chat/${existing['id']}');
-        return;
-      }
-    }
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    debugPrint('[Chat] 发消息按钮点击');
+    debugPrint('[Chat] profileId: ${_profile?.id}');
+    debugPrint('[Chat] currentUserId: $currentUserId');
 
-    // 没有现成会话，发一条消息创建新会话
-    final msgRes = await api.post(
-      '/auth/messages',
-      data: {'toUserId': _profile!.id, 'content': '你好！', 'type': 'text'},
-    );
-    if (!msgRes.success || msgRes.data == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('发送失败：${msgRes.message}')));
+    // 未登录时跳登录页，而不是让后面的请求带着空 token 去打后端再报错
+    if (currentUserId == null) {
+      debugPrint('[Chat] 未登录，跳转登录页');
+      if (mounted) context.push('/login');
       return;
     }
-    if (!mounted) return;
-    context.push('/messages/chat/${msgRes.data['conversationId']}');
+
+    setState(() => _startingChat = true);
+    try {
+      final api = ref.read(apiClientProvider);
+
+      // 查找现有会话
+      final res = await api.get('/auth/conversations');
+      if (!res.success) {
+        debugPrint('[Chat] /auth/conversations 请求失败: ${res.message}');
+      }
+      if (res.success && res.data != null) {
+        final convs = (res.data['conversations'] as List?) ?? [];
+        final existing = convs.cast<Map<String, dynamic>?>().firstWhere(
+          (c) => c?['other_user_id']?.toString() == _profile!.id,
+          orElse: () => null,
+        );
+        if (existing != null) {
+          if (!mounted) return;
+          context.push('/messages/chat/${existing['id']}');
+          return;
+        }
+      }
+
+      // 没有现成会话，发一条消息创建新会话
+      final msgRes = await api.post(
+        '/auth/messages',
+        data: {'toUserId': _profile!.id, 'content': '你好！', 'type': 'text'},
+      );
+      if (!msgRes.success || msgRes.data == null) {
+        debugPrint('[Chat] /auth/messages 请求失败: ${msgRes.message}');
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('发送失败：${msgRes.message}')));
+        return;
+      }
+      if (!mounted) return;
+      context.push('/messages/chat/${msgRes.data['conversationId']}');
+    } finally {
+      if (mounted) setState(() => _startingChat = false);
+    }
   }
 
   void _todo(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Widget _linkRow(String displayText, String rawLink) {
+    return GestureDetector(
+      onTap: () => _openLink(rawLink),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.link, size: 13, color: _primary),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              displayText,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                color: _primary,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openLink(String link) async {
+    final url = link.startsWith('http') ? link : 'https://$link';
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok = await canLaunchUrl(uri);
+    if (!ok) {
+      if (mounted) _todo('无法打开该链接');
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _showSettingsSheet() {
@@ -297,6 +375,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final currentUserId = ref.watch(currentUserProvider)?.id;
     final isMe = currentUserId != null && currentUserId == _profile?.id;
     final isSelfView = !widget.showBackButton;
+    final sharedFollowingCount = ref.watch(myFollowingCountProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -422,11 +501,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             const Spacer(),
                             if (!isMe) ...[
                               OutlinedButton.icon(
-                                onPressed: _startChat,
-                                icon: const Icon(
-                                  Icons.message_outlined,
-                                  size: 16,
-                                ),
+                                onPressed: _startingChat ? null : _startChat,
+                                icon: _startingChat
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: _primary,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.message_outlined,
+                                        size: 16,
+                                      ),
                                 label: const Text('发消息'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: _primary,
@@ -553,47 +641,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               ..._links.map(
                                 (link) => Padding(
                                   padding: const EdgeInsets.only(top: 2),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.link,
-                                        size: 13,
-                                        color: _primary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        link,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: _primary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  child: _linkRow(link, link),
                                 ),
                               ),
                             ] else if (_profile!.website?.isNotEmpty ==
                                 true) ...[
                               const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.link,
-                                    size: 13,
-                                    color: _primary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _profile!.website!
-                                        .replaceAll('https://', '')
-                                        .replaceAll('http://', ''),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: _primary,
-                                    ),
-                                  ),
-                                ],
+                              _linkRow(
+                                _profile!.website!
+                                    .replaceAll('https://', '')
+                                    .replaceAll('http://', ''),
+                                _profile!.website!,
                               ),
                             ],
                           ],
@@ -620,7 +678,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             ),
                             _divider(),
                             _statItem(
-                              _formatCount(_profile!.followingCount),
+                              _formatCount(
+                                isSelfView
+                                    ? (sharedFollowingCount ??
+                                        _profile!.followingCount)
+                                    : _profile!.followingCount,
+                              ),
                               '关注',
                               onTap: () => context.push(
                                 '/users/${_profile!.id}/following',
