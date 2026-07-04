@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../auth_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -55,17 +56,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // Logo
               Row(
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.auto_awesome,
-                      color: Colors.white,
-                      size: 24,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SvgPicture.asset(
+                      'assets/images/app_icon.svg',
+                      width: 44,
+                      height: 44,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -81,7 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                '数据科学内容社区',
+                '极梦，为创造而生',
                 style: TextStyle(fontSize: 15, color: AppColors.textMuted),
               ),
               const SizedBox(height: 48),
