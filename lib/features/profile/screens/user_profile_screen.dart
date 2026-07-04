@@ -716,7 +716,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 48),
+                      // 头像/用户名已经在上面 Stack 里用 Positioned 精确摆好了，
+                      // 这里只需要留够"操作按钮行"的高度别压到头像下沿就行——
+                      // 按钮行本身是靠右对齐（Spacer 顶开），左边是空的，不会
+                      // 跟左侧的头像/用户名打架，不需要留一大截空白
+                      const SizedBox(height: 8),
 
                       // 操作按钮行
                       Padding(
@@ -795,7 +799,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
 
                       // 用户信息（用户名已经显示在头像右侧了，这里只放
                       // handle/星座/简介/链接）
@@ -845,26 +849,26 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               ],
                             ),
                             if (_profile!.bio?.isNotEmpty == true) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               Text(
                                 _profile!.bio!,
                                 style: const TextStyle(
                                   fontSize: 14,
-                                  height: 1.5,
+                                  height: 1.3,
                                 ),
                               ),
                             ],
                             if (_links.isNotEmpty) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               ..._links.map(
                                 (link) => Padding(
-                                  padding: const EdgeInsets.only(top: 2),
+                                  padding: const EdgeInsets.only(top: 1),
                                   child: _linkRow(link, link),
                                 ),
                               ),
                             ] else if (_profile!.website?.isNotEmpty ==
                                 true) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               _linkRow(
                                 _profile!.website!
                                     .replaceAll('https://', '')
@@ -875,7 +879,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 8),
 
                       // 统计数据
                       Container(
@@ -919,7 +923,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       Container(
                         color: Theme.of(context).cardColor,
                         child: SizedBox(
-                          height: 36,
+                          height: 32,
                           child: TabBar(
                             controller: _tabCtrl,
                             labelColor: _primary,
