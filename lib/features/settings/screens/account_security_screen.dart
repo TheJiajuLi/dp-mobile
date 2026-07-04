@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../auth/auth_service.dart';
 
 class AccountSecurityScreen extends ConsumerWidget {
   const AccountSecurityScreen({super.key});
@@ -31,15 +33,13 @@ class AccountSecurityScreen extends ConsumerWidget {
                 _SecurityRow(
                   title: '登录记录',
                   subtitle: '查看最近的登录设备和时间',
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('登录记录即将上线，敬请期待')),
-                  ),
+                  onTap: () => context.push('/settings/security/history'),
                 ),
                 _SecurityRow(
                   title: '注销账号',
                   subtitle: '永久删除账号和所有数据',
                   titleColor: const Color(0xFFDC2626),
-                  onTap: () => _showDeleteAccount(context),
+                  onTap: () => _showDeleteAccount(context, ref),
                 ),
               ],
             ),
@@ -66,6 +66,12 @@ class AccountSecurityScreen extends ConsumerWidget {
               ScaffoldMessenger.of(
                 ctx,
               ).showSnackBar(const SnackBar(content: Text('请填写完整')));
+              return;
+            }
+            if (newCtrl.text.length < 6) {
+              ScaffoldMessenger.of(
+                ctx,
+              ).showSnackBar(const SnackBar(content: Text('密码至少6位')));
               return;
             }
             if (newCtrl.text != confirmCtrl.text) {
@@ -200,25 +206,40 @@ class AccountSecurityScreen extends ConsumerWidget {
     );
   }
 
-  void _showDeleteAccount(BuildContext context) {
+  void _showDeleteAccount(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('注销账号'),
-        content: const Text('注销后所有数据将永久删除，无法恢复。确定要继续吗？'),
+        content: const Text(
+          '注销后所有数据将永久删除，包括教程、Notebook、消息记录。\n\n此操作不可撤销。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
+              // 实测 /auth/account 目前是 404，后端还没做这个接口——真上线后
+              // 这里会自动走真实的删除+登出流程，不用等接口就绪再改代码
+              final res = await ref.read(apiClientProvider).delete('/auth/account');
+              if (res.success) {
+                await ref.read(authServiceProvider).logout();
+                if (context.mounted) context.go('/login');
+                return;
+              }
+              if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('注销账号功能即将上线，敬请期待')),
+                SnackBar(
+                  content: Text(
+                    res.statusCode == 404 ? '注销账号功能即将上线，敬请期待' : '注销失败，请稍后重试',
+                  ),
+                ),
               );
             },
-            child: const Text('注销', style: TextStyle(color: Color(0xFFDC2626))),
+            child: const Text('确认注销', style: TextStyle(color: Color(0xFFDC2626))),
           ),
         ],
       ),

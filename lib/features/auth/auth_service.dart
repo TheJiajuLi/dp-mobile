@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/network/api_client.dart';
 import '../../shared/models/user_model.dart';
@@ -48,10 +53,33 @@ class AuthService {
       );
 
       _ref.read(currentUserProvider.notifier).state = user;
+      unawaited(_recordLogin(user.id));
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  // 登录记录目前只在本地存（后端没有这个接口）——只记显式的账号密码登录，
+  // 静默换 token/session 恢复不算一次"登录"，不写进这份记录
+  Future<void> _recordLogin(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final historyRaw = prefs.getString('${userId}_login_history') ?? '[]';
+    final history = List<Map<String, dynamic>>.from(
+      (jsonDecode(historyRaw) as List).map((e) => e as Map<String, dynamic>),
+    );
+    history.add({
+      'time': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      'device': Platform.isIOS
+          ? 'iPhone'
+          : Platform.isAndroid
+          ? 'Android 设备'
+          : '未知设备',
+    });
+    if (history.length > 20) {
+      history.removeRange(0, history.length - 20);
+    }
+    await prefs.setString('${userId}_login_history', jsonEncode(history));
   }
 
   // /auth/register 本身不返回 token（实测只有 {message: '注册成功'} / 409 时
