@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -6,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth_service.dart';
+import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../messages/providers/messages_provider.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -44,13 +47,29 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
     final ok = await ref.read(authServiceProvider).switchToAccount(userId);
     if (!mounted) return;
     if (ok) {
-      // 换账号之后首页/我的等 tab 的页面实例都还是旧账号加载出来的数据，
-      // 走 /splash 重新过一遍启动流程，让整个底部导航 shell 重新搭建，
-      // 而不是指望每个页面自己去监听 currentUserProvider 变化刷新。
-      // 带上 fromSwitch=true——告诉 SplashScreen 这次不要在 token 验证
-      // 失败时去走 silentRefresh() 兜底（那个兜底假定当前 cookie 就是
-      // 当前账号的，刚切完账号这个假设不成立，兜底反而会串号）
-      context.go('/splash?fromSwitch=true');
+      // 之前这里用 context.go('/splash?fromSwitch=true') 让整个底部导航
+      // shell 离开再回来，逼着每个 tab 的页面实例重新 initState、重新
+      // 拉数据。实测（2026-07-05）快速多次切换会撞上 go_router
+      // StatefulShellRoute 内部 Navigator 用的 GlobalKey——上一次离开
+      // shell 的 Navigator 还没销毁完，下一次又带着同一个 key 进来，
+      // 抛"Duplicate GlobalKey detected in widget tree"。这个异常一旦
+      // 抛出，之后的 go() 都会静默失败，界面卡死在切换前那个账号上，
+      // 表现就是"切了好几次都没反应，一直是原来那个号"。
+      //
+      // switchToAccount() 里已经验证过 token 并把 currentUserProvider
+      // 设成新账号了，根本不需要再绕道 /splash 重新查一遍 /auth/me。
+      // 改成原地刷新，不离开 shell：清掉换账号前缓存的"我的"关注数、
+      // 主动重新拉一次私信/通知（不用等 30 秒轮询），然后 go('/home')
+      // 弹回首页 tab——这只是在已经存活的 shell 内部切 branch，不会碰
+      // shell 自己的 Navigator，没有 GlobalKey 冲突的风险。首页的
+      // recentTutorialsProvider 本来就 watch 了 currentUserProvider，
+      // 会自动用新账号重新拉；"我的" tab 有专门的保险（build() 里发现
+      // currentUserProvider 跟已加载的资料对不上号就自动重新加载）
+      ref.read(myFollowingCountProvider.notifier).state = null;
+      unawaited(ref.read(notificationsProvider.notifier).fetch());
+      unawaited(ref.read(conversationsProvider.notifier).fetch());
+      unawaited(_refreshUnreadCount());
+      context.go('/home');
       return;
     }
     setState(() {
@@ -60,6 +79,16 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(AppLocalizations.of(context)!.loginExpiredPleaseRelogin)),
     );
+  }
+
+  // 底部导航消息 tab 的未读角标数——跟 MessagesScreen._loadData() 里查的
+  // 是同一个接口，换完账号主动查一次，不用等消息 tab 那边 30 秒轮询
+  Future<void> _refreshUnreadCount() async {
+    final res = await ref.read(apiClientProvider).get('/auth/notifications/unread-count');
+    if (res.success && res.data != null) {
+      ref.read(unreadCountProvider.notifier).state =
+          (res.data['unread'] as num?)?.toInt() ?? 0;
+    }
   }
 
   Future<void> _remove(String userId) async {

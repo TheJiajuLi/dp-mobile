@@ -236,17 +236,15 @@ class AuthService {
     _ref.read(currentUserProvider.notifier).state = null;
   }
 
-  // 2026-07-05 实测复现的真实 bug：切换账号成功后 go('/splash') 会走到
-  // 这里，原来这里用的是 _api.get('/auth/me')——那个方法会走 ApiClient
-  // 拦截器的完整链路，包括 403 自动刷新。如果刚切过去的这个账号的 access
-  // token 恰好已经过期（15分钟有效期，只要这个账号有一阵子没用过就很容易
-  // 撞上），拦截器会用*全局共享 CookieJar 里当前那个* dp_refresh cookie
-  // 去刷新——而那个 cookie 大概率还是切换前那个账号的（cookie 不是按账号
-  // 分开存的）。刷出来的新 token 实际上属于切换前的账号，却被当成
-  // "刚切过去的这个账号的新 token" 写回它的存储位置，重试请求也换上这个
-  // 混淆的 token，最终 /auth/me 返回的是切换前那个账号的数据——表现出来
-  // 就是"切换账号点了没反应，账号又变回原来那个"，而且这个错误写入还会
-  // 污染两个账号的本地 token，越切越乱。
+  // App 冷启动时 SplashScreen 会调这个方法。2026-07-05 实测复现过的真实
+  // bug：这里原来用的是 _api.get('/auth/me')——那个方法会走 ApiClient
+  // 拦截器的完整链路，包括 403 自动刷新。如果本地存的 access token 恰好
+  // 过期（15分钟有效期），拦截器会用*全局共享 CookieJar 里当前那个*
+  // dp_refresh cookie 去刷新——账号切换（见 switch_account_screen.dart）
+  // 之后这个 cookie 不一定是当前账号的（cookie 不是按账号分开存的），
+  // 刷出来的新 token 可能属于另一个账号，却被当成当前账号的新 token 存下
+  // 去，重试请求也换上这个混淆的 token，最终 /auth/me 返回错的账号数据，
+  // 还会污染两个账号的本地 token，越用越乱。
   //
   // 修法跟 switchToAccount() 里验证 token 时一样：显式传 Authorization
   // 头 + skipAuthRefresh，绕开拦截器的自动刷新，只做一次性验证。token

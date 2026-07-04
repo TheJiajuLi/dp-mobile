@@ -163,7 +163,6 @@
   "logout": "Log out",
   "userNotFound": "User not found",
   "profileIsPrivate": "This user has set their profile to private",
-  "profileIsPrivateSubtitle": "Published content and favorites aren't visible",
   "sendMessageAction": "Message",
   "followingAction": "Following",
   "followAction": "Follow",

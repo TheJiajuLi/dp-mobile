@@ -114,7 +114,6 @@
   "logout": "退出登录",
   "userNotFound": "用户不存在",
   "profileIsPrivate": "该用户已设置主页不公开",
-  "profileIsPrivateSubtitle": "发布的内容、收藏等暂不可见",
   "sendMessageAction": "发消息",
   "followingAction": "已关注",
   "followAction": "关注",

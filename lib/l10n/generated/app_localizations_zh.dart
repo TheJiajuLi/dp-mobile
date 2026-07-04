@@ -365,9 +365,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileIsPrivate => '该用户已设置主页不公开';
 
   @override
-  String get profileIsPrivateSubtitle => '发布的内容、收藏等暂不可见';
-
-  @override
   String get sendMessageAction => '发消息';
 
   @override

@@ -65,6 +65,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 拒绝，不带任何资料数据。这种情况下退化成只显示头像/用户名/id 这几项
   // 基础信息，发布的内容/收藏这些直接隐藏，而不是一直转圈
   bool _profileBlocked = false;
+  // 防止 build() 里那个"账号对不上就重新加载"的保险重复触发——异步加载
+  // 完成、_profile 更新之前，同一批连续几帧 build() 都会看到"对不上"，
+  // 不加这个会对着同一次账号变化打好几次一样的请求
+  bool _reloadingForAccountChange = false;
   bool _startingChat = false;
   bool _uploadingAvatar = false;
   String? _coverImageUrl;
@@ -430,41 +434,49 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+      // showModalBottomSheet 传 backgroundColor: Colors.transparent 时，
+      // 弹层自带的 Material 会变成 MaterialType.transparency（没有颜色）。
+      // 下面的 ListTile 找 Material 祖先画点击水波纹时，会往上找到这个
+      // 透明 Material，而不是这层 Container——Container 不是 Material，
+      // 水波纹就没有画布可画，Flutter 会打印"ListTile background color
+      // or ink splashes may be invisible"警告。用 Material 包一层给
+      // ListTile 一个真正带颜色的画布，而不是 Container
+      builder: (ctx) => Material(
+        color: Theme.of(ctx).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: Text(l10n.selectFromAlbum),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickAndUploadAvatar(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: Text(l10n.takePhoto),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickAndUploadAvatar(ImageSource.camera);
-              },
-            ),
-          ],
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: Text(l10n.selectFromAlbum),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadAvatar(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: Text(l10n.takePhoto),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadAvatar(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -548,54 +560,59 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+      // 原因同 _showAvatarOptions()：backgroundColor 传 transparent 后
+      // 弹层自带的 Material 没有颜色，下面 ListTile 的水波纹会往上找到
+      // 那层透明 Material 而不是这个 Container，导致水波纹画不出来。
+      // 用 Material 直接当最外层，给 ListTile 一个真正带颜色的画布
+      builder: (ctx) => Material(
+        color: Theme.of(ctx).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined, color: Colors.grey),
-              title: Text(l10n.allSettings),
-              subtitle: Text(
-                l10n.allSettingsSubtitle,
-                style: const TextStyle(fontSize: 12),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.settings_outlined, color: Colors.grey),
+                title: Text(l10n.allSettings),
+                subtitle: Text(
+                  l10n.allSettingsSubtitle,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/settings');
+                },
               ),
-              onTap: () {
-                Navigator.pop(ctx);
-                context.push('/settings');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.switch_account_outlined, color: Colors.grey),
-              title: Text(l10n.switchAccount),
-              onTap: () {
-                Navigator.pop(ctx);
-                context.push('/switch-account');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: Text(l10n.logout, style: const TextStyle(color: Colors.red)),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await ref.read(authServiceProvider).logout();
-                if (mounted) context.go('/login');
-              },
-            ),
-          ],
+              ListTile(
+                leading: const Icon(Icons.switch_account_outlined, color: Colors.grey),
+                title: Text(l10n.switchAccount),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/switch-account');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: Text(l10n.logout, style: const TextStyle(color: Colors.red)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ref.read(authServiceProvider).logout();
+                  if (mounted) context.go('/login');
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -724,15 +741,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.profileIsPrivateSubtitle,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -780,6 +788,24 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final currentUser = ref.watch(currentUserProvider);
+    // "我的" tab 是 IndexedStack 里的常驻实例，不会随便重新 initState。
+    // 正常情况下账号切换会整个走一遍 /splash 让整个底部导航 shell 重新
+    // 搭建，这个实例本身也会被销毁重建；这里额外加一层保险——万一哪次
+    // 这个实例活了下来（或者它 initState 时 currentUserProvider 恰好还
+    // 没填上，_loadProfile() 里 isOwnProfile 判断成了"查看别人"），只要
+    // 发现当前登录用户跟已加载的资料对不上号，强制重新加载，不指望这个
+    // 常驻实例自己会知道要刷新
+    if (!widget.showBackButton &&
+        !_loading &&
+        !_reloadingForAccountChange &&
+        currentUser != null &&
+        currentUser.id != _profile?.id) {
+      _reloadingForAccountChange = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (mounted) await _loadProfile();
+        _reloadingForAccountChange = false;
+      });
+    }
     final isMe = currentUser != null && currentUser.id == _profile?.id;
     final isSelfView = !widget.showBackButton;
     final sharedFollowingCount = ref.watch(myFollowingCountProvider);
@@ -896,6 +922,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             top: 120,
                             left: 16,
                             child: Stack(
+                              // 默认 Clip.hardEdge 会把下面相机角标特意放大的
+                              // 那圈"看不见但能点"的判定区域按 Stack 自身
+                              // （头像本身的）边界裁掉——角标视觉上没变小，
+                              // 但真实可点范围被砍回了跟视觉一样大的 24x24，
+                              // 边缘几像素点不中，感觉像"点了没反应"
+                              clipBehavior: Clip.none,
                               alignment: Alignment.center,
                               children: [
                                 Container(
@@ -917,25 +949,38 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   ),
                                 if (isSelfView)
                                   Positioned(
-                                    right: 0,
-                                    bottom: 0,
+                                    // 视觉上的圆角标还是 24x24，但可点区域
+                                    // 放大到 40x40（居中对齐同一个圆心），
+                                    // 更接近 iOS/Material 建议的最小 44pt
+                                    // 触控热区，角标又正好在头像跟顶部封面
+                                    // 图两块可点区域的交界处，热区太小很容易
+                                    // 点偏到旁边的封面图上，表现就是"点这个
+                                    // 没有用"
+                                    right: -8,
+                                    bottom: -8,
                                     child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
                                       onTap: _showAvatarOptions,
                                       child: Container(
-                                        width: 24,
-                                        height: 24,
-                                        decoration: BoxDecoration(
-                                          color: _primary,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
+                                        width: 40,
+                                        height: 40,
+                                        alignment: Alignment.center,
+                                        child: Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: _primary,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
                                           ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.camera_alt,
-                                          color: Colors.white,
-                                          size: 12,
+                                          child: const Icon(
+                                            Icons.camera_alt,
+                                            color: Colors.white,
+                                            size: 12,
+                                          ),
                                         ),
                                       ),
                                     ),

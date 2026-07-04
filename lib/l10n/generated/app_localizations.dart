@@ -782,12 +782,6 @@ abstract class AppLocalizations {
   /// **'This user has set their profile to private'**
   String get profileIsPrivate;
 
-  /// No description provided for @profileIsPrivateSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Published content and favorites aren\'t visible'**
-  String get profileIsPrivateSubtitle;
-
   /// No description provided for @sendMessageAction.
   ///
   /// In en, this message translates to:
