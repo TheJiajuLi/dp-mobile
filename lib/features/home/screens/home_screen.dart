@@ -117,7 +117,7 @@ class HomeScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    '应用中心',
+                    '极梦应用中心',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,

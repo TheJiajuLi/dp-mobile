@@ -11,6 +11,7 @@ import '../../../core/network/api_client.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
+import '../../messages/models/conversation_model.dart';
 import '../../notebook/services/notebook_service.dart';
 import '../models/user_profile_model.dart';
 
@@ -222,7 +223,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         );
         if (existing != null) {
           if (!mounted) return;
-          context.push('/messages/chat/${existing['id']}');
+          context.push(
+            '/messages/chat/${existing['id']}',
+            extra: Conversation.fromJson(existing),
+          );
           return;
         }
       }
@@ -241,7 +245,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         return;
       }
       if (!mounted) return;
-      context.push('/messages/chat/${msgRes.data['conversationId']}');
+      // /auth/messages 只返回 {message, messageId, conversationId}，没有
+      // 对方的 username/avatar——用已经加载好的 _profile 拼一个 Conversation，
+      // 不然 ChatScreen 拿到的 conversation 是 null，发消息会因为
+      // otherUserId 是空字符串而在 _send() 里直接静默 return
+      context.push(
+        '/messages/chat/${msgRes.data['conversationId']}',
+        extra: Conversation(
+          id: msgRes.data['conversationId'].toString(),
+          otherUserId: _profile!.id,
+          otherUsername: _profile!.username,
+          otherAvatar: _profile!.avatar,
+          unreadCount: 0,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _startingChat = false);
     }

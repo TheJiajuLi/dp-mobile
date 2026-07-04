@@ -125,12 +125,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     String type = 'text',
     Map<String, dynamic>? metadata,
   }) async {
+    debugPrint('[Chat] _send调用');
     final content = text ?? _ctrl.text.trim();
-    if (content.isEmpty) return;
+    debugPrint('[Chat] content: "$content"');
+    if (content.isEmpty) {
+      debugPrint('[Chat] ❌ content为空');
+      return;
+    }
 
     final otherId = widget.conversation?.otherUserId ?? '';
-    if (otherId.isEmpty) return;
+    debugPrint('[Chat] conversationId: ${widget.conversationId}');
+    debugPrint('[Chat] conversation: ${widget.conversation}');
+    debugPrint('[Chat] otherId: "$otherId"');
+    if (otherId.isEmpty) {
+      debugPrint('[Chat] ❌ otherId为空，无法发送');
+      return;
+    }
 
+    debugPrint('[Chat] 准备发送到 /auth/messages');
     _ctrl.clear();
     final res = await ref.read(apiClientProvider).post('/auth/messages', data: {
       'toUserId': otherId,
@@ -402,7 +414,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: _send,
+                    onTap: () {
+                      debugPrint('[Chat] 发送按钮点击');
+                      _send();
+                    },
                     child: Container(
                       width: 36,
                       height: 36,
