@@ -296,3 +296,55 @@ Slogan：极梦，为创造而生
 后端目录：/root/dp-auth-backend
 进程管理：pm2，服务名dp-auth，端口3001
 数据库：MySQL，内网10.5.0.6:3306，库名dp_users
+
+## 重要踩坑补充（2026-07-04更新）
+
+### 15. Express路由顺序陷阱
+/users/:username 必须注册在所有精确路由之后
+否则 /users/search 会被当成 username="search" 处理
+正确顺序：
+  GET /users/search       ← 精确路由在前
+  GET /users/profile/:id  ← 精确路由在前
+  GET /users/handle       ← 精确路由在前
+  GET /users/:username    ← 通配符路由在最后
+
+### 16. birthday时区问题
+后端服务器UTC+8，存DATE字段返回UTC时间戳
+提交：YYYY-MM-DD字符串（不能带时区）
+返回：2002-10-21T16:00:00.000Z（需+8小时修正）
+Flutter侧用 _parseBackendBirthday() 处理
+如果后端改为DATE列存储，需移除客户端修正
+
+### 17. GET /auth/files 实际格式
+返回的是裸数组，不是{files:[...]}：
+[{id, filename, file_type, size_bytes, created_at, updated_at}]
+注意：列表接口没有cos_key/url字段
+只有上传响应才有：{id, filename, url, cos_key}
+
+### 18. GET /auth/users/profile/:identifier
+目前不返回gender/location/zodiac字段
+查看自己主页时用currentUserProvider（来自/auth/me）
+查看别人主页时这些字段暂时不显示
+
+### 19. 403拦截器区分业务错误和token错误
+业务403（不公开/无权限）→ 直接返回错误，不触发refresh
+token403（过期/无效）→ 触发refresh
+否则会形成死循环DOS服务器
+
+### 20. 轮询频率
+消息通知：60秒
+私信列表：15秒
+个人主页：不轮询，只在进入/下拉刷新时加载
+/auth/me：只在启动/编辑资料后调用，不轮询
+
+### 21. 隐私设置
+privacy_public_profile/favorites/allow_comments/messages
+存在users表，GET /auth/me返回
+PUT /auth/users/privacy 更新
+查看他人主页时后端检查privacy_public_profile
+
+### 22. 用户搜索
+GET /auth/users/search?handle=xxx
+支持handle和username的精确/前缀匹配
+Flutter端自动去掉@前缀再搜索
+搜不到返回{users:[]} HTTP 200，不是404
