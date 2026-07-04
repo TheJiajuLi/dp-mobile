@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -78,7 +79,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('操作失败：${res.message}')));
+      ).showSnackBar(SnackBar(content: Text(
+        AppLocalizations.of(context)!.actionFailedWithReason('${res.message}'),
+      )));
       return;
     }
     setState(() {
@@ -277,9 +280,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     }
 
     if (_tutorial == null) {
+      final l10n = AppLocalizations.of(context)!;
       return Scaffold(
-        appBar: AppBar(title: const Text('教程')),
-        body: const Center(child: Text('教程不存在')),
+        appBar: AppBar(title: Text(l10n.tutorial)),
+        body: Center(child: Text(l10n.tutorialNotFound)),
       );
     }
 

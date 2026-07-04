@@ -4,32 +4,42 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/font_size_provider.dart';
+import '../../../core/locale_provider.dart';
 import '../../../core/notification_provider.dart';
 import '../../../core/theme_provider.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 import '../providers/storage_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
-  static const _themeLabels = {
-    ThemePreference.system: '跟随系统',
-    ThemePreference.light: '浅色',
-    ThemePreference.dark: '深色',
+  static Map<ThemePreference, String> _themeLabels(AppLocalizations l10n) => {
+    ThemePreference.system: l10n.themeSystem,
+    ThemePreference.light: l10n.themeLight,
+    ThemePreference.dark: l10n.themeDark,
   };
 
   // double 重写了 ==/hashCode，不能作为 const map 的 key，这里用 final
-  static final _fontSizeLabels = <double, String>{
-    0.85: '小',
-    1.0: '标准',
-    1.15: '大',
-    1.3: '超大',
+  static Map<double, String> _fontSizeLabels(AppLocalizations l10n) => {
+    0.85: l10n.fontSizeSmall,
+    1.0: l10n.fontSizeStandard,
+    1.15: l10n.fontSizeLarge,
+    1.3: l10n.fontSizeExtraLarge,
+  };
+
+  static Map<AppLocale, String> _localeLabels(AppLocalizations l10n) => {
+    AppLocale.system: l10n.themeSystem,
+    AppLocale.zh: l10n.languageZh,
+    AppLocale.en: l10n.languageEn,
   };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final themePref = ref.watch(themeProvider);
     final fontSize = ref.watch(fontSizeProvider);
+    final localePref = ref.watch(localeProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -50,7 +60,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '设置',
+                    l10n.settingsTitle,
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -63,22 +73,22 @@ class SettingsScreen extends ConsumerWidget {
             Expanded(
               child: ListView(
                 children: [
-                  const _SectionTitle('账号'),
+                  _SectionTitle(l10n.sectionAccount),
                   _SettingsGroup([
                     _SettingsRow(
                       icon: Icons.shield_outlined,
                       iconColor: const Color(0xFF2563EB),
                       iconBg: const Color(0xFFE6F1FB),
-                      title: '账号安全',
-                      subtitle: '密码、登录记录',
+                      title: l10n.accountSecurity,
+                      subtitle: l10n.accountSecuritySubtitle,
                       onTap: () => context.push('/settings/security'),
                     ),
                     _SettingsRow(
                       icon: Icons.notifications_outlined,
                       iconColor: const Color(0xFF6366F1),
                       iconBg: const Color(0xFFEEF0FF),
-                      title: '通知设置',
-                      subtitle: '点赞、评论、关注',
+                      title: l10n.notificationSettings,
+                      subtitle: l10n.notificationSettingsSubtitle,
                       onTap: () => showModalBottomSheet(
                         context: context,
                         builder: (_) => const _NotifSettingsSheet(),
@@ -88,37 +98,37 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.lock_outlined,
                       iconColor: const Color(0xFF16A34A),
                       iconBg: const Color(0xFFE8F8F0),
-                      title: '隐私',
-                      subtitle: '谁可以看我的内容',
+                      title: l10n.privacy,
+                      subtitle: l10n.privacySubtitle,
                       onTap: () => context.push('/settings/privacy'),
                     ),
                   ]),
 
-                  const _SectionTitle('通用'),
+                  _SectionTitle(l10n.sectionGeneral),
                   _SettingsGroup([
                     _SettingsRow(
                       icon: Icons.palette_outlined,
                       iconColor: const Color(0xFFD97706),
                       iconBg: const Color(0xFFFFF7E6),
-                      title: '主题',
-                      trailing: _themeLabels[themePref],
+                      title: l10n.theme,
+                      trailing: _themeLabels(l10n)[themePref],
                       onTap: () => _showThemePicker(context, ref),
                     ),
                     _SettingsRow(
                       icon: Icons.text_fields,
                       iconColor: const Color(0xFF6366F1),
                       iconBg: const Color(0xFFEEF0FF),
-                      title: '字体大小',
-                      trailing: _fontSizeLabels[fontSize] ?? '标准',
+                      title: l10n.fontSize,
+                      trailing: _fontSizeLabels(l10n)[fontSize] ?? l10n.fontSizeStandard,
                       onTap: () => _showFontPicker(context, ref),
                     ),
                     _SettingsRow(
                       icon: Icons.language,
                       iconColor: const Color(0xFF2563EB),
                       iconBg: const Color(0xFFE6F1FB),
-                      title: '语言',
-                      trailing: '简体中文',
-                      onTap: () => _todo(context, '多语言即将上线，敬请期待'),
+                      title: l10n.language,
+                      trailing: _localeLabels(l10n)[localePref],
+                      onTap: () => _showLanguagePicker(context, ref),
                     ),
                     Consumer(
                       builder: (ctx, ref, _) {
@@ -132,8 +142,11 @@ class SettingsScreen extends ConsumerWidget {
                               icon: Icons.cloud_outlined,
                               iconColor: const Color(0xFF16A34A),
                               iconBg: const Color(0xFFE8F8F0),
-                              title: '云端存储',
-                              subtitle: '已用 ${_formatBytes(total)} / ${_formatQuota(quota)}',
+                              title: l10n.cloudStorage,
+                              subtitle: l10n.storageUsedOfQuota(
+                                _formatBytes(total),
+                                _formatQuota(quota),
+                              ),
                               onTap: () => context.push('/settings/storage'),
                             );
                           },
@@ -141,16 +154,16 @@ class SettingsScreen extends ConsumerWidget {
                             icon: Icons.cloud_outlined,
                             iconColor: const Color(0xFF16A34A),
                             iconBg: const Color(0xFFE8F8F0),
-                            title: '云端存储',
-                            subtitle: '加载中...',
+                            title: l10n.cloudStorage,
+                            subtitle: l10n.loadingEllipsis,
                             onTap: () => context.push('/settings/storage'),
                           ),
                           error: (_, __) => _SettingsRow(
                             icon: Icons.cloud_outlined,
                             iconColor: const Color(0xFF16A34A),
                             iconBg: const Color(0xFFE8F8F0),
-                            title: '云端存储',
-                            subtitle: '点击查看详情',
+                            title: l10n.cloudStorage,
+                            subtitle: l10n.tapToViewDetails,
                             onTap: () => context.push('/settings/storage'),
                           ),
                         );
@@ -160,20 +173,20 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.delete_outline,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
-                      title: '清除缓存',
+                      title: l10n.clearCache,
                       onTap: () => _clearCache(context, ref),
                     ),
                   ]),
 
-                  const _SectionTitle('会员中心'),
+                  _SectionTitle(l10n.sectionMembership),
                   _SettingsGroup([
                     _SettingsRow(
                       icon: Icons.workspace_premium,
                       iconColor: const Color(0xFFD97706),
                       iconBg: const Color(0xFFFFF7E6),
-                      title: '我的会员',
-                      subtitle: '当前：免费版',
-                      trailing: '升级 Pro',
+                      title: l10n.myMembership,
+                      subtitle: l10n.currentFreeVersion,
+                      trailing: l10n.upgradePro,
                       trailingColor: const Color(0xFF6366F1),
                       onTap: () => context.push('/settings/subscription'),
                     ),
@@ -181,27 +194,27 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.credit_card_outlined,
                       iconColor: const Color(0xFF2563EB),
                       iconBg: const Color(0xFFE6F1FB),
-                      title: '支付方式',
-                      subtitle: '管理绑定的支付方式',
+                      title: l10n.paymentMethod,
+                      subtitle: l10n.paymentMethodSubtitle,
                       onTap: () => context.push('/settings/payment'),
                     ),
                     _SettingsRow(
                       icon: Icons.receipt_long_outlined,
                       iconColor: const Color(0xFF16A34A),
                       iconBg: const Color(0xFFE8F8F0),
-                      title: '订阅管理',
-                      subtitle: '查看订阅记录',
+                      title: l10n.subscriptionManagement,
+                      subtitle: l10n.subscriptionManagementSubtitle,
                       onTap: () => context.push('/settings/subscription'),
                     ),
                   ]),
 
-                  const _SectionTitle('关于'),
+                  _SectionTitle(l10n.sectionAbout),
                   _SettingsGroup([
                     _SettingsRow(
                       icon: Icons.info_outline,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
-                      title: '关于极梦',
+                      title: l10n.aboutApp,
                       subtitle: 'v1.0.0',
                       onTap: () => context.push('/settings/about'),
                     ),
@@ -209,14 +222,14 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.description_outlined,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
-                      title: '用户协议',
+                      title: l10n.userAgreement,
                       onTap: () => context.push('/settings/about'),
                     ),
                     _SettingsRow(
                       icon: Icons.privacy_tip_outlined,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
-                      title: '隐私政策',
+                      title: l10n.privacyPolicy,
                       onTap: () => context.push('/settings/about'),
                     ),
                   ]),
@@ -227,14 +240,14 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.switch_account_outlined,
                       iconColor: const Color(0xFF2563EB),
                       iconBg: const Color(0xFFE6F1FB),
-                      title: '切换账号',
+                      title: l10n.switchAccount,
                       onTap: () => _switchAccount(context, ref),
                     ),
                     _SettingsRow(
                       icon: Icons.logout,
                       iconColor: const Color(0xFFDC2626),
                       iconBg: const Color(0xFFFEF2F2),
-                      title: '退出登录',
+                      title: l10n.logout,
                       titleColor: const Color(0xFFDC2626),
                       onTap: () => _logout(context, ref),
                     ),
@@ -248,10 +261,6 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  void _todo(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   String _formatBytes(int b) {
@@ -268,6 +277,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showThemePicker(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -290,7 +300,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '主题',
+              l10n.theme,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -302,7 +312,7 @@ class SettingsScreen extends ConsumerWidget {
               builder: (ctx, ref, _) {
                 final current = ref.watch(themeProvider);
                 return Column(
-                  children: _themeLabels.entries
+                  children: _themeLabels(l10n).entries
                       .map(
                         (e) => ListTile(
                           title: Text(e.value),
@@ -327,6 +337,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showFontPicker(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -349,7 +360,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '字体大小',
+              l10n.fontSize,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -361,7 +372,7 @@ class SettingsScreen extends ConsumerWidget {
               builder: (ctx, ref, _) {
                 final current = ref.watch(fontSizeProvider);
                 return Column(
-                  children: _fontSizeLabels.entries
+                  children: _fontSizeLabels(l10n).entries
                       .map(
                         (e) => ListTile(
                           title: Text(e.value),
@@ -370,6 +381,66 @@ class SettingsScreen extends ConsumerWidget {
                               : null,
                           onTap: () {
                             ref.read(fontSizeProvider.notifier).setSize(e.key);
+                            Navigator.pop(ctx);
+                          },
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLanguagePicker(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.selectLanguage,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(ctx).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Consumer(
+              builder: (ctx, ref, _) {
+                final current = ref.watch(localeProvider);
+                return Column(
+                  children: _localeLabels(l10n).entries
+                      .map(
+                        (e) => ListTile(
+                          title: Text(e.value),
+                          trailing: current == e.key
+                              ? const Icon(Icons.check, color: Color(0xFF6366F1))
+                              : null,
+                          onTap: () {
+                            ref.read(localeProvider.notifier).setLocale(e.key);
                             Navigator.pop(ctx);
                           },
                         ),
@@ -401,26 +472,27 @@ class SettingsScreen extends ConsumerWidget {
       await prefs.remove(key);
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('缓存已清除')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.cacheCleared)),
+      );
     }
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出当前账号吗？'),
+        title: Text(l10n.logout),
+        content: Text(l10n.confirmLogoutMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('退出', style: TextStyle(color: Color(0xFFDC2626))),
+            child: Text(l10n.exit, style: const TextStyle(color: Color(0xFFDC2626))),
           ),
         ],
       ),
@@ -432,19 +504,20 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _switchAccount(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('切换账号'),
-        content: const Text('退出当前账号并跳转到登录页？'),
+        title: Text(l10n.switchAccount),
+        content: Text(l10n.switchAccountConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('确认', style: TextStyle(color: Color(0xFF6366F1))),
+            child: Text(l10n.confirm, style: const TextStyle(color: Color(0xFF6366F1))),
           ),
         ],
       ),
@@ -460,6 +533,7 @@ class _NotifSettingsSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final settings = ref.watch(notifProvider);
     final notifier = ref.read(notifProvider.notifier);
 
@@ -482,7 +556,7 @@ class _NotifSettingsSheet extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '通知设置',
+            l10n.notificationSettings,
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -490,19 +564,19 @@ class _NotifSettingsSheet extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          _toggle('点赞通知', settings.likes, (v) => notifier.toggle('likes', v)),
+          _toggle(l10n.likeNotifications, settings.likes, (v) => notifier.toggle('likes', v)),
           _toggle(
-            '评论通知',
+            l10n.commentNotifications,
             settings.comments,
             (v) => notifier.toggle('comments', v),
           ),
           _toggle(
-            '关注通知',
+            l10n.followNotifications,
             settings.follows,
             (v) => notifier.toggle('follows', v),
           ),
           _toggle(
-            '系统通知',
+            l10n.systemNotifications,
             settings.system,
             (v) => notifier.toggle('system', v),
           ),

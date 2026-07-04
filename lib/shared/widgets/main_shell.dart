@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/messages/providers/messages_provider.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 class MainShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -18,6 +19,7 @@ class MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
@@ -34,14 +36,14 @@ class MainShell extends StatelessWidget {
                 _NavItem(
                   icon: Icons.home_outlined,
                   activeIcon: Icons.home,
-                  label: '首页',
+                  label: l10n.navHome,
                   selected: navigationShell.currentIndex == 0,
                   onTap: () => _onTap(0),
                 ),
                 _NavItem(
                   icon: Icons.groups_outlined,
                   activeIcon: Icons.groups,
-                  label: '社区',
+                  label: l10n.navCommunity,
                   selected: navigationShell.currentIndex == 1,
                   onTap: () => _onTap(1),
                 ),
@@ -52,7 +54,7 @@ class MainShell extends StatelessWidget {
                     return _NavItem(
                       icon: Icons.chat_bubble_outline,
                       activeIcon: Icons.chat_bubble,
-                      label: '消息',
+                      label: l10n.messagesTitle,
                       selected: navigationShell.currentIndex == 2,
                       badgeCount: unread,
                       onTap: () => _onTap(2),
@@ -62,7 +64,7 @@ class MainShell extends StatelessWidget {
                 _NavItem(
                   icon: Icons.person_outline,
                   activeIcon: Icons.person,
-                  label: '我的',
+                  label: l10n.navProfile,
                   selected: navigationShell.currentIndex == 3,
                   onTap: () => _onTap(3),
                 ),

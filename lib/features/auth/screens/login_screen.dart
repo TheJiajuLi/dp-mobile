@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../auth_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -38,12 +39,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (ok) {
       context.go('/home');
     } else {
-      setState(() => _error = '邮箱或密码不正确');
+      setState(() => _error = AppLocalizations.of(context)!.loginErrorInvalidCredentials);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       // 大部分情况下登录页是 go() 跳过来的根页面，Navigator.canPop 是
       // false，不会显示这个返回键；但万一将来哪里改成 push 到登录页
@@ -82,7 +84,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '极梦',
+                    l10n.appName,
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
@@ -93,7 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                '为创造而生',
+                l10n.appSlogan,
                 style: TextStyle(
                   fontSize: 15,
                   color: Theme.of(context).textTheme.bodySmall?.color,
@@ -102,7 +104,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 48),
               // 邮箱
               Text(
-                '邮箱',
+                l10n.emailLabel,
                 style: TextStyle(
                   fontSize: 13,
                   color: Theme.of(context).textTheme.bodySmall?.color,
@@ -147,7 +149,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 16),
               // 密码
               Text(
-                '密码',
+                l10n.passwordLabel,
                 style: TextStyle(
                   fontSize: 13,
                   color: Theme.of(context).textTheme.bodySmall?.color,
@@ -159,7 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 controller: _pwdCtrl,
                 obscureText: _obscure,
                 decoration: InputDecoration(
-                  hintText: '请输入密码',
+                  hintText: l10n.passwordHint,
                   filled: true,
                   fillColor: Theme.of(context).cardColor,
                   border: OutlineInputBorder(
@@ -230,9 +232,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text(
-                          '登录',
-                          style: TextStyle(
+                      : Text(
+                          l10n.login,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -243,9 +245,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Center(
                 child: TextButton(
                   onPressed: () => context.push('/register'),
-                  child: const Text(
-                    '还没有账号？注册',
-                    style: TextStyle(color: AppColors.primary, fontSize: 14),
+                  child: Text(
+                    l10n.noAccountRegister,
+                    style: const TextStyle(color: AppColors.primary, fontSize: 14),
                   ),
                 ),
               ),

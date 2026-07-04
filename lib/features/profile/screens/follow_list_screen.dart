@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../models/user_profile_model.dart';
 
 String _initial(String? name) {
@@ -62,7 +63,8 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.type == 'followers' ? '粉丝' : '关注';
+    final l10n = AppLocalizations.of(context)!;
+    final title = widget.type == 'followers' ? l10n.followersCountLabel : l10n.followingCountLabel;
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -79,7 +81,10 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
           final res = snap.data!;
           if (!res.success || res.data == null) {
             return Center(
-              child: Text('加载失败：${res.message ?? ""}', style: const TextStyle(color: Colors.grey)),
+              child: Text(
+                l10n.loadFailedWithReason(res.message ?? ''),
+                style: const TextStyle(color: Colors.grey),
+              ),
             );
           }
           final key = widget.type == 'followers' ? 'followers' : 'following';
@@ -89,8 +94,10 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
 
           if (users.isEmpty) {
             return Center(
-              child: Text(widget.type == 'followers' ? '暂无粉丝' : '暂无关注',
-                  style: const TextStyle(color: Colors.grey)),
+              child: Text(
+                widget.type == 'followers' ? l10n.noFollowersYet : l10n.noFollowingYet,
+                style: const TextStyle(color: Colors.grey),
+              ),
             );
           }
 

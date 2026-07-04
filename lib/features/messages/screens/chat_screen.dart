@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/storage_checker.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
@@ -156,8 +157,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
     if (!res.success) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('发送失败：${res.message}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+        AppLocalizations.of(context)!.sendFailedWithReason('${res.message}'),
+      )));
       return;
     }
     await _loadMessages();
@@ -199,23 +201,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       // ApiClient.post 内部吞掉了 DioException，不会抛异常——失败与否要看
       // res.success，不能只靠 try/catch
+      final l10n = AppLocalizations.of(context)!;
       final uploadRes = await ref
           .read(apiClientProvider)
           .post('/auth/files/upload', data: formData);
       if (!uploadRes.success) {
-        throw Exception(uploadRes.message ?? '上传失败，请重试');
+        throw Exception(uploadRes.message ?? l10n.uploadFailedRetry);
       }
 
       final imageUrl = (uploadRes.data as Map)['url'] as String?;
       if (imageUrl == null) {
-        throw Exception('上传失败，请重试');
+        throw Exception(l10n.uploadFailedRetry);
       }
 
       await _send(text: imageUrl, type: 'image');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发图失败：${e.toString().replaceAll('Exception: ', '')}')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.sendImageFailedWithReason(
+            e.toString().replaceAll('Exception: ', ''),
+          ))),
         );
       }
     } finally {
@@ -245,6 +250,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _showAttachMenu() {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -267,19 +273,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _attachBtn(Icons.code, '代码', () {
+                _attachBtn(Icons.code, l10n.attachCode, () {
                   Navigator.pop(ctx);
                   _showCodeInput();
                 }),
-                _attachBtn(Icons.functions, '公式', () {
+                _attachBtn(Icons.functions, l10n.attachFormula, () {
                   Navigator.pop(ctx);
                   _showLatexInput();
                 }),
-                _attachBtn(Icons.article_outlined, '教程', () {
+                _attachBtn(Icons.article_outlined, l10n.tutorial, () {
                   Navigator.pop(ctx);
                   // TODO: 选择教程分享
                 }),
-                _attachBtn(Icons.image, '图片', () {
+                _attachBtn(Icons.image, l10n.attachImage, () {
                   Navigator.pop(ctx);
                   _sendImage();
                 }),
@@ -293,6 +299,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _showCodeInput() {
+    final l10n = AppLocalizations.of(context)!;
     final codeCtrl = TextEditingController();
     showModalBottomSheet(
       context: context,
@@ -308,7 +315,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('发送代码', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            Text(l10n.sendCode, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             Container(
               decoration:
@@ -318,10 +325,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 controller: codeCtrl,
                 maxLines: 6,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Colors.white),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: '# 输入代码...',
-                    hintStyle: TextStyle(color: Colors.grey)),
+                    hintText: l10n.codeInputHint,
+                    hintStyle: const TextStyle(color: Colors.grey)),
               ),
             ),
             const SizedBox(height: 12),
@@ -336,7 +343,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Navigator.pop(ctx);
                   _send(text: codeCtrl.text.trim(), type: 'code');
                 },
-                child: const Text('发送', style: TextStyle(color: Colors.white)),
+                child: Text(l10n.send, style: const TextStyle(color: Colors.white)),
               ),
             ),
           ],
@@ -346,6 +353,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _showLatexInput() {
+    final l10n = AppLocalizations.of(context)!;
     final latexCtrl = TextEditingController();
     showModalBottomSheet(
       context: context,
@@ -361,13 +369,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('发送公式', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            Text(l10n.sendFormula, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             TextField(
               controller: latexCtrl,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: r'例：\frac{1}{2}',
+                hintText: l10n.latexFormulaExample,
                 filled: true,
                 fillColor: Theme.of(ctx).inputDecorationTheme.fillColor,
                 border: OutlineInputBorder(
@@ -395,7 +403,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   // 容易失配的环节——type 字段是消息模型里保证一定有的
                   _send(text: latex, type: 'latex');
                 },
-                child: const Text('发送', style: TextStyle(color: Colors.white)),
+                child: Text(l10n.send, style: const TextStyle(color: Colors.white)),
               ),
             ),
           ],
@@ -433,8 +441,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final currentUserId = ref.watch(currentUserProvider)?.id ?? '';
-    final otherName = widget.conversation?.otherUsername ?? '用户';
+    final otherName = widget.conversation?.otherUsername ?? l10n.defaultUserName;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -495,7 +504,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '发送图片中...',
+                      l10n.sendingImage,
                       style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
                     ),
                   ],
@@ -522,10 +531,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
                       child: TextField(
                         controller: _ctrl,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: '发消息...',
-                          hintStyle: TextStyle(color: Colors.grey),
+                          hintText: l10n.messageInputHint,
+                          hintStyle: const TextStyle(color: Colors.grey),
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                         ),

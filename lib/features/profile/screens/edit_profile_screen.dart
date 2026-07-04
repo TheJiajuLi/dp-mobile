@@ -8,9 +8,13 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:intl/intl.dart';
+
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/utils/avatar_upload.dart';
+import '../../../shared/utils/gender_label.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 
@@ -112,10 +116,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _save() async {
+    final l10n = AppLocalizations.of(context)!;
     final username = _usernameCtrl.text.trim();
     final bio = _bioCtrl.text.trim();
     if (username.isEmpty) {
-      setState(() => _error = '昵称不能为空');
+      setState(() => _error = l10n.nicknameRequired);
       return;
     }
 
@@ -158,7 +163,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         },
       );
       if (!res.success) {
-        throw Exception(res.message ?? '保存失败，请重试');
+        throw Exception(res.message ?? l10n.saveFailedRetry);
       }
 
       // legacy 本地 key 只是后端字段上线前的过渡存储，保存成功一次之后
@@ -176,7 +181,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         if (!handleRes.success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('用户名未更新：${handleRes.message ?? "请稍后再试"}'),
+              content: Text(l10n.usernameNotUpdatedWithReason(
+                handleRes.message ?? l10n.pleaseTryAgainLater,
+              )),
             ),
           );
         }
@@ -232,14 +239,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       }
 
       if (mounted && newAvatar != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('头像已更新')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.avatarUpdated)),
+        );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('上传失败：${e.toString().replaceAll('Exception: ', '')}')),
+          SnackBar(content: Text(l10n.uploadFailedWithReason(
+            e.toString().replaceAll('Exception: ', ''),
+          ))),
         );
       }
     } finally {
@@ -249,9 +259,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   void _addLink() {
     if (_linkCtrls.length >= 3) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('最多添加3条链接')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.maxLinksReached)),
+      );
       return;
     }
     setState(() => _linkCtrls.add(TextEditingController()));
@@ -265,6 +275,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   void _showBirthdayPicker() {
+    final l10n = AppLocalizations.of(context)!;
     var temp = _birthday ?? DateTime(2000, 1, 1);
     showModalBottomSheet(
       context: context,
@@ -291,14 +302,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       children: [
                         GestureDetector(
                           onTap: () => Navigator.pop(ctx),
-                          child: const Text(
-                            '取消',
-                            style: TextStyle(fontSize: 15, color: Colors.grey),
+                          child: Text(
+                            l10n.cancel,
+                            style: const TextStyle(fontSize: 15, color: Colors.grey),
                           ),
                         ),
                         const Spacer(),
                         Text(
-                          '选择生日',
+                          l10n.selectBirthdaySheetTitle,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -311,9 +322,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             setState(() => _birthday = temp);
                             Navigator.pop(ctx);
                           },
-                          child: const Text(
-                            '完成',
-                            style: TextStyle(
+                          child: Text(
+                            l10n.done,
+                            style: const TextStyle(
                               fontSize: 15,
                               color: _primary,
                               fontWeight: FontWeight.w600,
@@ -347,7 +358,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         ZodiacIcon(sign: sign, size: 18),
                         const SizedBox(width: 4),
                         Text(
-                          sign.chineseName,
+                          zodiacDisplayName(l10n, sign),
                           style: const TextStyle(fontSize: 13, color: _primary),
                         ),
                       ],
@@ -376,6 +387,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -393,14 +405,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       children: [
                         GestureDetector(
                           onTap: () => context.pop(),
-                          child: const Text(
-                            '取消',
-                            style: TextStyle(fontSize: 15, color: Colors.grey),
+                          child: Text(
+                            l10n.cancel,
+                            style: const TextStyle(fontSize: 15, color: Colors.grey),
                           ),
                         ),
                         Expanded(
                           child: Text(
-                            '编辑资料',
+                            l10n.editProfile,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16,
@@ -420,9 +432,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                     color: _primary,
                                   ),
                                 )
-                              : const Text(
-                                  '保存',
-                                  style: TextStyle(
+                              : Text(
+                                  l10n.save,
+                                  style: const TextStyle(
                                     fontSize: 15,
                                     color: _primary,
                                     fontWeight: FontWeight.w600,
@@ -469,9 +481,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              '点击更换头像',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            Text(
+                              l10n.tapToChangeAvatar,
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                             const SizedBox(height: 20),
                             Divider(
@@ -481,11 +493,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             ),
 
                             // 基本信息
-                            _textFieldRow('昵称', _usernameCtrl, '你的昵称'),
+                            _textFieldRow(l10n.nicknameLabel, _usernameCtrl, l10n.nicknameHint),
                             _textFieldRow(
-                              '用户名',
+                              l10n.usernameLabel,
                               _handleCtrl,
-                              '@设置你的用户名',
+                              l10n.usernameAtHint,
                             ),
                             _bioRow(),
                             Divider(
@@ -496,7 +508,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
                             // 个人信息
                             _formRow(
-                              label: '性别',
+                              label: l10n.genderLabel,
                               showChevron: false,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -525,7 +537,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                         ),
                                       ),
                                       child: Text(
-                                        g,
+                                        genderDisplayLabel(l10n, g),
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: selected
@@ -543,13 +555,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                 }).toList(),
                               ),
                             ),
-                            _textFieldRow('所在地', _locationCtrl, '城市或地区'),
+                            _textFieldRow(l10n.locationLabel, _locationCtrl, l10n.locationHint),
                             _formRow(
-                              label: '生日',
+                              label: l10n.birthdayLabel,
                               onTap: _showBirthdayPicker,
                               child: _birthday == null
                                   ? Text(
-                                      '请选择',
+                                      l10n.selectBirthdayPlaceholder,
                                       style: TextStyle(
                                         fontSize: 15,
                                         color: Theme.of(
@@ -561,7 +573,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          '${_birthday!.year}年${_birthday!.month}月${_birthday!.day}日',
+                                          DateFormat.yMMMMd(
+                                            Localizations.localeOf(context).toString(),
+                                          ).format(_birthday!),
                                           style: TextStyle(
                                             fontSize: 15,
                                             color: Theme.of(
@@ -573,7 +587,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                         ZodiacIcon(sign: _zodiacSign!, size: 18),
                                         const SizedBox(width: 4),
                                         Text(
-                                          _zodiacSign!.chineseName,
+                                          zodiacDisplayName(l10n, _zodiacSign!),
                                           style: const TextStyle(
                                             fontSize: 13,
                                             color: _primary,
@@ -618,9 +632,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 10),
-                                      const Text(
-                                        '添加链接',
-                                        style: TextStyle(
+                                      Text(
+                                        l10n.addLink,
+                                        style: const TextStyle(
                                           fontSize: 14,
                                           color: _primary,
                                           fontWeight: FontWeight.w500,
@@ -659,11 +673,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             const SizedBox(height: 24),
                             GestureDetector(
                               onTap: () => context.push('/settings/security'),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                                 child: Text(
-                                  '注销账号',
-                                  style: TextStyle(
+                                  l10n.deleteAccount,
+                                  style: const TextStyle(
                                     fontSize: 14,
                                     color: Color(0xFFDC2626),
                                   ),
@@ -795,6 +809,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   // 简介允许多行，行高不能锁死在 52，跟其它单行字段区分开
   Widget _bioRow() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       constraints: const BoxConstraints(minHeight: 52),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -804,7 +819,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           SizedBox(
             width: 72,
             child: Text(
-              '简介',
+              l10n.bioLabel,
               style: TextStyle(
                 fontSize: 15,
                 color: Theme.of(context).textTheme.bodyLarge?.color,
@@ -816,9 +831,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               controller: _bioCtrl,
               maxLines: 3,
               textAlign: TextAlign.right,
-              decoration: const InputDecoration(
-                hintText: '介绍一下自己',
-                hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 15),
+              decoration: InputDecoration(
+                hintText: l10n.bioHint,
+                hintStyle: const TextStyle(color: Color(0xFFC7C7CC), fontSize: 15),
                 border: InputBorder.none,
                 filled: false,
                 isDense: true,
@@ -891,6 +906,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   void _showAvatarOptions() {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -914,7 +930,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('从相册选择'),
+              title: Text(l10n.selectFromAlbum),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickAndUploadAvatar(ImageSource.gallery);
@@ -922,7 +938,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('拍照'),
+              title: Text(l10n.takePhoto),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickAndUploadAvatar(ImageSource.camera);

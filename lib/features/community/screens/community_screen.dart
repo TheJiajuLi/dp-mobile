@@ -6,10 +6,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../community_provider.dart';
 
+// 这些还是后端实际的 tag 值（用来跟 tutorial.tags 比对/筛选），只是
+// 显示的时候用 _tagLabel 换成本地化文案，不能直接把这个列表本身翻译掉
 const _tags = ['全部', 'Python', '数据分析', '机器学习', '可视化', 'LaTeX', '统计学', '数学建模'];
+
+String _tagLabel(AppLocalizations l10n, String tag) => switch (tag) {
+  '全部' => l10n.tagAll,
+  '数据分析' => l10n.tagDataAnalysis,
+  '机器学习' => l10n.tagMachineLearning,
+  '可视化' => l10n.tagVisualization,
+  '统计学' => l10n.tagStatistics,
+  '数学建模' => l10n.tagMathModeling,
+  _ => tag,
+};
 
 const _coverPalette = [
   (bg: Color(0xFFEEF2FF), icon: Icons.terminal, fg: Color(0xFF6366F1)),
@@ -57,6 +70,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(communityProvider);
     final list = state.filtered;
 
@@ -72,7 +86,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                 onChanged: (v) =>
                     ref.read(communityProvider.notifier).setSearchQuery(v),
                 decoration: InputDecoration(
-                  hintText: '搜索教程、作者...',
+                  hintText: l10n.searchTutorialsHint,
                   hintStyle: TextStyle(
                     color: Theme.of(context).textTheme.bodySmall?.color,
                     fontSize: 14,
@@ -115,7 +129,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
-                        tag,
+                        _tagLabel(l10n, tag),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -164,7 +178,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           const SizedBox(height: 80),
           Center(
             child: Text(
-              '加载失败：${state.error}',
+              AppLocalizations.of(context)!.loadFailedWithReason('${state.error}'),
               style: const TextStyle(color: AppColors.danger, fontSize: 13),
             ),
           ),
@@ -178,7 +192,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           const SizedBox(height: 80),
           Center(
             child: Text(
-              '暂无教程',
+              AppLocalizations.of(context)!.noTutorialsYet,
               style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
             ),
           ),

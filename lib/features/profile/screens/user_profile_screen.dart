@@ -10,8 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/avatar_upload.dart';
+import '../../../shared/utils/gender_label.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/models/conversation_model.dart';
@@ -186,7 +188,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           .read(apiClientProvider)
           .post('/auth/files/upload', data: formData);
       if (!res.success) {
-        throw Exception(res.message ?? '上传失败，请重试');
+        // 下面 catch 块会用 l10n.uploadFailedWithReason(...) 再套一层
+        // "上传失败：" 前缀，这里只能给纯原因文本，不能是完整句子，否则
+        // 会跟外层前缀重复。widget 已经卸载的话这个 Exception 反正不会被
+        // 展示出来（catch 块自己也会先判 mounted），随便给个占位原因即可，
+        // 不值得为了这一步再去访问已经不安全的 context
+        final reason = res.message ?? (mounted ? AppLocalizations.of(context)!.requestFailed : 'request failed');
+        throw Exception(reason);
       }
 
       final url = (res.data as Map)['url'] as String?;
@@ -197,14 +205,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         setState(() => _coverImageUrl = url);
       }
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('背景已更新')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.coverUpdated)),
+        );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('上传失败：${e.toString().replaceAll('Exception: ', '')}')),
+          SnackBar(content: Text(l10n.uploadFailedWithReason(
+            e.toString().replaceAll('Exception: ', ''),
+          ))),
         );
       }
     } finally {
@@ -228,9 +239,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
     if (!res.success) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('操作失败：${res.message}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+        AppLocalizations.of(context)!.actionFailedWithReason('${res.message}'),
+      )));
       return;
     }
     final willFollow = !_profile!.isFollowing;
@@ -293,16 +304,22 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       }
 
       // 没有现成会话，发一条消息创建新会话
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       final msgRes = await api.post(
         '/auth/messages',
-        data: {'toUserId': _profile!.id, 'content': '你好！', 'type': 'text'},
+        data: {
+          'toUserId': _profile!.id,
+          'content': l10n.defaultGreetingMessage,
+          'type': 'text',
+        },
       );
       if (!msgRes.success || msgRes.data == null) {
         debugPrint('[Chat] /auth/messages 请求失败: ${msgRes.message}');
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('发送失败：${msgRes.message}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+          l10n.sendFailedWithReason('${msgRes.message}'),
+        )));
         return;
       }
       if (!mounted) return;
@@ -330,6 +347,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   }
 
   void _showAvatarOptions() {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -353,7 +371,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('从相册选择'),
+              title: Text(l10n.selectFromAlbum),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickAndUploadAvatar(ImageSource.gallery);
@@ -361,7 +379,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('拍照'),
+              title: Text(l10n.takePhoto),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickAndUploadAvatar(ImageSource.camera);
@@ -392,14 +410,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         setState(() => _profile = updated);
       }
       if (mounted && newAvatar != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('头像已更新')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.avatarUpdated)),
+        );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('上传失败：${e.toString().replaceAll('Exception: ', '')}')),
+          SnackBar(content: Text(l10n.uploadFailedWithReason(
+            e.toString().replaceAll('Exception: ', ''),
+          ))),
         );
       }
     } finally {
@@ -437,13 +458,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     if (uri == null) return;
     final ok = await canLaunchUrl(uri);
     if (!ok) {
-      if (mounted) _todo('无法打开该链接');
+      if (mounted) _todo(AppLocalizations.of(context)!.cannotOpenLink);
       return;
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _showSettingsSheet() {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -467,10 +489,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             const SizedBox(height: 12),
             ListTile(
               leading: const Icon(Icons.settings_outlined, color: Colors.grey),
-              title: const Text('全部设置'),
-              subtitle: const Text(
-                '账号安全 / 通知 / 主题 / 会员中心等',
-                style: TextStyle(fontSize: 12),
+              title: Text(l10n.allSettings),
+              subtitle: Text(
+                l10n.allSettingsSubtitle,
+                style: const TextStyle(fontSize: 12),
               ),
               onTap: () {
                 Navigator.pop(ctx);
@@ -479,7 +501,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             ),
             ListTile(
               leading: const Icon(Icons.switch_account_outlined, color: Colors.grey),
-              title: const Text('切换账号'),
+              title: Text(l10n.switchAccount),
               onTap: () {
                 Navigator.pop(ctx);
                 context.push('/switch-account');
@@ -487,7 +509,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             ),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('退出登录', style: TextStyle(color: Colors.red)),
+              title: Text(l10n.logout, style: const TextStyle(color: Colors.red)),
               onTap: () async {
                 Navigator.pop(ctx);
                 await ref.read(authServiceProvider).logout();
@@ -536,6 +558,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final currentUser = ref.watch(currentUserProvider);
     final isMe = currentUser != null && currentUser.id == _profile?.id;
     final isSelfView = !widget.showBackButton;
@@ -573,7 +596,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
-          ? const Center(child: Text('用户不存在'))
+          ? Center(child: Text(l10n.userNotFound))
           : NestedScrollView(
               headerSliverBuilder: (ctx, _) => [
                 SliverToBoxAdapter(
@@ -744,7 +767,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         Icons.message_outlined,
                                         size: 16,
                                       ),
-                                label: const Text('发消息'),
+                                label: Text(l10n.sendMessageAction),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: _primary,
                                   side: const BorderSide(color: _primary),
@@ -777,7 +800,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   ),
                                 ),
                                 child: Text(
-                                  _profile!.isFollowing ? '已关注' : '关注',
+                                  _profile!.isFollowing ? l10n.followingAction : l10n.followAction,
                                 ),
                               ),
                             ] else
@@ -787,7 +810,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   if (mounted) _loadProfile();
                                 },
                                 icon: const Icon(Icons.edit, size: 16),
-                                label: const Text('编辑资料'),
+                                label: Text(l10n.editProfile),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
                                   side: BorderSide(color: Colors.grey.shade300),
@@ -835,7 +858,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         ZodiacIcon(sign: displayZodiacSign, size: 14),
                                         const SizedBox(width: 4),
                                         Text(
-                                          displayZodiacSign.chineseName,
+                                          zodiacDisplayName(l10n, displayZodiacSign),
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: Color(0xFF4F46E5),
@@ -877,7 +900,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      displayGender!,
+                                      genderDisplayLabel(l10n, displayGender!),
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Theme.of(
@@ -939,13 +962,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
-                            _statItem('${_profile!.tutorialCount}', '教程'),
+                            _statItem('${_profile!.tutorialCount}', l10n.tutorial),
                             _divider(),
-                            _statItem(_formatCount(_totalLikes), '获赞'),
+                            _statItem(_formatCount(_totalLikes), l10n.likesCountLabel),
                             _divider(),
                             _statItem(
                               _formatCount(_profile!.followerCount),
-                              '粉丝',
+                              l10n.followersCountLabel,
                               onTap: () => context.push(
                                 '/users/${_profile!.id}/followers',
                               ),
@@ -958,7 +981,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         _profile!.followingCount)
                                     : _profile!.followingCount,
                               ),
-                              '关注',
+                              l10n.followingCountLabel,
                               onTap: () => context.push(
                                 '/users/${_profile!.id}/following',
                               ),
@@ -978,7 +1001,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ),
                         GestureDetector(
                           onTap: () =>
-                              _todo('创作中心即将上线，敬请期待'),
+                              _todo(l10n.creatorCenterComingSoon),
                           child: Container(
                             color: Theme.of(context).cardColor,
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -988,7 +1011,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 Row(
                                   children: [
                                     Text(
-                                      '创作者中心',
+                                      l10n.creatorCenter,
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
@@ -1012,10 +1035,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   children: [
                                     _creatorStatItem(
                                       _formatCount(_totalViews),
-                                      '阅读量',
+                                      l10n.readCountLabel,
                                     ),
-                                    _creatorStatItem('-', '收藏数'),
-                                    _creatorStatItem('-', '评论数'),
+                                    _creatorStatItem('-', l10n.bookmarksCountLabel),
+                                    _creatorStatItem('-', l10n.commentsCountLabel),
                                     Container(
                                       width: 36,
                                       height: 36,
@@ -1096,11 +1119,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   // 加的，用来避免几个结构相同的 tab 之间滚动位置互相串，
                   // 跟这次的空白无关，但仍然值得保留）
                   _tutorials.isEmpty
-                      ? const Center(
-                          key: PageStorageKey('profile-tab-tutorials-empty'),
+                      ? Center(
+                          key: const PageStorageKey('profile-tab-tutorials-empty'),
                           child: Text(
-                            '还没有发布的教程',
-                            style: TextStyle(color: Colors.grey),
+                            l10n.noTutorialsPublished,
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         )
                       : GridView.builder(
@@ -1124,11 +1147,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ),
                   if (_showNotebookTab)
                     _notebooks.isEmpty
-                        ? const Center(
-                            key: PageStorageKey('profile-tab-notebooks-empty'),
+                        ? Center(
+                            key: const PageStorageKey('profile-tab-notebooks-empty'),
                             child: Text(
-                              '还没有 Notebook',
-                              style: TextStyle(color: Colors.grey),
+                              l10n.noNotebooksYet,
+                              style: const TextStyle(color: Colors.grey),
                             ),
                           )
                         : GridView.builder(
@@ -1152,19 +1175,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             },
                           ),
                   // 收藏（占位）
-                  const Center(
-                    key: PageStorageKey('profile-tab-bookmarks'),
+                  Center(
+                    key: const PageStorageKey('profile-tab-bookmarks'),
                     child: Text(
-                      '收藏功能即将上线',
-                      style: TextStyle(color: Colors.grey),
+                      l10n.bookmarksComingSoon,
+                      style: const TextStyle(color: Colors.grey),
                     ),
                   ),
                   // 点赞（占位）
-                  const Center(
-                    key: PageStorageKey('profile-tab-likes'),
+                  Center(
+                    key: const PageStorageKey('profile-tab-likes'),
                     child: Text(
-                      '点赞列表即将上线',
-                      style: TextStyle(color: Colors.grey),
+                      l10n.likesListComingSoon,
+                      style: const TextStyle(color: Colors.grey),
                     ),
                   ),
                 ],

@@ -10,6 +10,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../features/auth/auth_service.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../models/notebook_model.dart';
 import '../services/notebook_service.dart';
 
@@ -194,31 +195,36 @@ result
         break;
       case 'r':
       case 'julia':
-        _setOutput(cell, '⏳ ${cell.type.toUpperCase()} 支持即将上线', 'info');
+        _setOutput(
+          cell,
+          AppLocalizations.of(context)!.langSupportComingSoon(cell.type.toUpperCase()),
+          'info',
+        );
         break;
       default:
-        _setOutput(cell, '暂不支持该类型的运行', 'info');
+        _setOutput(cell, AppLocalizations.of(context)!.unsupportedCellType, 'info');
     }
     _scheduleSave();
   }
 
   Future<void> _runWithPyodide(NotebookCell cell) async {
+    final l10n = AppLocalizations.of(context)!;
     if (_webCtrl == null) {
-      _showSnack('运行环境初始化中，请稍候...');
+      _showSnack(l10n.envInitializing);
       return;
     }
 
     // compiler.js 可能还没加载完（首次要拉 Pyodide），耐心等最多 60 秒，
     // 而不是直接判失败——这是之前"运行完成（无输出）"的根因之一
     if (!_webReady) {
-      _setOutput(cell, '⏳ Python环境加载中，请稍候...', 'info');
+      _setOutput(cell, l10n.pythonEnvLoading, 'info');
       for (var i = 0; i < 60; i++) {
         await Future.delayed(const Duration(seconds: 1));
         if (_webReady) break;
       }
       if (!mounted) return;
       if (!_webReady) {
-        _setOutput(cell, '❌ 加载超时，请重启App重试', 'error');
+        _setOutput(cell, l10n.loadTimeoutRestart, 'error');
         return;
       }
     }
@@ -241,6 +247,11 @@ result
 
     final isSql = cell.type == 'sql';
     var effectiveCode = isSql ? _wrapSql(cell.code) : cell.code;
+
+    // 后面 evaluateJavascript 的 async 回调没法安全地在事后再取 l10n（这时
+    // widget 可能已经被销毁），提前把这几条要塞进 JS 字符串的翻译值取出来
+    final compilerNotReadyMsg = l10n.compilerNotReady;
+    final execTimeoutMsg = l10n.execTimeout;
 
     if (userInputs.isNotEmpty) {
       // 把 input() 换成从预收集队列里取值的 mock；用完立刻还原，
@@ -286,7 +297,7 @@ finally:
     if (typeof window.runCode !== 'function') {
       window.flutter_inappwebview.callHandler(
         'onRunResult', ${jsonEncode(cell.id)},
-        JSON.stringify([{type:'error', content:'compiler未就绪，请重试'}])
+        JSON.stringify([{type:'error', content:${jsonEncode(compilerNotReadyMsg)}}])
       );
       return;
     }
@@ -306,7 +317,7 @@ finally:
 
       final raw = await completer.future.timeout(
         const Duration(seconds: 30),
-        onTimeout: () => '[{"type":"error","content":"执行超时"}]',
+        onTimeout: () => jsonEncode([{'type': 'error', 'content': execTimeoutMsg}]),
       );
 
       debugPrint('[Notebook] raw output: $raw');
@@ -338,9 +349,9 @@ finally:
         foundType = type;
         break;
       }
-      _setOutput(cell, foundOutput ?? '✓ 运行完成（无输出）', foundType ?? 'text');
+      _setOutput(cell, foundOutput ?? l10n.runCompleteNoOutputChecked, foundType ?? 'text');
     } catch (e) {
-      _setOutput(cell, '运行出错：$e', 'error');
+      _setOutput(cell, l10n.runErrorWithReason('$e'), 'error');
     } finally {
       _pendingRuns.remove(cell.id);
       if (mounted) setState(() => _running[cell.id] = false);
@@ -357,14 +368,15 @@ finally:
 
   // 预收集用户输入：运行前一次性弹框问完，而不是运行时暂停等待
   Future<List<String>?> _collectInputs(String code, int count) async {
+    final l10n = AppLocalizations.of(context)!;
     // 尽量提取 input() 里的提示文字，提取不到就用默认占位
     final prompts = <String>[];
     final regex = RegExp("input\\s*\\(\\s*['\"]?(.*?)['\"]?\\s*\\)");
     for (final m in regex.allMatches(code)) {
-      prompts.add(m.group(1)?.trim() ?? '请输入');
+      prompts.add(m.group(1)?.trim() ?? l10n.inputPromptDefault);
     }
     while (prompts.length < count) {
-      prompts.add('请输入');
+      prompts.add(l10n.inputPromptDefault);
     }
 
     final controllers = List.generate(count, (_) => TextEditingController());
@@ -377,17 +389,17 @@ finally:
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text(
-          '代码需要输入',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        title: Text(
+          l10n.codeNeedsInput,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                '请提前填写所有输入值：',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+              Text(
+                l10n.fillAllInputsFirst,
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
               const SizedBox(height: 12),
               ...List.generate(
@@ -400,7 +412,7 @@ finally:
                     focusNode: focusNodes[i],
                     decoration: InputDecoration(
                       labelText: prompts[i].isEmpty
-                          ? '输入 ${i + 1}'
+                          ? l10n.inputFieldLabel(i + 1)
                           : prompts[i],
                       filled: true,
                       fillColor: Colors.grey[100],
@@ -418,7 +430,7 @@ finally:
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -429,7 +441,7 @@ finally:
             ),
             onPressed: () =>
                 Navigator.pop(ctx, controllers.map((c) => c.text).toList()),
-            child: const Text('运行', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.run, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -446,8 +458,9 @@ finally:
 
   // JavaScript 直接在承载 Pyodide 的隐藏 WebView 里 eval
   Future<void> _runJavaScript(NotebookCell cell) async {
+    final l10n = AppLocalizations.of(context)!;
     if (_webCtrl == null) {
-      _showSnack('运行环境初始化中，请稍候...');
+      _showSnack(l10n.envInitializing);
       return;
     }
     if (!mounted) return;
@@ -479,14 +492,14 @@ finally:
 
       final result = await _webCtrl!.evaluateJavascript(source: wrappedCode);
       if (result == null) {
-        _setOutput(cell, '运行完成（无输出）', 'text');
+        _setOutput(cell, l10n.runCompleteNoOutput, 'text');
         return;
       }
       final map = jsonDecode(result.toString()) as Map;
       if (map['ok'] == true) {
-        _setOutput(cell, (map['output'] as String?) ?? '运行完成（无输出）', 'text');
+        _setOutput(cell, (map['output'] as String?) ?? l10n.runCompleteNoOutput, 'text');
       } else {
-        _setOutput(cell, map['error']?.toString() ?? '未知错误', 'error');
+        _setOutput(cell, map['error']?.toString() ?? l10n.unknownError, 'error');
       }
     } catch (e) {
       _setOutput(cell, e.toString(), 'error');
@@ -530,15 +543,16 @@ finally:
       final content = utf8.decode(bytes);
       final imported = NotebookService.fromIpynb(content, file.name);
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('导入 Jupyter Notebook'),
-          content: Text('发现 ${imported.cells.length} 个 cell，是否导入？'),
+          title: Text(l10n.importJupyterNotebook),
+          content: Text(l10n.foundCellsImportConfirm(imported.cells.length)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text(l10n.cancel),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: _primary),
@@ -556,7 +570,7 @@ finally:
                 });
                 _scheduleSave();
               },
-              child: const Text('导入', style: TextStyle(color: Colors.white)),
+              child: Text(l10n.import, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -607,10 +621,11 @@ finally:
         ),
       });
 
+      final l10n = AppLocalizations.of(context)!;
       final api = ref.read(apiClientProvider);
       final res = await api.post('/auth/files/upload', data: formData);
       if (!res.success) {
-        _showSnack('上传失败：${res.message}');
+        _showSnack(l10n.uploadFailedWithReason('${res.message}'));
         return;
       }
 
@@ -642,9 +657,10 @@ finally:
       });
       _scheduleSave();
 
-      _showSnack('$filename 已导入，点击运行加载数据');
+      _showSnack(l10n.fileImportedTapToRun(filename));
     } catch (e) {
-      _showSnack('上传失败：$e');
+      if (!mounted) return;
+      _showSnack(AppLocalizations.of(context)!.uploadFailedWithReason('$e'));
     }
   }
 
@@ -655,7 +671,9 @@ finally:
       fileName: '${_nb!.name}.ipynb',
       bytes: Uint8List.fromList(utf8.encode(ipynb)),
     );
-    if (path != null) _showSnack('已导出到 $path');
+    if (path != null && mounted) {
+      _showSnack(AppLocalizations.of(context)!.exportedToPath(path));
+    }
   }
 
   void _clearOutputs() {
@@ -683,6 +701,7 @@ finally:
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
@@ -704,16 +723,16 @@ finally:
                           if (_nb != null) _svc!.save(_nb!);
                           Navigator.pop(context);
                         },
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.arrow_back_ios,
                               size: 16,
                               color: _primary,
                             ),
                             Text(
-                              '返回',
-                              style: TextStyle(fontSize: 13, color: _primary),
+                              l10n.back,
+                              style: const TextStyle(fontSize: 13, color: _primary),
                             ),
                           ],
                         ),
@@ -741,17 +760,17 @@ finally:
                             color: _primary,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.play_arrow,
                                 color: Colors.white,
                                 size: 15,
                               ),
-                              SizedBox(width: 4),
+                              const SizedBox(width: 4),
                               Text(
-                                '全部运行',
-                                style: TextStyle(
+                                l10n.runAll,
+                                style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
@@ -768,23 +787,23 @@ finally:
                           size: 20,
                         ),
                         itemBuilder: (ctx) => [
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'export',
                             child: Row(
                               children: [
-                                Icon(Icons.download, size: 18),
-                                SizedBox(width: 8),
-                                Text('导出 .ipynb'),
+                                const Icon(Icons.download, size: 18),
+                                const SizedBox(width: 8),
+                                Text(l10n.exportIpynb),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'clear',
                             child: Row(
                               children: [
-                                Icon(Icons.delete_outline, size: 18),
-                                SizedBox(width: 8),
-                                Text('清空输出'),
+                                const Icon(Icons.delete_outline, size: 18),
+                                const SizedBox(width: 8),
+                                Text(l10n.clearOutputs),
                               ],
                             ),
                           ),
@@ -837,7 +856,7 @@ finally:
                             onTap: () => _addCell(t.$3),
                           ),
                         _ToolBtn(
-                          label: '导入',
+                          label: l10n.import,
                           icon: Icons.upload_file,
                           onTap: _openFileImport,
                         ),
@@ -1085,16 +1104,16 @@ finally:
                 border: InputBorder.none,
                 hintText:
                     {
-                      'python': '# Python 代码...',
-                      'sql': '-- SQL 查询...',
-                      'javascript': '// JavaScript 代码...',
-                      'r': '# R 代码...',
-                      'julia': '# Julia 代码...',
-                      'latex': r'输入 LaTeX 公式...',
-                      'markdown': '# Markdown 文本...',
-                      'html': '<p>HTML 内容...</p>',
+                      'python': AppLocalizations.of(context)!.pythonCodeHint,
+                      'sql': AppLocalizations.of(context)!.sqlQueryHint,
+                      'javascript': AppLocalizations.of(context)!.jsCodeHint,
+                      'r': AppLocalizations.of(context)!.rCodeHint,
+                      'julia': AppLocalizations.of(context)!.juliaCodeHint,
+                      'latex': AppLocalizations.of(context)!.latexFormulaHint,
+                      'markdown': AppLocalizations.of(context)!.markdownTextHint,
+                      'html': AppLocalizations.of(context)!.htmlContentHint,
                     }[cell.type] ??
-                    '代码...',
+                    AppLocalizations.of(context)!.genericCodeHint,
                 hintStyle: TextStyle(
                   color: Colors.grey[300],
                   fontSize: 13,
@@ -1185,7 +1204,10 @@ finally:
             child: Image.memory(base64Decode(base64Data), fit: BoxFit.contain),
           );
         } catch (e) {
-          return Text('图表渲染失败：$e', style: const TextStyle(color: Colors.red));
+          return Text(
+            AppLocalizations.of(context)!.chartRenderFailedWithReason('$e'),
+            style: const TextStyle(color: Colors.red),
+          );
         }
       case 'html':
         return SizedBox(

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
@@ -6,8 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import '../constants/app_constants.dart';
+import '../locale_provider.dart';
 import '../router/app_router.dart';
 import '../../features/auth/auth_service.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'api_response.dart';
 
 // main() 里会用真正落盘的 PersistCookieJar override 掉这个默认实现——
@@ -213,15 +217,30 @@ class ApiClient {
     if (data is Map && data['message'] != null) {
       return data['message'].toString();
     }
+    // 这几条是纯客户端兜底文案（后端没返回message时才用得到），没有
+    // BuildContext可用，所以不能走AppLocalizations.of(context)——按
+    // localeProvider当前选的语言（跟随系统时退回设备locale）直接查表
+    final l10n = _currentL10n();
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return '网络连接超时';
+        return l10n.networkTimeout;
       case DioExceptionType.connectionError:
-        return '网络连接失败';
+        return l10n.networkConnectionFailed;
       default:
-        return e.message ?? '请求失败';
+        return e.message ?? l10n.requestFailed;
     }
+  }
+
+  AppLocalizations _currentL10n() {
+    final pref = _ref.read(localeProvider);
+    final locale = localeFor(pref) ?? PlatformDispatcher.instance.locale;
+    if (AppLocalizations.supportedLocales.any((l) => l.languageCode == locale.languageCode)) {
+      return lookupAppLocalizations(locale);
+    }
+    // 设备语言不在支持列表里（不是zh/en）——退回中文，跟这个App一直以来
+    // 默认展示中文的行为保持一致
+    return lookupAppLocalizations(const Locale('zh'));
   }
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 
 class AccountSecurityScreen extends ConsumerWidget {
@@ -11,9 +12,10 @@ class AccountSecurityScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('账号安全'),
+        title: Text(l10n.accountSecurity),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -27,18 +29,18 @@ class AccountSecurityScreen extends ConsumerWidget {
             child: Column(
               children: [
                 _SecurityRow(
-                  title: '修改密码',
-                  subtitle: '定期更换密码保护账号安全',
+                  title: l10n.changePassword,
+                  subtitle: l10n.changePasswordSubtitle,
                   onTap: () => _showChangePassword(context, ref),
                 ),
                 _SecurityRow(
-                  title: '登录记录',
-                  subtitle: '查看最近的登录设备和时间',
+                  title: l10n.loginHistory,
+                  subtitle: l10n.loginHistorySubtitle,
                   onTap: () => context.push('/settings/security/history'),
                 ),
                 _SecurityRow(
-                  title: '注销账号',
-                  subtitle: '永久删除账号和所有数据',
+                  title: l10n.deleteAccount,
+                  subtitle: l10n.deleteAccountSubtitle,
                   titleColor: const Color(0xFFDC2626),
                   onTap: () => _showDeleteAccount(context, ref),
                 ),
@@ -51,6 +53,7 @@ class AccountSecurityScreen extends ConsumerWidget {
   }
 
   void _showChangePassword(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
@@ -66,19 +69,19 @@ class AccountSecurityScreen extends ConsumerWidget {
             if (oldCtrl.text.isEmpty || newCtrl.text.isEmpty) {
               ScaffoldMessenger.of(
                 ctx,
-              ).showSnackBar(const SnackBar(content: Text('请填写完整')));
+              ).showSnackBar(SnackBar(content: Text(l10n.fillAllFields)));
               return;
             }
             if (newCtrl.text.length < 6) {
               ScaffoldMessenger.of(
                 ctx,
-              ).showSnackBar(const SnackBar(content: Text('密码至少6位')));
+              ).showSnackBar(SnackBar(content: Text(l10n.registerErrorPasswordTooShort)));
               return;
             }
             if (newCtrl.text != confirmCtrl.text) {
               ScaffoldMessenger.of(
                 ctx,
-              ).showSnackBar(const SnackBar(content: Text('两次输入的新密码不一致')));
+              ).showSnackBar(SnackBar(content: Text(l10n.newPasswordMismatch)));
               return;
             }
 
@@ -102,18 +105,18 @@ class AccountSecurityScreen extends ConsumerWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(const SnackBar(content: Text('密码修改成功')));
+                ).showSnackBar(SnackBar(content: Text(l10n.passwordChangeSuccess)));
               }
             } else if (res.statusCode == 404) {
               Navigator.pop(ctx);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('修改密码功能即将上线，敬请期待')),
+                  SnackBar(content: Text(l10n.changePasswordComingSoon)),
                 );
               }
             } else {
               ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(content: Text(res.message ?? '修改失败，请重试')),
+                SnackBar(content: Text(res.message ?? l10n.changeFailedRetry)),
               );
             }
           }
@@ -141,35 +144,35 @@ class AccountSecurityScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '修改密码',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                Text(
+                  l10n.changePassword,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: oldCtrl,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: '当前密码',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.currentPasswordLabel,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: newCtrl,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: '新密码',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.newPasswordLabel,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: confirmCtrl,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: '确认新密码',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.confirmNewPasswordLabel,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -193,9 +196,9 @@ class AccountSecurityScreen extends ConsumerWidget {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            '保存',
-                            style: TextStyle(color: Colors.white),
+                        : Text(
+                            l10n.save,
+                            style: const TextStyle(color: Colors.white),
                           ),
                   ),
                 ),
@@ -208,17 +211,16 @@ class AccountSecurityScreen extends ConsumerWidget {
   }
 
   void _showDeleteAccount(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('注销账号'),
-        content: const Text(
-          '注销后所有数据将永久删除，包括教程、Notebook、消息记录。\n\n此操作不可撤销。',
-        ),
+        title: Text(l10n.deleteAccount),
+        content: Text(l10n.deleteAccountWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () async {
@@ -244,7 +246,7 @@ class AccountSecurityScreen extends ConsumerWidget {
                   context.go('/login');
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(const SnackBar(content: Text('账号已注销')));
+                  ).showSnackBar(SnackBar(content: Text(l10n.accountDeleted)));
                 }
                 return;
               }
@@ -252,12 +254,12 @@ class AccountSecurityScreen extends ConsumerWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    res.statusCode == 404 ? '注销账号功能即将上线，敬请期待' : '注销失败，请稍后重试',
+                    res.statusCode == 404 ? l10n.deleteAccountComingSoon : l10n.deleteFailedRetry,
                   ),
                 ),
               );
             },
-            child: const Text('确认注销', style: TextStyle(color: Color(0xFFDC2626))),
+            child: Text(l10n.confirmDeletion, style: const TextStyle(color: Color(0xFFDC2626))),
           ),
         ],
       ),

@@ -2,15 +2,18 @@ import 'dart:async';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'core/font_size_provider.dart';
+import 'core/locale_provider.dart';
 import 'core/network/api_client.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme_provider.dart';
 import 'features/auth/auth_service.dart';
+import 'l10n/generated/app_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +75,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final themePref = ref.watch(themeProvider);
     final fontSize = ref.watch(fontSizeProvider);
+    final localePref = ref.watch(localeProvider);
 
     return MaterialApp.router(
       title: '',
@@ -82,6 +86,14 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         ThemePreference.dark => ThemeMode.dark,
         ThemePreference.system => ThemeMode.system,
       },
+      locale: localeFor(localePref),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: appRouter,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(

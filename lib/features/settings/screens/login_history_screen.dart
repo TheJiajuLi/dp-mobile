@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 
 class LoginHistoryScreen extends ConsumerStatefulWidget {
@@ -39,9 +40,10 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('登录记录'),
+        title: Text(l10n.loginHistory),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -50,8 +52,8 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _history.isEmpty
-          ? const Center(
-              child: Text('暂无登录记录', style: TextStyle(color: Colors.grey)),
+          ? Center(
+              child: Text(l10n.noLoginHistoryYet, style: const TextStyle(color: Colors.grey)),
             )
           : ListView.builder(
               itemCount: _history.length,
@@ -82,7 +84,7 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        record['location'] as String? ?? '未知位置',
+                        record['location'] as String? ?? l10n.unknownLocation,
                         style: TextStyle(
                           fontSize: 13,
                           color: Theme.of(context).textTheme.bodyLarge?.color,
@@ -108,9 +110,9 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
                             color: const Color(0xFFEEF0FF),
                             borderRadius: BorderRadius.circular(99),
                           ),
-                          child: const Text(
-                            '当前',
-                            style: TextStyle(
+                          child: Text(
+                            l10n.currentDeviceLabel,
+                            style: const TextStyle(
                               fontSize: 11,
                               color: Color(0xFF6366F1),
                               fontWeight: FontWeight.w600,

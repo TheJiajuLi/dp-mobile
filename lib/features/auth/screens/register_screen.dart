@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth_service.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -29,6 +30,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    final l10n = AppLocalizations.of(context)!;
     final username = _usernameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final pw = _pwCtrl.text;
@@ -36,23 +38,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     // 本地验证
     if (username.isEmpty || email.isEmpty || pw.isEmpty) {
-      setState(() => _error = '请填写所有字段');
+      setState(() => _error = l10n.registerErrorFillAll);
       return;
     }
     if (username.length < 2) {
-      setState(() => _error = '用户名至少2个字符');
+      setState(() => _error = l10n.registerErrorUsernameTooShort);
       return;
     }
     if (!email.contains('@')) {
-      setState(() => _error = '请输入正确的邮箱');
+      setState(() => _error = l10n.registerErrorInvalidEmail);
       return;
     }
     if (pw.length < 6) {
-      setState(() => _error = '密码至少6位');
+      setState(() => _error = l10n.registerErrorPasswordTooShort);
       return;
     }
     if (pw != pw2) {
-      setState(() => _error = '两次密码不一致');
+      setState(() => _error = l10n.registerErrorPasswordMismatch);
       return;
     }
 
@@ -77,6 +79,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -97,29 +100,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 32),
               // 标题
-              const Text(
-                '创建账号',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+              Text(
+                l10n.createAccount,
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(
-                '加入极梦，开启数据分析之旅',
+                l10n.registerSubtitle,
                 style: TextStyle(fontSize: 15, color: Colors.grey[500]),
               ),
               const SizedBox(height: 36),
 
               // 用户名
-              _label('用户名'),
+              _label(l10n.usernameLabel),
               const SizedBox(height: 8),
               _field(
                 controller: _usernameCtrl,
-                hint: '你的用户名',
+                hint: l10n.usernameHint,
                 icon: Icons.person_outline,
               ),
               const SizedBox(height: 16),
 
               // 邮箱
-              _label('邮箱'),
+              _label(l10n.emailLabel),
               const SizedBox(height: 8),
               _field(
                 controller: _emailCtrl,
@@ -130,11 +133,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               const SizedBox(height: 16),
 
               // 密码
-              _label('密码'),
+              _label(l10n.passwordLabel),
               const SizedBox(height: 8),
               _field(
                 controller: _pwCtrl,
-                hint: '至少6位',
+                hint: l10n.passwordMinHint,
                 icon: Icons.lock_outline,
                 obscure: _obscurePw,
                 suffix: GestureDetector(
@@ -151,11 +154,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               const SizedBox(height: 16),
 
               // 确认密码
-              _label('确认密码'),
+              _label(l10n.confirmPasswordLabel),
               const SizedBox(height: 8),
               _field(
                 controller: _pw2Ctrl,
-                hint: '再次输入密码',
+                hint: l10n.confirmPasswordHint,
                 icon: Icons.lock_outline,
                 obscure: true,
                 onSubmitted: (_) => _register(),
@@ -205,9 +208,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text(
-                          '注册',
-                          style: TextStyle(
+                      : Text(
+                          l10n.register,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -226,12 +229,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       style: const TextStyle(fontSize: 14),
                       children: [
                         TextSpan(
-                          text: '已有账号？',
+                          text: l10n.alreadyHaveAccount,
                           style: TextStyle(color: Colors.grey[500]),
                         ),
-                        const TextSpan(
-                          text: '登录',
-                          style: TextStyle(
+                        TextSpan(
+                          text: l10n.login,
+                          style: const TextStyle(
                             color: Color(0xFF6366F1),
                             fontWeight: FontWeight.w600,
                           ),

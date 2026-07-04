@@ -2,12 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'dart:ui';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/locale_provider.dart';
 import '../../core/network/api_client.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/user_model.dart';
 
 // 当前登录用户状态
@@ -193,13 +197,24 @@ class AuthService {
       data: {'username': username, 'email': email, 'password': password},
     );
     if (!registerRes.success) {
-      throw Exception(registerRes.message ?? '注册失败，请重试');
+      throw Exception(registerRes.message ?? _currentL10n().registerFailedRetry);
     }
 
     final loggedIn = await login(email, password);
     if (!loggedIn) {
-      throw Exception('注册成功，但自动登录失败，请手动登录');
+      throw Exception(_currentL10n().registerSuccessAutoLoginFailed);
     }
+  }
+
+  // 没有 BuildContext 可用（AuthService 不是 widget），按 localeProvider
+  // 当前选的语言查表——跟 ApiClient._currentL10n() 是同一套逻辑
+  AppLocalizations _currentL10n() {
+    final pref = _ref.read(localeProvider);
+    final locale = localeFor(pref) ?? PlatformDispatcher.instance.locale;
+    if (AppLocalizations.supportedLocales.any((l) => l.languageCode == locale.languageCode)) {
+      return lookupAppLocalizations(locale);
+    }
+    return lookupAppLocalizations(const Locale('zh'));
   }
 
   // 编辑资料成功后，用最新数据直接刷新内存态，避免为了这一次更新再打一次 /auth/me

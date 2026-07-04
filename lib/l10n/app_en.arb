@@ -1,0 +1,498 @@
+{
+  "@@locale": "en",
+  "appName": "Dreaming Polar",
+  "appSlogan": "Born to create",
+  "emailLabel": "Email",
+  "passwordLabel": "Password",
+  "passwordHint": "Enter your password",
+  "login": "Log in",
+  "noAccountRegister": "No account? Register",
+  "loginErrorInvalidCredentials": "Incorrect email or password",
+  "createAccount": "Create account",
+  "registerSubtitle": "Join Dreaming Polar and start your data journey",
+  "usernameLabel": "Username",
+  "usernameHint": "Your username",
+  "passwordMinHint": "At least 6 characters",
+  "confirmPasswordLabel": "Confirm password",
+  "confirmPasswordHint": "Re-enter your password",
+  "register": "Register",
+  "alreadyHaveAccount": "Already have an account?",
+  "registerErrorFillAll": "Please fill in all fields",
+  "registerErrorUsernameTooShort": "Username must be at least 2 characters",
+  "registerErrorInvalidEmail": "Please enter a valid email",
+  "registerErrorPasswordTooShort": "Password must be at least 6 characters",
+  "registerErrorPasswordMismatch": "Passwords do not match",
+  "loginExpiredPleaseRelogin": "Your session has expired. Please log in again.",
+  "switchAccount": "Switch account",
+  "manage": "Manage",
+  "done": "Done",
+  "addOtherAccount": "Add another account",
+  "maxAccountsSupported": "Supports switching between up to 3 accounts",
+  "currentlyLoggedIn": "Current",
+  "switchToThisAccount": "Switch to this account",
+  "statusLive": "Live",
+  "statusComingSoon": "Coming soon",
+  "statusStayTuned": "Stay tuned",
+  "appAriaAssistant": "ARIA Assistant",
+  "appDataGrid": "Data Grid",
+  "appVisualizationFactory": "Visualization Factory",
+  "appMathModeling": "Math Modeling",
+  "appMoreComingSoon": "More coming soon",
+  "comingSoonStayTuned": "Coming soon, stay tuned",
+  "recentTutorials": "Recent tutorials",
+  "greetingGoodMorning": "Good morning",
+  "greetingGoodNoon": "Good midday",
+  "greetingGoodAfternoon": "Good afternoon",
+  "greetingGoodEvening": "Good evening",
+  "greetingLateNight": "It's getting late",
+  "greetingSubMorning": "A new day, take it easy.",
+  "greetingSubNoon": "Midday hours, take your time.",
+  "greetingSubAfternoon": "Good afternoon, how are you doing?",
+  "greetingSubEvening": "A long day — well done.",
+  "greetingSubNight": "Get some rest soon.",
+  "tagAll": "All",
+  "tagDataAnalysis": "Data Analysis",
+  "tagMachineLearning": "Machine Learning",
+  "tagVisualization": "Visualization",
+  "tagStatistics": "Statistics",
+  "tagMathModeling": "Math Modeling",
+  "searchTutorialsHint": "Search tutorials, authors...",
+  "noTutorialsYet": "No tutorials yet",
+  "loadFailedWithReason": "Failed to load: {reason}",
+  "@loadFailedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "actionFailedWithReason": "Action failed: {reason}",
+  "@actionFailedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "sendFailedWithReason": "Failed to send: {reason}",
+  "@sendFailedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadFailedWithReason": "Upload failed: {reason}",
+  "@uploadFailedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "sendImageFailedWithReason": "Failed to send image: {reason}",
+  "@sendImageFailedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "usernameNotUpdatedWithReason": "Username not updated: {reason}",
+  "@usernameNotUpdatedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chartRenderFailedWithReason": "Failed to render chart: {error}",
+  "@chartRenderFailedWithReason": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tutorial": "Tutorial",
+  "tutorialNotFound": "Tutorial not found",
+  "editProfile": "Edit Profile",
+  "save": "Save",
+  "cancel": "Cancel",
+  "tapToChangeAvatar": "Tap to change avatar",
+  "nicknameLabel": "Nickname",
+  "nicknameHint": "Your nickname",
+  "usernameAtHint": "@Set your username",
+  "genderLabel": "Gender",
+  "genderMale": "Male",
+  "genderFemale": "Female",
+  "genderPrivate": "Prefer not to say",
+  "locationLabel": "Location",
+  "locationHint": "City or region",
+  "birthdayLabel": "Birthday",
+  "selectBirthdayPlaceholder": "Select",
+  "addLink": "Add link",
+  "deleteAccount": "Delete account",
+  "nicknameRequired": "Nickname cannot be empty",
+  "saveFailedRetry": "Save failed, please try again",
+  "avatarUpdated": "Avatar updated",
+  "maxLinksReached": "You can add up to 3 links",
+  "selectBirthdaySheetTitle": "Select birthday",
+  "bioLabel": "Bio",
+  "bioHint": "Tell us about yourself",
+  "selectFromAlbum": "Choose from album",
+  "takePhoto": "Take photo",
+  "pleaseTryAgainLater": "Please try again later",
+  "zodiacAries": "Aries",
+  "zodiacTaurus": "Taurus",
+  "zodiacGemini": "Gemini",
+  "zodiacCancer": "Cancer",
+  "zodiacLeo": "Leo",
+  "zodiacVirgo": "Virgo",
+  "zodiacLibra": "Libra",
+  "zodiacScorpio": "Scorpio",
+  "zodiacSagittarius": "Sagittarius",
+  "zodiacCapricorn": "Capricorn",
+  "zodiacAquarius": "Aquarius",
+  "zodiacPisces": "Pisces",
+  "coverUpdated": "Cover updated",
+  "defaultGreetingMessage": "Hello!",
+  "cannotOpenLink": "Couldn't open this link",
+  "allSettings": "All settings",
+  "allSettingsSubtitle": "Account security / Notifications / Theme / Membership, etc.",
+  "logout": "Log out",
+  "userNotFound": "User not found",
+  "sendMessageAction": "Message",
+  "followingAction": "Following",
+  "followAction": "Follow",
+  "followingCountLabel": "Following",
+  "likesCountLabel": "Likes",
+  "followersCountLabel": "Followers",
+  "creatorCenter": "Creator Center",
+  "creatorCenterComingSoon": "Creator Center coming soon, stay tuned",
+  "readCountLabel": "Views",
+  "bookmarksCountLabel": "Bookmarks",
+  "commentsCountLabel": "Comments",
+  "noTutorialsPublished": "No tutorials published yet",
+  "noNotebooksYet": "No notebooks yet",
+  "bookmarksComingSoon": "Bookmarks coming soon",
+  "likesListComingSoon": "Likes list coming soon",
+  "uploadFailedRetry": "Upload failed, please try again",
+  "noFollowersYet": "No followers yet",
+  "noFollowingYet": "Not following anyone yet",
+  "messagesTitle": "Messages",
+  "markAllRead": "Mark all read",
+  "tabNotifications": "Notifications",
+  "tabDirectMessages": "Direct Messages",
+  "tabGroups": "Groups",
+  "addFriend": "Add Friend",
+  "addFriendSubtitle": "Search users by @handle",
+  "createGroup": "Create Group",
+  "createGroupSubtitle": "Create a discussion group",
+  "createForum": "Create Forum",
+  "createForumSubtitle": "Create a technical discussion forum",
+  "createGroupComingSoon": "Group creation coming soon",
+  "createForumComingSoon": "Forum creation coming soon",
+  "searchUserHandleHint": "Enter @handle to search users",
+  "search": "Search",
+  "searchUserPlaceholder": "Search a user's @handle",
+  "view": "View",
+  "noNotificationsYet": "No notifications yet",
+  "noDirectMessagesYet": "No messages yet",
+  "goMeetNewFriends": "Go meet new friends in the community",
+  "groupFeature": "Group feature",
+  "timeJustNow": "Just now",
+  "timeMinutesAgo": "{n}m ago",
+  "@timeMinutesAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{n}h ago",
+  "@timeHoursAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{n}d ago",
+  "@timeDaysAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "timeMonthsAgo": "{n}mo ago",
+  "@timeMonthsAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "systemNotificationInitial": "S",
+  "attachCode": "Code",
+  "attachFormula": "Formula",
+  "attachImage": "Image",
+  "sendCode": "Send Code",
+  "codeInputHint": "# Enter code...",
+  "send": "Send",
+  "sendFormula": "Send Formula",
+  "sendingImage": "Sending image...",
+  "messageInputHint": "Message...",
+  "defaultUserName": "User",
+  "back": "Back",
+  "appNotebookTitle": "Dreaming Polar Notebook",
+  "newNotebook": "New Notebook",
+  "chooseTypeSubtitle": "Choose a type to start your analysis journey",
+  "notebookNameHint": "Notebook name",
+  "langMixed": "Mixed",
+  "create": "Create",
+  "whereToStart": "Where do you want to start?",
+  "recentlyOpened": "Recently opened",
+  "viewAll": "All",
+  "templates": "Templates",
+  "templateMathDerivation": "Math Derivation",
+  "envInitializing": "Runtime environment initializing, please wait...",
+  "pythonEnvLoading": "⏳ Python environment loading, please wait...",
+  "loadTimeoutRestart": "❌ Loading timed out, please restart the app",
+  "langSupportComingSoon": "⏳ {lang} support coming soon",
+  "@langSupportComingSoon": {
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
+  },
+  "unsupportedCellType": "Running this cell type isn't supported yet",
+  "compilerNotReady": "Compiler not ready, please try again",
+  "execTimeout": "Execution timed out",
+  "runCompleteNoOutputChecked": "✓ Run complete (no output)",
+  "runCompleteNoOutput": "Run complete (no output)",
+  "runErrorWithReason": "Run error: {error}",
+  "@runErrorWithReason": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownError": "Unknown error",
+  "inputPromptDefault": "Enter input",
+  "inputFieldLabel": "Input {n}",
+  "@inputFieldLabel": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "codeNeedsInput": "Code needs input",
+  "fillAllInputsFirst": "Please fill in all input values first:",
+  "run": "Run",
+  "importJupyterNotebook": "Import Jupyter Notebook",
+  "foundCellsImportConfirm": "Found {n} cells. Import them?",
+  "@foundCellsImportConfirm": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "import": "Import",
+  "fileImportedTapToRun": "{filename} imported — tap Run to load the data",
+  "@fileImportedTapToRun": {
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
+  "exportedToPath": "Exported to {path}",
+  "@exportedToPath": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "runAll": "Run All",
+  "exportIpynb": "Export .ipynb",
+  "clearOutputs": "Clear Outputs",
+  "pythonCodeHint": "# Python code...",
+  "sqlQueryHint": "-- SQL query...",
+  "jsCodeHint": "// JavaScript code...",
+  "rCodeHint": "# R code...",
+  "juliaCodeHint": "# Julia code...",
+  "latexFormulaHint": "Enter LaTeX formula...",
+  "markdownTextHint": "# Markdown text...",
+  "htmlContentHint": "<p>HTML content...</p>",
+  "genericCodeHint": "Code...",
+  "settingsTitle": "Settings",
+  "sectionAccount": "Account",
+  "accountSecurity": "Account Security",
+  "accountSecuritySubtitle": "Password, login history",
+  "notificationSettings": "Notification Settings",
+  "notificationSettingsSubtitle": "Likes, comments, follows",
+  "privacy": "Privacy",
+  "privacySubtitle": "Who can see my content",
+  "sectionGeneral": "General",
+  "theme": "Theme",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "fontSize": "Font Size",
+  "fontSizeSmall": "Small",
+  "fontSizeStandard": "Standard",
+  "fontSizeLarge": "Large",
+  "fontSizeExtraLarge": "Extra Large",
+  "language": "Language",
+  "languageZh": "简体中文",
+  "languageEn": "English",
+  "selectLanguage": "Select Language",
+  "cloudStorage": "Cloud Storage",
+  "storageUsedOfQuota": "Used {used} / {quota}",
+  "@storageUsedOfQuota": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "quota": {
+        "type": "String"
+      }
+    }
+  },
+  "loadingEllipsis": "Loading...",
+  "tapToViewDetails": "Tap to view details",
+  "clearCache": "Clear Cache",
+  "sectionMembership": "Membership",
+  "myMembership": "My Membership",
+  "currentFreeVersion": "Current: Free",
+  "upgradePro": "Upgrade to Pro",
+  "paymentMethod": "Payment Method",
+  "paymentMethodSubtitle": "Manage linked payment methods",
+  "subscriptionManagement": "Subscription Management",
+  "subscriptionManagementSubtitle": "View subscription history",
+  "sectionAbout": "About",
+  "aboutApp": "About Dreaming Polar",
+  "userAgreement": "User Agreement",
+  "privacyPolicy": "Privacy Policy",
+  "cacheCleared": "Cache cleared",
+  "confirmLogoutMessage": "Are you sure you want to log out?",
+  "exit": "Log Out",
+  "switchAccountConfirm": "Log out of the current account and go to the login page?",
+  "confirm": "Confirm",
+  "likeNotifications": "Like Notifications",
+  "commentNotifications": "Comment Notifications",
+  "followNotifications": "Follow Notifications",
+  "systemNotifications": "System Notifications",
+  "changePassword": "Change Password",
+  "changePasswordSubtitle": "Change your password periodically to keep your account secure",
+  "loginHistory": "Login History",
+  "loginHistorySubtitle": "View recent login devices and times",
+  "deleteAccountSubtitle": "Permanently delete your account and all data",
+  "fillAllFields": "Please fill in all fields",
+  "newPasswordMismatch": "The new passwords you entered don't match",
+  "passwordChangeSuccess": "Password changed successfully",
+  "changePasswordComingSoon": "Password change is coming soon, stay tuned",
+  "changeFailedRetry": "Update failed, please try again",
+  "currentPasswordLabel": "Current Password",
+  "newPasswordLabel": "New Password",
+  "confirmNewPasswordLabel": "Confirm New Password",
+  "deleteAccountWarning": "All your data will be permanently deleted, including tutorials, Notebooks, and messages.\\n\\nThis action cannot be undone.",
+  "confirmDeletion": "Confirm Deletion",
+  "deleteAccountComingSoon": "Account deletion is coming soon, stay tuned",
+  "deleteFailedRetry": "Deletion failed, please try again later",
+  "accountDeleted": "Account deleted",
+  "noLoginHistoryYet": "No login history yet",
+  "unknownLocation": "Unknown location",
+  "currentDeviceLabel": "Current",
+  "paymentMethodComingSoon": "Payment method management is coming soon, stay tuned",
+  "privacySettings": "Privacy Settings",
+  "publicProfile": "Public Profile",
+  "publicProfileSubtitle": "When off, other users can't view your profile (feature in progress, not yet active)",
+  "publicFavorites": "Public Favorites List",
+  "publicFavoritesSubtitle": "Allow other users to see your favorites (feature in progress, not yet active)",
+  "allowComments": "Allow Comments",
+  "allowCommentsSubtitle": "When off, other users can't comment on your tutorials (feature in progress, not yet active)",
+  "allowMessages": "Allow Direct Messages",
+  "allowMessagesSubtitle": "When off, other users can't message you (feature in progress, not yet active)",
+  "storageSpace": "Storage",
+  "membershipFree": "Free",
+  "remainingSpace": "{remaining} remaining",
+  "@remainingSpace": {
+    "placeholders": {
+      "remaining": {
+        "type": "String"
+      }
+    }
+  },
+  "fileCategories": "File Categories",
+  "folderNotebooks": "Notebook Files",
+  "folderTutorials": "Tutorials / Notes",
+  "folderMedia": "Images / Videos / Audio",
+  "folderDocs": "Documents / Data Files",
+  "fileCountWithSize": "{count} files · {size}",
+  "@fileCountWithSize": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "noFilesYet": "No files yet",
+  "unknownFile": "Unknown file",
+  "proMembershipComingSoon": "Pro membership coming soon, stay tuned",
+  "noSubscriptionHistory": "No subscription history yet",
+  "versionNumber": "Version",
+  "devTeam": "Development Team",
+  "officialWebsite": "Official Website",
+  "copyrightFooter": "© 2026 Dreaming Polar\\nBorn to create",
+  "storageFull": "Storage Full",
+  "storageFullMessage": "Used {used} / {quota}.\\n\\nUpgrade your membership for more space, or clear old files before sending.",
+  "@storageFullMessage": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "quota": {
+        "type": "String"
+      }
+    }
+  },
+  "manageStorage": "Manage Storage",
+  "upgradeMembership": "Upgrade Membership",
+  "storageUsedPercentWarning": "Storage is {pct}% full — manage your files in Settings",
+  "@storageUsedPercentWarning": {
+    "placeholders": {
+      "pct": {
+        "type": "int"
+      }
+    }
+  },
+  "navHome": "Home",
+  "navCommunity": "Community",
+  "navProfile": "Profile",
+  "publish": "Publish",
+  "pageUnderDevelopment": "{page} page is under development",
+  "@pageUnderDevelopment": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "networkTimeout": "Network connection timed out",
+  "networkConnectionFailed": "Network connection failed",
+  "requestFailed": "Request failed",
+  "registerFailedRetry": "Registration failed, please try again",
+  "registerSuccessAutoLoginFailed": "Registration succeeded, but automatic login failed — please log in manually",
+  "latexFormulaExample": "e.g. \\\\frac｛1｝｛2｝"
+}

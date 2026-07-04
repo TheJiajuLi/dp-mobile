@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/locale_provider.dart';
 import '../../core/network/api_client.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/models/tutorial_model.dart';
 import '../auth/auth_service.dart';
 
@@ -72,11 +75,15 @@ class CommunityState {
 class CommunityNotifier extends StateNotifier<CommunityState> {
   final ApiClient _api;
   final String? _userId;
+  final Ref _ref;
 
-  CommunityNotifier(this._api, this._userId) : super(const CommunityState()) {
+  CommunityNotifier(this._api, this._userId, this._ref) : super(const CommunityState()) {
     fetchFirstPage();
   }
 
+  // community_screen.dart 显示 error 时会用 l10n.loadFailedWithReason(...)
+  // 套一层本地化的"加载失败："前缀——这里存的必须是纯粹的原因文本，不能
+  // 自己再嵌一遍中文前缀，不然中文模式下会重复，英文模式下会中英文夹杂
   Future<void> fetchFirstPage() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -85,7 +92,7 @@ class CommunityNotifier extends StateNotifier<CommunityState> {
         queryParameters: {'status': 'published', 'page': 1, 'limit': 20},
       );
       if (!res.success || res.data == null) {
-        state = state.copyWith(isLoading: false, error: res.message ?? '加载失败');
+        state = state.copyWith(isLoading: false, error: res.message ?? _currentL10n().requestFailed);
         return;
       }
       final data = res.data as Map;
@@ -100,7 +107,7 @@ class CommunityNotifier extends StateNotifier<CommunityState> {
         totalPages: (data['pages'] as num?)?.toInt() ?? 1,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: '加载失败：$e');
+      state = state.copyWith(isLoading: false, error: '$e');
     }
   }
 
@@ -116,7 +123,7 @@ class CommunityNotifier extends StateNotifier<CommunityState> {
         queryParameters: {'status': 'published', 'page': nextPage, 'limit': 20},
       );
       if (!res.success || res.data == null) {
-        state = state.copyWith(isLoadingMore: false, error: res.message ?? '加载失败');
+        state = state.copyWith(isLoadingMore: false, error: res.message ?? _currentL10n().requestFailed);
         return;
       }
       final data = res.data as Map;
@@ -131,7 +138,7 @@ class CommunityNotifier extends StateNotifier<CommunityState> {
         totalPages: (data['pages'] as num?)?.toInt() ?? state.totalPages,
       );
     } catch (e) {
-      state = state.copyWith(isLoadingMore: false, error: '加载失败：$e');
+      state = state.copyWith(isLoadingMore: false, error: '$e');
     }
   }
 
@@ -149,10 +156,19 @@ class CommunityNotifier extends StateNotifier<CommunityState> {
       // 缓存失败不影响主流程
     }
   }
+
+  AppLocalizations _currentL10n() {
+    final pref = _ref.read(localeProvider);
+    final locale = localeFor(pref) ?? PlatformDispatcher.instance.locale;
+    if (AppLocalizations.supportedLocales.any((l) => l.languageCode == locale.languageCode)) {
+      return lookupAppLocalizations(locale);
+    }
+    return lookupAppLocalizations(const Locale('zh'));
+  }
 }
 
 final communityProvider = StateNotifierProvider<CommunityNotifier, CommunityState>((ref) {
   final api = ref.watch(apiClientProvider);
   final userId = ref.watch(currentUserProvider)?.id;
-  return CommunityNotifier(api, userId);
+  return CommunityNotifier(api, userId, ref);
 });

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
+
 class SubscriptionScreen extends StatelessWidget {
   const SubscriptionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('订阅管理'),
+        title: Text(l10n.subscriptionManagement),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -26,26 +29,26 @@ class SubscriptionScreen extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.workspace_premium, color: Colors.white, size: 32),
-                SizedBox(width: 12),
+                const Icon(Icons.workspace_premium, color: Colors.white, size: 32),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '当前：免费版',
-                        style: TextStyle(
+                        l10n.currentFreeVersion,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'Pro 会员即将上线，敬请期待',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                        l10n.proMembershipComingSoon,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
                   ),
@@ -56,7 +59,7 @@ class SubscriptionScreen extends StatelessWidget {
           const SizedBox(height: 24),
           Center(
             child: Text(
-              '暂无订阅记录',
+              l10n.noSubscriptionHistory,
               style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             ),
           ),

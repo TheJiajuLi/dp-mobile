@@ -172,11 +172,29 @@ blocks是JSON字符串：
 
 ### 设置页
 - 账号安全：修改密码/登录记录（含地理位置）/注销账号
-- 通用：主题（ThemePreference）/字体/通知开关/清缓存
+- 通用：主题（ThemePreference）/字体/语言（AppLocale）/通知开关/清缓存
 - 隐私：公开主页/收藏/评论/消息开关（存后端）
 - 云端存储：分类文件夹，API实时读取，存储检查机制
 - 会员中心：订阅/支付（占位）
 - 关于极梦：版本/官网/协议
+
+### 国际化（i18n）
+- 用flutter gen-l10n，ARB源文件在lib/l10n/（app_en.arb为模板+app_zh.arb），
+  生成代码在lib/l10n/generated/（不是synthetic package，直接import）
+- lib/core/locale_provider.dart：AppLocale{system,zh,en}，存SharedPreferences
+  'app_locale'，设置页"语言"行可切换，跟主题选择器是同一套UI模式
+- 每个screen在build()顶部取`final l10n = AppLocalizations.of(context)!;`
+- 后端回显的动态内容（如res.message）不会被翻译——只翻译客户端自己的
+  兜底文案，两者拼接时客户端文案只放"纯原因"不能是完整句子，否则会跟外层
+  前缀重复（如"上传失败：上传失败，请重试"这种bug，已修复）
+- ApiClient/AuthService/CommunityNotifier这几个非widget的类，用
+  localeFor(ref.read(localeProvider)) + lookupAppLocalizations()同步查表，
+  不依赖BuildContext
+- 星座名（zodiacDisplayName）/性别（genderDisplayLabel）后端存储值仍是
+  中文/英文枚举名，只有展示层跟locale换
+- 已知不翻译的：auth_service.dart登录记录的"未知位置"/"未知设备"兜底
+  （写入时的本地化没意义，是历史记录）、notebook_service.dart新建
+  Notebook的模板代码注释（用户几乎立刻会改掉的占位代码）
 
 ### Token刷新
 - 403时自动refresh，单飞去重（_refreshing Future）

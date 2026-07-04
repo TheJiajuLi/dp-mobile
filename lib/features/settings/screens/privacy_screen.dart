@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 
 class PrivacyScreen extends ConsumerStatefulWidget {
@@ -63,9 +64,10 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('隐私设置'),
+        title: Text(l10n.privacySettings),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -79,8 +81,8 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
             child: Column(
               children: [
                 SwitchListTile(
-                  title: const Text('公开个人主页'),
-                  subtitle: const Text('关闭后其他用户无法查看你的主页（功能完善中，暂未生效）'),
+                  title: Text(l10n.publicProfile),
+                  subtitle: Text(l10n.publicProfileSubtitle),
                   value: _publicProfile,
                   activeThumbColor: const Color(0xFF6366F1),
                   onChanged: (v) {
@@ -90,8 +92,8 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 ),
                 const Divider(height: 0.5, indent: 16),
                 SwitchListTile(
-                  title: const Text('公开收藏列表'),
-                  subtitle: const Text('允许其他用户查看你的收藏（功能完善中，暂未生效）'),
+                  title: Text(l10n.publicFavorites),
+                  subtitle: Text(l10n.publicFavoritesSubtitle),
                   value: _publicFavorites,
                   activeThumbColor: const Color(0xFF6366F1),
                   onChanged: (v) {
@@ -101,8 +103,8 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 ),
                 const Divider(height: 0.5, indent: 16),
                 SwitchListTile(
-                  title: const Text('允许评论'),
-                  subtitle: const Text('关闭后其他用户无法评论你的教程（功能完善中，暂未生效）'),
+                  title: Text(l10n.allowComments),
+                  subtitle: Text(l10n.allowCommentsSubtitle),
                   value: _allowComments,
                   activeThumbColor: const Color(0xFF6366F1),
                   onChanged: (v) {
@@ -112,8 +114,8 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 ),
                 const Divider(height: 0.5, indent: 16),
                 SwitchListTile(
-                  title: const Text('允许私信'),
-                  subtitle: const Text('关闭后其他用户无法给你发消息（功能完善中，暂未生效）'),
+                  title: Text(l10n.allowMessages),
+                  subtitle: Text(l10n.allowMessagesSubtitle),
                   value: _allowMessages,
                   activeThumbColor: const Color(0xFF6366F1),
                   onChanged: (v) {

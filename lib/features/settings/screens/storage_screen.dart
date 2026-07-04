@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class StorageScreen extends ConsumerStatefulWidget {
   const StorageScreen({super.key});
@@ -61,6 +62,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       );
     }
 
+    final l10n = AppLocalizations.of(context)!;
     final quota = _data?['quota'] as int? ?? 200 * 1024 * 1024;
     final total = _data?['totalBytes'] as int? ?? 0;
     final membership = _data?['membership'] as String? ?? 'free';
@@ -68,34 +70,34 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     final usedPercent = (total / quota).clamp(0.0, 1.0);
 
     final membershipLabel =
-        const {'free': '免费版', 'pro': 'Pro', 'pro_max': 'Pro Max'}[membership] ??
-        '免费版';
+        {'free': l10n.membershipFree, 'pro': 'Pro', 'pro_max': 'Pro Max'}[membership] ??
+        l10n.membershipFree;
 
     final folderDefs = [
       {
         'key': 'notebooks',
-        'label': 'Notebook 文件',
+        'label': l10n.folderNotebooks,
         'icon': Icons.menu_book_outlined,
         'color': const Color(0xFF6366F1),
         'bg': const Color(0xFFEEF0FF),
       },
       {
         'key': 'tutorials',
-        'label': '教程 / 笔记',
+        'label': l10n.folderTutorials,
         'icon': Icons.article_outlined,
         'color': const Color(0xFF16A34A),
         'bg': const Color(0xFFE8F8F0),
       },
       {
         'key': 'media',
-        'label': '图片 / 视频 / 音频',
+        'label': l10n.folderMedia,
         'icon': Icons.perm_media_outlined,
         'color': const Color(0xFFD97706),
         'bg': const Color(0xFFFFF7E6),
       },
       {
         'key': 'docs',
-        'label': '文档 / 数据文件',
+        'label': l10n.folderDocs,
         'icon': Icons.folder_outlined,
         'color': const Color(0xFF2563EB),
         'bg': const Color(0xFFE6F1FB),
@@ -104,7 +106,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('云端存储'),
+        title: Text(l10n.cloudStorage),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -128,9 +130,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                   children: [
                     const Icon(Icons.cloud_outlined, color: Color(0xFF6366F1)),
                     const SizedBox(width: 8),
-                    const Text(
-                      '存储空间',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    Text(
+                      l10n.storageSpace,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                     const Spacer(),
                     Container(
@@ -175,7 +177,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      '剩余 ${_fmt(quota - total)}',
+                      l10n.remainingSpace(_fmt(quota - total)),
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
@@ -185,11 +187,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
           ),
 
           // 文件夹列表
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
-              '文件分类',
-              style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
+              l10n.fileCategories,
+              style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
             ),
           ),
 
@@ -244,7 +246,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                     ),
                                   ),
                                   Text(
-                                    '${files.length} 个文件 · ${_fmt(bytes)}',
+                                    l10n.fileCountWithSize(files.length, _fmt(bytes)),
                                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                                   ),
                                 ],
@@ -263,17 +265,17 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     if (isExpanded)
                       ...files.isEmpty
                           ? [
-                              const Padding(
-                                padding: EdgeInsets.all(20),
+                              Padding(
+                                padding: const EdgeInsets.all(20),
                                 child: Text(
-                                  '暂无文件',
-                                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                                  l10n.noFilesYet,
+                                  style: const TextStyle(color: Colors.grey, fontSize: 14),
                                 ),
                               ),
                             ]
                           : files.map((f) {
                               final name =
-                                  f['filename'] as String? ?? f['title'] as String? ?? '未知文件';
+                                  f['filename'] as String? ?? f['title'] as String? ?? l10n.unknownFile;
                               final size = (f['size_bytes'] as num?)?.toInt() ?? 0;
                               return Container(
                                 padding: const EdgeInsets.symmetric(

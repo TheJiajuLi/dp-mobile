@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth_service.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -54,7 +55,7 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
       _accounts.removeWhere((e) => e['id'] == userId);
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('登录状态已过期，请重新登录')),
+      SnackBar(content: Text(AppLocalizations.of(context)!.loginExpiredPleaseRelogin)),
     );
   }
 
@@ -67,6 +68,7 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUserId = ref.watch(currentUserProvider)?.id;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -83,7 +85,7 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                   ),
                   Expanded(
                     child: Text(
-                      '切换账号',
+                      l10n.switchAccount,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 17,
@@ -97,7 +99,7 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                         ? null
                         : () => setState(() => _managing = !_managing),
                     child: Text(
-                      _managing ? '完成' : '管理',
+                      _managing ? l10n.done : l10n.manage,
                       style: TextStyle(
                         fontSize: 15,
                         color: _accounts.length <= 1 ? Colors.grey : _primary,
@@ -136,16 +138,16 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                         ),
                         child: const Icon(Icons.add, color: _primary),
                       ),
-                      title: const Text(
-                        '添加其他账号',
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                      title: Text(
+                        l10n.addOtherAccount,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                       onTap: () => context.push('/login'),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                       child: Text(
-                        '支持至多3个账号切换',
+                        l10n.maxAccountsSupported,
                         style: TextStyle(
                           fontSize: 12,
                           color: Theme.of(context).textTheme.bodySmall?.color,
@@ -237,9 +239,9 @@ class _AccountRow extends StatelessWidget {
                 color: const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(99),
               ),
-              child: const Text(
-                '当前登录',
-                style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+              child: Text(
+                AppLocalizations.of(context)!.currentlyLoggedIn,
+                style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
               ),
             )
           : switching
@@ -257,7 +259,7 @@ class _AccountRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('切换到此账号'),
+              child: Text(AppLocalizations.of(context)!.switchToThisAccount),
             ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_client.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 class StorageChecker {
   static Future<bool> checkAndPrompt(
@@ -48,24 +49,25 @@ class StorageChecker {
     int used,
     int quota,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('存储空间已满'),
+        title: Text(l10n.storageFull),
         content: Text(
-          '已用 ${_fmt(used)} / ${_fmt(quota)}。\n\n请升级会员获取更多空间，或清理旧文件后再发送。',
+          l10n.storageFullMessage(_fmt(used), _fmt(quota)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               context.push('/settings/storage');
             },
-            child: const Text('管理存储', style: TextStyle(color: Color(0xFF6366F1))),
+            child: Text(l10n.manageStorage, style: const TextStyle(color: Color(0xFF6366F1))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
@@ -73,7 +75,7 @@ class StorageChecker {
               Navigator.pop(ctx);
               context.push('/settings/subscription');
             },
-            child: const Text('升级会员', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.upgradeMembership, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -81,12 +83,13 @@ class StorageChecker {
   }
 
   static void _showWarningSnackbar(BuildContext context, int used, int quota) {
+    final l10n = AppLocalizations.of(context)!;
     final pct = (used / quota * 100).toInt();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('存储空间已用 $pct%，可前往设置管理文件'),
+        content: Text(l10n.storageUsedPercentWarning(pct)),
         action: SnackBarAction(
-          label: '管理',
+          label: l10n.manage,
           onPressed: () => context.push('/settings/storage'),
         ),
       ),

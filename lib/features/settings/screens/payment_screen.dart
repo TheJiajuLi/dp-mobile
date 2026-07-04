@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
+
 class PaymentScreen extends StatelessWidget {
   const PaymentScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('支付方式'),
+        title: Text(l10n.paymentMethod),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
       backgroundColor: const Color(0xFFF8F8F8),
-      body: const _ComingSoon(
+      body: _ComingSoon(
         icon: Icons.credit_card_outlined,
-        message: '支付方式管理即将上线，敬请期待',
+        message: l10n.paymentMethodComingSoon,
       ),
     );
   }

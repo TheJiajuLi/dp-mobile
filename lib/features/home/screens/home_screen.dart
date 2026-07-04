@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/greeting.dart';
 import '../../auth/auth_service.dart';
@@ -14,16 +15,25 @@ import '../providers/tutorials_provider.dart';
 
 enum _EntryStatus { live, comingSoon, stayTuned }
 
-extension on _EntryStatus {
-  String get label => switch (this) {
-    _EntryStatus.live => '已上线',
-    _EntryStatus.comingSoon => '即将上线',
-    _EntryStatus.stayTuned => '敬请期待',
-  };
-}
+String _statusLabel(AppLocalizations l10n, _EntryStatus status) => switch (status) {
+  _EntryStatus.live => l10n.statusLive,
+  _EntryStatus.comingSoon => l10n.statusComingSoon,
+  _EntryStatus.stayTuned => l10n.statusStayTuned,
+};
+
+enum _AppId { notebook, aria, grid, visualization, mathModeling, more }
+
+String _appName(AppLocalizations l10n, _AppId id) => switch (id) {
+  _AppId.notebook => 'Power Notebook',
+  _AppId.aria => l10n.appAriaAssistant,
+  _AppId.grid => l10n.appDataGrid,
+  _AppId.visualization => l10n.appVisualizationFactory,
+  _AppId.mathModeling => l10n.appMathModeling,
+  _AppId.more => l10n.appMoreComingSoon,
+};
 
 class _AppEntry {
-  final String name;
+  final _AppId id;
   final IconData icon;
   final Color color;
   final _EntryStatus status;
@@ -31,7 +41,7 @@ class _AppEntry {
   final bool usePush;
 
   const _AppEntry({
-    required this.name,
+    required this.id,
     required this.icon,
     required this.color,
     required this.status,
@@ -42,7 +52,7 @@ class _AppEntry {
 
 const _appEntries = <_AppEntry>[
   _AppEntry(
-    name: 'Power Notebook',
+    id: _AppId.notebook,
     icon: Icons.code,
     color: Color(0xFF6366F1),
     status: _EntryStatus.live,
@@ -50,7 +60,7 @@ const _appEntries = <_AppEntry>[
     usePush: true,
   ),
   _AppEntry(
-    name: 'ARIA 分析助手',
+    id: _AppId.aria,
     icon: Icons.auto_awesome,
     color: Color(0xFF16A34A),
     status: _EntryStatus.live,
@@ -58,25 +68,25 @@ const _appEntries = <_AppEntry>[
     usePush: true,
   ),
   _AppEntry(
-    name: '数据网格 Grid',
+    id: _AppId.grid,
     icon: Icons.grid_on,
     color: Color(0xFF2563EB),
     status: _EntryStatus.comingSoon,
   ),
   _AppEntry(
-    name: '可视化工厂',
+    id: _AppId.visualization,
     icon: Icons.bar_chart,
     color: Color(0xFFD97706),
     status: _EntryStatus.comingSoon,
   ),
   _AppEntry(
-    name: '数学建模',
+    id: _AppId.mathModeling,
     icon: Icons.functions,
     color: Color(0xFFC026D3),
     status: _EntryStatus.comingSoon,
   ),
   _AppEntry(
-    name: '更多敬请期待',
+    id: _AppId.more,
     icon: Icons.more_horiz,
     color: Color(0xFF8E8E93),
     status: _EntryStatus.stayTuned,
@@ -94,14 +104,15 @@ class HomeScreen extends ConsumerWidget {
         context.go(entry.route!);
       }
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('即将上线，敬请期待')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.comingSoonStayTuned)),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final user = ref.watch(currentUserProvider);
     final tutorialsAsync = ref.watch(recentTutorialsProvider);
 
@@ -132,7 +143,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                '${greetingText()}，${user?.username ?? ''}',
+                '${greetingText(context)}，${user?.username ?? ''}',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -141,7 +152,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                greetingSubtext(),
+                greetingSubtext(context),
                 style: TextStyle(
                   fontSize: 14,
                   color: Theme.of(context).textTheme.bodySmall?.color,
@@ -175,7 +186,7 @@ class HomeScreen extends ConsumerWidget {
                     children: [
                       const SizedBox(height: 28),
                       Text(
-                        '最近教程',
+                        l10n.recentTutorials,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -192,7 +203,7 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     const SizedBox(height: 28),
                     Text(
-                      '最近教程',
+                      l10n.recentTutorials,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -262,6 +273,7 @@ class _AppEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final live = entry.status == _EntryStatus.live;
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -289,7 +301,7 @@ class _AppEntryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  entry.name,
+                  _appName(l10n, entry.id),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -313,7 +325,7 @@ class _AppEntryCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  entry.status.label,
+                  _statusLabel(l10n, entry.status),
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,

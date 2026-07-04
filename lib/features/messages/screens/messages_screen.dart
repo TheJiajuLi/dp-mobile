@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../profile/models/user_profile_model.dart';
 import '../models/conversation_model.dart';
 import '../models/notification_model.dart';
@@ -53,6 +54,16 @@ Widget _buildAvatar(String? avatar, String username, {double radius = 24}) {
   );
 }
 
+// 相对时间格式化——通知/私信tab共用
+String timeAgo(AppLocalizations l10n, int tsMs) {
+  final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(tsMs));
+  if (diff.inMinutes < 1) return l10n.timeJustNow;
+  if (diff.inMinutes < 60) return l10n.timeMinutesAgo(diff.inMinutes);
+  if (diff.inHours < 24) return l10n.timeHoursAgo(diff.inHours);
+  if (diff.inDays < 30) return l10n.timeDaysAgo(diff.inDays);
+  return l10n.timeMonthsAgo(diff.inDays ~/ 30);
+}
+
 class MessagesScreen extends ConsumerStatefulWidget {
   const MessagesScreen({super.key});
   @override
@@ -92,6 +103,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final notifications = ref.watch(notificationsProvider);
     final conversations = ref.watch(conversationsProvider);
     final unread = ref.watch(unreadCountProvider);
@@ -109,14 +121,14 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                 children: [
                   Row(
                     children: [
-                      const Text('消息',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                      Text(l10n.messagesTitle,
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
                       const Spacer(),
                       if (unread > 0)
                         GestureDetector(
                           onTap: () => ref.read(notificationsProvider.notifier).markAllRead(),
-                          child: const Text('全部已读',
-                              style: TextStyle(fontSize: 14, color: _primary)),
+                          child: Text(l10n.markAllRead,
+                              style: const TextStyle(fontSize: 14, color: _primary)),
                         ),
                       const SizedBox(width: 12),
                       const Icon(Icons.search, size: 22),
@@ -144,11 +156,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                     indicatorColor: _primary,
                     indicatorWeight: 2,
                     tabs: [
-                      Tab(child: _tabLabel('通知', unread)),
+                      Tab(child: _tabLabel(l10n.tabNotifications, unread)),
                       Tab(
-                          child: _tabLabel('私信',
+                          child: _tabLabel(l10n.tabDirectMessages,
                               conversations.fold<int>(0, (s, c) => s + c.unreadCount))),
-                      const Tab(text: '群组'),
+                      Tab(text: l10n.tabGroups),
                     ],
                   ),
                 ],
@@ -173,6 +185,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
   }
 
   void _showAddMenu() {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -194,8 +207,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             const SizedBox(height: 20),
             _menuItem(
               Icons.person_add_outlined,
-              '添加好友',
-              '通过 @handle 搜索用户',
+              l10n.addFriend,
+              l10n.addFriendSubtitle,
               _primary,
               const Color(0xFFEEF0FF),
               () {
@@ -206,27 +219,27 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             const SizedBox(height: 12),
             _menuItem(
               Icons.group_add_outlined,
-              '建群',
-              '创建讨论群组',
+              l10n.createGroup,
+              l10n.createGroupSubtitle,
               const Color(0xFF16A34A),
               const Color(0xFFE8F8F0),
               () {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context)
-                    .showSnackBar(const SnackBar(content: Text('建群功能即将上线')));
+                    .showSnackBar(SnackBar(content: Text(l10n.createGroupComingSoon)));
               },
             ),
             const SizedBox(height: 12),
             _menuItem(
               Icons.forum_outlined,
-              '建论坛',
-              '创建技术交流论坛',
+              l10n.createForum,
+              l10n.createForumSubtitle,
               const Color(0xFFD97706),
               const Color(0xFFFFF7E6),
               () {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context)
-                    .showSnackBar(const SnackBar(content: Text('论坛功能即将上线')));
+                    .showSnackBar(SnackBar(content: Text(l10n.createForumComingSoon)));
               },
             ),
             const SizedBox(height: 20),
@@ -277,6 +290,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
   }
 
   void _showAddFriendSearch() {
+    final l10n = AppLocalizations.of(context)!;
     final ctrl = TextEditingController();
     List<UserProfile> results = [];
     bool searching = false;
@@ -321,13 +335,13 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
                 ),
                 const SizedBox(height: 16),
-                const Text('添加好友', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(l10n.addFriend, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 16),
                 TextField(
                   controller: ctrl,
                   autofocus: true,
                   decoration: InputDecoration(
-                    hintText: '输入 @handle 搜索用户',
+                    hintText: l10n.searchUserHandleHint,
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
                     fillColor: Colors.grey[100],
@@ -335,7 +349,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                         borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     suffixIcon: TextButton(
                       onPressed: () => doSearch(ctrl.text),
-                      child: const Text('搜索'),
+                      child: Text(l10n.search),
                     ),
                   ),
                   onSubmitted: doSearch,
@@ -346,8 +360,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                 else
                   Expanded(
                     child: results.isEmpty
-                        ? const Center(
-                            child: Text('搜索用户的 @handle', style: TextStyle(color: Colors.grey)))
+                        ? Center(
+                            child: Text(l10n.searchUserPlaceholder, style: const TextStyle(color: Colors.grey)))
                         : ListView.builder(
                             itemCount: results.length,
                             itemBuilder: (ctx, i) {
@@ -369,8 +383,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                       shape:
                                           RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       padding: const EdgeInsets.symmetric(horizontal: 12)),
-                                  child: const Text('查看',
-                                      style: TextStyle(color: Colors.white, fontSize: 13)),
+                                  child: Text(l10n.view,
+                                      style: const TextStyle(color: Colors.white, fontSize: 13)),
                                 ),
                               );
                             },
@@ -409,15 +423,6 @@ class _NotifTab extends StatelessWidget {
   final List<AppNotification> notifications;
   const _NotifTab({required this.notifications});
 
-  String _timeAgo(int tsMs) {
-    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(tsMs));
-    if (diff.inMinutes < 1) return '刚刚';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-    if (diff.inHours < 24) return '${diff.inHours}小时前';
-    if (diff.inDays < 30) return '${diff.inDays}天前';
-    return '${diff.inDays ~/ 30}个月前';
-  }
-
   Color _typeColor(String type) {
     switch (type) {
       case 'like':
@@ -446,14 +451,15 @@ class _NotifTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (notifications.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_none, size: 56, color: Colors.grey),
-            SizedBox(height: 12),
-            Text('暂无通知', style: TextStyle(color: Colors.grey, fontSize: 15)),
+            const Icon(Icons.notifications_none, size: 56, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(l10n.noNotificationsYet, style: const TextStyle(color: Colors.grey, fontSize: 15)),
           ],
         ),
       );
@@ -471,7 +477,7 @@ class _NotifTab extends StatelessWidget {
             leading: Stack(
               clipBehavior: Clip.none,
               children: [
-                _buildAvatar(n.fromAvatar, n.fromUsername ?? '系', radius: 22),
+                _buildAvatar(n.fromAvatar, n.fromUsername ?? l10n.systemNotificationInitial, radius: 22),
                 Positioned(
                   bottom: -2,
                   right: -2,
@@ -495,7 +501,7 @@ class _NotifTab extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             subtitle:
-                Text(_timeAgo(n.createdAt), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(timeAgo(l10n, n.createdAt), style: const TextStyle(fontSize: 12, color: Colors.grey)),
             trailing: n.tutorialId != null
                 ? Container(
                     width: 44,
@@ -523,17 +529,9 @@ class _DmTab extends ConsumerWidget {
   final List<Conversation> conversations;
   const _DmTab({required this.conversations});
 
-  String _timeAgo(int? tsMs) {
-    if (tsMs == null) return '';
-    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(tsMs));
-    if (diff.inMinutes < 1) return '刚刚';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-    if (diff.inHours < 24) return '${diff.inHours}小时前';
-    return '${diff.inDays}天前';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     if (conversations.isEmpty) {
       return Center(
         child: Column(
@@ -541,11 +539,11 @@ class _DmTab extends ConsumerWidget {
           children: [
             const Icon(Icons.chat_bubble_outline, size: 56, color: Colors.grey),
             const SizedBox(height: 12),
-            const Text('还没有私信', style: TextStyle(color: Colors.grey, fontSize: 15)),
+            Text(l10n.noDirectMessagesYet, style: const TextStyle(color: Colors.grey, fontSize: 15)),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () => context.go('/community'),
-              child: const Text('去社区认识新朋友', style: TextStyle(color: _primary, fontSize: 14)),
+              child: Text(l10n.goMeetNewFriends, style: const TextStyle(color: _primary, fontSize: 14)),
             ),
           ],
         ),
@@ -566,7 +564,10 @@ class _DmTab extends ConsumerWidget {
               Text(conv.otherUsername,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               const Spacer(),
-              Text(_timeAgo(conv.lastMessageAt),
+              Text(
+                  conv.lastMessageAt == null
+                      ? ''
+                      : timeAgo(l10n, conv.lastMessageAt!),
                   style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
@@ -602,6 +603,7 @@ class _GroupTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -614,9 +616,9 @@ class _GroupTab extends StatelessWidget {
             child: const Icon(Icons.group, size: 40, color: _primary),
           ),
           const SizedBox(height: 16),
-          const Text('群组功能', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(l10n.groupFeature, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          const Text('即将上线，敬请期待', style: TextStyle(color: Colors.grey, fontSize: 14)),
+          Text(l10n.comingSoonStayTuned, style: const TextStyle(color: Colors.grey, fontSize: 14)),
         ],
       ),
     );

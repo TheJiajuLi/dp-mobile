@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../features/auth/auth_service.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/greeting.dart';
 import '../services/notebook_service.dart';
 
@@ -32,6 +33,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
   }
 
   void _showNewSheet() {
+    final l10n = AppLocalizations.of(context)!;
     final ctrl = TextEditingController();
     String type = 'python';
     showModalBottomSheet(
@@ -51,16 +53,16 @@ class _State extends ConsumerState<NotebookHomeScreen> {
               decoration: BoxDecoration(color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(2)),
               margin: const EdgeInsets.only(bottom: 16)),
-            const Text('新建 Notebook',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(l10n.newNotebook,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text('选择类型，开始你的分析之旅',
+            Text(l10n.chooseTypeSubtitle,
               style: TextStyle(fontSize: 13, color: Colors.grey[500])),
             const SizedBox(height: 20),
             TextField(
               controller: ctrl, autofocus: true,
               decoration: InputDecoration(
-                hintText: 'Notebook 名称',
+                hintText: l10n.notebookNameHint,
                 filled: true, fillColor: Theme.of(ctx).inputDecorationTheme.fillColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -73,7 +75,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
               for (final t in [
                 ('python', 'Python', Icons.code),
                 ('latex', 'LaTeX', Icons.functions),
-                ('mixed', '混合', Icons.layers),
+                ('mixed', l10n.langMixed, Icons.layers),
               ]) Expanded(child: GestureDetector(
                 onTap: () => setState(() => type = t.$1),
                 child: Container(
@@ -110,8 +112,8 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                   backgroundColor: _primary, elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14))),
-                child: const Text('创建',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
+                child: Text(l10n.create,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
                     color: Colors.white)),
               )),
           ]),
@@ -122,6 +124,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(child: Column(children: [
@@ -131,14 +134,14 @@ class _State extends ConsumerState<NotebookHomeScreen> {
           child: Row(children: [
             GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: const Row(children: [
-                Icon(Icons.arrow_back_ios, size: 16, color: _primary),
-                Text('返回', style: TextStyle(fontSize: 13, color: _primary)),
+              child: Row(children: [
+                const Icon(Icons.arrow_back_ios, size: 16, color: _primary),
+                Text(l10n.back, style: const TextStyle(fontSize: 13, color: _primary)),
               ]),
             ),
             const SizedBox(width: 8),
-            const Text('极梦 Notebook',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(l10n.appNotebookTitle,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const Spacer(),
             GestureDetector(onTap: _showNewSheet,
               child: Container(width: 32, height: 32,
@@ -163,18 +166,18 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Theme.of(context).dividerColor)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${greetingText()} 👋',
+                    Text('${greetingText(context)} 👋',
                       style: TextStyle(fontSize: 14, color: Colors.grey[500])),
                     const SizedBox(height: 4),
-                    const Text('从哪里开始？',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                    Text(l10n.whereToStart,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 16),
                     SizedBox(width: double.infinity, height: 48,
                       child: ElevatedButton.icon(
                         onPressed: _showNewSheet,
                         icon: const Icon(Icons.add, color: Colors.white, size: 18),
-                        label: const Text('新建 Notebook',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
+                        label: Text(l10n.newNotebook,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
                             color: Colors.white)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _primary, elevation: 0,
@@ -184,7 +187,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
 
                 // 最近
                 if (_recent.isNotEmpty) ...[
-                  _SectionHeader(title: '最近打开', action: '全部', onAction: () {}),
+                  _SectionHeader(title: l10n.recentlyOpened, action: l10n.viewAll, onAction: () {}),
                   const SizedBox(height: 10),
                   ..._recent.map((nb) => _RecentCard(nb: nb,
                     onTap: () => context.push('/notebook/${nb['id']}'),
@@ -196,15 +199,15 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                 ],
 
                 // 模板
-                const _SectionHeader(title: '模板'),
+                _SectionHeader(title: l10n.templates),
                 const SizedBox(height: 10),
                 SizedBox(height: 110,
                   child: ListView(scrollDirection: Axis.horizontal, children: [
                     for (final t in [
-                      ('数据分析', Icons.bar_chart, const Color(0xFF6366F1), const Color(0xFFEEF0FF), 'python'),
-                      ('机器学习', Icons.psychology, const Color(0xFF16A34A), const Color(0xFFE8F8F0), 'python'),
-                      ('数学推导', Icons.functions, const Color(0xFFC026D3), const Color(0xFFFDF0F8), 'latex'),
-                      ('可视化', Icons.show_chart, const Color(0xFF2563EB), const Color(0xFFE6F1FB), 'python'),
+                      (l10n.tagDataAnalysis, Icons.bar_chart, const Color(0xFF6366F1), const Color(0xFFEEF0FF), 'python'),
+                      (l10n.tagMachineLearning, Icons.psychology, const Color(0xFF16A34A), const Color(0xFFE8F8F0), 'python'),
+                      (l10n.templateMathDerivation, Icons.functions, const Color(0xFFC026D3), const Color(0xFFFDF0F8), 'latex'),
+                      (l10n.tagVisualization, Icons.show_chart, const Color(0xFF2563EB), const Color(0xFFE6F1FB), 'python'),
                     ]) _TemplateCard(
                       name: t.$1, icon: t.$2, color: t.$3, bg: t.$4,
                       onTap: () async {
@@ -243,6 +246,7 @@ class _RecentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final colors = [
       [const Color(0xFFEEF0FF), const Color(0xFF6366F1)],
       [const Color(0xFFE8F8F0), const Color(0xFF16A34A)],
@@ -258,8 +262,8 @@ class _RecentCard extends StatelessWidget {
       'mixed': const Color(0xFF16A34A)}[lang] ?? _primary;
     final updatedAt = nb['updatedAt'] as int? ?? 0;
     final diff = DateTime.now().millisecondsSinceEpoch ~/ 1000 - updatedAt;
-    final timeStr = diff < 3600 ? '${diff ~/ 60}分钟前'
-      : diff < 86400 ? '${diff ~/ 3600}小时前' : '${diff ~/ 86400}天前';
+    final timeStr = diff < 3600 ? l10n.timeMinutesAgo(diff ~/ 60)
+      : diff < 86400 ? l10n.timeHoursAgo(diff ~/ 3600) : l10n.timeDaysAgo(diff ~/ 86400);
 
     return Dismissible(
       key: Key(nb['id']),
@@ -297,7 +301,7 @@ class _RecentCard extends StatelessWidget {
                     color: badgeColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4)),
                   child: Text(
-                    lang == 'latex' ? 'LaTeX' : lang == 'mixed' ? '混合' : 'Python',
+                    lang == 'latex' ? 'LaTeX' : lang == 'mixed' ? l10n.langMixed : 'Python',
                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
                       color: badgeColor))),
                 const SizedBox(width: 8),
