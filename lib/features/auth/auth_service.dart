@@ -38,6 +38,7 @@ class AuthService {
       if (!res.success || res.data == null) return false;
       final token = res.data['accessToken'] as String;
       final username = res.data['username'] as String;
+      final location = res.data['location'] as String? ?? '未知位置';
 
       // 直接传 token，不依赖拦截器（此时 userId 未知，拦截器也找不到 token）
       final meRes = await _api.getWithToken('/auth/me', token: token);
@@ -53,16 +54,17 @@ class AuthService {
       );
 
       _ref.read(currentUserProvider.notifier).state = user;
-      unawaited(_recordLogin(user.id));
+      unawaited(_recordLogin(user.id, location));
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  // 登录记录目前只在本地存（后端没有这个接口）——只记显式的账号密码登录，
-  // 静默换 token/session 恢复不算一次"登录"，不写进这份记录
-  Future<void> _recordLogin(String userId) async {
+  // 登录记录目前只在本地存（后端没有专门存登录记录的接口，但 /auth/login
+  // 响应本身就带了 location 字段，是基于请求 IP 的地理位置）——只记显式的
+  // 账号密码登录，静默换 token/session 恢复不算一次"登录"，不写进这份记录
+  Future<void> _recordLogin(String userId, String location) async {
     final prefs = await SharedPreferences.getInstance();
     final historyRaw = prefs.getString('${userId}_login_history') ?? '[]';
     final history = List<Map<String, dynamic>>.from(
@@ -75,6 +77,7 @@ class AuthService {
           : Platform.isAndroid
           ? 'Android 设备'
           : '未知设备',
+      'location': location,
     });
     if (history.length > 20) {
       history.removeRange(0, history.length - 20);

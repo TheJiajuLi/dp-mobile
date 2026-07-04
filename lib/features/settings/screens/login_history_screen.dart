@@ -42,11 +42,11 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('登录记录'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: Theme.of(context).cardColor,
+        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
       ),
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _history.isEmpty
@@ -78,13 +78,25 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
                     record['device'] as String? ?? 'iPhone',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                   ),
-                  subtitle: Text(
-                    '${dt.year}-'
-                    '${dt.month.toString().padLeft(2, '0')}-'
-                    '${dt.day.toString().padLeft(2, '0')} '
-                    '${dt.hour.toString().padLeft(2, '0')}:'
-                    '${dt.minute.toString().padLeft(2, '0')}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        record['location'] as String? ?? '未知位置',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                      Text(
+                        '${dt.year}-'
+                        '${dt.month.toString().padLeft(2, '0')}-'
+                        '${dt.day.toString().padLeft(2, '0')} '
+                        '${dt.hour.toString().padLeft(2, '0')}:'
+                        '${dt.minute.toString().padLeft(2, '0')}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
                   ),
                   trailing: isNow
                       ? Container(

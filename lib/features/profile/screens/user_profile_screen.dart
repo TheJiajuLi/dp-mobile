@@ -483,6 +483,27 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               title: const Text('切换账号'),
               onTap: () async {
                 Navigator.pop(ctx);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogCtx) => AlertDialog(
+                    title: const Text('切换账号'),
+                    content: const Text('退出当前账号并跳转到登录页？'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx, false),
+                        child: const Text('取消', style: TextStyle(color: Colors.grey)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx, true),
+                        child: const Text(
+                          '确认',
+                          style: TextStyle(color: Color(0xFF6366F1)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm != true) return;
                 await ref.read(authServiceProvider).logout();
                 if (mounted) context.go('/login');
               },

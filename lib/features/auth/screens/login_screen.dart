@@ -45,6 +45,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 大部分情况下登录页是 go() 跳过来的根页面，Navigator.canPop 是
+      // false，不会显示这个返回键；但万一将来哪里改成 push 到登录页
+      // （比如切换账号之类的流程），这里能兜住，不会卡在一个死路页面
+      appBar: Navigator.canPop(context)
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: Icon(
+                  Icons.arrow_back_ios,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+                onPressed: () => context.pop(),
+              ),
+            )
+          : null,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
