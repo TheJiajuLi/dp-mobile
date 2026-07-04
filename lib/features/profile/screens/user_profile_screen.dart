@@ -4,11 +4,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/models/tutorial_model.dart';
+import '../../../shared/utils/avatar_upload.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/models/conversation_model.dart';
@@ -57,6 +59,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   List<String> _links = [];
   bool _loading = true;
   bool _startingChat = false;
+  bool _uploadingAvatar = false;
 
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
 
@@ -268,6 +271,84 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  void _showAvatarOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('从相册选择'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndUploadAvatar(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('拍照'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndUploadAvatar(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadAvatar(ImageSource source) async {
+    setState(() => _uploadingAvatar = true);
+    try {
+      final newAvatar = await pickAndUploadAvatar(ref, source);
+      if (newAvatar != null && _profile != null) {
+        final updated = _profile!.copyWith(avatar: newAvatar);
+        // 自己的主页：头像也是 currentUserProvider 里那份 UserModel 的字段，
+        // 首页顶栏等其他地方的头像才会跟着一起换
+        if (!widget.showBackButton) {
+          final currentUser = ref.read(currentUserProvider);
+          if (currentUser != null) {
+            ref
+                .read(authServiceProvider)
+                .updateCurrentUser(currentUser.copyWith(avatar: newAvatar));
+          }
+        }
+        setState(() => _profile = updated);
+      }
+      if (mounted && newAvatar != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('头像已更新')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上传失败：${e.toString().replaceAll('Exception: ', '')}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
   Widget _linkRow(String displayText, String rawLink) {
     return GestureDetector(
       onTap: () => _openLink(rawLink),
@@ -402,6 +483,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final isMe = currentUserId != null && currentUserId == _profile?.id;
     final isSelfView = !widget.showBackButton;
     final sharedFollowingCount = ref.watch(myFollowingCountProvider);
+    // 头像/背景 Stack 里的按钮直接手动加状态栏高度，不要再套一层 SafeArea——
+    // Positioned(top: 8) 再包 SafeArea 会把状态栏高度加两遍，导致按钮比预期
+    // 靠下很多，紫色背景在右上角看起来像是"没盖满"
+    final topPad = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -436,39 +521,35 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           ),
                           if (widget.showBackButton)
                             Positioned(
-                              top: 8,
+                              top: topPad + 8,
                               left: 8,
-                              child: SafeArea(
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.arrow_back_ios,
-                                    color: Colors.white,
-                                  ),
-                                  onPressed: () => context.pop(),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.arrow_back_ios,
+                                  color: Colors.white,
                                 ),
+                                onPressed: () => context.pop(),
                               ),
                             ),
                           if (isSelfView)
                             Positioned(
-                              top: 12,
+                              top: topPad + 12,
                               right: 12,
-                              child: SafeArea(
-                                child: GestureDetector(
-                                  onTap: _showSettingsSheet,
-                                  child: Container(
-                                    width: 34,
-                                    height: 34,
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      shape: BoxShape.circle,
+                              child: GestureDetector(
+                                onTap: _showSettingsSheet,
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(
+                                      alpha: 0.3,
                                     ),
-                                    child: const Icon(
-                                      Icons.menu,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.menu,
+                                    color: Colors.white,
+                                    size: 18,
                                   ),
                                 ),
                               ),
@@ -477,6 +558,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             top: 120,
                             left: 16,
                             child: Stack(
+                              alignment: Alignment.center,
                               children: [
                                 Container(
                                   decoration: const BoxDecoration(
@@ -487,12 +569,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   ),
                                   child: _buildAvatar(radius: 40),
                                 ),
+                                if (_uploadingAvatar)
+                                  const CircleAvatar(
+                                    radius: 40,
+                                    backgroundColor: Colors.black45,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 if (isSelfView)
                                   Positioned(
                                     right: 0,
                                     bottom: 0,
                                     child: GestureDetector(
-                                      onTap: () => _todo('更换头像即将上线，敬请期待'),
+                                      onTap: _showAvatarOptions,
                                       child: Container(
                                         width: 24,
                                         height: 24,

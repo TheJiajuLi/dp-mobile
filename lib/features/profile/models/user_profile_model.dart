@@ -25,6 +25,20 @@ class UserProfile {
     this.isFollowing = false,
   });
 
+  UserProfile copyWith({String? avatar}) => UserProfile(
+    id: id,
+    username: username,
+    handle: handle,
+    avatar: avatar ?? this.avatar,
+    bio: bio,
+    website: website,
+    followerCount: followerCount,
+    followingCount: followingCount,
+    tutorialCount: tutorialCount,
+    createdAt: createdAt,
+    isFollowing: isFollowing,
+  );
+
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
     id: j['id']?.toString() ?? '',
     username: j['username']?.toString() ?? '',

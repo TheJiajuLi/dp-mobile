@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/models/user_model.dart';
+import '../../../shared/utils/avatar_upload.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 
@@ -115,45 +115,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _pickAndUploadAvatar(ImageSource source) async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: source,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    if (file == null) return;
-
-    final bytes = await file.readAsBytes();
-
     setState(() => _uploadingAvatar = true);
-
     try {
-      final formData = FormData.fromMap({
-        'avatar': MultipartFile.fromBytes(
-          bytes,
-          filename: 'avatar.jpg',
-          contentType: DioMediaType('image', 'jpeg'),
-        ),
-      });
-
-      // ApiClient.post 内部吞掉了 DioException，不会抛异常——失败与否
-      // 要看 res.success，不能只靠 try/catch
-      final res = await ref
-          .read(apiClientProvider)
-          .post('/auth/update-avatar', data: formData);
-      if (!res.success) {
-        throw Exception(res.message ?? '上传失败，请重试');
-      }
-
-      final newAvatar = (res.data as Map)['avatar'] as String?;
+      final newAvatar = await pickAndUploadAvatar(ref, source);
       if (newAvatar != null && _user != null) {
         final updated = _user!.copyWith(avatar: newAvatar);
         ref.read(authServiceProvider).updateCurrentUser(updated);
         setState(() => _user = updated);
       }
 
-      if (mounted) {
+      if (mounted && newAvatar != null) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('头像已更新')));
