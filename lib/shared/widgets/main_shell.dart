@@ -21,9 +21,9 @@ class MainShell extends StatelessWidget {
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
         ),
         child: SafeArea(
           child: SizedBox(
@@ -94,7 +94,9 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.primary : AppColors.textMuted;
+    final color = selected
+        ? AppColors.primary
+        : Theme.of(context).textTheme.bodySmall?.color ?? AppColors.textMuted;
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),

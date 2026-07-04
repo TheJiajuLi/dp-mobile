@@ -954,7 +954,7 @@ finally:
               ? const Color(0xFFDC2626)
               : isSuccess
               ? const Color(0xFF16A34A)
-              : Colors.grey.shade200,
+              : Theme.of(context).dividerColor,
           width: isRunning ? 1.5 : 0.5,
         ),
       ),
@@ -965,7 +965,7 @@ finally:
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              color: Theme.of(context).scaffoldBackgroundColor,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(12),
               ),
@@ -978,7 +978,7 @@ finally:
                   decoration: BoxDecoration(
                     color: isRunning
                         ? _primary.withValues(alpha: 0.1)
-                        : Colors.grey[200],
+                        : Theme.of(context).inputDecorationTheme.fillColor,
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: isRunning
@@ -992,9 +992,10 @@ finally:
                       : Center(
                           child: Text(
                             '$index',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                           ),
                         ),
@@ -1054,7 +1055,7 @@ finally:
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                      color: Theme.of(context).inputDecorationTheme.fillColor,
                       borderRadius: BorderRadius.circular(7),
                     ),
                     child: Icon(Icons.close, color: Colors.grey[500], size: 15),

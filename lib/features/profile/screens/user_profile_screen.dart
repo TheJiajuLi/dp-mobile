@@ -56,7 +56,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   UserProfile? _profile;
   List<TutorialModel> _tutorials = [];
   List<Map<String, dynamic>> _notebooks = [];
-  String _zodiac = '';
+  String? _zodiac;
   List<String> _links = [];
   bool _loading = true;
   bool _startingChat = false;
@@ -65,8 +65,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   bool _uploadingCover = false;
 
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
+  int get _totalViews => _tutorials.fold(0, (sum, t) => sum + t.views);
 
   ZodiacSign? get _zodiacSign {
+    if (_zodiac == null) return null;
     for (final sign in ZodiacSign.values) {
       if (sign.name == _zodiac) return sign;
     }
@@ -123,7 +125,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           .toList();
     }
 
-    await _loadLocalPrefs(profile.id);
+    await _loadLocalPrefs(profile);
 
     // 自己的主页：把抓到的真实关注数写进共享 provider，作为其他页面
     // 关注/取关操作时更新的基准值
@@ -139,12 +141,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     });
   }
 
-  // 星座/个人链接/背景图目前只存在本地 SharedPreferences（后端没有这几个
+  // 个人链接/背景图目前只存在本地 SharedPreferences（后端没有这几个
   // 字段——背景图倒是可以真的传去 COS，只是没有专门的"背景图 URL"字段能
   // 存回用户资料，只能借用 /auth/files/upload 传完之后自己存本地）
-  Future<void> _loadLocalPrefs(String userId) async {
+  //
+  // 星座优先用后端 profile.zodiac；后端字段没上线前这里恒为 null，
+  // 退回读本地 legacy key（只有"我自己"之前用编辑资料页存过才会命中，
+  // 别人的主页本来就读不到别人设备上的本地存储）
+  Future<void> _loadLocalPrefs(UserProfile profile) async {
+    final userId = profile.id;
     final prefs = await SharedPreferences.getInstance();
-    final zodiac = prefs.getString('${userId}_zodiac') ?? '';
+    final zodiac = profile.zodiac ?? prefs.getString('${userId}_zodiac');
     final linksJson = prefs.getString('${userId}_links') ?? '[]';
     final coverImageUrl = prefs.getString('${userId}_cover_image');
     var links = <String>[];
@@ -858,6 +865,58 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 ),
                               ),
                             ],
+                            if ((_profile!.gender?.isNotEmpty ?? false) ||
+                                (_profile!.location?.isNotEmpty ?? false)) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  if (_profile!.gender?.isNotEmpty ?? false) ...[
+                                    Icon(
+                                      _profile!.gender == '男'
+                                          ? Icons.male
+                                          : _profile!.gender == '女'
+                                          ? Icons.female
+                                          : Icons.person_outline,
+                                      size: 14,
+                                      color: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.color,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      _profile!.gender!,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                  ],
+                                  if (_profile!.location?.isNotEmpty ??
+                                      false) ...[
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      size: 14,
+                                      color: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.color,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      _profile!.location!,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
                             if (_links.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               ..._links.map(
@@ -915,6 +974,82 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ),
                       ),
 
+                      // 创作者中心（仅自己主页可见——目前只是入口占位，还
+                      // 没有专门的数据统计页面，先在这展示能拿到的真实数据，
+                      // 后端没有的指标（收藏/评论）就老实显示占位符，不编数字）
+                      if (isSelfView) ...[
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Theme.of(context).dividerColor,
+                        ),
+                        GestureDetector(
+                          onTap: () =>
+                              _todo('创作中心即将上线，敬请期待'),
+                          child: Container(
+                            color: Theme.of(context).cardColor,
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      '创作者中心',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Icon(
+                                      Icons.chevron_right,
+                                      size: 18,
+                                      color: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.color,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    _creatorStatItem(
+                                      _formatCount(_totalViews),
+                                      '阅读量',
+                                    ),
+                                    _creatorStatItem('-', '收藏数'),
+                                    _creatorStatItem('-', '评论数'),
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).inputDecorationTheme.fillColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.notifications_none,
+                                        size: 18,
+                                        color: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
                       // Tabs
                       // Material 的 TabBar 就算只放 icon 不放文字，也会按
                       // 默认单行高度（46）留白，图标只占 20，上下各空出一大截，
@@ -955,14 +1090,23 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 controller: _tabCtrl,
                 children: [
                   // 发布的教程九宫格
+                  // NestedScrollView 的 body 用的是同一个内层
+                  // ScrollController，TabBarView 各页如果都不带 key，
+                  // Flutter 会按"树形结构相同"复用同一个 PageStorage
+                  // 槽位——教程/Notebook 两个 tab 的 GridView.builder
+                  // 结构完全一样，切换后会把另一个 tab 已经滚动过的
+                  // 偏移量错误地带过来，表现成 Tab 栏和内容之间多出
+                  // 一截空白。给每个 tab 一个独立 PageStorageKey 就好了
                   _tutorials.isEmpty
                       ? const Center(
+                          key: PageStorageKey('profile-tab-tutorials-empty'),
                           child: Text(
                             '还没有发布的教程',
                             style: TextStyle(color: Colors.grey),
                           ),
                         )
                       : GridView.builder(
+                          key: const PageStorageKey('profile-tab-tutorials'),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 3,
@@ -982,12 +1126,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   if (_showNotebookTab)
                     _notebooks.isEmpty
                         ? const Center(
+                            key: PageStorageKey('profile-tab-notebooks-empty'),
                             child: Text(
                               '还没有 Notebook',
                               style: TextStyle(color: Colors.grey),
                             ),
                           )
                         : GridView.builder(
+                            key: const PageStorageKey('profile-tab-notebooks'),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 3,
@@ -1007,6 +1153,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           ),
                   // 收藏（占位）
                   const Center(
+                    key: PageStorageKey('profile-tab-bookmarks'),
                     child: Text(
                       '收藏功能即将上线',
                       style: TextStyle(color: Colors.grey),
@@ -1014,6 +1161,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   ),
                   // 点赞（占位）
                   const Center(
+                    key: PageStorageKey('profile-tab-likes'),
                     child: Text(
                       '点赞列表即将上线',
                       style: TextStyle(color: Colors.grey),
@@ -1048,6 +1196,32 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   Widget _divider() =>
       Container(width: 0.5, height: 32, color: Colors.grey.shade200);
+
+  Widget _creatorStatItem(String value, String label) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   String _formatCount(int n) {
     if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';

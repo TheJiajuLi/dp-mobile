@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,17 +23,26 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   static const _primary = Color(0xFF6366F1);
+  static const _chevronColor = Color(0xFFC7C7CC);
 
   final _usernameCtrl = TextEditingController();
+  final _handleCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController();
   final _linkCtrls = <TextEditingController>[];
 
-  String _zodiac = '';
+  String? _handle;
+  DateTime? _birthday;
+  String? _selectedGender;
   bool _saving = false;
   bool _loaded = false;
   bool _uploadingAvatar = false;
   String? _error;
   UserModel? _user;
+
+  ZodiacSign? get _zodiacSign => _birthday == null
+      ? null
+      : ZodiacSignExt.fromBirthday(_birthday!.month, _birthday!.day);
 
   @override
   void initState() {
@@ -47,7 +57,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     _usernameCtrl.text = _user?.username ?? '';
     _bioCtrl.text = _user?.bio ?? '';
-    _zodiac = prefs.getString('${userId}_zodiac') ?? '';
+    _selectedGender = _user?.gender;
+    _locationCtrl.text = _user?.location ?? '';
+
+    // 生日/星座优先读后端字段；后端还没这两个字段之前，退回读本地
+    // legacy key（上一版编辑资料页存的），保存成功一次后就迁移过去了
+    final backendBirthday = _user?.birthday;
+    if (backendBirthday != null && backendBirthday.isNotEmpty) {
+      _birthday = DateTime.tryParse(backendBirthday);
+    } else {
+      final legacyBirthday = prefs.getString('${userId}_birthday');
+      _birthday = legacyBirthday != null ? DateTime.tryParse(legacyBirthday) : null;
+    }
 
     final linksJson = prefs.getString('${userId}_links') ?? '[]';
     final links = List<String>.from(jsonDecode(linksJson) as List);
@@ -63,6 +84,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (_linkCtrls.isEmpty) {
       _linkCtrls.add(TextEditingController());
     }
+
+    // handle（@用户名）不在 currentUserProvider 里，得单独拉一次自己的主页资料
+    if (_user != null) {
+      final res = await ref
+          .read(apiClientProvider)
+          .get('/auth/users/profile/${_user!.username}');
+      if (res.success && res.data != null) {
+        _handle = (res.data as Map)['handle']?.toString();
+        _handleCtrl.text = _handle != null ? '@$_handle' : '';
+      }
+    }
+
     if (mounted) setState(() => _loaded = true);
   }
 
@@ -70,7 +103,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final username = _usernameCtrl.text.trim();
     final bio = _bioCtrl.text.trim();
     if (username.isEmpty) {
-      setState(() => _error = '用户名不能为空');
+      setState(() => _error = '昵称不能为空');
       return;
     }
 
@@ -83,8 +116,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final userId = _user?.id ?? '';
       final prefs = await SharedPreferences.getInstance();
 
-      await prefs.setString('${userId}_zodiac', _zodiac);
-
       final links = _linkCtrls
           .map((c) => c.text.trim())
           .where((l) => l.isNotEmpty)
@@ -92,18 +123,64 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       await prefs.setString('${userId}_links', jsonEncode(links));
 
       final website = links.isNotEmpty ? links.first : '';
+      final birthdayStr = _birthday == null
+          ? null
+          : '${_birthday!.year}-${_birthday!.month.toString().padLeft(2, '0')}-'
+                '${_birthday!.day.toString().padLeft(2, '0')}';
+
       // ApiClient 内部已经把 DioException 兜住了，不会抛异常，
       // 失败与否要靠 res.success 判断，不能指望 try/catch 抓到网络层错误
+      //
+      // 注意：截至写这段代码时实测 /auth/me 还不认 gender/location/
+      // birthday/zodiac 这4个字段（后端会静默丢弃，不会报错）——后端加完
+      // 字段前这几项保存了也拿不回来，App重启会看起来"又没了"
       final res = await ref.read(apiClientProvider).patch(
         '/auth/me',
-        data: {'username': username, 'bio': bio, 'website': website},
+        data: {
+          'username': username,
+          'bio': bio,
+          'website': website,
+          'gender': _selectedGender,
+          'location': _locationCtrl.text.trim(),
+          'birthday': birthdayStr,
+          'zodiac': _zodiacSign?.name,
+        },
       );
       if (!res.success) {
         throw Exception(res.message ?? '保存失败，请重试');
       }
 
+      // 后端字段接上之后，本地 legacy key 就不再是唯一真源了，清掉避免
+      // 以后跟后端数据打架
+      await prefs.remove('${userId}_birthday');
+      await prefs.remove('${userId}_zodiac');
+
+      // handle 改名是独立接口，且有30天频率限制——失败不应该回滚上面
+      // 已经保存成功的昵称/简介，只用 SnackBar 单独提示
+      final newHandle = _handleCtrl.text.trim().replaceFirst('@', '');
+      if (newHandle.isNotEmpty && newHandle != _handle) {
+        final handleRes = await ref
+            .read(apiClientProvider)
+            .put('/auth/users/handle', data: {'handle': newHandle});
+        if (!handleRes.success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('用户名未更新：${handleRes.message ?? "请稍后再试"}'),
+            ),
+          );
+        }
+      }
+
       final updated = (_user ?? UserModel(id: userId, username: username, email: ''))
-          .copyWith(username: username, bio: bio, website: website);
+          .copyWith(
+            username: username,
+            bio: bio,
+            website: website,
+            gender: _selectedGender,
+            location: _locationCtrl.text.trim(),
+            birthday: birthdayStr,
+            zodiac: _zodiacSign?.name,
+          );
       ref.read(authServiceProvider).updateCurrentUser(updated);
 
       if (mounted) context.pop();
@@ -157,10 +234,110 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     });
   }
 
+  void _showBirthdayPicker() {
+    var temp = _birthday ?? DateTime(2000, 1, 1);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final sign = ZodiacSignExt.fromBirthday(temp.month, temp.day);
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(ctx).cardColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.pop(ctx),
+                          child: const Text(
+                            '取消',
+                            style: TextStyle(fontSize: 15, color: Colors.grey),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '选择生日',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(ctx).textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _birthday = temp);
+                            Navigator.pop(ctx);
+                          },
+                          child: const Text(
+                            '完成',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: _primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: Theme.of(ctx).dividerColor),
+                  SizedBox(
+                    height: 216,
+                    child: CupertinoTheme(
+                      data: CupertinoThemeData(
+                        brightness: Theme.of(ctx).brightness,
+                      ),
+                      child: CupertinoDatePicker(
+                        mode: CupertinoDatePickerMode.date,
+                        initialDateTime: temp,
+                        maximumDate: DateTime.now(),
+                        minimumDate: DateTime(1930),
+                        onDateTimeChanged: (d) => setSheetState(() => temp = d),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20, top: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ZodiacIcon(sign: sign, size: 18),
+                        const SizedBox(width: 4),
+                        Text(
+                          sign.chineseName,
+                          style: const TextStyle(fontSize: 13, color: _primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _usernameCtrl.dispose();
+    _handleCtrl.dispose();
     _bioCtrl.dispose();
+    _locationCtrl.dispose();
     for (final c in _linkCtrls) {
       c.dispose();
     }
@@ -191,13 +368,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             style: TextStyle(fontSize: 15, color: Colors.grey),
                           ),
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             '编辑资料',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                           ),
                         ),
@@ -226,192 +404,245 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   ),
                   Expanded(
                     child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          Container(
-                            color: Theme.of(context).cardColor,
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              children: [
-                                GestureDetector(
-                                  onTap: _showAvatarOptions,
-                                  child: Stack(
-                                    children: [
-                                      _buildAvatarPreview(),
-                                      Positioned(
-                                        bottom: 0,
-                                        right: 0,
-                                        child: Container(
-                                          width: 28,
-                                          height: 28,
-                                          decoration: BoxDecoration(
-                                            color: _primary,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.camera_alt,
-                                            color: Colors.white,
-                                            size: 14,
-                                          ),
+                      child: Container(
+                        color: Theme.of(context).cardColor,
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            GestureDetector(
+                              onTap: _showAvatarOptions,
+                              child: Stack(
+                                children: [
+                                  _buildAvatarPreview(),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.45),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Theme.of(context).cardColor,
+                                          width: 2,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  '更换头像',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: _primary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-
-                          _section('基本信息', [
-                            _inputRow('用户名', _usernameCtrl, '你的用户名'),
-                            _inputRow('个人简介', _bioCtrl, '介绍一下自己', maxLines: 3),
-                          ]),
-                          const SizedBox(height: 8),
-
-                          Container(
-                            color: Theme.of(context).cardColor,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Padding(
-                                  padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
-                                  child: Text(
-                                    '星座',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey,
-                                      letterSpacing: 0.5,
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        color: Colors.white,
+                                        size: 13,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Padding(
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              '点击更换头像',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 20),
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Theme.of(context).dividerColor,
+                            ),
+
+                            // 基本信息
+                            _textFieldRow('昵称', _usernameCtrl, '你的昵称'),
+                            _textFieldRow(
+                              '用户名',
+                              _handleCtrl,
+                              '@设置你的用户名',
+                            ),
+                            _bioRow(),
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Theme.of(context).dividerColor,
+                            ),
+
+                            // 个人信息
+                            _formRow(
+                              label: '性别',
+                              showChevron: false,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: ['男', '女', '保密'].map((g) {
+                                  final selected = _selectedGender == g;
+                                  return GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _selectedGender = g),
+                                    child: Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: selected
+                                            ? const Color(0xFFEEF0FF)
+                                            : Theme.of(
+                                                context,
+                                              ).inputDecorationTheme.fillColor,
+                                        borderRadius: BorderRadius.circular(99),
+                                        border: Border.all(
+                                          color: selected
+                                              ? _primary
+                                              : Colors.transparent,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        g,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: selected
+                                              ? _primary
+                                              : Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall?.color,
+                                          fontWeight: selected
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            _textFieldRow('所在地', _locationCtrl, '城市或地区'),
+                            _formRow(
+                              label: '生日',
+                              onTap: _showBirthdayPicker,
+                              child: _birthday == null
+                                  ? Text(
+                                      '请选择',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '${_birthday!.year}年${_birthday!.month}月${_birthday!.day}日',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            color: Theme.of(
+                                              context,
+                                            ).textTheme.bodyLarge?.color,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        ZodiacIcon(sign: _zodiacSign!, size: 18),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _zodiacSign!.chineseName,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: _primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Theme.of(context).dividerColor,
+                            ),
+
+                            // 个人链接
+                            ..._linkCtrls.asMap().entries.map(
+                              (e) => _linkRow(e.key, e.value),
+                            ),
+                            if (_linkCtrls.length < 3)
+                              GestureDetector(
+                                onTap: _addLink,
+                                child: Container(
+                                  height: 52,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
                                   ),
-                                  child: ZodiacPicker(
-                                    selected: _zodiac.isNotEmpty
-                                        ? ZodiacSign.values.firstWhere(
-                                            (z) => z.name == _zodiac,
-                                            orElse: () => ZodiacSign.aries,
-                                          )
-                                        : null,
-                                    onSelected: (sign) =>
-                                        setState(() => _zodiac = sign.name),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-
-                          Container(
-                            color: Theme.of(context).cardColor,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    14,
-                                    16,
-                                    4,
-                                  ),
                                   child: Row(
                                     children: [
-                                      const Text(
-                                        '个人链接',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey,
-                                          letterSpacing: 0.5,
+                                      Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(
+                                            context,
+                                          ).inputDecorationTheme.fillColor,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(
+                                          Icons.add,
+                                          color: _primary,
+                                          size: 16,
                                         ),
                                       ),
-                                      const Spacer(),
-                                      Text(
-                                        '最多3条',
+                                      const SizedBox(width: 10),
+                                      const Text(
+                                        '添加链接',
                                         style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[400],
+                                          fontSize: 14,
+                                          color: _primary,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                ..._linkCtrls.asMap().entries.map(
-                                  (e) => _linkRow(e.key, e.value),
-                                ),
-                                if (_linkCtrls.length < 3)
-                                  GestureDetector(
-                                    onTap: _addLink,
-                                    child: const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.add_circle_outline,
-                                            color: _primary,
-                                            size: 20,
-                                          ),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            '添加链接',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: _primary,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                              ),
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Theme.of(context).dividerColor,
+                            ),
+
+                            if (_error != null)
+                              Container(
+                                margin: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFFECACA),
                                   ),
-                                const SizedBox(height: 8),
-                              ],
-                            ),
-                          ),
-
-                          if (_error != null)
-                            Container(
-                              margin: const EdgeInsets.all(16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF2F2),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFFFECACA),
+                                ),
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: Color(0xFFDC2626),
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ),
-                              child: Text(
-                                _error!,
-                                style: const TextStyle(
-                                  color: Color(0xFFDC2626),
-                                  fontSize: 14,
+
+                            const SizedBox(height: 24),
+                            GestureDetector(
+                              onTap: () => context.push('/settings/security'),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Text(
+                                  '注销账号',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFFDC2626),
+                                  ),
                                 ),
                               ),
                             ),
-
-                          const SizedBox(height: 40),
-                        ],
+                            const SizedBox(height: 24),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -428,7 +659,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         _buildAvatarImage(),
         if (_uploadingAvatar)
           const CircleAvatar(
-            radius: 45,
+            radius: 38,
             backgroundColor: Colors.black45,
             child: CircularProgressIndicator(color: Colors.white),
           ),
@@ -443,7 +674,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         try {
           final base64Data = avatar.split(',').last;
           return CircleAvatar(
-            radius: 45,
+            radius: 38,
             backgroundImage: MemoryImage(base64Decode(base64Data)),
           );
         } catch (_) {
@@ -451,19 +682,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         }
       } else {
         return CircleAvatar(
-          radius: 45,
+          radius: 38,
           backgroundImage: CachedNetworkImageProvider(avatar),
         );
       }
     }
     return CircleAvatar(
-      radius: 45,
+      radius: 38,
       backgroundColor: _primary,
       child: Text(
         (_usernameCtrl.text.isNotEmpty ? _usernameCtrl.text[0] : '?')
             .toUpperCase(),
         style: const TextStyle(
-          fontSize: 34,
+          fontSize: 28,
           color: Colors.white,
           fontWeight: FontWeight.w700,
         ),
@@ -471,60 +702,91 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     );
   }
 
-  Widget _section(String title, List<Widget> rows) {
-    return Container(
-      color: Theme.of(context).cardColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  // 通用表单行：左边固定宽度 label，右边内容右对齐，末尾一个装饰性 chevron
+  Widget _formRow({
+    required String label,
+    required Widget child,
+    VoidCallback? onTap,
+    bool showChevron = true,
+  }) {
+    final row = Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+          SizedBox(
+            width: 72,
             child: Text(
-              title.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey,
-                letterSpacing: 0.5,
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ),
-          ...rows,
+          Expanded(child: Align(alignment: Alignment.centerRight, child: child)),
+          if (showChevron) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: _chevronColor, size: 18),
+          ],
         ],
+      ),
+    );
+    if (onTap == null) return row;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: row,
+    );
+  }
+
+  Widget _textFieldRow(String label, TextEditingController ctrl, String hint) {
+    return _formRow(
+      label: label,
+      child: TextField(
+        controller: ctrl,
+        textAlign: TextAlign.right,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Color(0xFFC7C7CC), fontSize: 15),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        style: TextStyle(
+          fontSize: 15,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
       ),
     );
   }
 
-  Widget _inputRow(
-    String label,
-    TextEditingController ctrl,
-    String hint, {
-    int maxLines = 1,
-  }) {
+  // 简介允许多行，行高不能锁死在 52，跟其它单行字段区分开
+  Widget _bioRow() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
-      ),
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
-        crossAxisAlignment: maxLines > 1
-            ? CrossAxisAlignment.start
-            : CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 70,
+            width: 72,
             child: Text(
-              label,
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
+              '简介',
+              style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
             ),
           ),
           Expanded(
             child: TextField(
-              controller: ctrl,
-              maxLines: maxLines,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
+              controller: _bioCtrl,
+              maxLines: 3,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(
+                hintText: '介绍一下自己',
+                hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 15),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -541,30 +803,36 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Widget _linkRow(int idx, TextEditingController ctrl) {
+    // github 链接给个更贴题的图标，其它一律用通用的地球图标——
+    // 没有品牌图标资源，用 Material 内置图标凑一个大致区分度
+    final isGithub = ctrl.text.contains('github.com');
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
-      ),
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
-              color: Colors.grey[100],
+              color: Theme.of(context).inputDecorationTheme.fillColor,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.link, size: 16, color: Colors.grey),
+            child: Icon(
+              isGithub ? Icons.code : Icons.public,
+              size: 15,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: ctrl,
               keyboardType: TextInputType.url,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 hintText: 'https://...',
-                hintStyle: TextStyle(color: Color(0xFFC7C7CC)),
+                hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 14),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -577,14 +845,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           ),
           GestureDetector(
             onTap: () => _removeLink(idx),
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFEF2F2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.close, size: 14, color: Color(0xFFDC2626)),
+            child: Icon(
+              Icons.close,
+              size: 16,
+              color: Theme.of(context).textTheme.bodySmall?.color,
             ),
           ),
         ],

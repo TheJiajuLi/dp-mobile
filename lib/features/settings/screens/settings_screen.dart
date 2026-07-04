@@ -195,18 +195,6 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ]),
 
-                  const _SectionTitle('创作'),
-                  _SettingsGroup([
-                    _SettingsRow(
-                      icon: Icons.edit_note,
-                      iconColor: const Color(0xFF6366F1),
-                      iconBg: const Color(0xFFEEF0FF),
-                      title: '创作中心',
-                      subtitle: '管理教程、数据统计',
-                      onTap: () => _todo(context, '创作中心即将上线，敬请期待'),
-                    ),
-                  ]),
-
                   const _SectionTitle('关于'),
                   _SettingsGroup([
                     _SettingsRow(

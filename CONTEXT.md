@@ -26,6 +26,8 @@ POST /auth/register → {message:'注册成功'}
   成功后自动调用login
 GET /auth/me → {id,username,email,avatar,bio,created_at}
 PATCH /auth/me → 更新用户名/简介/website
+  gender/location/birthday/zodiac 后端开发中（2026-07-04前端已先接上，
+  实测目前PATCH会静默丢弃这4个字段、GET不返回，后端上线后自动生效）
 POST /auth/change-password → {oldPassword,newPassword}
 DELETE /auth/account → 注销账号
 
@@ -140,8 +142,13 @@ blocks是JSON字符串：
 - 九宫格：教程/Notebook/收藏/点赞四tab
 
 ### 编辑资料
-- 用户名/简介保存到后端 PATCH /auth/me
-- 星座选择（ZodiacPicker，存${userId}_zodiac）
+- 网易云风格：全白背景+Divider分区，无GridView星座选择器
+- 昵称/简介/性别/所在地/生日/星座一起 PATCH /auth/me（gender/location/
+  birthday/zodiac后端开发中，见上面API列表的备注）
+- 星座由生日推断（ZodiacSignExt.fromBirthday），随生日一起提交给后端
+- 用户名（@handle）单独接 PUT /auth/users/handle，30天限频，失败不影响其它字段的保存
+- 生日/星座有本地legacy key兜底：${userId}_birthday / ${userId}_zodiac
+  （上一版存的，读取时后端字段优先，保存成功后清掉本地legacy key）
 - 个人链接（最多3条，存${userId}_links）
 - 头像上传（相册→COS，覆盖式，key:avatars/${userId}.jpg）
 - 封面图上传（相册→COS，存${userId}_cover_image）
@@ -235,6 +242,12 @@ extra为null时发送按钮静默失效
 ### 14. 存储检查
 发送文件前调用StorageChecker.checkAndPrompt()
 超过50%显示警告，100%阻断并提示升级
+
+### 15. username ≠ handle
+username（昵称，可重复）走PATCH /auth/me
+handle（@唯一用户名，30天改一次）走PUT /auth/users/handle
+currentUserProvider的UserModel不带handle字段
+需要handle时单独GET /auth/users/profile/:username
 
 ## COS存储
 bucket: dp-1317483118，region: ap-hongkong
