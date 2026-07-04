@@ -1106,6 +1106,42 @@ abstract class AppLocalizations {
   /// **'Message...'**
   String get messageInputHint;
 
+  /// No description provided for @messageLimitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Message limit'**
+  String get messageLimitTitle;
+
+  /// No description provided for @messageLimitBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve sent this person a message.\n\nYou can\'t send another until they reply.\n\nThis limit doesn\'t apply once you follow each other.'**
+  String get messageLimitBody;
+
+  /// No description provided for @gotIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get gotIt;
+
+  /// No description provided for @followThisUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow'**
+  String get followThisUser;
+
+  /// No description provided for @waitingForReplyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You can send more once they reply'**
+  String get waitingForReplyHint;
+
+  /// No description provided for @goFollow.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow'**
+  String get goFollow;
+
   /// No description provided for @defaultUserName.
   ///
   /// In en, this message translates to:

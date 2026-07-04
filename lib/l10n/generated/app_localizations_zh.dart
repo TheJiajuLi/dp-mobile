@@ -535,6 +535,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get messageInputHint => '发消息...';
 
   @override
+  String get messageLimitTitle => '消息限制';
+
+  @override
+  String get messageLimitBody =>
+      '你已向对方发送了一条消息。\n\n在对方回复之前，你暂时无法继续发送消息。\n\n互相关注后可不受此限制。';
+
+  @override
+  String get gotIt => '我知道了';
+
+  @override
+  String get followThisUser => '关注对方';
+
+  @override
+  String get waitingForReplyHint => '等待对方回复后可继续发消息';
+
+  @override
+  String get goFollow => '去关注';
+
+  @override
   String get defaultUserName => '用户';
 
   @override

@@ -542,6 +542,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get messageInputHint => 'Message...';
 
   @override
+  String get messageLimitTitle => 'Message limit';
+
+  @override
+  String get messageLimitBody =>
+      'You\'ve sent this person a message.\n\nYou can\'t send another until they reply.\n\nThis limit doesn\'t apply once you follow each other.';
+
+  @override
+  String get gotIt => 'Got it';
+
+  @override
+  String get followThisUser => 'Follow';
+
+  @override
+  String get waitingForReplyHint => 'You can send more once they reply';
+
+  @override
+  String get goFollow => 'Follow';
+
+  @override
   String get defaultUserName => 'User';
 
   @override

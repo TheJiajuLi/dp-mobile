@@ -85,6 +85,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   List<ChatMessage> _messages = [];
   bool _loading = true;
   bool _sendingImage = false;
+  // 纯客户端的启发式提示，不是真正的发送限制——只要求"我最后一条消息还
+  // 没被回复"，检测不到两人是否互相关注，对正常好友对话（对方只是还没
+  // 回消息）也会误判显示。实测确认后端 POST /auth/messages 目前完全
+  // 没有陌生人限制（连发 3 条都 200 成功），下面 _send() 里那段
+  // "识别限制错误改成弹窗" 的分支目前是死代码，等后端真的加上这个限制
+  // 才会触发
+  bool _strangerLimited = false;
   Timer? _pollTimer;
 
   @override
@@ -125,6 +132,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _messages = list;
         _loading = false;
       });
+      _checkStrangerLimit();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollCtrl.hasClients) {
           _scrollCtrl.animateTo(
@@ -137,6 +145,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  // 纯本地启发式：_messages 按时间正序排列（最新的在最后），"我最后一条
+  // 消息之后有没有对方的回复"只需要看本地已有数据就能判断，不需要额外
+  // 打接口
+  void _checkStrangerLimit() {
+    final currentUserId = ref.read(currentUserProvider)?.id ?? '';
+    if (_messages.isEmpty) return;
+
+    final myLastMsg = _messages.lastWhere(
+      (m) => m.senderId == currentUserId,
+      orElse: () => _messages.first,
+    );
+    if (myLastMsg.senderId != currentUserId) {
+      setState(() => _strangerLimited = false);
+      return;
+    }
+
+    final myLastIdx = _messages.indexOf(myLastMsg);
+    final hasReplyAfter =
+        _messages.sublist(myLastIdx + 1).any((m) => m.senderId != currentUserId);
+
+    setState(() => _strangerLimited = !hasReplyAfter);
   }
 
   Future<void> _send({
@@ -171,12 +202,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
     if (!res.success) {
       if (!mounted) return;
+      // 后端目前还没有陌生人消息限制（实测确认过，连发多条都直接 200
+      // 成功），这个分支先按后续可能加上的错误约定识别，暂时是死代码——
+      // 等后端真的加了限制、错误信息定下来，这里的匹配条件可能还要跟着调
+      if (res.data?['code'] == 'STRANGER_LIMIT' ||
+          (res.message?.contains('尚未回复') ?? false)) {
+        _showStrangerLimitDialog();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
         AppLocalizations.of(context)!.sendFailedWithReason('${res.message}'),
       )));
       return;
     }
     await _loadMessages();
+  }
+
+  void _showStrangerLimitDialog() {
+    final l10n = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline, color: _primary, size: 20),
+            const SizedBox(width: 8),
+            Text(l10n.messageLimitTitle),
+          ],
+        ),
+        content: Text(
+          l10n.messageLimitBody,
+          style: const TextStyle(fontSize: 14, height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.gotIt, style: const TextStyle(color: _primary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _goToOtherProfile();
+            },
+            child: Text(l10n.followThisUser, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _goToOtherProfile() {
+    // Conversation 模型目前只有 otherUsername，没有 handle 字段
+    final identifier = widget.conversation?.otherUsername ?? '';
+    if (identifier.isNotEmpty) {
+      context.push('/users/$identifier');
+    }
   }
 
   Future<void> _sendImage() async {
@@ -520,6 +605,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Text(
                       l10n.sendingImage,
                       style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+                    ),
+                  ],
+                ),
+              ),
+
+            // 陌生人限制提示条——纯本地启发式（见 _checkStrangerLimit
+            // 注释），不代表后端真的会拒绝，只是提前给个软提示
+            if (_strangerLimited)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: const Color(0xFFFFF7E6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_outline, size: 14, color: Color(0xFFD97706)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        l10n.waitingForReplyHint,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFFD97706)),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _goToOtherProfile,
+                      child: Text(
+                        l10n.goFollow,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
