@@ -1004,6 +1004,17 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get deleteTutorial => '删除教程';
+
+  @override
+  String get tutorialContentAndCommentsWillBeDeleted => '教程内容、评论将一并删除';
+
+  @override
+  String tutorialDeletedMessage(String name) {
+    return '「$name」已删除';
+  }
+
+  @override
   String get proMembershipComingSoon => 'Pro 会员即将上线，敬请期待';
 
   @override

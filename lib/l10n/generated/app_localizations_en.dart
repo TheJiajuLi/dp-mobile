@@ -1025,6 +1025,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get deleteTutorial => 'Delete tutorial';
+
+  @override
+  String get tutorialContentAndCommentsWillBeDeleted =>
+      'The tutorial content and comments will be deleted too';
+
+  @override
+  String tutorialDeletedMessage(String name) {
+    return '\"$name\" deleted';
+  }
+
+  @override
   String get proMembershipComingSoon =>
       'Pro membership coming soon, stay tuned';
 

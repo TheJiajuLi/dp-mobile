@@ -505,6 +505,16 @@
       }
     }
   },
+  "deleteTutorial": "Delete tutorial",
+  "tutorialContentAndCommentsWillBeDeleted": "The tutorial content and comments will be deleted too",
+  "tutorialDeletedMessage": "\"{name}\" deleted",
+  "@tutorialDeletedMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "proMembershipComingSoon": "Pro membership coming soon, stay tuned",
   "noSubscriptionHistory": "No subscription history yet",
   "versionNumber": "Version",

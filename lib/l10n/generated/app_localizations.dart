@@ -1982,6 +1982,24 @@ abstract class AppLocalizations {
   /// **'Deleted {count} files, freed up {size}'**
   String deletedCountFreedSpace(int count, String size);
 
+  /// No description provided for @deleteTutorial.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete tutorial'**
+  String get deleteTutorial;
+
+  /// No description provided for @tutorialContentAndCommentsWillBeDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'The tutorial content and comments will be deleted too'**
+  String get tutorialContentAndCommentsWillBeDeleted;
+
+  /// No description provided for @tutorialDeletedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" deleted'**
+  String tutorialDeletedMessage(String name);
+
   /// No description provided for @proMembershipComingSoon.
   ///
   /// In en, this message translates to:

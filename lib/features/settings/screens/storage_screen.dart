@@ -126,8 +126,25 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
               ],
             ),
           ),
-          // 教程在创作中心管理；反推不出 id 的文件也不给删除按钮
-          if (!isTutorial && fileId != null)
+          // 教程走 tutorials 表自己的 id（这个分类的 files 项直接带真实
+          // id，不是 cos_key 拼出来的），删的是 DELETE /auth/tutorials/:id
+          // 而不是 /auth/files/:id——创作中心目前还只是个占位入口，没有
+          // 真正的教程管理页面，先在这直接支持删除
+          if (isTutorial)
+            GestureDetector(
+              onTap: () => _confirmDeleteTutorial(f['id'] as String? ?? '', name),
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFDC2626)),
+              ),
+            )
+          // 反推不出 id 的文件不给删除按钮，不冒险删错
+          else if (fileId != null)
             GestureDetector(
               onTap: () => _confirmDelete(fileId, name, size),
               child: Container(
@@ -203,6 +220,72 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.deletedFreedSpace(_fmt(size))),
+          backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res.message ?? l10n.fileDeleteFailed)),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteTutorial(String tutorialId, String name) async {
+    if (tutorialId.isEmpty) return;
+    final l10n = AppLocalizations.of(context)!;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.deleteTutorial),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.confirmDeleteFileMessage(name)),
+            const SizedBox(height: 8),
+            Text(
+              l10n.tutorialContentAndCommentsWillBeDeleted,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.actionCannotBeUndone,
+              style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.deleteAction, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    await _deleteTutorial(tutorialId, name);
+  }
+
+  Future<void> _deleteTutorial(String tutorialId, String name) async {
+    final l10n = AppLocalizations.of(context)!;
+    final res = await ref.read(apiClientProvider).delete('/auth/tutorials/$tutorialId');
+    if (!mounted) return;
+
+    if (res.success) {
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.tutorialDeletedMessage(name)),
           backgroundColor: const Color(0xFF16A34A),
         ),
       );
