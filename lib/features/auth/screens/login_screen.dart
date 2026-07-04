@@ -77,7 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                '极梦，为创造而生',
+                '为创造而生',
                 style: TextStyle(fontSize: 15, color: AppColors.textMuted),
               ),
               const SizedBox(height: 48),
@@ -223,7 +223,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 16),
               Center(
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () => context.push('/register'),
                   child: const Text(
                     '还没有账号？注册',
                     style: TextStyle(color: AppColors.primary, fontSize: 14),

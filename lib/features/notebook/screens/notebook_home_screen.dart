@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../features/auth/auth_service.dart';
+import '../../../shared/utils/greeting.dart';
 import '../services/notebook_service.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -28,13 +29,6 @@ class _State extends ConsumerState<NotebookHomeScreen> {
     _svc = NotebookService(user?.id ?? 'guest');
     final recent = await _svc!.getRecentList();
     setState(() { _recent = recent; _loading = false; });
-  }
-
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 12) return '早上好 👋';
-    if (h < 18) return '下午好 👋';
-    return '晚上好 👋';
   }
 
   void _showNewSheet() {
@@ -169,7 +163,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.grey.shade100)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(_greeting(),
+                    Text('${greetingText()} 👋',
                       style: TextStyle(fontSize: 14, color: Colors.grey[500])),
                     const SizedBox(height: 4),
                     const Text('从哪里开始？',

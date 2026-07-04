@@ -8,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/tutorial_model.dart';
+import '../../../shared/utils/greeting.dart';
 import '../../auth/auth_service.dart';
 import '../providers/tutorials_provider.dart';
 
@@ -131,7 +132,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                '你好，${user?.username ?? ''} 👋',
+                '${greetingText()}，${user?.username ?? ''} 👋',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -139,9 +140,9 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                '今天想探索什么？',
-                style: TextStyle(fontSize: 14, color: AppColors.textMuted),
+              Text(
+                greetingSubtext(),
+                style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
               ),
               const SizedBox(height: 24),
               GridView.builder(
