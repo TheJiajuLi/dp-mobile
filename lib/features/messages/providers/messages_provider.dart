@@ -68,4 +68,14 @@ class ConversationsNotifier extends StateNotifier<List<Conversation>> {
       debugPrint('[conversations] parse error: $e');
     }
   }
+
+  // 进入聊天页时本地立即清零，不等下一次轮询——实测确认
+  // GET /auth/conversations/:id/messages 后端会顺手把这个会话标成已读，
+  // 下次 fetch() 到的 unread_count 本来就会是 0，这里只是不想让用户
+  // 在轮询间隔里看着红点还在
+  void clearUnread(String convId) {
+    state = state
+        .map((c) => c.id == convId ? c.copyWith(unreadCount: 0) : c)
+        .toList();
+  }
 }

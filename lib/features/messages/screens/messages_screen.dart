@@ -79,7 +79,22 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
-    _loadData();
+    // 微信式已读：切到通知 tab（index=0）就立即标记已读，不等轮询
+    _tabCtrl.addListener(() {
+      if (_tabCtrl.index == 0 && !_tabCtrl.indexIsChanging) {
+        _markAllRead();
+      }
+    });
+    // TabController 默认 initialIndex 就是 0，进这个页面本来就停在通知
+    // tab 是最常见的场景，也要在这里标记已读——但必须等 _loadData() 里的
+    // notificationsProvider.fetch() 先把通知列表拉回来，_markAllRead()
+    // 才能正确判断"有没有未读"从而决定要不要调标记已读接口。如果不等，
+    // 这里读到的还是空列表，既不会调 API（服务端那边其实还是未读），
+    // 又会把 unreadCountProvider 先清零、马上又被 _loadData() 拉到的
+    // 真实未读数覆盖回去，变成"红点一闪又出现"
+    _loadData().then((_) {
+      if (mounted && _tabCtrl.index == 0) _markAllRead();
+    });
     // 每 30 秒轮询一次
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadData());
   }
@@ -91,6 +106,15 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     if (res.success && res.data != null && mounted) {
       ref.read(unreadCountProvider.notifier).state =
           (res.data['unread'] as num?)?.toInt() ?? 0;
+    }
+  }
+
+  // 本地立即清零，不等 API/下一次轮询——有未读才真的调一次标记已读接口
+  Future<void> _markAllRead() async {
+    ref.read(unreadCountProvider.notifier).state = 0;
+    final notifs = ref.read(notificationsProvider);
+    if (notifs.any((n) => !n.isRead)) {
+      await ref.read(notificationsProvider.notifier).markAllRead();
     }
   }
 
@@ -126,7 +150,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       const Spacer(),
                       if (unread > 0)
                         GestureDetector(
-                          onTap: () => ref.read(notificationsProvider.notifier).markAllRead(),
+                          onTap: _markAllRead,
                           child: Text(l10n.markAllRead,
                               style: const TextStyle(fontSize: 14, color: _primary)),
                         ),

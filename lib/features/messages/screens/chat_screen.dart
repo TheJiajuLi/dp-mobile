@@ -15,6 +15,7 @@ import '../../../shared/utils/storage_checker.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
+import '../providers/messages_provider.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -90,8 +91,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _loadMessages();
+    // 微信式已读：进入聊天页就把这个会话的未读清零，不等下一次轮询——
+    // 后端已经会在下面 _loadMessages() 那个 GET messages 接口里把这个
+    // 会话标成已读（实测确认过），这里不需要额外调 API，只是不想让本地
+    // 消息 tab 的角标在 15 秒轮询间隔里还显示旧的未读数
+    _clearUnread();
     // 每 5 秒拉新消息
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _loadMessages());
+  }
+
+  void _clearUnread() {
+    final convs = ref.read(conversationsProvider);
+    final idx = convs.indexWhere((c) => c.id == widget.conversationId);
+    if (idx != -1 && convs[idx].unreadCount > 0) {
+      ref.read(conversationsProvider.notifier).clearUnread(widget.conversationId);
+    }
   }
 
   Future<void> _loadMessages() async {

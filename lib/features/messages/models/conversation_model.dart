@@ -17,6 +17,16 @@ class Conversation {
     required this.unreadCount,
   });
 
+  Conversation copyWith({int? unreadCount}) => Conversation(
+    id: id,
+    otherUserId: otherUserId,
+    otherUsername: otherUsername,
+    otherAvatar: otherAvatar,
+    lastMessage: lastMessage,
+    lastMessageAt: lastMessageAt,
+    unreadCount: unreadCount ?? this.unreadCount,
+  );
+
   factory Conversation.fromJson(Map<String, dynamic> j) => Conversation(
     id: j['id'].toString(),
     otherUserId: j['other_user_id']?.toString() ?? '',
