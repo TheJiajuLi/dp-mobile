@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,10 +56,103 @@ class AuthService {
 
       _ref.read(currentUserProvider.notifier).state = user;
       unawaited(_recordLogin(user.id, location));
+      unawaited(_rememberAccount(user));
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  // "切换账号"列表页要展示的最近登录账号（设备级别，最多3个，最近的排前面）
+  Future<List<Map<String, dynamic>>> getRecentAccounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(AppConstants.keyRecentAccounts) ?? '[]';
+    try {
+      return List<Map<String, dynamic>>.from(
+        (jsonDecode(raw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _rememberAccount(UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    var list = await getRecentAccounts();
+    list.removeWhere((e) => e['id'] == user.id);
+    list.insert(0, {
+      'id': user.id,
+      'username': user.username,
+      'avatar': user.avatar,
+    });
+    if (list.length > AppConstants.maxRecentAccounts) {
+      list = list.sublist(0, AppConstants.maxRecentAccounts);
+    }
+    await prefs.setString(AppConstants.keyRecentAccounts, jsonEncode(list));
+  }
+
+  Future<void> _forgetRecentAccount(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = await getRecentAccounts();
+    list.removeWhere((e) => e['id'] == userId);
+    await prefs.setString(AppConstants.keyRecentAccounts, jsonEncode(list));
+  }
+
+  // "管理"里手动移除一个账号——跟单纯切走不一样，这里要把 token 也删掉，
+  // 下次要用这个账号得重新输密码
+  Future<void> removeRecentAccount(String userId) async {
+    await _storage.delete(key: AppConstants.keyToken(userId));
+    await _storage.delete(key: AppConstants.keyUsername(userId));
+    await _forgetRecentAccount(userId);
+  }
+
+  // 切到本机之前登录过、还存着 token 的另一个账号，不需要重新输密码。
+  //
+  // 已知限制：refresh token 走的是全局共享的一个 CookieJar（dp_refresh
+  // cookie），不是按账号分开存的。如果目标账号存的 access token 已经过期
+  // （15分钟有效期），普通走 ApiClient.get() 触发 403 时，拦截器会用
+  // *当前 cookie 里那个账号* 的 refresh token 去刷新——刷出来的新 token
+  // 实际上可能是别的账号的，还会被错误地写进目标账号的存储位置，甚至让
+  // currentUserProvider 显示成刷新所属的那个账号。所以这里特意不走
+  // ApiClient 的封装方法，直接用 dio + skipAuthRefresh（跟
+  // ApiClient._doRefresh 里防递归用的是同一个标记）绕开拦截器的自动刷新，
+  // 403 就直接判定这个账号过期，让用户老老实实重新登录，不冒险信任一次
+  // 可能串号的刷新结果
+  Future<bool> switchToAccount(String userId) async {
+    final token = await _storage.read(key: AppConstants.keyToken(userId));
+    if (token == null) {
+      await _forgetRecentAccount(userId);
+      return false;
+    }
+
+    // 先只验证 token，不touch keyCurrentUserId——校验失败的话，当前
+    // 账号的登录状态完全不受影响，用不着回滚
+    Map<String, dynamic>? data;
+    try {
+      final res = await _api.dio.get(
+        '/auth/me',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          extra: {'skipAuthRefresh': true},
+        ),
+      );
+      data = res.data is Map ? Map<String, dynamic>.from(res.data as Map) : null;
+    } on DioException {
+      data = null;
+    }
+
+    if (data == null) {
+      await removeRecentAccount(userId);
+      return false;
+    }
+
+    // 确认目标账号的 token 真的有效之后，再切 keyCurrentUserId，让
+    // ApiClient 拦截器后续的请求都用这个账号的 token
+    await _storage.write(key: AppConstants.keyCurrentUserId, value: userId);
+    final user = UserModel.fromJson(data);
+    _ref.read(currentUserProvider.notifier).state = user;
+    unawaited(_rememberAccount(user));
+    return true;
   }
 
   // 登录记录目前只在本地存（后端没有专门存登录记录的接口，但 /auth/login
@@ -113,12 +207,15 @@ class AuthService {
     _ref.read(currentUserProvider.notifier).state = updated;
   }
 
+  // 彻底退出登录——跟"切换账号"不一样，这里要把本地token和"最近账号"
+  // 列表里的记录一起清掉，下次要用这个账号必须重新输密码
   Future<void> logout() async {
     final userId =
         await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
     if (userId.isNotEmpty) {
       await _storage.delete(key: AppConstants.keyToken(userId));
       await _storage.delete(key: AppConstants.keyUsername(userId));
+      await _forgetRecentAccount(userId);
     }
     await _storage.delete(key: AppConstants.keyCurrentUserId);
     _ref.read(currentUserProvider.notifier).state = null;
@@ -135,6 +232,7 @@ class AuthService {
       if (!res.success) return false;
       final user = UserModel.fromJson(res.data);
       _ref.read(currentUserProvider.notifier).state = user;
+      unawaited(_rememberAccount(user));
       return true;
     } catch (e) {
       return false;

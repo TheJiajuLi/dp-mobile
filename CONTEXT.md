@@ -24,10 +24,15 @@ POST /auth/refresh → {accessToken, user}
   走HttpOnly Cookie（dp_refresh），不需要手动传token
 POST /auth/register → {message:'注册成功'}
   成功后自动调用login
-GET /auth/me → {id,username,email,avatar,bio,created_at}
-PATCH /auth/me → 更新用户名/简介/website
-  gender/location/birthday/zodiac 后端开发中（2026-07-04前端已先接上，
-  实测目前PATCH会静默丢弃这4个字段、GET不返回，后端上线后自动生效）
+GET /auth/me → {id,username,email,avatar,bio,website,handle,gender,location,
+  birthday,zodiac,follower_count,following_count,created_at}
+  gender/location/birthday/zodiac已上线（2026-07-04实测确认）
+  注意：birthday是UTC时间戳（如"1999-03-20T16:00:00.000Z"），不是纯日期——
+  后端把提交的"YYYY-MM-DD"当服务器本地时区（UTC+8）解析再转存UTC，直接
+  parse生进UTC年月日会差一天，客户端要+8小时纠正回来
+PATCH /auth/me → 更新username/bio/website/gender/location/birthday/zodiac
+  （提交birthday用纯"YYYY-MM-DD"字符串，带完整ISO时间戳会拒绝更新失败）
+  响应 {message, user:{...上面这些字段...}}（没有email/created_at）
 POST /auth/change-password → {oldPassword,newPassword}
 DELETE /auth/account → 注销账号
 
@@ -46,6 +51,9 @@ POST /auth/tutorials/:id/comments → {content}
 ### 用户
 GET /auth/users/search?handle=xxx → {users:[...]}
 GET /auth/users/profile/:identifier → {id,username,handle,avatar,bio,website,follower_count,following_count,tutorial_count}
+  注意（2026-07-04实测）：这个接口还没跟上gender/location/zodiac这几个
+  新字段，不返回。自己的主页这几项要读currentUserProvider（/auth/me），
+  不能靠这个接口——UserProfileScreen已经这么处理了
 PUT /auth/users/handle → 修改handle（30天一次）
 POST /auth/users/:targetId/follow
 DELETE /auth/users/:targetId/follow
@@ -143,12 +151,14 @@ blocks是JSON字符串：
 
 ### 编辑资料
 - 网易云风格：全白背景+Divider分区，无GridView星座选择器
-- 昵称/简介/性别/所在地/生日/星座一起 PATCH /auth/me（gender/location/
-  birthday/zodiac后端开发中，见上面API列表的备注）
+- 昵称/简介/性别/所在地/生日/星座一起 PATCH /auth/me（这4个新字段已上线）
 - 星座由生日推断（ZodiacSignExt.fromBirthday），随生日一起提交给后端
 - 用户名（@handle）单独接 PUT /auth/users/handle，30天限频，失败不影响其它字段的保存
+- 保存成功后优先用PATCH响应里的user对象更新currentUserProvider（而不是
+  本地拼一份），但birthday字段例外——继续用本地_birthday而不是响应里的
+  回显值，见上面API列表关于birthday时区的备注
 - 生日/星座有本地legacy key兜底：${userId}_birthday / ${userId}_zodiac
-  （上一版存的，读取时后端字段优先，保存成功后清掉本地legacy key）
+  （后端字段上线前存的，读取时后端字段优先，保存成功后清掉本地legacy key）
 - 个人链接（最多3条，存${userId}_links）
 - 头像上传（相册→COS，覆盖式，key:avatars/${userId}.jpg）
 - 封面图上传（相册→COS，存${userId}_cover_image）

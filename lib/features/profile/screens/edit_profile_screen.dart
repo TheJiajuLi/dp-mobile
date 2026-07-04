@@ -50,6 +50,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _loadCurrentData();
   }
 
+  // 实测（2026-07-04）：提交生日 "1999-03-21" 给 /auth/me，GET 回来的是
+  // "1999-03-20T16:00:00.000Z"——后端把这个日期字符串当成服务器本地时区
+  // （腾讯云香港服务器，UTC+8，见 CONTEXT.md）解析再转存成 UTC，直接用
+  // DateTime.parse 的 UTC 年月日会读成少一天。这里按 +8 小时纠正回来，
+  // 前提是后端服务器时区不变——如果后端以后改成存纯日期（不带时区），
+  // 这个纠正就要删掉
+  DateTime? _parseBackendBirthday(String iso) {
+    final parsed = DateTime.tryParse(iso);
+    if (parsed == null) return null;
+    return parsed.toUtc().add(const Duration(hours: 8));
+  }
+
   Future<void> _loadCurrentData() async {
     _user = ref.read(currentUserProvider);
     final userId = _user?.id ?? '';
@@ -64,7 +76,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     // legacy key（上一版编辑资料页存的），保存成功一次后就迁移过去了
     final backendBirthday = _user?.birthday;
     if (backendBirthday != null && backendBirthday.isNotEmpty) {
-      _birthday = DateTime.tryParse(backendBirthday);
+      _birthday = _parseBackendBirthday(backendBirthday);
     } else {
       final legacyBirthday = prefs.getString('${userId}_birthday');
       _birthday = legacyBirthday != null ? DateTime.tryParse(legacyBirthday) : null;
@@ -131,9 +143,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       // ApiClient 内部已经把 DioException 兜住了，不会抛异常，
       // 失败与否要靠 res.success 判断，不能指望 try/catch 抓到网络层错误
       //
-      // 注意：截至写这段代码时实测 /auth/me 还不认 gender/location/
-      // birthday/zodiac 这4个字段（后端会静默丢弃，不会报错）——后端加完
-      // 字段前这几项保存了也拿不回来，App重启会看起来"又没了"
+      // 2026-07-04 实测：gender/location/birthday/zodiac 后端已经接上了，
+      // PATCH /auth/me 会返回完整的 {message, user:{...这4个字段也在...}}
       final res = await ref.read(apiClientProvider).patch(
         '/auth/me',
         data: {
@@ -150,8 +161,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         throw Exception(res.message ?? '保存失败，请重试');
       }
 
-      // 后端字段接上之后，本地 legacy key 就不再是唯一真源了，清掉避免
-      // 以后跟后端数据打架
+      // legacy 本地 key 只是后端字段上线前的过渡存储，保存成功一次之后
+      // 就不再需要，清掉避免以后跟后端数据打架
       await prefs.remove('${userId}_birthday');
       await prefs.remove('${userId}_zodiac');
 
@@ -171,16 +182,35 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         }
       }
 
-      final updated = (_user ?? UserModel(id: userId, username: username, email: ''))
-          .copyWith(
-            username: username,
-            bio: bio,
-            website: website,
-            gender: _selectedGender,
-            location: _locationCtrl.text.trim(),
-            birthday: birthdayStr,
-            zodiac: _zodiacSign?.name,
-          );
+      // 优先用后端在这次 PATCH 响应里直接回显的 user 数据，避免本地状态跟
+      // 后端各自维护、慢慢产生分歧——但只挑我们关心的这几个字段用
+      // .copyWith 叠加在原有 _user 上，不整个替换：这个接口的响应里没有
+      // email/created_at，直接 UserModel.fromJson(resUser) 会把 email
+      // 冲成空字符串。birthday 也不用回显值——后端把日期字符串当服务器
+      // 本地时区（UTC+8）解析再转存成UTC，回显值直接解析会差一天（见
+      // _parseBackendBirthday 的注释），这里已经有刚选好的本地
+      // _birthday，没必要冒这个时区的险去读后端回显值
+      final resUser = res.data is Map ? res.data['user'] : null;
+      final base = _user ?? UserModel(id: userId, username: username, email: '');
+      final updated = resUser is Map
+          ? base.copyWith(
+              username: resUser['username']?.toString() ?? username,
+              bio: resUser['bio']?.toString() ?? bio,
+              website: resUser['website']?.toString() ?? website,
+              gender: resUser['gender']?.toString(),
+              location: resUser['location']?.toString(),
+              zodiac: resUser['zodiac']?.toString(),
+              birthday: birthdayStr,
+            )
+          : base.copyWith(
+              username: username,
+              bio: bio,
+              website: website,
+              gender: _selectedGender,
+              location: _locationCtrl.text.trim(),
+              birthday: birthdayStr,
+              zodiac: _zodiacSign?.name,
+            );
       ref.read(authServiceProvider).updateCurrentUser(updated);
 
       if (mounted) context.pop();
@@ -750,6 +780,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           hintText: hint,
           hintStyle: const TextStyle(color: Color(0xFFC7C7CC), fontSize: 15),
           border: InputBorder.none,
+          filled: false,
           isDense: true,
           contentPadding: EdgeInsets.zero,
         ),
@@ -758,6 +789,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           color: Theme.of(context).textTheme.bodyLarge?.color,
         ),
       ),
+      showChevron: false,
     );
   }
 
@@ -788,6 +820,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 hintText: '介绍一下自己',
                 hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 15),
                 border: InputBorder.none,
+                filled: false,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -834,6 +867,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 hintText: 'https://...',
                 hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 14),
                 border: InputBorder.none,
+                filled: false,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),

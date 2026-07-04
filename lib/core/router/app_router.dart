@@ -6,6 +6,7 @@ import '../../features/auth/auth_service.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
+import '../../features/auth/screens/switch_account_screen.dart';
 import '../../features/community/screens/community_screen.dart';
 import '../../features/community/screens/tutorial_detail_screen.dart';
 import '../../features/home/screens/home_screen.dart';
@@ -34,6 +35,10 @@ final appRouter = GoRouter(
     GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
+    GoRoute(
+      path: '/switch-account',
+      builder: (context, state) => const SwitchAccountScreen(),
+    ),
     GoRoute(path: '/publish', builder: (context, state) => const PublishScreen()),
     GoRoute(
       path: '/notebook',

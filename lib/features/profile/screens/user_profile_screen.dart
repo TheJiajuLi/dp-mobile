@@ -67,14 +67,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
   int get _totalViews => _tutorials.fold(0, (sum, t) => sum + t.views);
 
-  ZodiacSign? get _zodiacSign {
-    if (_zodiac == null) return null;
-    for (final sign in ZodiacSign.values) {
-      if (sign.name == _zodiac) return sign;
-    }
-    return null;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -488,31 +480,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             ListTile(
               leading: const Icon(Icons.switch_account_outlined, color: Colors.grey),
               title: const Text('切换账号'),
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(ctx);
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (dialogCtx) => AlertDialog(
-                    title: const Text('切换账号'),
-                    content: const Text('退出当前账号并跳转到登录页？'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogCtx, false),
-                        child: const Text('取消', style: TextStyle(color: Colors.grey)),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(dialogCtx, true),
-                        child: const Text(
-                          '确认',
-                          style: TextStyle(color: Color(0xFF6366F1)),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm != true) return;
-                await ref.read(authServiceProvider).logout();
-                if (mounted) context.go('/login');
+                context.push('/switch-account');
               },
             ),
             ListTile(
@@ -566,10 +536,33 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = ref.watch(currentUserProvider)?.id;
-    final isMe = currentUserId != null && currentUserId == _profile?.id;
+    final currentUser = ref.watch(currentUserProvider);
+    final isMe = currentUser != null && currentUser.id == _profile?.id;
     final isSelfView = !widget.showBackButton;
     final sharedFollowingCount = ref.watch(myFollowingCountProvider);
+
+    // 自己的主页：优先用 currentUserProvider（/auth/me 出的数据，编辑资料
+    // 保存成功后会立刻更新，不用等这个页面重新拉一次接口）。
+    // /auth/users/profile/:identifier 这个接口目前还没跟上 gender/
+    // location/zodiac 这几个新字段（实测2026-07-04不返回），所以自己的
+    // 主页不能靠它展示这几项，只能靠 currentUserProvider；查看别人主页时
+    // 没有别的数据源，还是老老实实用 _profile
+    final displayUsername = isSelfView
+        ? (currentUser?.username ?? _profile?.username ?? '')
+        : (_profile?.username ?? '');
+    final displayBio = isSelfView ? (currentUser?.bio ?? _profile?.bio) : _profile?.bio;
+    final displayGender = isSelfView ? (currentUser?.gender ?? _profile?.gender) : _profile?.gender;
+    final displayLocation = isSelfView ? (currentUser?.location ?? _profile?.location) : _profile?.location;
+    final displayZodiacName = isSelfView ? (currentUser?.zodiac ?? _zodiac) : _zodiac;
+    ZodiacSign? displayZodiacSign;
+    if (displayZodiacName != null) {
+      for (final sign in ZodiacSign.values) {
+        if (sign.name == displayZodiacName) {
+          displayZodiacSign = sign;
+          break;
+        }
+      }
+    }
     // 头像/背景 Stack 里的按钮直接手动加状态栏高度，不要再套一层 SafeArea——
     // Positioned(top: 8) 再包 SafeArea 会把状态栏高度加两遍，导致按钮比预期
     // 靠下很多，紫色背景在右上角看起来像是"没盖满"
@@ -712,7 +705,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             left: 112,
                             right: 16,
                             child: Text(
-                              _profile!.username,
+                              displayUsername,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -825,7 +818,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       color: Colors.grey,
                                     ),
                                   ),
-                                if (_zodiacSign != null) ...[
+                                if (displayZodiacSign != null) ...[
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -839,10 +832,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        ZodiacIcon(sign: _zodiacSign!, size: 14),
+                                        ZodiacIcon(sign: displayZodiacSign, size: 14),
                                         const SizedBox(width: 4),
                                         Text(
-                                          _zodiacSign!.chineseName,
+                                          displayZodiacSign.chineseName,
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: Color(0xFF4F46E5),
@@ -855,26 +848,26 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 ],
                               ],
                             ),
-                            if (_profile!.bio?.isNotEmpty == true) ...[
+                            if (displayBio?.isNotEmpty == true) ...[
                               const SizedBox(height: 4),
                               Text(
-                                _profile!.bio!,
+                                displayBio!,
                                 style: const TextStyle(
                                   fontSize: 14,
                                   height: 1.3,
                                 ),
                               ),
                             ],
-                            if ((_profile!.gender?.isNotEmpty ?? false) ||
-                                (_profile!.location?.isNotEmpty ?? false)) ...[
+                            if ((displayGender?.isNotEmpty ?? false) ||
+                                (displayLocation?.isNotEmpty ?? false)) ...[
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  if (_profile!.gender?.isNotEmpty ?? false) ...[
+                                  if (displayGender?.isNotEmpty ?? false) ...[
                                     Icon(
-                                      _profile!.gender == '男'
+                                      displayGender == '男'
                                           ? Icons.male
-                                          : _profile!.gender == '女'
+                                          : displayGender == '女'
                                           ? Icons.female
                                           : Icons.person_outline,
                                       size: 14,
@@ -884,7 +877,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      _profile!.gender!,
+                                      displayGender!,
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Theme.of(
@@ -894,7 +887,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     ),
                                     const SizedBox(width: 12),
                                   ],
-                                  if (_profile!.location?.isNotEmpty ??
+                                  if (displayLocation?.isNotEmpty ??
                                       false) ...[
                                     Icon(
                                       Icons.location_on_outlined,
@@ -905,7 +898,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      _profile!.location!,
+                                      displayLocation!,
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Theme.of(
@@ -1090,13 +1083,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 controller: _tabCtrl,
                 children: [
                   // 发布的教程九宫格
-                  // NestedScrollView 的 body 用的是同一个内层
-                  // ScrollController，TabBarView 各页如果都不带 key，
-                  // Flutter 会按"树形结构相同"复用同一个 PageStorage
-                  // 槽位——教程/Notebook 两个 tab 的 GridView.builder
-                  // 结构完全一样，切换后会把另一个 tab 已经滚动过的
-                  // 偏移量错误地带过来，表现成 Tab 栏和内容之间多出
-                  // 一截空白。给每个 tab 一个独立 PageStorageKey 就好了
+                  // GridView 在没显式传 padding 时，会自动用
+                  // MediaQuery.of(context).padding（状态栏/刘海/底部安全区）
+                  // 当作自己的 SliverPadding——这是 Flutter 专门给"作为整个
+                  // 页面根滚动视图"的 ListView/GridView 设计的默认行为，
+                  // 用来避免内容被状态栏挡住。但这里的 GridView 只是嵌套在
+                  // NestedScrollView+TabBarView 里的一个子滚动视图，
+                  // 顶部已经有头图+Tab栏挡着，不需要再避让一次安全区，
+                  // 这个"自动"padding 才是 Tab 栏和九宫格之间那截空白的
+                  // 真正来源——显式传 EdgeInsets.zero 关掉这个默认行为。
+                  // （给每个 tab 一个独立 PageStorageKey 是上一版修复时顺手
+                  // 加的，用来避免几个结构相同的 tab 之间滚动位置互相串，
+                  // 跟这次的空白无关，但仍然值得保留）
                   _tutorials.isEmpty
                       ? const Center(
                           key: PageStorageKey('profile-tab-tutorials-empty'),
@@ -1107,6 +1105,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         )
                       : GridView.builder(
                           key: const PageStorageKey('profile-tab-tutorials'),
+                          padding: EdgeInsets.zero,
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 3,
@@ -1134,6 +1133,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           )
                         : GridView.builder(
                             key: const PageStorageKey('profile-tab-notebooks'),
+                            padding: EdgeInsets.zero,
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 3,
