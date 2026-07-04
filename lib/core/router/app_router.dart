@@ -14,6 +14,7 @@ import '../../features/messages/screens/chat_screen.dart';
 import '../../features/messages/screens/messages_screen.dart';
 import '../../features/notebook/screens/notebook_editor_screen.dart';
 import '../../features/notebook/screens/notebook_home_screen.dart';
+import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/follow_list_screen.dart';
 import '../../features/profile/screens/user_profile_screen.dart';
 import '../../features/publish/screens/publish_screen.dart';
@@ -38,6 +39,10 @@ final appRouter = GoRouter(
     ),
     // ARIA 不再是底部导航的一个 tab，改由首页九宫格 push 进来
     GoRoute(path: '/aria', builder: (context, state) => const AriaScreen()),
+    GoRoute(
+      path: '/edit-profile',
+      builder: (context, state) => const EditProfileScreen(),
+    ),
     GoRoute(
       path: '/messages/chat/:conversationId',
       builder: (context, state) => ChatScreen(

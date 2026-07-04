@@ -506,7 +506,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               ),
                             ] else
                               OutlinedButton.icon(
-                                onPressed: () => _todo('编辑资料即将上线，敬请期待'),
+                                onPressed: () async {
+                                  await context.push('/edit-profile');
+                                  if (mounted) _loadProfile();
+                                },
                                 icon: const Icon(Icons.edit, size: 16),
                                 label: const Text('编辑资料'),
                                 style: OutlinedButton.styleFrom(

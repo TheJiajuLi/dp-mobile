@@ -87,6 +87,11 @@ class AuthService {
     _ref.read(currentUserProvider.notifier).state = user;
   }
 
+  // 编辑资料成功后，用最新数据直接刷新内存态，避免为了这一次更新再打一次 /auth/me
+  void updateCurrentUser(UserModel updated) {
+    _ref.read(currentUserProvider.notifier).state = updated;
+  }
+
   Future<void> logout() async {
     final userId =
         await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
