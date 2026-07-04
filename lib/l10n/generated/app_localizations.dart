@@ -1622,30 +1622,6 @@ abstract class AppLocalizations {
   /// **'Cache cleared'**
   String get cacheCleared;
 
-  /// No description provided for @confirmLogoutMessage.
-  ///
-  /// In en, this message translates to:
-  /// **'Are you sure you want to log out?'**
-  String get confirmLogoutMessage;
-
-  /// No description provided for @exit.
-  ///
-  /// In en, this message translates to:
-  /// **'Log Out'**
-  String get exit;
-
-  /// No description provided for @switchAccountConfirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Log out of the current account and go to the login page?'**
-  String get switchAccountConfirm;
-
-  /// No description provided for @confirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm'**
-  String get confirm;
-
   /// No description provided for @likeNotifications.
   ///
   /// In en, this message translates to:

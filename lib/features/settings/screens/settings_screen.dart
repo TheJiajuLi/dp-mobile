@@ -8,7 +8,6 @@ import '../../../core/locale_provider.dart';
 import '../../../core/notification_provider.dart';
 import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
-import '../../auth/auth_service.dart';
 import '../providers/storage_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -231,25 +230,6 @@ class SettingsScreen extends ConsumerWidget {
                       iconBg: Theme.of(context).dividerColor,
                       title: l10n.privacyPolicy,
                       onTap: () => context.push('/settings/about'),
-                    ),
-                  ]),
-
-                  const _SectionTitle(''),
-                  _SettingsGroup([
-                    _SettingsRow(
-                      icon: Icons.switch_account_outlined,
-                      iconColor: const Color(0xFF2563EB),
-                      iconBg: const Color(0xFFE6F1FB),
-                      title: l10n.switchAccount,
-                      onTap: () => _switchAccount(context, ref),
-                    ),
-                    _SettingsRow(
-                      icon: Icons.logout,
-                      iconColor: const Color(0xFFDC2626),
-                      iconBg: const Color(0xFFFEF2F2),
-                      title: l10n.logout,
-                      titleColor: const Color(0xFFDC2626),
-                      onTap: () => _logout(context, ref),
                     ),
                   ]),
 
@@ -478,54 +458,6 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context)!;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.logout),
-        content: Text(l10n.confirmLogoutMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.exit, style: const TextStyle(color: Color(0xFFDC2626))),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      await ref.read(authServiceProvider).logout();
-      if (context.mounted) context.go('/login');
-    }
-  }
-
-  Future<void> _switchAccount(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context)!;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.switchAccount),
-        content: Text(l10n.switchAccountConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.confirm, style: const TextStyle(color: Color(0xFF6366F1))),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    await ref.read(authServiceProvider).logout();
-    if (context.mounted) context.go('/login');
-  }
 }
 
 class _NotifSettingsSheet extends ConsumerWidget {
@@ -627,7 +559,6 @@ class _SettingsRow extends StatelessWidget {
   final Color iconColor;
   final Color iconBg;
   final String title;
-  final Color? titleColor;
   final String? subtitle;
   final String? trailing;
   final Color? trailingColor;
@@ -638,7 +569,6 @@ class _SettingsRow extends StatelessWidget {
     required this.iconColor,
     required this.iconBg,
     required this.title,
-    this.titleColor,
     this.subtitle,
     this.trailing,
     this.trailingColor,
@@ -674,7 +604,7 @@ class _SettingsRow extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 15,
-                      color: titleColor ?? Theme.of(context).textTheme.bodyLarge?.color,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   if (subtitle != null)

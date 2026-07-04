@@ -818,19 +818,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cacheCleared => 'Cache cleared';
 
   @override
-  String get confirmLogoutMessage => 'Are you sure you want to log out?';
-
-  @override
-  String get exit => 'Log Out';
-
-  @override
-  String get switchAccountConfirm =>
-      'Log out of the current account and go to the login page?';
-
-  @override
-  String get confirm => 'Confirm';
-
-  @override
   String get likeNotifications => 'Like Notifications';
 
   @override

@@ -807,18 +807,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cacheCleared => '缓存已清除';
 
   @override
-  String get confirmLogoutMessage => '确定要退出当前账号吗？';
-
-  @override
-  String get exit => '退出';
-
-  @override
-  String get switchAccountConfirm => '退出当前账号并跳转到登录页？';
-
-  @override
-  String get confirm => '确认';
-
-  @override
   String get likeNotifications => '点赞通知';
 
   @override
