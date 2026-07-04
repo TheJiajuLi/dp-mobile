@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class AccountSecurityScreen extends StatelessWidget {
+import '../../../core/network/api_client.dart';
+
+class AccountSecurityScreen extends ConsumerWidget {
   const AccountSecurityScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('账号安全'),
@@ -23,7 +26,7 @@ class AccountSecurityScreen extends StatelessWidget {
                 _SecurityRow(
                   title: '修改密码',
                   subtitle: '定期更换密码保护账号安全',
-                  onTap: () => _showChangePassword(context),
+                  onTap: () => _showChangePassword(context, ref),
                 ),
                 _SecurityRow(
                   title: '登录记录',
@@ -46,93 +49,153 @@ class AccountSecurityScreen extends StatelessWidget {
     );
   }
 
-  void _showChangePassword(BuildContext context) {
+  void _showChangePassword(BuildContext context, WidgetRef ref) {
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
+    bool saving = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          Future<void> submit() async {
+            if (oldCtrl.text.isEmpty || newCtrl.text.isEmpty) {
+              ScaffoldMessenger.of(
+                ctx,
+              ).showSnackBar(const SnackBar(content: Text('请填写完整')));
+              return;
+            }
+            if (newCtrl.text != confirmCtrl.text) {
+              ScaffoldMessenger.of(
+                ctx,
+              ).showSnackBar(const SnackBar(content: Text('两次输入的新密码不一致')));
+              return;
+            }
+
+            setSheetState(() => saving = true);
+            // 实测 /auth/change-password 目前是 404，后端还没做这个接口——
+            // 真上线后这里会自动走真实的成功/失败分支，不用等接口就绪再改代码
+            final res = await ref
+                .read(apiClientProvider)
+                .post(
+                  '/auth/change-password',
+                  data: {
+                    'oldPassword': oldCtrl.text,
+                    'newPassword': newCtrl.text,
+                  },
+                );
+            if (!ctx.mounted) return;
+            setSheetState(() => saving = false);
+
+            if (res.success) {
+              Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('密码修改成功')));
+              }
+            } else if (res.statusCode == 404) {
+              Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('修改密码功能即将上线，敬请期待')),
+                );
+              }
+            } else {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(content: Text(res.message ?? '修改失败，请重试')),
+              );
+            }
+          }
+
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              '修改密码',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.of(ctx).viewInsets.bottom + 20,
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: oldCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '当前密码',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: newCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '新密码',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: confirmCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '确认新密码',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                // 后端目前没有确认过的改密接口，先只关闭弹窗，
-                // 等接口定下来再接（不能假装保存成功）
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('修改密码功能即将上线，敬请期待')),
-                  );
-                },
-                child: const Text('保存', style: TextStyle(color: Colors.white)),
-              ),
+                const SizedBox(height: 16),
+                const Text(
+                  '修改密码',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: oldCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: '当前密码',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: '新密码',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: '确认新密码',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6366F1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: saving ? null : submit,
+                    child: saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            '保存',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

@@ -3,13 +3,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/font_size_provider.dart';
+import '../../../core/notification_provider.dart';
+import '../../../core/theme_provider.dart';
 import '../../auth/auth_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  static const _themeLabels = {
+    ThemePreference.system: '跟随系统',
+    ThemePreference.light: '浅色',
+    ThemePreference.dark: '深色',
+  };
+
+  // double 重写了 ==/hashCode，不能作为 const map 的 key，这里用 final
+  static final _fontSizeLabels = <double, String>{
+    0.85: '小',
+    1.0: '标准',
+    1.15: '大',
+    1.3: '超大',
+  };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themePref = ref.watch(themeProvider);
+    final fontSize = ref.watch(fontSizeProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
       body: SafeArea(
@@ -76,16 +96,16 @@ class SettingsScreen extends ConsumerWidget {
                       iconColor: const Color(0xFFD97706),
                       iconBg: const Color(0xFFFFF7E6),
                       title: '主题',
-                      trailing: '跟随系统',
-                      onTap: () => _showThemePicker(context),
+                      trailing: _themeLabels[themePref],
+                      onTap: () => _showThemePicker(context, ref),
                     ),
                     _SettingsRow(
                       icon: Icons.text_fields,
                       iconColor: const Color(0xFF6366F1),
                       iconBg: const Color(0xFFEEF0FF),
                       title: '字体大小',
-                      trailing: '标准',
-                      onTap: () => _showFontPicker(context),
+                      trailing: _fontSizeLabels[fontSize] ?? '标准',
+                      onTap: () => _showFontPicker(context, ref),
                     ),
                     _SettingsRow(
                       icon: Icons.language,
@@ -108,7 +128,7 @@ class SettingsScreen extends ConsumerWidget {
                       iconColor: Colors.grey,
                       iconBg: const Color(0xFFF5F5F5),
                       title: '清除缓存',
-                      onTap: () => _clearCache(context),
+                      onTap: () => _clearCache(context, ref),
                     ),
                   ]),
 
@@ -213,7 +233,7 @@ class SettingsScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  void _showThemePicker(BuildContext context) {
+  void _showThemePicker(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -240,14 +260,26 @@ class SettingsScreen extends ConsumerWidget {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 16),
-            ...['跟随系统', '浅色', '深色'].map(
-              (t) => ListTile(
-                title: Text(t),
-                trailing: t == '跟随系统'
-                    ? const Icon(Icons.check, color: Color(0xFF6366F1))
-                    : null,
-                onTap: () => Navigator.pop(ctx),
-              ),
+            Consumer(
+              builder: (ctx, ref, _) {
+                final current = ref.watch(themeProvider);
+                return Column(
+                  children: _themeLabels.entries
+                      .map(
+                        (e) => ListTile(
+                          title: Text(e.value),
+                          trailing: current == e.key
+                              ? const Icon(Icons.check, color: Color(0xFF6366F1))
+                              : null,
+                          onTap: () {
+                            ref.read(themeProvider.notifier).setTheme(e.key);
+                            Navigator.pop(ctx);
+                          },
+                        ),
+                      )
+                      .toList(),
+                );
+              },
             ),
             const SizedBox(height: 8),
           ],
@@ -256,7 +288,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showFontPicker(BuildContext context) {
+  void _showFontPicker(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -283,14 +315,26 @@ class SettingsScreen extends ConsumerWidget {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 16),
-            ...['小', '标准', '大', '超大'].map(
-              (s) => ListTile(
-                title: Text(s),
-                trailing: s == '标准'
-                    ? const Icon(Icons.check, color: Color(0xFF6366F1))
-                    : null,
-                onTap: () => Navigator.pop(ctx),
-              ),
+            Consumer(
+              builder: (ctx, ref, _) {
+                final current = ref.watch(fontSizeProvider);
+                return Column(
+                  children: _fontSizeLabels.entries
+                      .map(
+                        (e) => ListTile(
+                          title: Text(e.value),
+                          trailing: current == e.key
+                              ? const Icon(Icons.check, color: Color(0xFF6366F1))
+                              : null,
+                          onTap: () {
+                            ref.read(fontSizeProvider.notifier).setSize(e.key);
+                            Navigator.pop(ctx);
+                          },
+                        ),
+                      )
+                      .toList(),
+                );
+              },
             ),
             const SizedBox(height: 8),
           ],
@@ -299,11 +343,21 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _clearCache(BuildContext context) async {
+  // 只清community feed分页缓存（community_provider.dart 里的
+  // '${userId}_community_p<page>'）——不是简单的"删掉除白名单外的一切"。
+  // 用户给的方案假定了 '${userId}_token'/'jm_last_user_id' 这类实际上
+  // 根本不存在的 key（token 存在 FlutterSecureStorage，不在 SharedPreferences
+  // 里），而真正需要保留的 '${userId}_zodiac'/'${userId}_links'（编辑资料页
+  // 写的）和 '${userId}_nb_recent'/'${userId}_nb_<id>'（本地 Notebook 文档，
+  // 不是缓存）都不在他们的白名单里，且不是 'nb_' 前缀开头（是
+  // '${userId}_nb_' 开头），也不会被 !key.startsWith('nb_') 挡住——
+  // 照抄会把用户的星座/链接/所有 Notebook 都删掉
+  Future<void> _clearCache(BuildContext context, WidgetRef ref) async {
     final prefs = await SharedPreferences.getInstance();
-    // 只清除 feed/教程缓存，不碰账号数据（token/zodiac/links 等带 userId 前缀的 key）
-    await prefs.remove('cached_feed');
-    await prefs.remove('cached_tutorials');
+    final keys = prefs.getKeys().where((k) => k.contains('_community_p'));
+    for (final key in keys) {
+      await prefs.remove(key);
+    }
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
@@ -367,20 +421,14 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-class _NotifSettingsSheet extends StatefulWidget {
+class _NotifSettingsSheet extends ConsumerWidget {
   const _NotifSettingsSheet();
-  @override
-  State<_NotifSettingsSheet> createState() => _NotifSettingsSheetState();
-}
-
-class _NotifSettingsSheetState extends State<_NotifSettingsSheet> {
-  bool _likes = true;
-  bool _comments = true;
-  bool _follows = true;
-  bool _system = true;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(notifProvider);
+    final notifier = ref.read(notifProvider.notifier);
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -404,10 +452,22 @@ class _NotifSettingsSheetState extends State<_NotifSettingsSheet> {
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
-          _toggle('点赞通知', _likes, (v) => setState(() => _likes = v)),
-          _toggle('评论通知', _comments, (v) => setState(() => _comments = v)),
-          _toggle('关注通知', _follows, (v) => setState(() => _follows = v)),
-          _toggle('系统通知', _system, (v) => setState(() => _system = v)),
+          _toggle('点赞通知', settings.likes, (v) => notifier.toggle('likes', v)),
+          _toggle(
+            '评论通知',
+            settings.comments,
+            (v) => notifier.toggle('comments', v),
+          ),
+          _toggle(
+            '关注通知',
+            settings.follows,
+            (v) => notifier.toggle('follows', v),
+          ),
+          _toggle(
+            '系统通知',
+            settings.system,
+            (v) => notifier.toggle('system', v),
+          ),
           const SizedBox(height: 8),
         ],
       ),
