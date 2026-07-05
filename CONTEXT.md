@@ -1,211 +1,168 @@
 # 极梦 Flutter 开发上下文
 
 ## 产品定位
-极梦（Dreaming Polar）— 数据科学内容社区
-定位：知乎 + 小红书 + Kaggle 的融合
+极梦（Dreaming Polar）— 全领域知识内容社区
+覆盖：科学 / 经济 / 时事 / 生活 / 数据 / 编程 / 宇宙 / 生命科学
+定位：知乎的深度 + 小红书的轻量 + Nature的专业质感
 Slogan：极梦，为创造而生
-品牌色：#6366F1
+品牌色：#6366F1（紫蓝，只做点缀）
+主色调：#1A1A1A（近黑）+ #FAFAF8（米白底）
+
+## 设计语言（必读）
+- 底色：#FAFAF8（米白，不是纯白）
+- 主文字：#1A1A1A，次要：#999，辅助：#6366F1
+- 无阴影，无渐变，用 0.5px #F0F0F0 细线分区
+- 卡片：白色 #FFF，border-radius:14px，border:0.5px solid #F0F0F0
+- 发布/主操作按钮：#1A1A1A 黑色，不用紫色
+- 紫色 #6366F1 只用于：链接/角标/选中态点缀
+
+### Badge 配色规则
+数据科学 → bg:#EEF0FF color:#6366F1
+生命科学 → bg:#E8F8F0 color:#16A34A
+经济     → bg:#FFF7E6 color:#D97706
+宇宙天文 → bg:#FDF0F8 color:#C026D3
+编程     → bg:#E6F0FF color:#2563EB
+时事     → bg:#F5F5F5 color:#555555
 
 ## 技术栈
-- Flutter + Dart
+- Flutter + Dart（目标：iOS App Store + Android）
 - 状态管理：Riverpod（currentUserProvider 存登录用户）
 - 路由：GoRouter
-- 网络：ApiClient（封装 Dio，自动注入 Bearer token）
+- 网络：ApiClient（封装 Dio，自动注入 Bearer token，不抛异常返回 ApiResponse）
 - 本地存储：flutter_secure_storage + shared_preferences
 - 图片：cached_network_image + flutter_svg
+- LaTeX：flutter_math_fork
+- WebView（Notebook运行Python）：flutter_inappwebview
 
-## 后端API完整列表
+## 后端 API
 base: https://api.dreamingpolar.com
 
 ### 认证
 POST /auth/login → {accessToken, username}
-  注意：注册成功后自动调用login获取token
-POST /auth/refresh → {accessToken, user}
-  走HttpOnly Cookie（dp_refresh），不需要手动传token
+POST /auth/refresh → {accessToken, user}（走 HttpOnly Cookie dp_refresh）
 POST /auth/register → {message:'注册成功'}
-  成功后自动调用login
-GET /auth/me → {id,username,email,avatar,bio,website,handle,gender,location,
-  birthday,zodiac,follower_count,following_count,created_at}
-  gender/location/birthday/zodiac已上线（2026-07-04实测确认）
-  注意：birthday是UTC时间戳（如"1999-03-20T16:00:00.000Z"），不是纯日期——
-  后端把提交的"YYYY-MM-DD"当服务器本地时区（UTC+8）解析再转存UTC，直接
-  parse生进UTC年月日会差一天，客户端要+8小时纠正回来
-PATCH /auth/me → 更新username/bio/website/gender/location/birthday/zodiac
-  （提交birthday用纯"YYYY-MM-DD"字符串，带完整ISO时间戳会拒绝更新失败）
-  响应 {message, user:{...上面这些字段...}}（没有email/created_at）
-POST /auth/change-password → {oldPassword,newPassword}
+GET /auth/me → {id, username, email, avatar, bio, created_at}
+PATCH /auth/me → 更新 username/bio/website
+POST /auth/change-password → {oldPassword, newPassword}
 DELETE /auth/account → 注销账号
 
 ### 教程
 GET /auth/tutorials?status=published&author=xxx&page=1&limit=12
 → {tutorials:[{id,title,cover_image,summary,tags,likes,views,created_at,username,avatar,user_id}], total,page,pages}
-  注意：author支持username或user_id精确匹配
 POST /auth/tutorials → {title,summary,cover_image,tags(array),blocks(JSON string),status}
-PUT /auth/tutorials/:id → 同上
-DELETE /auth/tutorials/:id → 同时删除COS封面图
+PUT /auth/tutorials/:id
+DELETE /auth/tutorials/:id
 POST /auth/tutorials/:id/like
 DELETE /auth/tutorials/:id/like
 GET /auth/tutorials/:id/comments
 POST /auth/tutorials/:id/comments → {content}
 
 ### 用户
-GET /auth/users/search?handle=xxx → {users:[...]}
+GET /auth/users/search?handle=xxx
 GET /auth/users/profile/:identifier → {id,username,handle,avatar,bio,website,follower_count,following_count,tutorial_count}
-  注意（2026-07-04实测）：这个接口还没跟上gender/location/zodiac这几个
-  新字段，不返回。自己的主页这几项要读currentUserProvider（/auth/me），
-  不能靠这个接口——UserProfileScreen已经这么处理了
-PUT /auth/users/handle → 修改handle（30天一次）
 POST /auth/users/:targetId/follow
 DELETE /auth/users/:targetId/follow
 GET /auth/users/:targetId/follow-status → {isFollowing}
-GET /auth/users/:userId/followers → {followers:[...]}
-GET /auth/users/:userId/following → {following:[...]}
-PUT /auth/users/privacy → {publicProfile,publicFavorites,allowComments,allowMessages}
+GET /auth/users/:userId/followers
+GET /auth/users/:userId/following
 
 ### 文件
-GET /auth/files → {files:[{id,filename,file_type,size_bytes,cos_key,url,platform}]}
-POST /auth/files/upload (multipart,field='file') → {id,filename,url,cos_key}
-POST /auth/update-avatar (multipart,field='avatar') → {avatar:'COS URL'}
-  注意：固定key avatars/${userId}.jpg，覆盖式上传
-GET /auth/storage/usage → {quota,membership,totalBytes,categories:{notebooks,tutorials,media,docs}}
+POST /auth/files/upload (multipart, field='file') → {id,filename,url,cos_key}
+POST /auth/update-avatar (multipart, field='avatar') → {avatar:'COS URL'}
 
-### 消息
-GET /auth/notifications → {notifications:[...],unread}
-POST /auth/notifications/read → {ids:[]} 空数组=全部已读
-GET /auth/notifications/unread-count → {unread}
-GET /auth/conversations → {conversations:[...]}
-GET /auth/conversations/:id/messages → {messages:[...]}
-POST /auth/messages → {toUserId,content,type,metadata}
-  type: text/code/image/latex/tutorial
+### 消息（后端待建，目前用 mock 数据）
+GET /auth/notifications
+GET /auth/conversations
+GET /auth/conversations/:id/messages
+POST /auth/messages → {toUserId,content,type}
 
 ### ARIA
 POST /api/chat
 headers: Authorization: Bearer token
-body: {messages:[{role,content}],dataframe_context:{varName,columns,rowCount,sampleRows}}
+body: {messages:[{role,content}], dataframe_context:{varName,columns,rowCount,sampleRows}}
 
-### 存储配额
-免费版：200MB，Pro：5GB，Pro Max：20GB
-头像不计入配额（avatars/目录排除）
-删除教程时自动清理COS封面图
+## Block 格式（教程/发布内容）
+blocks 是 JSON 字符串：
+[{id, type(text|code|latex|heading|image|callout|quote|video|audio|link), content, language, executable, level, variant, imageUrl, caption}]
 
-## Block格式（教程内容）
-blocks是JSON字符串：
-[{id, type(text|code|latex|heading|image|callout), content, language, executable, level, variant, imageUrl, caption}]
-
-## 已实现的功能模块
-
-### 路由结构
-/splash → 启动页（自动登录检查）
-/login → 登录页
-/register → 注册页
-/home → 首页（应用市场九宫格）
-/community → 社区（瀑布流）
-/publish → 发布（Block编辑器）
-/messages → 消息中心
+## 路由结构
+/splash        → 启动页（自动登录检查）
+/login         → 登录页
+/register      → 注册页
+/home          → 首页（Feed）
+/discover      → 发现页（专题+领域地图+创作者）
+/publish       → 发布页（Block 编辑器）
+/messages      → 消息中心
 /messages/chat/:conversationId → 聊天页
-/profile → 我的（个人主页）
-/edit-profile → 编辑资料
-/settings → 设置
-/settings/security → 账号安全
-/settings/security/history → 登录记录
-/settings/privacy → 隐私设置
-/settings/storage → 云端存储
-/settings/about → 关于极梦
-/settings/payment → 支付方式（占位）
-/settings/subscription → 订阅管理（占位）
-/notebook → Power Notebook首页
-/notebook/:id → Notebook编辑器
-/users/:identifier → 他人主页
+/profile       → 我的（个人主页）
+/edit-profile  → 编辑资料
+/settings      → 设置
+/notebook      → Power Notebook 首页
+/notebook/:id  → Notebook 编辑器
+/users/:identifier       → 他人主页
 /users/:userId/followers → 粉丝列表
 /users/:userId/following → 关注列表
-/tutorial/:id → 教程详情页
+/tutorial/:id  → 教程详情页
 
-### 底部导航
-首页 / 社区 / +发布 / 消息 / 我的
+## 底部导航（5个）
+首页 / 发现 / +发布（黑色方块按钮）/ 消息 / 我的
+
+## 已实现模块
 
 ### 首页
-应用市场九宫格，已上线：Power Notebook、ARIA分析助手
-即将上线：数据网格Grid、可视化工厂、数学建模
+- Feed 三种卡片混排：大图头条 / 文字+缩略图 / 双列小卡
+- 话题标签横滑筛选（全部/科学/经济/时事/生活/数据/编程）
+- 下拉刷新 + 上拉加载更多
+
+### 发现页（待实现）
+三层结构：
+1. 本周专题：编辑精选大卡 + 专题文章横滑
+2. 领域地图：6宫格（数学物理/生命科学/经济金融/宇宙天文/编程数据/时事）
+3. 发现创作者：横滑卡片，按领域推荐
 
 ### 社区
-2列瀑布流，搜索栏+标签筛选（本地过滤）
-下拉刷新+上拉加载更多（分页）
-教程卡片：封面图/占位色+标题+作者+点赞/浏览数
+- 2列瀑布流，搜索栏+标签筛选（本地过滤）
+- 下拉刷新+分页加载
+
+### 发布页（Block编辑器）
+- 顶部：标题输入 + 草稿/发布按钮
+- 封面图 + 摘要 + 标签（前置在编辑区顶部）
+- Block 列表（白色圆角卡片，右上角拖拽+删除）
+- Block 类型：文字/代码/LaTeX/图片/引用/视频(Pro)/音频(Pro)/链接
+- 底部横排工具栏（替代左侧竖排，更适合手机）
 
 ### Power Notebook
-- 首页：最近打开列表（可左滑删除）+模板+新建底部弹窗
-- 编辑器：Cell列表，支持Python/LaTeX/Markdown/JS/SQL
-- Python运行：隐藏WebView加载compiler.js（Pyodide）
-- LaTeX渲染：flutter_math_fork
-- input()支持：预收集弹窗
-- 导入：file_picker，支持csv/xlsx/json/py/ipynb/tex/md
-- 数据持久化：SharedPreferences，key带userId前缀
+- 首页：最近打开（左滑删除）+ 模板 + 新建底部弹窗
+- 编辑器：Cell列表（Python/R/LaTeX/Markdown/SQL）
+- Python：隐藏WebView跑 Pyodide（dreamingpolar.com/components/compiler/compiler.js）
+- LaTeX：flutter_math_fork 渲染
+- 导入：file_picker（csv/xlsx/json/py/ipynb/tex/md）
+- 持久化：SharedPreferences，key带userId前缀
 
-### 用户主页
-- 小红书风格：封面图+头像+统计+四tab
-- 星座badge（ZodiacBadge组件）
-- 个人链接（最多3条，url_launcher跳转）
-- 关注/取消关注（实时更新计数）
-- 发消息按钮（跳转聊天页，携带conversation对象）
-- 九宫格：教程/Notebook/收藏/点赞四tab
+### 个人主页（重设计中）
+- 底色 #FAFAF8，封面160px，头像64px压底部
+- 兴趣领域 badge（从tags解析，最多3个，各领域配色）
+- 统计行：白色圆角卡片包裹，文章/获赞/粉丝/关注
+- 四Tab：文章/Notebook/收藏/点赞
+- 文章等三Tab：3列九宫格，Notebook：列表式
+- 左上角汉堡 → Scaffold drawer 抽屉（不嵌入主页面）
+- 侧边栏：紫色渐变header + 会员卡 + 菜单 + 底部三按钮
 
-### 编辑资料
-- 网易云风格：全白背景+Divider分区，无GridView星座选择器
-- 昵称/简介/性别/所在地/生日/星座一起 PATCH /auth/me（这4个新字段已上线）
-- 星座由生日推断（ZodiacSignExt.fromBirthday），随生日一起提交给后端
-- 用户名（@handle）单独接 PUT /auth/users/handle，30天限频，失败不影响其它字段的保存
-- 保存成功后优先用PATCH响应里的user对象更新currentUserProvider（而不是
-  本地拼一份），但birthday字段例外——继续用本地_birthday而不是响应里的
-  回显值，见上面API列表关于birthday时区的备注
-- 生日/星座有本地legacy key兜底：${userId}_birthday / ${userId}_zodiac
-  （后端字段上线前存的，读取时后端字段优先，保存成功后清掉本地legacy key）
-- 个人链接（最多3条，存${userId}_links）
-- 头像上传（相册→COS，覆盖式，key:avatars/${userId}.jpg）
-- 封面图上传（相册→COS，存${userId}_cover_image）
+### 编辑资料（网易云风格）
+- 全白背景，分割线分区，无色块
+- 生日选择 → 自动推断星座（ZodiacSignExt.fromBirthday）
+- 星座：自研SVG icon（ZodiacIcon）+ 紫色文字，无背景
 
 ### 消息中心
-- 通知tab：点赞/评论/关注，30秒轮询
-- 私信tab：会话列表，未读角标
-- 聊天页：文字/代码/LaTeX/图片消息
-- 5秒轮询更新消息
-- 加号菜单：添加好友（搜索@handle）/建群/建论坛
-
-### 设置页
-- 账号安全：修改密码/登录记录（含地理位置）/注销账号
-- 通用：主题（ThemePreference）/字体/语言（AppLocale）/通知开关/清缓存
-- 隐私：公开主页/收藏/评论/消息开关（存后端）
-- 云端存储：分类文件夹，API实时读取，存储检查机制
-- 会员中心：订阅/支付（占位）
-- 关于极梦：版本/官网/协议
-
-### 国际化（i18n）
-- 用flutter gen-l10n，ARB源文件在lib/l10n/（app_en.arb为模板+app_zh.arb），
-  生成代码在lib/l10n/generated/（不是synthetic package，直接import）
-- lib/core/locale_provider.dart：AppLocale{system,zh,en}，存SharedPreferences
-  'app_locale'，设置页"语言"行可切换，跟主题选择器是同一套UI模式
-- 每个screen在build()顶部取`final l10n = AppLocalizations.of(context)!;`
-- 后端回显的动态内容（如res.message）不会被翻译——只翻译客户端自己的
-  兜底文案，两者拼接时客户端文案只放"纯原因"不能是完整句子，否则会跟外层
-  前缀重复（如"上传失败：上传失败，请重试"这种bug，已修复）
-- ApiClient/AuthService/CommunityNotifier这几个非widget的类，用
-  localeFor(ref.read(localeProvider)) + lookupAppLocalizations()同步查表，
-  不依赖BuildContext
-- 星座名（zodiacDisplayName）/性别（genderDisplayLabel）后端存储值仍是
-  中文/英文枚举名，只有展示层跟locale换
-- 已知不翻译的：auth_service.dart登录记录的"未知位置"/"未知设备"兜底
-  （写入时的本地化没意义，是历史记录）、notebook_service.dart新建
-  Notebook的模板代码注释（用户几乎立刻会改掉的占位代码）
-
-### Token刷新
-- 403时自动refresh，单飞去重（_refreshing Future）
-- CookieJar持久化（PersistCookieJar）
-- 强制登出走 appRouter.go('/login')
-- App回到前台触发silentRefresh()
+- 三Tab：通知/私信/群组
+- 私信支持：文字/代码/LaTeX/教程卡片/图片
+- 目前 mock 数据，后端消息API待建
 
 ## 共享组件
 lib/shared/widgets/
-- main_shell.dart — 底部导航Shell
-- zodiac_icon.dart — 十二星座SVG图标+ZodiacPicker
+- main_shell.dart — 底部导航（首页/发现/+/消息/我的）
+- zodiac_icon.dart — 十二星座SVG图标 + ZodiacPicker
+
 lib/shared/models/
 - user_model.dart — UserModel
 - tutorial_model.dart — TutorialModel（含tags兼容解析）
@@ -213,138 +170,57 @@ lib/shared/models/
 ## 踩过的坑（必读）
 
 ### 1. 账号数据隔离（最重要）
-所有缓存key必须带userId前缀：
-'${userId}_tutorials'，'${userId}_nb_recent'
-退出登录时只清当前用户缓存，不能deleteAll()
+所有缓存key必须带userId前缀：'${userId}_tutorials'
+退出登录只清当前用户缓存，不能 deleteAll()
 
 ### 2. 时间戳秒级
 DateTime.fromMillisecondsSinceEpoch(created_at * 1000)
 
 ### 3. 教程列表格式
-返回{tutorials:[...],total,page,pages}，不是直接数组
+返回 {tutorials:[...], total, page, pages}，不是直接数组
 
-### 4. tags兼容
+### 4. tags 兼容
 if (tags is String) jsonDecode(tags) else tags
 
-### 5. cover_image可能为空
-无封面时按标题首字符hashCode选色（紫/绿/橙/粉/蓝）
+### 5. cover_image 可能为空
+无封面按标题首字符 hashCode 选色（紫/绿/橙/粉/蓝）
 
-### 6. avatar格式
-新数据全是COS URL，老数据可能是base64
+### 6. avatar 两种格式
 avatar.startsWith('data:image')
   ? Image.memory(base64Decode(去掉前缀))
   : CachedNetworkImage(url)
 
-### 7. ApiClient不抛异常
-ApiClient内部catch DioException，返回ApiResponse.error()
-调用方必须检查res.success，不能用try/catch
-包括ApiClient.delete()也一样
+### 7. ApiClient 不抛异常
+内部 catch DioException，返回 ApiResponse.error()
+调用方必须检查 res.success，不能用 try/catch
 
 ### 8. currentUserProvider
-获取当前登录用户：ref.watch(currentUserProvider)→UserModel?
-userId = ref.watch(currentUserProvider)?.id
-不存在authProvider或authProvider.userId
+ref.watch(currentUserProvider) → UserModel?
+不存在 authProvider 或 authProvider.userId
 
-### 9. token存储key
+### 9. token 存储 key
 AppConstants.tokenKey(userId) = 'user_${userId}_token'
-不要用裸字符串'access_token'
+不要用裸字符串 'access_token'
 
-### 10. Cookie自动管理
-已配置cookie_jar + dio_cookie_manager
-refresh token走HttpOnly Cookie（dp_refresh）
-Dio会自动携带，不需要手动处理
+### 10. Cookie 自动管理
+已配置 cookie_jar + dio_cookie_manager
+refresh token 走 HttpOnly Cookie（dp_refresh），Dio 自动携带
 
-### 11. 主题Provider
-用ThemePreference（不是AppTheme，有命名冲突）
-themeProvider → ThemePreference.system/light/dark
+### 11. ChatScreen 必须携带 conversation
+context.push('/messages/chat/${id}', extra: conversation)
+extra 为 null 时发送按钮静默失效
 
-### 12. ChatScreen必须携带conversation对象
-context.push('/messages/chat/${convId}', extra: conversation)
-_send()靠conversation.otherUserId发消息
-extra为null时发送按钮静默失效
+### 12. Scaffold drawer 做侧边栏
+个人主页侧边栏用 Scaffold(drawer: ...) 实现
+不要嵌入主页面 Column，否则变成页面内容而非抽屉
 
-### 13. Avatar覆盖式上传
-固定key：avatars/${userId}.jpg
-每次上传覆盖同一文件，不累积
-
-### 14. 存储检查
-发送文件前调用StorageChecker.checkAndPrompt()
-超过50%显示警告，100%阻断并提示升级
-
-### 15. username ≠ handle
-username（昵称，可重复）走PATCH /auth/me
-handle（@唯一用户名，30天改一次）走PUT /auth/users/handle
-currentUserProvider的UserModel不带handle字段
-需要handle时单独GET /auth/users/profile/:username
-
-## COS存储
+## COS 存储
 bucket: dp-1317483118，region: ap-hongkong
 URL: https://dp-1317483118.cos.ap-hongkong.myqcloud.com/${cosKey}
-公共读，图片URL可直接访问
+公共读，图片 URL 可直接访问
 头像目录：avatars/（不计入配额）
-封面图目录：covers/
-用户文件目录：files/
 
-## 品牌设计
-主色：#6366F1（紫蓝）
-Logo：方案C（极光数据——山脉剪影+数据折线+星点）
-Slogan：极梦，为创造而生
-风格：小红书+知乎+网易云，干净简洁
-
-## 服务器信息
+## 服务器
 腾讯云香港，IP: 150.109.77.250
-后端目录：/root/dp-auth-backend
-进程管理：pm2，服务名dp-auth，端口3001
-数据库：MySQL，内网10.5.0.6:3306，库名dp_users
-
-## 重要踩坑补充（2026-07-04更新）
-
-### 15. Express路由顺序陷阱
-/users/:username 必须注册在所有精确路由之后
-否则 /users/search 会被当成 username="search" 处理
-正确顺序：
-  GET /users/search       ← 精确路由在前
-  GET /users/profile/:id  ← 精确路由在前
-  GET /users/handle       ← 精确路由在前
-  GET /users/:username    ← 通配符路由在最后
-
-### 16. birthday时区问题
-后端服务器UTC+8，存DATE字段返回UTC时间戳
-提交：YYYY-MM-DD字符串（不能带时区）
-返回：2002-10-21T16:00:00.000Z（需+8小时修正）
-Flutter侧用 _parseBackendBirthday() 处理
-如果后端改为DATE列存储，需移除客户端修正
-
-### 17. GET /auth/files 实际格式
-返回的是裸数组，不是{files:[...]}：
-[{id, filename, file_type, size_bytes, created_at, updated_at}]
-注意：列表接口没有cos_key/url字段
-只有上传响应才有：{id, filename, url, cos_key}
-
-### 18. GET /auth/users/profile/:identifier
-目前不返回gender/location/zodiac字段
-查看自己主页时用currentUserProvider（来自/auth/me）
-查看别人主页时这些字段暂时不显示
-
-### 19. 403拦截器区分业务错误和token错误
-业务403（不公开/无权限）→ 直接返回错误，不触发refresh
-token403（过期/无效）→ 触发refresh
-否则会形成死循环DOS服务器
-
-### 20. 轮询频率
-消息通知：60秒
-私信列表：15秒
-个人主页：不轮询，只在进入/下拉刷新时加载
-/auth/me：只在启动/编辑资料后调用，不轮询
-
-### 21. 隐私设置
-privacy_public_profile/favorites/allow_comments/messages
-存在users表，GET /auth/me返回
-PUT /auth/users/privacy 更新
-查看他人主页时后端检查privacy_public_profile
-
-### 22. 用户搜索
-GET /auth/users/search?handle=xxx
-支持handle和username的精确/前缀匹配
-Flutter端自动去掉@前缀再搜索
-搜不到返回{users:[]} HTTP 200，不是404
+后端：/root/dp-auth-backend，pm2 服务名 dp-auth，端口 3001
+数据库：MySQL，内网 10.5.0.6:3306，库名 dp_users
