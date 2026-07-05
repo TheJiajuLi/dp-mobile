@@ -595,6 +595,27 @@
       }
     }
   },
+  "commentsCountLabel": "{count} Comments",
+  "@commentsCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noCommentsYetPrompt": "No comments yet — be the first to say something",
+  "writeCommentHint": "Write a comment...",
+  "replyAction": "Reply",
+  "deleteCommentTitle": "Delete comment",
+  "confirmDeleteCommentMessage": "Delete this comment?",
+  "replyingToLabel": "Replying to @{username}",
+  "@replyingToLabel": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
   "proMembershipComingSoon": "Pro membership coming soon, stay tuned",
   "noSubscriptionHistory": "No subscription history yet",
   "versionNumber": "Version",

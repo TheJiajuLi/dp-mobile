@@ -1142,6 +1142,31 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String commentsCountLabel(int count) {
+    return '评论 $count';
+  }
+
+  @override
+  String get noCommentsYetPrompt => '还没有评论，来说点什么吧';
+
+  @override
+  String get writeCommentHint => '写下你的评论...';
+
+  @override
+  String get replyAction => '回复';
+
+  @override
+  String get deleteCommentTitle => '删除评论';
+
+  @override
+  String get confirmDeleteCommentMessage => '确定删除这条评论？';
+
+  @override
+  String replyingToLabel(String username) {
+    return '回复 @$username';
+  }
+
+  @override
   String get proMembershipComingSoon => 'Pro 会员即将上线，敬请期待';
 
   @override

@@ -1169,6 +1169,32 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String commentsCountLabel(int count) {
+    return '$count Comments';
+  }
+
+  @override
+  String get noCommentsYetPrompt =>
+      'No comments yet — be the first to say something';
+
+  @override
+  String get writeCommentHint => 'Write a comment...';
+
+  @override
+  String get replyAction => 'Reply';
+
+  @override
+  String get deleteCommentTitle => 'Delete comment';
+
+  @override
+  String get confirmDeleteCommentMessage => 'Delete this comment?';
+
+  @override
+  String replyingToLabel(String username) {
+    return 'Replying to @$username';
+  }
+
+  @override
   String get proMembershipComingSoon =>
       'Pro membership coming soon, stay tuned';
 

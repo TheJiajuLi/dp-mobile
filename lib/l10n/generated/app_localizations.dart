@@ -2228,6 +2228,48 @@ abstract class AppLocalizations {
   /// **'\"{name}\" deleted'**
   String tutorialDeletedMessage(String name);
 
+  /// No description provided for @commentsCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Comments'**
+  String commentsCountLabel(int count);
+
+  /// No description provided for @noCommentsYetPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'No comments yet — be the first to say something'**
+  String get noCommentsYetPrompt;
+
+  /// No description provided for @writeCommentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a comment...'**
+  String get writeCommentHint;
+
+  /// No description provided for @replyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get replyAction;
+
+  /// No description provided for @deleteCommentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete comment'**
+  String get deleteCommentTitle;
+
+  /// No description provided for @confirmDeleteCommentMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this comment?'**
+  String get confirmDeleteCommentMessage;
+
+  /// No description provided for @replyingToLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Replying to @{username}'**
+  String replyingToLabel(String username);
+
   /// No description provided for @proMembershipComingSoon.
   ///
   /// In en, this message translates to:
