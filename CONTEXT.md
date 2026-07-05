@@ -345,3 +345,67 @@ CSDN/博客园：太技术向，没有社区感，排版差
 早期不能完全依赖自然投稿，要像杂志编辑一样主动选题、约稿、帮作者打磨，保证首页内容质量。
 第三步：让第一批内容破圈
 把极梦上最好的文章推到微博、微信、知乎——不是推极梦这个平台，而是推文章本身，让读者追着内容来注册。
+
+## 视觉风格（2026 风格，高质感）
+
+### 主视觉方向
+- 深色为主：主背景 `#0A0A1A` → `#1A0E2E` → `#0D1A3A` 渐变
+- 极光光效：`radial-gradient` 紫蓝光晕叠加，营造深空感
+- 毛玻璃层：`BackdropFilter blur(20-32px)` + `rgba(255,255,255,0.08-0.12)` 半透明
+- 主色调：`#6366F1` 紫蓝，点缀 `#8B5CF6` 深紫
+
+### 侧边栏（Drawer）视觉规范
+- 背景：`rgba(15,10,30,0.82)` + `BackdropFilter blur(32px) saturate(1.8)`
+- 右边框：`0.5px rgba(255,255,255,0.08)`
+- Header：深紫极光渐变 `rgba(99,102,241,0.25) → rgba(139,92,246,0.15) → transparent`
+- 菜单图标背景：各领域色 `.withOpacity(0.2)`，图标用浅色版本
+- 菜单文字：`rgba(255,255,255,0.85)`
+- 分割线：`rgba(255,255,255,0.06)`
+- 底部按钮：`rgba(255,255,255,0.4)`，退出用 `#FF6B6B`
+
+### 个人主页视觉规范
+- 封面区：深色渐变背景 + `radial-gradient` 极光光晕
+- 顶部按钮：毛玻璃 `rgba(255,255,255,0.10)` + `BackdropFilter blur(10px)`
+- Badge：领域色 `.withOpacity(0.3)` 背景 + 浅色文字 + `0.5px` 领域色边框
+- 统计行：`rgba(255,255,255,0.08)` 毛玻璃卡片
+- Tab 选中：`#6366F1` 下划线（深色主题）
+- 底部导航：`rgba(10,10,26,0.85)` + `BackdropFilter blur(20px)`
+
+### 技术实现栈
+- Flutter + Material 3 + 自定义 Design System
+- `CustomPainter`：渐变背景、极光光效
+- `BackdropFilter`：毛玻璃效果（侧边栏、顶部按钮、底部导航）
+- `AnimationController` / `ImplicitAnimation`：页面微交互
+- Lottie / Rive：局部动态效果（可选，后期）
+- Skia 渲染引擎：保证复杂渐变在 iOS/Android 一致
+
+### 颜色系统（深色主题）
+```dart
+// 背景层
+bgDeep:    Color(0xFF0A0A1A)
+bgMid:     Color(0xFF1A0E2E)
+bgLight:   Color(0xFF0D1A3A)
+
+// 毛玻璃
+glassLight: Color(0x1AFFFFFF)  // rgba(255,255,255,0.10)
+glassMid:   Color(0x14FFFFFF)  // rgba(255,255,255,0.08)
+glassBorder: Color(0x0FFFFFFF) // rgba(255,255,255,0.06)
+
+// 主色
+primary:   Color(0xFF6366F1)
+primaryAlt: Color(0xFF8B5CF6)
+
+// 文字
+textPrimary:   Color(0xFFFFFFFF)
+textSecondary: Color(0xCCFFFFFF)  // 0.8
+textMuted:     Color(0x66FFFFFF)  // 0.4
+
+// 功能色
+danger: Color(0xFFFF6B6B)
+```
+
+### 注意事项
+- `BackdropFilter` 在 iOS 上性能优秀，Android 需注意层数不要过多
+- 渐变光晕用 `DecoratedBox` + `BoxDecoration` 叠加，不要用 `ShaderMask`（性能差）
+- 深色模式下所有边框用 `rgba白色` 而非 `rgba黑色`
+- 九宫格内容区卡片用深色渐变而非白色，保持整体调性一致
