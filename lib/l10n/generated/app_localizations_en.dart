@@ -273,6 +273,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editProfile => 'Edit Profile';
 
   @override
+  String get personalLinksLabel => 'Personal Links';
+
+  @override
   String get save => 'Save';
 
   @override

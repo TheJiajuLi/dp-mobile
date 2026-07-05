@@ -957,76 +957,87 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              top: BorderSide(color: Theme.of(context).dividerColor),
-            ),
+      // Container 包 SafeArea，不是反过来——SafeArea 包 Container 只是把
+      // padding 加在 Container 外面，白色背景到不了 home indicator 那圈
+      // 安全区，露出 Scaffold 背景，跟之前设置页/Notebook页同一个坑
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: _openCommentSheet,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).inputDecorationTheme.fillColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      l10n.writeCommentHint,
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _openCommentSheet,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).inputDecorationTheme.fillColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        l10n.writeCommentHint,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              GestureDetector(
-                onTap: _toggleLike,
-                child: Row(
-                  children: [
-                    Icon(
-                      _liked ? Icons.favorite : Icons.favorite_outline,
-                      color: _liked ? Colors.red : Colors.grey,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$likes',
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: _toggleLike,
+                  child: Row(
+                    children: [
+                      Icon(
+                        _liked ? Icons.favorite : Icons.favorite_outline,
+                        color: _liked ? Colors.red : Colors.grey,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$likes',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              GestureDetector(
-                onTap: _toggleSave,
-                child: Icon(
-                  _saved ? Icons.bookmark : Icons.bookmark_outline,
-                  color: _saved ? _primary : Colors.grey,
-                  size: 22,
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: _toggleSave,
+                  child: Icon(
+                    _saved ? Icons.bookmark : Icons.bookmark_outline,
+                    color: _saved ? _primary : Colors.grey,
+                    size: 22,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              GestureDetector(
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.comingSoonStayTuned)),
+                const SizedBox(width: 16),
+                GestureDetector(
+                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.comingSoonStayTuned)),
+                  ),
+                  child: const Icon(
+                    Icons.share_outlined,
+                    color: Colors.grey,
+                    size: 22,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.share_outlined,
-                  color: Colors.grey,
-                  size: 22,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

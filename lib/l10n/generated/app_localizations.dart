@@ -578,6 +578,12 @@ abstract class AppLocalizations {
   /// **'Edit Profile'**
   String get editProfile;
 
+  /// No description provided for @personalLinksLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal Links'**
+  String get personalLinksLabel;
+
   /// No description provided for @save.
   ///
   /// In en, this message translates to:

@@ -267,6 +267,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get editProfile => '编辑资料';
 
   @override
+  String get personalLinksLabel => '个人链接';
+
+  @override
   String get save => '保存';
 
   @override

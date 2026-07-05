@@ -91,7 +91,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   String? _coverImageUrl;
   bool _uploadingCover = false;
 
-  int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
   int get _totalViews => _tutorials.fold(0, (sum, t) => sum + t.views);
 
   // 按出现频率取前 3 个 tag 当"兴趣领域"，同频的按 tag 本身排序，保证
@@ -111,25 +110,25 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     return sorted.take(3).toList();
   }
 
-  // "个人链接"里凑一个 GitHub 入口——没有专门的 github 字段，从已经在用
-  // 的 _links/website 里找一条包含 github.com 的，找不到就退而求其次用
-  // 第一条链接；一条链接都没有时调用方负责不显示这个按钮
-  String? _githubOrFirstLink() {
+  // 头图右上角链接图标要展示的全部个人链接——_links（本地存储）+
+  // website（后端字段）合并去重，保持原有顺序
+  List<String> _allLinks() {
     final all = [
       ..._links,
       if (_profile?.website?.isNotEmpty == true) _profile!.website!,
     ];
-    if (all.isEmpty) return null;
-    return all.firstWhere(
-      (l) => l.toLowerCase().contains('github.com'),
-      orElse: () => all.first,
-    );
+    return all.toSet().toList();
   }
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: _showNotebookTab ? 4 : 3, vsync: this);
+    // 文章/Notebook/收藏/点赞这行本身现在就是tab切换器（不再有单独的
+    // TabBar），swipe切页也要让它跟着更新高亮态，不能只在点击时刷新
+    _tabCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadProfile();
     if (_showNotebookTab) _loadNotebooks();
   }
@@ -977,7 +976,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     }
     final isMe = currentUser != null && currentUser.id == _profile?.id;
     final isSelfView = !widget.showBackButton;
-    final sharedFollowingCount = ref.watch(myFollowingCountProvider);
 
     // 自己的主页：优先用 currentUserProvider（/auth/me 出的数据，编辑资料
     // 保存成功后会立刻更新，不用等这个页面重新拉一次接口）。
@@ -1021,12 +1019,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     // 只在浅色模式按规范覆盖，深色模式继续用主题自己的背景色，不强行套
     // 一套没设计过深色版本的固定色值
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    // 头图区（封面+头像+简介）现在统一用白字+黑色蒙层，跟 app 明暗主题
-    // 无关；这个只给下面 Tab 栏（坐在纯色 Scaffold 背景上）用，深色模式
-    // 沿用主题自适应文字色，浅色模式按规范用固定色值
-    final bioTextColor = isDarkMode
-        ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
-        : const Color(0xFF555555);
 
     return Scaffold(
       backgroundColor: isDarkMode
@@ -1120,6 +1112,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       _heroIconButton(
                                         Icons.menu,
                                         () => _openProfileDrawer(l10n),
+                                      ),
+                                    const Spacer(),
+                                    // 个人链接入口——从按钮行挪到这里，去掉
+                                    // 原来那个白底描边方块的"pill"背景，改成
+                                    // 裸图标压在头图上（跟星座去掉底色是同一
+                                    // 个思路），换个通用的链接图标（原来的
+                                    // code图标是GitHub专属语义，现在点开是
+                                    // 全部链接，不该再暗示只跳GitHub）
+                                    if (_allLinks().isNotEmpty)
+                                      _heroIconButton(
+                                        Icons.link_rounded,
+                                        () => _showLinksSheet(l10n),
+                                        filled: false,
                                       ),
                                   ],
                                 ),
@@ -1340,44 +1345,31 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                             ],
                                             if (displayZodiacSign != null) ...[
                                               const SizedBox(width: 12),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: const Color(
-                                                    0xFFEEF0FF,
+                                              // 去掉了外层浅紫底色药丸——星座图标
+                                              // 本身在SVG里已经带自己的圆角色块
+                                              // 背景，不需要外面再套一层；原来
+                                              // 靠紫底衬托可读性的文字颜色换成
+                                              // 跟同一行gender/location一致的
+                                              // 半透明白，压在照片上才看得清
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  ZodiacIcon(
+                                                    sign: displayZodiacSign,
+                                                    size: 14,
                                                   ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(99),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    ZodiacIcon(
-                                                      sign: displayZodiacSign,
-                                                      size: 12,
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    zodiacDisplayName(
+                                                      l10n,
+                                                      displayZodiacSign,
                                                     ),
-                                                    const SizedBox(width: 3),
-                                                    Text(
-                                                      zodiacDisplayName(
-                                                        l10n,
-                                                        displayZodiacSign,
-                                                      ),
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                        color: Color(
-                                                          0xFF4F46E5,
-                                                        ),
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      color: Colors.white70,
                                                     ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ],
@@ -1418,110 +1410,24 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                           ],
                                         ),
                                       ),
-                                    if (_links.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: _links
-                                              .map(
-                                                (link) => Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 1,
-                                                      ),
-                                                  child: _linkRow(link, link),
-                                                ),
-                                              )
-                                              .toList(),
-                                        ),
-                                      )
-                                    else if (_profile!.website?.isNotEmpty ==
-                                        true)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: _linkRow(
-                                          _profile!.website!
-                                              .replaceAll('https://', '')
-                                              .replaceAll('http://', ''),
-                                          _profile!.website!,
-                                        ),
-                                      ),
+                                    // 个人链接不再在这里铺开显示——挪到头图
+                                    // 右上角那个链接图标里，点开弹窗统一看
+                                    // 全部链接，这里腾出的位置更紧凑
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      // 统计数据 + 操作按钮合并进同一张卡片——之前两块各占
-                      // 一行、中间还留一整条 SizedBox(height:14) 的空档，
-                      // 撑高了整个头图区，挤得下面的 Tab 内容一进页面就要
-                      // 下滑才看得到。合并成一张卡片+一条内部分隔线，省下
-                      // 的高度让给下面的内容（我们内部的"头图区不占满一半
-                      // 屏幕"的精简原则）
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: _hairline, width: 0.5),
-                          ),
-                          child: Column(
-                            children: [
+                              const SizedBox(height: 12),
+                              // 操作按钮行内嵌进头图蒙层区，紧跟在简介/链接
+                              // 下面——不再单独占一整块白底卡片+自己的一圈
+                              // padding，省下来的高度让给下面的Tab内容（头图
+                              // 详情区跟下方内容各占约一半屏幕的精简原则）。
+                              // 自己主页：编辑资料(黑底白字) + 分享主页
+                              // (白底黑字细边框) + GitHub 方形图标按钮；
+                              // 别人主页：私信 + 关注，两个按钮本身都是纯色
+                              // 实底，压在照片上不需要额外处理对比度
                               Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                child: Row(
-                                  children: [
-                                    _statItem(
-                                      '${_profile!.tutorialCount}',
-                                      l10n.articlesCountLabel,
-                                    ),
-                                    _divider(),
-                                    _statItem(
-                                      _formatCount(_totalLikes),
-                                      l10n.likesCountLabel,
-                                    ),
-                                    _divider(),
-                                    _statItem(
-                                      _formatCount(_profile!.followerCount),
-                                      l10n.followersCountLabel,
-                                      onTap: () => context.push(
-                                        '/users/${_profile!.id}/followers',
-                                      ),
-                                    ),
-                                    _divider(),
-                                    _statItem(
-                                      _formatCount(
-                                        isSelfView
-                                            ? (sharedFollowingCount ??
-                                                  _profile!.followingCount)
-                                            : _profile!.followingCount,
-                                      ),
-                                      l10n.followingCountLabel,
-                                      onTap: () => context.push(
-                                        '/users/${_profile!.id}/following',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Divider(height: 1, color: _hairline),
-                              // 操作按钮行——自己主页：编辑资料(黑底白字) +
-                              // 分享主页(白底黑字细边框) + GitHub 方形图标
-                              // 按钮；别人主页：私信 + 关注，保留原有交互
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  10,
-                                  12,
-                                  10,
+                                  horizontal: 16,
                                 ),
                                 child: isMe
                                     ? Row(
@@ -1546,15 +1452,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                               ),
                                             ),
                                           ),
-                                          if (_githubOrFirstLink() != null) ...[
-                                            const SizedBox(width: 8),
-                                            _squareIconButton(
-                                              Icons.code,
-                                              onTap: () => _openLink(
-                                                _githubOrFirstLink()!,
-                                              ),
-                                            ),
-                                          ],
                                         ],
                                       )
                                     : Row(
@@ -1580,9 +1477,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                                   ),
                                             label: Text(l10n.sendMessageAction),
                                             style: OutlinedButton.styleFrom(
-                                              foregroundColor: _primary,
+                                              foregroundColor: Colors.white,
                                               side: const BorderSide(
-                                                color: _primary,
+                                                color: Colors.white70,
                                               ),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
@@ -1627,39 +1524,51 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         ],
                                       ),
                               ),
+                              // 效仿知乎——去掉原来外面裹着的白色圆角卡片
+                              // "pill"背景，文章/Notebook/收藏/点赞直接嵌进
+                              // 头图深色蒙层区，兼作tab切换器，不再需要下面
+                              // 单独一整条 TabBar，省下来的高度用来让头图区
+                              // 跟下面的Tab内容各占约一半屏幕（而不是让内容
+                              // 区被压缩到只剩一半都不到）。
+                              // 代价：原来这一行里"获赞/粉丝/关注"这三个
+                              // 数字、以及点粉丝/关注能跳转列表页的入口，
+                              // 现在没地方放了——这几个内容类tab的计数比
+                              // 泛泛的社交数据对这个app更有用，如果粉丝/
+                              // 关注这两个数字或跳转入口还需要保留，需要在
+                              // 别处（比如汉堡菜单侧栏）重新给它们找个位置
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: Row(
+                                  children: [
+                                    _tabStatItem(
+                                      '${_profile!.tutorialCount}',
+                                      l10n.articlesCountLabel,
+                                      index: 0,
+                                    ),
+                                    if (_showNotebookTab)
+                                      _tabStatItem(
+                                        '${_notebooks.length}',
+                                        'Notebook',
+                                        index: 1,
+                                      ),
+                                    _tabStatItem(
+                                      '0',
+                                      l10n.tabBookmarksLabel,
+                                      index: _showNotebookTab ? 2 : 1,
+                                    ),
+                                    _tabStatItem(
+                                      '0',
+                                      l10n.tabLikesLabel,
+                                      index: _showNotebookTab ? 3 : 2,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
                             ],
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Tabs——文字标签，不再是纯图标；选中态用下划线+加粗，
-                      // 未选中用浅灰，跟上面的头图区分明确用一条 0.5px 细线
-                      TabBar(
-                        controller: _tabCtrl,
-                        labelColor: bioTextColor,
-                        unselectedLabelColor: isDarkMode
-                            ? const Color(0xFF666666)
-                            : const Color(0xFFBBBBBB),
-                        labelStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        unselectedLabelStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        indicatorColor: bioTextColor,
-                        indicatorSize: TabBarIndicatorSize.label,
-                        indicatorWeight: 2.4,
-                        dividerColor: isDarkMode
-                            ? Theme.of(context).dividerColor
-                            : _hairline,
-                        tabs: [
-                          Tab(text: l10n.articlesCountLabel),
-                          if (_showNotebookTab) const Tab(text: 'Notebook'),
-                          Tab(text: l10n.tabBookmarksLabel),
-                          Tab(text: l10n.tabLikesLabel),
                         ],
                       ),
                     ],
@@ -1761,24 +1670,39 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  Widget _statItem(String value, String label, {VoidCallback? onTap}) {
+  // 文章/Notebook/收藏/点赞——嵌在头图深色区里，兼当tab切换器：数字+
+  // 标签整体可点，点了直接切 TabController 到对应 index；当前选中的
+  // 那个全白+加粗+下面一条白色下划线，其余半透明白，跟旧TabBar的
+  // 选中态视觉逻辑一致，只是从独立一条bar合并进了这一行
+  Widget _tabStatItem(String value, String label, {required int index}) {
+    final selected = _tabCtrl.index == index;
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: () => _tabCtrl.animateTo(index),
         child: Column(
           children: [
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: _ink,
+                color: selected ? Colors.white : Colors.white70,
               ),
             ),
             const SizedBox(height: 3),
             Text(
               label,
-              style: const TextStyle(fontSize: 10, color: Color(0xFFAAAAAA)),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected ? Colors.white : Colors.white70,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              height: 2.4,
+              width: 20,
+              color: selected ? Colors.white : Colors.transparent,
             ),
           ],
         ),
@@ -1786,20 +1710,31 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  Widget _divider() => Container(width: 0.5, height: 28, color: _hairline);
-
   // 头图区里叠在背景上的圆形按钮（返回/汉堡）——半透明白底保证无论背景
   // 是浅色渐变占位还是用户传的任意亮度照片，深色图标都能看清
-  Widget _heroIconButton(IconData icon, VoidCallback onTap) => GestureDetector(
+  // filled:false 给不需要白底圆圈衬托的场景用（比如链接图标）——直接裸
+  // 图标压在头图蒙层上，跟返回/汉堡按钮的白底圆圈是两种不同的视觉分量
+  Widget _heroIconButton(
+    IconData icon,
+    VoidCallback onTap, {
+    bool filled = true,
+  }) => GestureDetector(
     onTap: onTap,
     child: Container(
       width: 34,
       height: 34,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
-        shape: BoxShape.circle,
+      decoration: filled
+          ? BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.85),
+              shape: BoxShape.circle,
+            )
+          : null,
+      alignment: Alignment.center,
+      child: Icon(
+        icon,
+        color: filled ? _ink : Colors.white,
+        size: filled ? 16 : 20,
       ),
-      child: Icon(icon, color: _ink, size: 16),
     ),
   );
 
@@ -1840,24 +1775,57 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         ),
       );
 
-  Widget _squareIconButton(IconData icon, {required VoidCallback onTap}) =>
-      SizedBox(
-        width: 38,
-        height: 36,
-        child: OutlinedButton(
-          onPressed: onTap,
-          style: OutlinedButton.styleFrom(
-            padding: EdgeInsets.zero,
-            backgroundColor: Colors.white,
-            foregroundColor: _ink,
-            side: const BorderSide(color: Color(0xFFE0E0E0)),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          child: Icon(icon, size: 18),
+  // 头图右上角链接图标点开——列出全部个人链接的底部弹窗，替代原来直接
+  // 跳GitHub/第一条链接的快捷方式
+  void _showLinksSheet(AppLocalizations l10n) {
+    final links = _allLinks();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-      );
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.personalLinksLabel,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(ctx).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...links.map(
+              (link) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _linkRow(
+                  link.replaceAll('https://', '').replaceAll('http://', ''),
+                  link,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   // 网易云音乐"我的"页那套——从左侧滑入的抽屉，不是铺在主页面里的常驻
   // 列表。头部复用主页面已经算好的这几个数字，不在这里重新读一遍 provider
