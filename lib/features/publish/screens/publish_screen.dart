@@ -2273,6 +2273,9 @@ result
       return;
     }
 
+    // dialog 是否还在显示——避免网络异常提前抛出、或用户手动划走弹窗后，
+    // 结果回来时再 pop 一次把发布页本身也顶掉（那次真实故障就是这么触发的）
+    var dialogShowing = true;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2294,6 +2297,8 @@ result
     );
 
     try {
+      // 图像生成实测要 15-25 秒，Dio 默认 10 秒 receiveTimeout 会提前超时——
+      // 只给这一个请求单独放宽，不动全局默认值影响其他接口
       final res = await ref
           .read(apiClientProvider)
           .post(
@@ -2303,10 +2308,17 @@ result
               'tags': _tags,
               'summary': _summaryCtrl.text.trim(),
             },
+            options: Options(
+              sendTimeout: const Duration(seconds: 30),
+              receiveTimeout: const Duration(seconds: 90),
+            ),
           );
 
+      if (mounted && dialogShowing) {
+        dialogShowing = false;
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (!mounted) return;
-      Navigator.pop(context);
 
       if (!res.success) {
         ScaffoldMessenger.of(
@@ -2322,8 +2334,11 @@ result
 
       _showCoverPickerSheet(urls);
     } catch (e) {
+      if (mounted && dialogShowing) {
+        dialogShowing = false;
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('生成失败，请稍后重试')));

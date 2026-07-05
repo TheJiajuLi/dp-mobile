@@ -873,6 +873,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   }
 
   Future<void> _aiGenerateAvatar(String description) async {
+    // dialog 是否还在显示——避免网络异常提前抛出、或用户手动划走弹窗后，
+    // 结果回来时再 pop 一次把个人主页本身也顶掉
+    var dialogShowing = true;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -894,12 +897,24 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
 
     try {
+      // 图像生成实测要 15-25 秒，Dio 默认 10 秒 receiveTimeout 会提前超时——
+      // 只给这一个请求单独放宽，不动全局默认值影响其他接口
       final res = await ref
           .read(apiClientProvider)
-          .post('/auth/xmeng/avatar', data: {'description': description});
+          .post(
+            '/auth/xmeng/avatar',
+            data: {'description': description},
+            options: Options(
+              sendTimeout: const Duration(seconds: 30),
+              receiveTimeout: const Duration(seconds: 90),
+            ),
+          );
 
+      if (mounted && dialogShowing) {
+        dialogShowing = false;
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (!mounted) return;
-      Navigator.pop(context);
 
       if (!res.success) {
         ScaffoldMessenger.of(
@@ -913,15 +928,114 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       );
       if (urls.isEmpty) return;
 
-      _showAvatarPickerSheet(urls);
+      if (urls.length == 1) {
+        _showSingleAvatarConfirm(urls.first);
+      } else {
+        _showAvatarPickerSheet(urls);
+      }
     } catch (e) {
+      if (mounted && dialogShowing) {
+        dialogShowing = false;
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('生成失败，请稍后重试')));
       }
     }
+  }
+
+  // 生成接口目前会因上游并发限流偶尔只成功1张而不是预期的多张——只有1张时
+  // 不套用选择网格（网格布局在只有1个格子时显得很空），改成大图+二选一
+  void _showSingleAvatarConfirm(String url) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                url,
+                width: 160,
+                height: 160,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '使用这张头像？',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _aiGenerateAvatar('');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: const BorderSide(color: Color(0xFFD0D0D0)),
+                    ),
+                    child: const Text(
+                      '重新生成',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await _setAvatarFromUrl(url);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      '使用',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showAvatarPickerSheet(List<String> urls) {

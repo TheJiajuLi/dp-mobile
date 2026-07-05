@@ -53,9 +53,13 @@ class ApiClient {
           if (options.headers.containsKey('Authorization')) {
             return handler.next(options);
           }
-          final userId = await _storage.read(key: AppConstants.keyCurrentUserId);
+          final userId = await _storage.read(
+            key: AppConstants.keyCurrentUserId,
+          );
           if (userId != null && userId.isNotEmpty) {
-            final token = await _storage.read(key: AppConstants.keyToken(userId));
+            final token = await _storage.read(
+              key: AppConstants.keyToken(userId),
+            );
             if (token != null) {
               options.headers['Authorization'] = 'Bearer $token';
             }
@@ -102,7 +106,9 @@ class ApiClient {
           try {
             final userId =
                 await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
-            final newToken = await _storage.read(key: AppConstants.keyToken(userId));
+            final newToken = await _storage.read(
+              key: AppConstants.keyToken(userId),
+            );
             final opts = err.requestOptions;
             opts.headers['Authorization'] = 'Bearer $newToken';
             opts.extra['authRetried'] = true;
@@ -141,7 +147,8 @@ class ApiClient {
 
   Future<bool> _doRefresh() async {
     try {
-      final userId = await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
+      final userId =
+          await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
       if (userId.isEmpty) return false;
 
       final res = await dio.post(
@@ -151,7 +158,10 @@ class ApiClient {
       final data = res.data;
       final newToken = data is Map ? data['accessToken'] as String? : null;
       if (res.statusCode == 200 && newToken != null) {
-        await _storage.write(key: AppConstants.keyToken(userId), value: newToken);
+        await _storage.write(
+          key: AppConstants.keyToken(userId),
+          value: newToken,
+        );
         return true;
       }
       return false;
@@ -161,7 +171,8 @@ class ApiClient {
   }
 
   Future<void> _forceLogout() async {
-    final userId = await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
+    final userId =
+        await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
     if (userId.isNotEmpty) {
       await _storage.delete(key: AppConstants.keyToken(userId));
       await _storage.delete(key: AppConstants.keyUsername(userId));
@@ -183,9 +194,13 @@ class ApiClient {
     }
   }
 
-  Future<ApiResponse<dynamic>> post(String path, {dynamic data}) async {
+  Future<ApiResponse<dynamic>> post(
+    String path, {
+    dynamic data,
+    Options? options,
+  }) async {
     try {
-      final res = await dio.post(path, data: data);
+      final res = await dio.post(path, data: data, options: options);
       return ApiResponse.success(res.data, statusCode: res.statusCode);
     } on DioException catch (e) {
       return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
@@ -221,7 +236,10 @@ class ApiClient {
 
   // 显式传入 token，不依赖拦截器读取本地存储
   // 用于登录流程中 userId 尚未落盘、拦截器还找不到 token 的场景
-  Future<ApiResponse<dynamic>> getWithToken(String path, {required String token}) async {
+  Future<ApiResponse<dynamic>> getWithToken(
+    String path, {
+    required String token,
+  }) async {
     try {
       final res = await dio.get(
         path,
@@ -257,7 +275,9 @@ class ApiClient {
   AppLocalizations _currentL10n() {
     final pref = _ref.read(localeProvider);
     final locale = localeFor(pref) ?? PlatformDispatcher.instance.locale;
-    if (AppLocalizations.supportedLocales.any((l) => l.languageCode == locale.languageCode)) {
+    if (AppLocalizations.supportedLocales.any(
+      (l) => l.languageCode == locale.languageCode,
+    )) {
       return lookupAppLocalizations(locale);
     }
     // 设备语言不在支持列表里（不是zh/en）——退回中文，跟这个App一直以来
