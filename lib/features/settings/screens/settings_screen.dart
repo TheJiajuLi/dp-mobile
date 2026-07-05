@@ -34,31 +34,41 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // top/bottom 不在这层留白，改成顶栏自己的 SafeArea(bottom:false)
+      // 把白色背景铺进状态栏安全区，避免这层统一留白露出 Scaffold 背景
+      // 跟顶栏纯白刀切不连贯（跟 publish_screen.dart 顶栏是同一套处理）
       body: SafeArea(
+        top: false,
+        bottom: false,
         child: Column(
           children: [
             Container(
               color: Theme.of(context).cardColor,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => context.pop(),
-                    child: const Icon(Icons.arrow_back_ios, size: 18),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    l10n.settingsTitle,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => context.pop(),
+                        child: const Icon(Icons.arrow_back_ios, size: 18),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.settingsTitle,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
             Expanded(
@@ -102,7 +112,9 @@ class SettingsScreen extends ConsumerWidget {
                       iconColor: const Color(0xFF6366F1),
                       iconBg: const Color(0xFFEEF0FF),
                       title: l10n.fontSize,
-                      trailing: _fontSizeLabels(l10n)[fontSize] ?? l10n.fontSizeStandard,
+                      trailing:
+                          _fontSizeLabels(l10n)[fontSize] ??
+                          l10n.fontSizeStandard,
                       onTap: () => _showFontPicker(context, ref),
                     ),
                     _SettingsRow(
@@ -118,9 +130,11 @@ class SettingsScreen extends ConsumerWidget {
                         final storage = ref.watch(storageUsageProvider);
                         return storage.when(
                           data: (data) {
-                            final total = (data['totalBytes'] as num?)?.toInt() ?? 0;
+                            final total =
+                                (data['totalBytes'] as num?)?.toInt() ?? 0;
                             final quota =
-                                (data['quota'] as num?)?.toInt() ?? 200 * 1024 * 1024;
+                                (data['quota'] as num?)?.toInt() ??
+                                200 * 1024 * 1024;
                             return _SettingsRow(
                               icon: Icons.cloud_outlined,
                               iconColor: const Color(0xFF16A34A),
@@ -229,7 +243,8 @@ class SettingsScreen extends ConsumerWidget {
 
   String _formatBytes(int b) {
     if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(0)}KB';
-    if (b < 1024 * 1024 * 1024) return '${(b / 1024 / 1024).toStringAsFixed(1)}MB';
+    if (b < 1024 * 1024 * 1024)
+      return '${(b / 1024 / 1024).toStringAsFixed(1)}MB';
     return '${(b / 1024 / 1024 / 1024).toStringAsFixed(1)}GB';
   }
 
@@ -281,7 +296,10 @@ class SettingsScreen extends ConsumerWidget {
                         (e) => ListTile(
                           title: Text(e.value),
                           trailing: current == e.key
-                              ? const Icon(Icons.check, color: Color(0xFF6366F1))
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Color(0xFF6366F1),
+                                )
                               : null,
                           onTap: () {
                             ref.read(fontSizeProvider.notifier).setSize(e.key);
@@ -341,7 +359,10 @@ class SettingsScreen extends ConsumerWidget {
                         (e) => ListTile(
                           title: Text(e.value),
                           trailing: current == e.key
-                              ? const Icon(Icons.check, color: Color(0xFF6366F1))
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Color(0xFF6366F1),
+                                )
                               : null,
                           onTap: () {
                             ref.read(localeProvider.notifier).setLocale(e.key);
@@ -381,7 +402,6 @@ class SettingsScreen extends ConsumerWidget {
       );
     }
   }
-
 }
 
 class _NotifSettingsSheet extends ConsumerWidget {
@@ -420,7 +440,11 @@ class _NotifSettingsSheet extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          _toggle(l10n.likeNotifications, settings.likes, (v) => notifier.toggle('likes', v)),
+          _toggle(
+            l10n.likeNotifications,
+            settings.likes,
+            (v) => notifier.toggle('likes', v),
+          ),
           _toggle(
             l10n.commentNotifications,
             settings.comments,
@@ -474,8 +498,10 @@ class _SettingsGroup extends StatelessWidget {
   final List<Widget> children;
   const _SettingsGroup(this.children);
   @override
-  Widget build(BuildContext context) =>
-      Container(color: Theme.of(context).cardColor, child: Column(children: children));
+  Widget build(BuildContext context) => Container(
+    color: Theme.of(context).cardColor,
+    child: Column(children: children),
+  );
 }
 
 class _SettingsRow extends StatelessWidget {
@@ -506,7 +532,9 @@ class _SettingsRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+          border: Border(
+            bottom: BorderSide(color: Theme.of(context).dividerColor),
+          ),
         ),
         child: Row(
           children: [
