@@ -17,6 +17,7 @@ import '../../../shared/utils/avatar_upload.dart';
 import '../../../shared/utils/gender_label.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
+import '../../column/models/column_model.dart';
 import '../../messages/models/conversation_model.dart';
 import '../../messages/providers/messages_provider.dart';
 import '../../notebook/services/notebook_service.dart';
@@ -75,6 +76,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   UserProfile? _profile;
   List<TutorialModel> _tutorials = [];
   List<Map<String, dynamic>> _notebooks = [];
+  List<ColumnModel> _columns = [];
   String? _zodiac;
   List<String> _links = [];
   bool _loading = true;
@@ -123,14 +125,30 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: _showNotebookTab ? 4 : 3, vsync: this);
-    // 文章/Notebook/收藏/点赞这行本身现在就是tab切换器（不再有单独的
+    _tabCtrl = TabController(length: _showNotebookTab ? 5 : 4, vsync: this);
+    // 文章/专栏/Notebook/收藏/点赞这行本身现在就是tab切换器（不再有单独的
     // TabBar），swipe切页也要让它跟着更新高亮态，不能只在点击时刷新
     _tabCtrl.addListener(() {
       if (mounted) setState(() {});
     });
     _loadProfile();
     if (_showNotebookTab) _loadNotebooks();
+  }
+
+  Future<void> _loadColumns(String userId) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/users/$userId/columns');
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      setState(() {
+        _columns = ((res.data as Map)['columns'] as List? ?? [])
+            .map(
+              (j) => ColumnModel.fromJson(Map<String, dynamic>.from(j as Map)),
+            )
+            .toList();
+      });
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -178,6 +196,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         _loading = false;
       });
       await _loadTutorials(currentUser.id, currentUser.username);
+      await _loadColumns(currentUser.id);
       return;
     }
 
@@ -249,6 +268,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       _loading = false;
     });
     await _loadTutorials(profile.id, profile.username);
+    await _loadColumns(profile.id);
   }
 
   // 实测 GET /auth/tutorials?author=xxx 这个后端参数目前不生效——传什么
@@ -1547,21 +1567,26 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       l10n.articlesCountLabel,
                                       index: 0,
                                     ),
+                                    _tabStatItem(
+                                      '${_columns.length}',
+                                      l10n.tabColumnsLabel,
+                                      index: 1,
+                                    ),
                                     if (_showNotebookTab)
                                       _tabStatItem(
                                         '${_notebooks.length}',
                                         'Notebook',
-                                        index: 1,
+                                        index: 2,
                                       ),
                                     _tabStatItem(
                                       '0',
                                       l10n.tabBookmarksLabel,
-                                      index: _showNotebookTab ? 2 : 1,
+                                      index: _showNotebookTab ? 3 : 2,
                                     ),
                                     _tabStatItem(
                                       '0',
                                       l10n.tabLikesLabel,
-                                      index: _showNotebookTab ? 3 : 2,
+                                      index: _showNotebookTab ? 4 : 3,
                                     ),
                                   ],
                                 ),
@@ -1620,6 +1645,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             );
                           },
                         ),
+                  _buildColumnsTab(l10n, isSelfView),
                   if (_showNotebookTab)
                     _notebooks.isEmpty
                         ? Center(
@@ -1705,6 +1731,172 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               color: selected ? Colors.white : Colors.transparent,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColumnsTab(AppLocalizations l10n, bool isSelfView) {
+    if (_columns.isEmpty && !isSelfView) {
+      return Center(
+        key: const PageStorageKey('profile-tab-columns-empty'),
+        child: Text(
+          l10n.noColumnsCreatedYetPrompt,
+          style: const TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+    return ListView.builder(
+      key: const PageStorageKey('profile-tab-columns'),
+      padding: const EdgeInsets.all(12),
+      itemCount: _columns.length + (isSelfView ? 1 : 0),
+      itemBuilder: (ctx, i) {
+        if (isSelfView && i == _columns.length) {
+          return GestureDetector(
+            onTap: _showCreateColumnSheet,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFD1D1D6), width: 1.5),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.add_circle_outline,
+                    color: Color(0xFFC7C7CC),
+                    size: 28,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.createColumnAction,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFFC7C7CC),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        final col = _columns[i];
+        return _ColumnCard(
+          column: col,
+          onTap: () => context.push('/columns/${col.id}'),
+        );
+      },
+    );
+  }
+
+  void _showCreateColumnSheet() {
+    final l10n = AppLocalizations.of(context)!;
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    l10n.createColumnAction,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () async {
+                      if (nameCtrl.text.trim().isEmpty) return;
+                      final res = await ref
+                          .read(apiClientProvider)
+                          .post(
+                            '/auth/columns',
+                            data: {
+                              'name': nameCtrl.text.trim(),
+                              'description': descCtrl.text.trim(),
+                            },
+                          );
+                      if (!ctx.mounted) return;
+                      if (res.success) {
+                        Navigator.pop(ctx);
+                        final userId =
+                            _profile?.id ?? ref.read(currentUserProvider)?.id;
+                        if (userId != null) await _loadColumns(userId);
+                      } else if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              l10n.actionFailedWithReason('${res.message}'),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(
+                      l10n.createColumnAction,
+                      style: const TextStyle(
+                        color: _primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: l10n.columnNameLabel,
+                  hintText: l10n.columnNameHint,
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _primary),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: l10n.columnDescOptionalLabel,
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _primary),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2504,4 +2696,159 @@ class _NotebookListItem extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ColumnCard extends StatelessWidget {
+  final ColumnModel column;
+  final VoidCallback onTap;
+
+  const _ColumnCard({required this.column, required this.onTap});
+
+  static const _gradients = [
+    [Color(0xFF4F46E5), Color(0xFF818CF8)],
+    [Color(0xFF059669), Color(0xFF34D399)],
+    [Color(0xFFD97706), Color(0xFFFBBF24)],
+    [Color(0xFFDC2626), Color(0xFFF87171)],
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final ci = column.name.isNotEmpty
+        ? column.name.codeUnitAt(0) % _gradients.length
+        : 0;
+    final gradient = _gradients[ci];
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+        ),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(13),
+                topRight: Radius.circular(13),
+              ),
+              child: SizedBox(
+                height: 110,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    column.coverImage != null && column.coverImage!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: column.coverImage!,
+                            fit: BoxFit.cover,
+                            errorWidget: (context, url, error) =>
+                                _gradBg(gradient),
+                          )
+                        : _gradBg(gradient),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Colors.black54],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          l10n.columnContentCountLabel(column.articleCount),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 10,
+                      left: 12,
+                      right: 12,
+                      child: Text(
+                        column.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  if (column.description?.isNotEmpty == true)
+                    Text(
+                      column.description!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8E8E93),
+                        height: 1.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _stat(
+                        Icons.remove_red_eye_outlined,
+                        '${column.viewCount}',
+                      ),
+                      const SizedBox(width: 12),
+                      _stat(Icons.favorite_outline, '${column.likeCount}'),
+                      const SizedBox(width: 12),
+                      _stat(Icons.bookmark_outline, '${column.saveCount}'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _gradBg(List<Color> colors) => Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: colors,
+      ),
+    ),
+  );
+
+  Widget _stat(IconData icon, String val) => Row(
+    children: [
+      Icon(icon, size: 13, color: Colors.grey),
+      const SizedBox(width: 3),
+      Text(val, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+    ],
+  );
 }

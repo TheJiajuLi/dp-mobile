@@ -1325,6 +1325,56 @@ class AppLocalizationsZh extends AppLocalizations {
   String get createColumnAction => '新建专栏';
 
   @override
+  String get columnViewsLabel => '浏览';
+
+  @override
+  String get columnSubscribersLabel => '订阅';
+
+  @override
+  String get subscribeColumnAction => '订阅专栏';
+
+  @override
+  String get subscribedLabel => '已订阅';
+
+  @override
+  String get columnIntroLabel => '专栏简介';
+
+  @override
+  String get columnDescOptionalLabel => '专栏简介（可选）';
+
+  @override
+  String columnContentCountLabel(int count) {
+    return '收录内容 · $count篇';
+  }
+
+  @override
+  String get editColumnAction => '编辑专栏';
+
+  @override
+  String get collectContentAction => '收录内容';
+
+  @override
+  String get columnNameLabel => '专栏名称';
+
+  @override
+  String get columnNameHint => '给你的专栏起个名字';
+
+  @override
+  String get noColumnsCreatedYetPrompt => '还没有创建专栏';
+
+  @override
+  String get selectArticlesToCollectTitle => '选择要收录的教程';
+
+  @override
+  String get noArticlesToCollectPrompt => '没有可收录的教程';
+
+  @override
+  String get collectAction => '收录';
+
+  @override
+  String get tabColumnsLabel => '专栏';
+
+  @override
   String get confirmAction => '确认';
 
   @override

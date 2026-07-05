@@ -2558,6 +2558,102 @@ abstract class AppLocalizations {
   /// **'New Column'**
   String get createColumnAction;
 
+  /// No description provided for @columnViewsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Views'**
+  String get columnViewsLabel;
+
+  /// No description provided for @columnSubscribersLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscribers'**
+  String get columnSubscribersLabel;
+
+  /// No description provided for @subscribeColumnAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscribe'**
+  String get subscribeColumnAction;
+
+  /// No description provided for @subscribedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscribed'**
+  String get subscribedLabel;
+
+  /// No description provided for @columnIntroLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get columnIntroLabel;
+
+  /// No description provided for @columnDescOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get columnDescOptionalLabel;
+
+  /// No description provided for @columnContentCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} articles'**
+  String columnContentCountLabel(int count);
+
+  /// No description provided for @editColumnAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Column'**
+  String get editColumnAction;
+
+  /// No description provided for @collectContentAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Content'**
+  String get collectContentAction;
+
+  /// No description provided for @columnNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Column Name'**
+  String get columnNameLabel;
+
+  /// No description provided for @columnNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Give your column a name'**
+  String get columnNameHint;
+
+  /// No description provided for @noColumnsCreatedYetPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'No columns yet'**
+  String get noColumnsCreatedYetPrompt;
+
+  /// No description provided for @selectArticlesToCollectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select tutorials to add'**
+  String get selectArticlesToCollectTitle;
+
+  /// No description provided for @noArticlesToCollectPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'No tutorials available'**
+  String get noArticlesToCollectPrompt;
+
+  /// No description provided for @collectAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get collectAction;
+
+  /// No description provided for @tabColumnsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Columns'**
+  String get tabColumnsLabel;
+
   /// No description provided for @confirmAction.
   ///
   /// In en, this message translates to:

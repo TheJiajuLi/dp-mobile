@@ -1357,6 +1357,56 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createColumnAction => 'New Column';
 
   @override
+  String get columnViewsLabel => 'Views';
+
+  @override
+  String get columnSubscribersLabel => 'Subscribers';
+
+  @override
+  String get subscribeColumnAction => 'Subscribe';
+
+  @override
+  String get subscribedLabel => 'Subscribed';
+
+  @override
+  String get columnIntroLabel => 'About';
+
+  @override
+  String get columnDescOptionalLabel => 'Description (optional)';
+
+  @override
+  String columnContentCountLabel(int count) {
+    return '$count articles';
+  }
+
+  @override
+  String get editColumnAction => 'Edit Column';
+
+  @override
+  String get collectContentAction => 'Add Content';
+
+  @override
+  String get columnNameLabel => 'Column Name';
+
+  @override
+  String get columnNameHint => 'Give your column a name';
+
+  @override
+  String get noColumnsCreatedYetPrompt => 'No columns yet';
+
+  @override
+  String get selectArticlesToCollectTitle => 'Select tutorials to add';
+
+  @override
+  String get noArticlesToCollectPrompt => 'No tutorials available';
+
+  @override
+  String get collectAction => 'Add';
+
+  @override
+  String get tabColumnsLabel => 'Columns';
+
+  @override
   String get confirmAction => 'Confirm';
 
   @override

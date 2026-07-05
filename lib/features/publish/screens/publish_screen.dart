@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/topic_badge.dart';
+import '../../column/models/column_model.dart';
 import '../../settings/providers/storage_provider.dart';
 import '../models/block_model.dart';
 import '../widgets/block_card.dart';
@@ -36,45 +37,6 @@ const _toolbarTypes = [
   BlockType.video,
   BlockType.audio,
   BlockType.link,
-];
-
-// 专栏——GET /auth/columns 实测 2026-07-05 是 404，后端还没有这个接口，
-// 先按给的方案 mock 两条固定数据，等后端接口上线后把这里换成真实请求
-class _MockColumn {
-  final String id;
-  final String name;
-  final int articleCount;
-  final int subscriberCount;
-  final List<Color> gradient;
-  final IconData icon;
-
-  const _MockColumn({
-    required this.id,
-    required this.name,
-    required this.articleCount,
-    required this.subscriberCount,
-    required this.gradient,
-    required this.icon,
-  });
-}
-
-const _mockColumns = [
-  _MockColumn(
-    id: 'col_cosmos',
-    name: '宇宙探索系列',
-    articleCount: 12,
-    subscriberCount: 128,
-    gradient: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-    icon: Icons.rocket_launch_outlined,
-  ),
-  _MockColumn(
-    id: 'col_economy',
-    name: '经济观察',
-    articleCount: 8,
-    subscriberCount: 56,
-    gradient: [Color(0xFFF59E0B), Color(0xFFEA580C)],
-    icon: Icons.show_chart,
-  ),
 ];
 
 const _seriesTagOptions = ['连载', '独立', '翻译', '深度', '快讯'];
@@ -457,11 +419,14 @@ result
               'tags': _tags,
               'blocks': blocksJson,
               'status': status,
-              // 专栏/标题植入这几个字段后端目前没有对应接口/字段（专栏
-              // 列表本身就是 mock 的），先按给的方案带上——不确定后端
-              // 会不会真的存下来、GET 回来时是否会带回，未经真实回环
-              // 验证，跟已经实测确认过的 blocks 必须传原始数组不是一回事
-              'column_id': _selectedColumnId,
+              // subtitle/series_tag/issue_number 这几个字段后端目前没有
+              // 对应列（实测确认 2026-07-05），先按给的方案带上——不确定
+              // 后端会不会真的存下来、GET 回来时是否会带回，未经真实回环
+              // 验证，跟已经实测确认过的 blocks 必须传原始数组不是一回事。
+              // column_id 不在这里传——createTutorial 完全不读这个字段
+              // （实测确认，专栏系统上线是另一个commit，没有同步给创建
+              // 教程这个接口加上），得等教程创建成功拿到真实id后，走
+              // POST /auth/columns/:id/articles 另外补一次关联，见下面
               'subtitle': _subtitle,
               'series_tag': _seriesTag,
               'issue_number': _issueNumber,
@@ -470,6 +435,18 @@ result
 
       if (!mounted) return;
       if (res.success) {
+        if (_selectedColumnId != null) {
+          final newTutorialId = (res.data as Map?)?['id'] as String?;
+          if (newTutorialId != null) {
+            await ref
+                .read(apiClientProvider)
+                .post(
+                  '/auth/columns/$_selectedColumnId/articles',
+                  data: {'tutorialId': newTutorialId},
+                );
+          }
+        }
+        if (!mounted) return;
         if (status == 'published') {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1245,9 +1222,29 @@ result
     );
   }
 
-  void _showColumnSheet() {
+  static const _columnGradients = [
+    [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+    [Color(0xFFF59E0B), Color(0xFFEA580C)],
+    [Color(0xFF059669), Color(0xFF34D399)],
+    [Color(0xFFDC2626), Color(0xFFF87171)],
+  ];
+
+  Future<void> _showColumnSheet() async {
     final l10n = AppLocalizations.of(context)!;
+    final res = await ref.read(apiClientProvider).get('/auth/columns/mine');
+    if (!mounted) return;
+    if (!res.success || res.data == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
+      );
+      return;
+    }
+    var columns = ((res.data as Map)['columns'] as List? ?? [])
+        .map((j) => ColumnModel.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
+
     String? tempId = _selectedColumnId;
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1310,7 +1307,18 @@ result
                     ),
                   ),
                 ),
-                ..._mockColumns.map((col) {
+                if (columns.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      l10n.noColumnsCreatedYetPrompt,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ),
+                ...columns.asMap().entries.map((entry) {
+                  final col = entry.value;
+                  final gradient =
+                      _columnGradients[entry.key % _columnGradients.length];
                   final selected = tempId == col.id;
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1336,11 +1344,11 @@ result
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: col.gradient),
+                                gradient: LinearGradient(colors: gradient),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(
-                                col.icon,
+                              child: const Icon(
+                                Icons.collections_bookmark_outlined,
                                 color: Colors.white,
                                 size: 18,
                               ),
@@ -1416,11 +1424,23 @@ result
                   ),
                 ),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.comingSoonStayTuned)),
-                    );
+                  onTap: () async {
+                    final created = await _showCreateColumnDialog();
+                    if (created == null || !ctx.mounted) return;
+                    final reloadRes = await ref
+                        .read(apiClientProvider)
+                        .get('/auth/columns/mine');
+                    if (reloadRes.success && reloadRes.data != null) {
+                      columns =
+                          ((reloadRes.data as Map)['columns'] as List? ?? [])
+                              .map(
+                                (j) => ColumnModel.fromJson(
+                                  Map<String, dynamic>.from(j as Map),
+                                ),
+                              )
+                              .toList();
+                      setSheetState(() => tempId = created);
+                    }
                   },
                   child: Container(
                     margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -1453,7 +1473,10 @@ result
                     child: ElevatedButton(
                       onPressed: () {
                         final chosen = tempId != null
-                            ? _mockColumns.firstWhere((c) => c.id == tempId)
+                            ? columns.firstWhere(
+                                (c) => c.id == tempId,
+                                orElse: () => columns.first,
+                              )
                             : null;
                         setState(() {
                           _selectedColumnId = tempId;
@@ -1482,6 +1505,82 @@ result
             ),
           );
         },
+      ),
+    );
+  }
+
+  // 新建专栏——用 Dialog 而不是又一层 bottom sheet，避免嵌在
+  // _showColumnSheet 的 showModalBottomSheet 里再叠一层 sheet-over-sheet
+  // 的层级/返回栈问题。成功返回新专栏 id，调用方负责刷新列表+预选中它
+  Future<String?> _showCreateColumnDialog() async {
+    final l10n = AppLocalizations.of(context)!;
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.createColumnAction),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: l10n.columnNameHint,
+                filled: false,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: descCtrl,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: l10n.columnDescOptionalLabel,
+                filled: false,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              final res = await ref
+                  .read(apiClientProvider)
+                  .post(
+                    '/auth/columns',
+                    data: {
+                      'name': nameCtrl.text.trim(),
+                      'description': descCtrl.text.trim(),
+                    },
+                  );
+              if (!ctx.mounted) return;
+              if (res.success) {
+                Navigator.pop(ctx, (res.data as Map?)?['id'] as String?);
+              } else {
+                Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        l10n.actionFailedWithReason('${res.message}'),
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+            child: Text(
+              l10n.createColumnAction,
+              style: const TextStyle(color: _primary),
+            ),
+          ),
+        ],
       ),
     );
   }

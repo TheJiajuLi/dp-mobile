@@ -725,6 +725,29 @@
   },
   "noColumnOption": "Don't join a column",
   "createColumnAction": "New Column",
+  "columnViewsLabel": "Views",
+  "columnSubscribersLabel": "Subscribers",
+  "subscribeColumnAction": "Subscribe",
+  "subscribedLabel": "Subscribed",
+  "columnIntroLabel": "About",
+  "columnDescOptionalLabel": "Description (optional)",
+  "columnContentCountLabel": "{count} articles",
+  "@columnContentCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editColumnAction": "Edit Column",
+  "collectContentAction": "Add Content",
+  "columnNameLabel": "Column Name",
+  "columnNameHint": "Give your column a name",
+  "noColumnsCreatedYetPrompt": "No columns yet",
+  "selectArticlesToCollectTitle": "Select tutorials to add",
+  "noArticlesToCollectPrompt": "No tutorials available",
+  "collectAction": "Add",
+  "tabColumnsLabel": "Columns",
   "confirmAction": "Confirm",
   "titleInsertionAction": "Title Details",
   "titleInsertionSubtitleHint": "Subtitle / Series tag / Issue number",

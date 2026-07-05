@@ -8,6 +8,7 @@ import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/auth/screens/switch_account_screen.dart';
 import '../../features/community/screens/community_screen.dart';
+import '../../features/column/screens/column_detail_screen.dart';
 import '../../features/community/screens/tutorial_detail_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/messages/models/conversation_model.dart';
@@ -32,26 +33,28 @@ import '../../shared/widgets/main_shell.dart';
 final appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
-    GoRoute(
-      path: '/splash',
-      builder: (context, state) => const SplashScreen(),
-    ),
+    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-    GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
+    GoRoute(
+      path: '/register',
+      builder: (context, state) => const RegisterScreen(),
+    ),
     GoRoute(
       path: '/switch-account',
       builder: (context, state) => const SwitchAccountScreen(),
     ),
-    GoRoute(path: '/publish', builder: (context, state) => const PublishScreen()),
+    GoRoute(
+      path: '/publish',
+      builder: (context, state) => const PublishScreen(),
+    ),
     GoRoute(
       path: '/notebook',
       builder: (context, state) => const NotebookHomeScreen(),
     ),
     GoRoute(
       path: '/notebook/:id',
-      builder: (context, state) => NotebookEditorScreen(
-        nbId: state.pathParameters['id']!,
-      ),
+      builder: (context, state) =>
+          NotebookEditorScreen(nbId: state.pathParameters['id']!),
     ),
     // ARIA 不再是底部导航的一个 tab，改由首页九宫格 push 进来
     GoRoute(path: '/aria', builder: (context, state) => const AriaScreen()),
@@ -59,7 +62,10 @@ final appRouter = GoRouter(
       path: '/edit-profile',
       builder: (context, state) => const EditProfileScreen(),
     ),
-    GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
+    ),
     GoRoute(
       path: '/settings/security',
       builder: (context, state) => const AccountSecurityScreen(),
@@ -97,15 +103,18 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/tutorial/:id',
-      builder: (context, state) => TutorialDetailScreen(
-        tutorialId: state.pathParameters['id']!,
-      ),
+      builder: (context, state) =>
+          TutorialDetailScreen(tutorialId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/columns/:id',
+      builder: (context, state) =>
+          ColumnDetailScreen(columnId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/users/:identifier',
-      builder: (context, state) => UserProfileScreen(
-        identifier: state.pathParameters['identifier']!,
-      ),
+      builder: (context, state) =>
+          UserProfileScreen(identifier: state.pathParameters['identifier']!),
     ),
     GoRoute(
       path: '/users/:userId/followers',
@@ -127,7 +136,10 @@ final appRouter = GoRouter(
       branches: [
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+            GoRoute(
+              path: '/home',
+              builder: (context, state) => const HomeScreen(),
+            ),
           ],
         ),
         StatefulShellBranch(
