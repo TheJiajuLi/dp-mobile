@@ -542,24 +542,29 @@ class _NotifTab extends StatelessWidget {
           color: n.isRead ? Colors.transparent : _primary.withValues(alpha: 0.04),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            leading: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _buildAvatar(n.fromAvatar, n.fromUsername ?? l10n.systemNotificationInitial, radius: 22),
-                Positioned(
-                  bottom: -2,
-                  right: -2,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                        color: _typeColor(n.type),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5)),
-                    child: Icon(_typeIcon(n.type), size: 10, color: Colors.white),
+            leading: GestureDetector(
+              onTap: (n.fromUsername?.isNotEmpty ?? false)
+                  ? () => context.push('/users/${n.fromUsername}')
+                  : null,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _buildAvatar(n.fromAvatar, n.fromUsername ?? l10n.systemNotificationInitial, radius: 22),
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                          color: _typeColor(n.type),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5)),
+                      child: Icon(_typeIcon(n.type), size: 10, color: Colors.white),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             title: Text(
               n.content ?? n.title ?? '',

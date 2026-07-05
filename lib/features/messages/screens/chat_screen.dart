@@ -716,7 +716,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
-            _buildAvatar(msg.senderAvatar, msg.senderUsername, const Color(0xFF16A34A)),
+            GestureDetector(
+              onTap: () => context.push('/users/${msg.senderUsername}'),
+              child: _buildAvatar(msg.senderAvatar, msg.senderUsername, const Color(0xFF16A34A)),
+            ),
             const SizedBox(width: 8),
           ],
           Flexible(
