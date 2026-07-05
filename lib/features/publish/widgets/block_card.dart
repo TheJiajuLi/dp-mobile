@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -36,6 +38,11 @@ class BlockCard extends ConsumerStatefulWidget {
   // FutureProvider，没有人在 watch 的话这里读到的会是还没算完的
   // AsyncLoading，永远兜底成 free，付费用户也会被误判成免费版
   final String membership;
+  // 真正跑代码的入口，由 PublishScreen 统一持有隐藏 WebView/Pyodide 引擎并
+  // 实现；这里不需要知道 WebView 是否就绪、SQL 要不要包装这些细节，调用
+  // 一次拿到一份 [{type, content}, ...] 结果就行——环境还没就绪时会在
+  // PublishScreen 那边等最多60秒，不是立刻失败
+  final Future<List<Map<String, dynamic>>> Function(String blockId, String code, String language) onRunCode;
   final VoidCallback onDelete;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
@@ -47,6 +54,7 @@ class BlockCard extends ConsumerStatefulWidget {
     required this.index,
     required this.total,
     required this.membership,
+    required this.onRunCode,
     required this.onDelete,
     this.onMoveUp,
     this.onMoveDown,
@@ -182,6 +190,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   Widget _buildTextBlock(AppLocalizations l10n) => TextFormField(
     initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
     decoration: InputDecoration(
+      filled: false,
       hintText: l10n.textBlockHint,
       hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
       border: InputBorder.none,
@@ -201,6 +210,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   Widget _buildHeadingBlock(AppLocalizations l10n) => TextFormField(
     initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
     decoration: InputDecoration(
+      filled: false,
       hintText: l10n.headingBlockHint(widget.block.headingLevel ?? 2),
       hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
       border: InputBorder.none,
@@ -304,6 +314,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                 ? widget.block.content
                 : null,
             decoration: InputDecoration(
+      filled: false,
               hintText: l10n.codeBlockHint,
               hintStyle: const TextStyle(
                 color: Color(0xFF64748B),
@@ -326,117 +337,190 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             },
           ),
         ),
-        if (widget.block.outputContent != null)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            constraints: const BoxConstraints(maxHeight: 200),
-            decoration: const BoxDecoration(
-              color: Color(0xFF0A0F1A),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(8),
-                bottomRight: Radius.circular(8),
-              ),
-            ),
-            child: SingleChildScrollView(
-              child: widget.block.outputType == 'image'
-                  ? Image.network(
-                      widget.block.outputContent!,
-                      fit: BoxFit.contain,
-                    )
-                  : Text(
-                      widget.block.outputContent!,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        height: 1.6,
-                        color: widget.block.outputType == 'error'
-                            ? const Color(0xFFFCA5A5)
-                            : const Color(0xFF4ADE80),
-                      ),
-                    ),
-            ),
-          )
-        else
-          Container(height: 0.5, color: const Color(0xFF1E293B)),
+        _buildOutput(),
       ],
     );
   }
 
-  // 目前是模拟执行——真正接 Pyodide 需要复用 Notebook 那套隐藏 WebView
-  // 引擎（notebook_editor_screen.dart 里的 _webCtrl/compiler.js），那套
-  // 状态机跟 Notebook 页面自身深度绑定，不是简单抽出来就能用，属于单独
-  // 的后续工作，这次先把编辑器本身的交互跑通
+  Widget _buildOutput() {
+    final content = widget.block.outputContent;
+    if (content == null) {
+      return Container(height: 0.5, color: const Color(0xFF1E293B));
+    }
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxHeight: 300),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0A0F1A),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(8), bottomRight: Radius.circular(8)),
+      ),
+      // html 输出自己就是一个内部可滚动的 WebView，外面不能再套一层
+      // SingleChildScrollView——两层滚动区域叠在一起，手势会被内层
+      // WebView 吃掉，外层永远收不到
+      child: widget.block.outputType == 'html'
+          ? SizedBox(height: 200, child: _renderOutput(content, widget.block.outputType))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(10),
+              child: _renderOutput(content, widget.block.outputType),
+            ),
+    );
+  }
+
+  Widget _renderOutput(String content, String? type) {
+    switch (type) {
+      case 'image':
+        // matplotlib 图表：compiler.js 吐回来的是 base64 图片
+        try {
+          final base64Data = content.contains(',') ? content.split(',').last : content;
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.memory(base64Decode(base64Data), fit: BoxFit.contain),
+          );
+        } catch (e) {
+          return Text('图表渲染失败：$e', style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12));
+        }
+
+      case 'html':
+        // DataFrame 表格这类 HTML 输出
+        return InAppWebView(
+          initialData: InAppWebViewInitialData(
+            data:
+                '''
+<html>
+<head>
+<style>
+body{font-family:monospace;font-size:11px;margin:0;background:#0a0f1a;color:#e2e8f0}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #1e293b;padding:4px 8px;text-align:left}
+th{background:#1e293b;color:#94a3b8}
+</style>
+</head>
+<body>$content</body>
+</html>
+''',
+          ),
+        );
+
+      case 'error':
+        return Text(
+          content,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFFFCA5A5), height: 1.6),
+        );
+
+      case 'info':
+        return Text(
+          content,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFF94A3B8), height: 1.6),
+        );
+
+      default:
+        return Text(
+          content,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFF4ADE80), height: 1.6),
+        );
+    }
+  }
+
   Future<void> _runCode() async {
     setState(() => _running = true);
-    await Future.delayed(const Duration(milliseconds: 800));
+    List<Map<String, dynamic>> outputs;
+    try {
+      outputs = await widget.onRunCode(
+        widget.block.id,
+        widget.block.content,
+        widget.block.language ?? 'python',
+      );
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
     if (!mounted) return;
+
+    // 跟 Notebook 同一套过滤规则：调试信息/空文本不展示，取第一条真正
+    // 有内容的输出
+    String? foundContent;
+    String? foundType;
+    for (final out in outputs) {
+      final type = out['type'] as String? ?? 'text';
+      final content = out['content'] as String? ?? '';
+      if (['viz-suggestion', 'missing-package', 'debug'].contains(type)) continue;
+      if (type == 'text' && content.trim().isEmpty) continue;
+      foundContent = content;
+      foundType = type;
+      break;
+    }
     setState(() {
-      _running = false;
-      widget.block.outputContent = AppLocalizations.of(
-        context,
-      )!.runCompleteNoOutputMessage;
-      widget.block.outputType = 'text';
+      widget.block.outputContent = foundContent ?? AppLocalizations.of(context)!.runCompleteNoOutputMessage;
+      widget.block.outputType = foundType ?? 'text';
     });
     widget.onChanged();
   }
 
-  Widget _buildLatexBlock(AppLocalizations l10n) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFFBEB),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFFFDE68A)),
-    ),
-    child: Column(
-      children: [
-        widget.block.content.isNotEmpty
-            ? Math.tex(
-                widget.block.content.replaceAll(r'$$', '').trim(),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF78350F),
-                ),
-                onErrorFallback: (err) => Text(
-                  widget.block.content,
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
-                ),
-              )
-            : Text(
-                l10n.latexBlockHint,
-                style: const TextStyle(color: Color(0xFFFCD34D)),
+  // 之前这个 block 无论明暗主题都固定用一套奶油黄配色——浅色主题下还好，
+  // 深色主题下就会变成一块突兀的亮黄色，跟截图里反馈的"LaTeX 块色彩
+  // 不一致"是同一个问题，这里跟着 Theme.of(context).brightness 走
+  Widget _buildLatexBlock(AppLocalizations l10n) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF332701) : const Color(0xFFFFFBEB);
+    final border = isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A);
+    final mathColor = isDark ? const Color(0xFFFCD34D) : const Color(0xFF78350F);
+    final hintColor = isDark ? const Color(0xFFB45309) : const Color(0xFFFCD34D);
+    final inputHintColor = isDark
+        ? const Color(0xFF92702B)
+        : const Color(0xFFC7C7CC);
+    final inputTextColor = isDark ? const Color(0xFFD1B37A) : Colors.grey;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        children: [
+          widget.block.content.isNotEmpty
+              ? Math.tex(
+                  widget.block.content.replaceAll(r'$$', '').trim(),
+                  textStyle: TextStyle(fontSize: 16, color: mathColor),
+                  onErrorFallback: (err) => Text(
+                    widget.block.content,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                )
+              : Text(l10n.latexBlockHint, style: TextStyle(color: hintColor)),
+          const SizedBox(height: 8),
+          TextFormField(
+            initialValue: widget.block.content.isNotEmpty
+                ? widget.block.content
+                : null,
+            decoration: InputDecoration(
+              filled: false,
+              hintText: l10n.latexBlockHint,
+              hintStyle: TextStyle(
+                fontFamily: 'monospace',
+                color: inputHintColor,
+                fontSize: 12,
               ),
-        const SizedBox(height: 8),
-        TextFormField(
-          initialValue: widget.block.content.isNotEmpty
-              ? widget.block.content
-              : null,
-          decoration: InputDecoration(
-            hintText: l10n.latexBlockHint,
-            hintStyle: const TextStyle(
-              fontFamily: 'monospace',
-              color: Color(0xFFC7C7CC),
-              fontSize: 12,
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
             ),
-            border: InputBorder.none,
-            isDense: true,
-            contentPadding: EdgeInsets.zero,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: inputTextColor,
+            ),
+            onChanged: (v) {
+              widget.block.content = v;
+              setState(() {});
+              widget.onChanged();
+            },
           ),
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-          onChanged: (v) {
-            widget.block.content = v;
-            setState(() {});
-            widget.onChanged();
-          },
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   Widget _buildImageBlock(AppLocalizations l10n) {
     if (widget.block.imageUrl != null) {
@@ -457,6 +541,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           TextFormField(
             initialValue: widget.block.caption,
             decoration: InputDecoration(
+      filled: false,
               hintText: l10n.imageCaptionHint,
               hintStyle: const TextStyle(
                 color: Color(0xFFC7C7CC),
@@ -958,6 +1043,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   ? widget.block.content
                   : null,
               decoration: const InputDecoration(
+      filled: false,
                 hintText: 'https://...',
                 hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 13),
                 border: InputBorder.none,
@@ -1043,6 +1129,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                 ? widget.block.content
                 : null,
             decoration: const InputDecoration(
+      filled: false,
               border: InputBorder.none,
               isDense: true,
               contentPadding: EdgeInsets.zero,

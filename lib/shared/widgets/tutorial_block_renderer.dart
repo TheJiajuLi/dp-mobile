@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/generated/app_localizations.dart';
+import '../services/pyodide_engine.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -42,57 +46,9 @@ Widget buildTutorialBlockWidget(
       );
 
     case 'code':
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _primary.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      block['language'] as String? ?? 'python',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Text(
-                  content,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    color: Colors.white,
-                    height: 1.6,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      return TutorialCodeBlock(
+        content: content,
+        language: block['language'] as String? ?? 'python',
       );
 
     case 'latex':
@@ -252,6 +208,262 @@ Widget buildTutorialBlockWidget(
           ),
         ),
       );
+  }
+}
+
+// 教程详情页（阅读视角）里可运行的代码块——只有 python/javascript/sql
+// 才显示"运行"按钮，跟发布页共用同一套 PyodideEngine（compiler.js +
+// 隐藏 WebView），但各自拥有自己的引擎实例：详情页每次进来都是独立的
+// 页面生命周期，没必要也不应该跟发布页共享同一个 WebView
+class TutorialCodeBlock extends StatefulWidget {
+  final String content;
+  final String language;
+
+  const TutorialCodeBlock({
+    super.key,
+    required this.content,
+    required this.language,
+  });
+
+  @override
+  State<TutorialCodeBlock> createState() => _TutorialCodeBlockState();
+}
+
+class _TutorialCodeBlockState extends State<TutorialCodeBlock> {
+  static const _runnableLanguages = ['python', 'javascript', 'sql'];
+
+  late final PyodideEngine _engine;
+  late final String _blockId;
+  bool _running = false;
+  String? _outputContent;
+  String? _outputType;
+
+  bool get _canRun =>
+      _runnableLanguages.contains(widget.language.toLowerCase());
+
+  @override
+  void initState() {
+    super.initState();
+    _blockId = UniqueKey().toString();
+    _engine = PyodideEngine();
+  }
+
+  Future<void> _run() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() => _running = true);
+    List<Map<String, dynamic>> outputs;
+    try {
+      outputs = await _engine.run(
+        _blockId,
+        widget.content,
+        widget.language.toLowerCase(),
+        l10n,
+      );
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+    if (!mounted) return;
+
+    String? foundContent;
+    String? foundType;
+    for (final out in outputs) {
+      final type = out['type'] as String? ?? 'text';
+      final oc = out['content'] as String? ?? '';
+      if (['viz-suggestion', 'missing-package', 'debug'].contains(type)) {
+        continue;
+      }
+      if (type == 'text' && oc.trim().isEmpty) continue;
+      foundContent = oc;
+      foundType = type;
+      break;
+    }
+    setState(() {
+      _outputContent = foundContent ?? l10n.runCompleteNoOutputMessage;
+      _outputType = foundType ?? 'text';
+    });
+  }
+
+  Widget _renderOutput(String content, String? type) {
+    switch (type) {
+      case 'image':
+        try {
+          final raw = content.contains(',') ? content.split(',').last : content;
+          return Image.memory(base64Decode(raw));
+        } catch (_) {
+          return Text(
+            content,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          );
+        }
+      case 'html':
+        return InAppWebView(
+          initialData: InAppWebViewInitialData(
+            data:
+                '''
+<html><head><style>
+body{background:#0A0F1A;color:#E2E8F0;font-family:monospace;font-size:12px;margin:8px;}
+table{border-collapse:collapse;width:100%;}
+td,th{border:1px solid #334155;padding:4px 8px;}
+</style></head><body>$content</body></html>
+''',
+          ),
+        );
+      case 'error':
+        return Text(
+          content,
+          style: const TextStyle(
+            color: Color(0xFFFCA5A5),
+            fontFamily: 'monospace',
+            fontSize: 12,
+            height: 1.5,
+          ),
+        );
+      case 'info':
+        return Text(
+          content,
+          style: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontFamily: 'monospace',
+            fontSize: 12,
+            height: 1.5,
+          ),
+        );
+      default:
+        return Text(
+          content,
+          style: const TextStyle(
+            color: Color(0xFF4ADE80),
+            fontFamily: 'monospace',
+            fontSize: 12,
+            height: 1.5,
+          ),
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    widget.language,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (_canRun)
+                  GestureDetector(
+                    onTap: _running ? null : _run,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _primary,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_running)
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          else
+                            const Icon(
+                              Icons.play_arrow,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _running ? l10n.runningLabel : l10n.runAction,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Text(
+                widget.content,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  color: Colors.white,
+                  height: 1.6,
+                ),
+              ),
+            ),
+          ),
+          if (_outputContent != null)
+            Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxHeight: 300),
+              decoration: const BoxDecoration(
+                color: Color(0xFF0A0F1A),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: _outputType == 'html'
+                  ? SizedBox(
+                      height: 200,
+                      child: _renderOutput(_outputContent!, _outputType),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: SingleChildScrollView(
+                        child: _renderOutput(_outputContent!, _outputType),
+                      ),
+                    ),
+            ),
+          if (_canRun) _engine.buildHiddenWebView(),
+        ],
+      ),
+    );
   }
 }
 

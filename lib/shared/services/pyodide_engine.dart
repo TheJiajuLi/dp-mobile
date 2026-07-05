@@ -1,0 +1,249 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+
+import '../../l10n/generated/app_localizations.dart';
+
+// 复用 notebook_editor_screen.dart 里已经跑通的那套 Pyodide 引擎——同一个
+// compiler.js，同一个隐藏 WebView 承载方式，同一个"整页共用一个
+// onRunResult handler，靠传回来的 id 在 _pendingRuns 这个 Map 里路由结果"
+// 的写法。发布页和教程详情页（可运行代码块）都要跑代码，与其各写一份
+// 几乎一样的 WebView/JS桥接代码，抽成这一个共享类，各自持有自己的实例
+// （不同页面生命周期不同，不共享同一个 WebView）
+class PyodideEngine {
+  InAppWebViewController? _webCtrl;
+  bool webReady = false;
+  final Map<String, Completer<String>> _pendingRuns = {};
+  final VoidCallback? onReady;
+
+  PyodideEngine({this.onReady});
+
+  static const _compilerHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+</head>
+<body>
+<script type="module">
+import { compile } from
+  'https://dreamingpolar.com/components/compiler/compiler.js';
+
+window.runCode = async (code, lang) => {
+  try {
+    const outputs = await compile(code, lang);
+    return JSON.stringify(outputs);
+  } catch(e) {
+    return JSON.stringify([{
+      type: 'error',
+      content: String(e)
+    }]);
+  }
+};
+
+setTimeout(() => {
+  if (window.flutter_inappwebview) {
+    window.flutter_inappwebview.callHandler('compilerReady');
+  }
+}, 1000);
+</script>
+</body>
+</html>
+''';
+
+  // 只给出一个 1x1 大小的 WebView 本体，不在这里套 Positioned——调用方
+  // 有的是在自己的 Stack 里把它藏到屏幕外（发布页那种整页 Stack 布局），
+  // 有的只是塞进一个 Column 当不可见的最后一个子节点（教程详情页每个
+  // 代码块自带一份引擎），Positioned 只能直接放在 Stack 下面，写死在
+  // 这里会导致后一种用法直接报错
+  Widget buildHiddenWebView() {
+    return SizedBox(
+      width: 1,
+      height: 1,
+      child: InAppWebView(
+        initialData: InAppWebViewInitialData(
+          data: _compilerHtml,
+          baseUrl: WebUri('https://dreamingpolar.com'),
+        ),
+        onWebViewCreated: (ctrl) {
+          _webCtrl = ctrl;
+          ctrl.addJavaScriptHandler(
+            handlerName: 'compilerReady',
+            callback: (args) {
+              webReady = true;
+              onReady?.call();
+            },
+          );
+          ctrl.addJavaScriptHandler(
+            handlerName: 'onRunResult',
+            callback: (args) {
+              final id = args.isNotEmpty ? args[0].toString() : '';
+              final result = args.length > 1 ? args[1].toString() : '[]';
+              _pendingRuns[id]?.complete(result);
+            },
+          );
+        },
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          allowsInlineMediaPlayback: true,
+          mediaPlaybackRequiresUserGesture: false,
+        ),
+      ),
+    );
+  }
+
+  // compiler.js 的 compile() 实际只吃 python，SQL 这个"语言"是客户端自己
+  // 文本拼出来的 python 脚本，不是 compile() 真的认识一个叫 sql 的语言
+  String _wrapSql(String sql) =>
+      '''
+import sqlite3, pandas as pd, io
+conn = sqlite3.connect(':memory:')
+try:
+    df.to_sql('df', conn, if_exists='replace', index=False)
+except Exception:
+    pass
+result = pd.read_sql_query("""$sql""", conn)
+conn.close()
+result
+''';
+
+  Future<List<Map<String, dynamic>>> run(
+    String id,
+    String code,
+    String language,
+    AppLocalizations l10n,
+  ) async {
+    if (language == 'html' || language == 'markdown') {
+      return [
+        {'type': 'info', 'content': l10n.unsupportedCellType},
+      ];
+    }
+    if (language == 'javascript') {
+      return runJavaScript(code);
+    }
+
+    if (_webCtrl == null) {
+      return [
+        {'type': 'error', 'content': l10n.envInitializing},
+      ];
+    }
+    // compiler.js 首次要拉 Pyodide，可能需要几秒到十几秒——耐心等最多
+    // 60 秒，而不是直接判失败，这是"运行完成（无输出）"假阳性问题的
+    // 根因之一，不能在这里重蹈覆辙
+    if (!webReady) {
+      for (var i = 0; i < 60; i++) {
+        await Future.delayed(const Duration(seconds: 1));
+        if (webReady) break;
+      }
+      if (!webReady) {
+        return [
+          {'type': 'error', 'content': l10n.loadTimeoutRestart},
+        ];
+      }
+    }
+
+    final effectiveCode = language == 'sql' ? _wrapSql(code) : code;
+
+    try {
+      final completer = Completer<String>();
+      _pendingRuns[id] = completer;
+
+      await _webCtrl!.evaluateJavascript(
+        source:
+            '''
+(async () => {
+  try {
+    if (typeof window.runCode !== 'function') {
+      window.flutter_inappwebview.callHandler(
+        'onRunResult', ${jsonEncode(id)},
+        JSON.stringify([{type:'error', content:'compiler not ready'}])
+      );
+      return;
+    }
+    const outputs = await window.runCode(${jsonEncode(effectiveCode)}, "python");
+    window.flutter_inappwebview.callHandler(
+      'onRunResult', ${jsonEncode(id)}, outputs
+    );
+  } catch(e) {
+    window.flutter_inappwebview.callHandler(
+      'onRunResult', ${jsonEncode(id)},
+      JSON.stringify([{type:'error', content: String(e)}])
+    );
+  }
+})();
+''',
+      );
+
+      final raw = await completer.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => jsonEncode([
+          {'type': 'error', 'content': l10n.execTimeout},
+        ]),
+      );
+
+      dynamic parsed;
+      try {
+        parsed = jsonDecode(raw);
+      } catch (_) {
+        return [
+          {'type': 'text', 'content': raw},
+        ];
+      }
+      final outputs = parsed is List ? parsed : [parsed];
+      return outputs.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+    } finally {
+      _pendingRuns.remove(id);
+    }
+  }
+
+  // 跟 Notebook _runJavaScript 同款：捕获 console.log 输出，返回值统一走
+  // JSON.stringify，避免不同平台 evaluateJavascript 对返回对象编组不一致
+  Future<List<Map<String, dynamic>>> runJavaScript(String code) async {
+    if (_webCtrl == null) return [];
+    try {
+      final wrappedCode =
+          '''
+(function() {
+  const logs = [];
+  const _log = console.log;
+  console.log = (...args) => {
+    logs.push(args.map(a =>
+      typeof a === 'object' ? JSON.stringify(a) : String(a)
+    ).join(' '));
+    _log(...args);
+  };
+  try {
+    $code
+    console.log = _log;
+    return JSON.stringify({ok: true, output: logs.join('\\n')});
+  } catch(e) {
+    console.log = _log;
+    return JSON.stringify({ok: false, error: e.message});
+  }
+})()
+''';
+      final result = await _webCtrl!.evaluateJavascript(source: wrappedCode);
+      if (result == null) {
+        return [
+          {'type': 'text', 'content': ''},
+        ];
+      }
+      final map = jsonDecode(result.toString()) as Map;
+      if (map['ok'] == true) {
+        return [
+          {'type': 'text', 'content': (map['output'] as String?) ?? ''},
+        ];
+      }
+      return [
+        {'type': 'error', 'content': map['error']?.toString() ?? 'unknown error'},
+      ];
+    } catch (e) {
+      return [
+        {'type': 'error', 'content': '$e'},
+      ];
+    }
+  }
+}

@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -32,10 +36,215 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   String? _coverImageUrl;
   String? _selectedColumn;
 
+  // 复用 notebook_editor_screen.dart 里已经跑通的那套 Pyodide 引擎——同一个
+  // compiler.js，同一个隐藏 WebView 承载方式。之前给的方案是"每个 block
+  // 自己注册一个 onRunResult_<blockId> handler"，实测 Notebook 那边用的其实
+  // 是"整个页面共用一个 onRunResult handler，靠传回来的 block id 在
+  // _pendingRuns 这个 Map 里路由结果"，更简单也是已经验证过能用的写法，
+  // 这里直接照抄这套，不重新发明一遍
+  InAppWebViewController? _webCtrl;
+  bool _webReady = false;
+  final Map<String, Completer<String>> _pendingRuns = {};
+
+  static const _compilerHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+</head>
+<body>
+<script type="module">
+import { compile } from
+  'https://dreamingpolar.com/components/compiler/compiler.js';
+
+window.runCode = async (code, lang) => {
+  try {
+    const outputs = await compile(code, lang);
+    return JSON.stringify(outputs);
+  } catch(e) {
+    return JSON.stringify([{
+      type: 'error',
+      content: String(e)
+    }]);
+  }
+};
+
+setTimeout(() => {
+  if (window.flutter_inappwebview) {
+    window.flutter_inappwebview.callHandler('compilerReady');
+  }
+}, 1000);
+</script>
+</body>
+</html>
+''';
+
   @override
   void initState() {
     super.initState();
     _blocks.add(EditorBlock(id: _uid(), type: BlockType.text, content: ''));
+  }
+
+  // Notebook 里用来把 SQL cell 包成 Python 通过 sqlite3 跑的同一个包装法——
+  // compiler.js 的 compile() 实际只吃 python，SQL 这个"语言"是客户端自己
+  // 文本拼出来的 python 脚本，不是 compile() 真的认识一个叫 sql 的语言
+  String _wrapSql(String sql) =>
+      '''
+import sqlite3, pandas as pd, io
+conn = sqlite3.connect(':memory:')
+try:
+    df.to_sql('df', conn, if_exists='replace', index=False)
+except Exception:
+    pass
+result = pd.read_sql_query("""$sql""", conn)
+conn.close()
+result
+''';
+
+  // 统一入口，BlockCard 不用关心 Pyodide 还没就绪、SQL 要不要包装这些
+  // 细节，只管拿到一份 List<{type, content}> 结果。javascript 走的是
+  // 完全不同的直接 evaluateJavascript 分支（跟 Notebook 一致），不经过
+  // compiler.js/Pyodide——那只是个 Python 运行时，不是多语言沙箱
+  Future<List<Map<String, dynamic>>> _runBlockCode(
+    String blockId,
+    String code,
+    String language,
+  ) async {
+    if (language == 'html' || language == 'markdown') {
+      return [
+        {'type': 'info', 'content': AppLocalizations.of(context)!.unsupportedCellType},
+      ];
+    }
+    if (language == 'javascript') {
+      return _runJavaScriptBlock(code);
+    }
+
+    if (_webCtrl == null) {
+      return [
+        {'type': 'error', 'content': AppLocalizations.of(context)!.envInitializing},
+      ];
+    }
+    // compiler.js 首次要拉 Pyodide，可能需要几秒到十几秒——耐心等最多
+    // 60 秒，而不是直接判失败，这是 Notebook 那边"运行完成（无输出）"
+    // 假阳性问题的根因之一，不能在这里重蹈覆辙
+    if (!_webReady) {
+      for (var i = 0; i < 60; i++) {
+        await Future.delayed(const Duration(seconds: 1));
+        if (_webReady) break;
+      }
+      if (!mounted) return [];
+      if (!_webReady) {
+        return [
+          {'type': 'error', 'content': AppLocalizations.of(context)!.loadTimeoutRestart},
+        ];
+      }
+    }
+
+    final effectiveCode = language == 'sql' ? _wrapSql(code) : code;
+
+    try {
+      final completer = Completer<String>();
+      _pendingRuns[blockId] = completer;
+
+      await _webCtrl!.evaluateJavascript(
+        source:
+            '''
+(async () => {
+  try {
+    if (typeof window.runCode !== 'function') {
+      window.flutter_inappwebview.callHandler(
+        'onRunResult', ${jsonEncode(blockId)},
+        JSON.stringify([{type:'error', content:'compiler not ready'}])
+      );
+      return;
+    }
+    const outputs = await window.runCode(${jsonEncode(effectiveCode)}, "python");
+    window.flutter_inappwebview.callHandler(
+      'onRunResult', ${jsonEncode(blockId)}, outputs
+    );
+  } catch(e) {
+    window.flutter_inappwebview.callHandler(
+      'onRunResult', ${jsonEncode(blockId)},
+      JSON.stringify([{type:'error', content: String(e)}])
+    );
+  }
+})();
+''',
+      );
+
+      final raw = await completer.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => jsonEncode([
+          {'type': 'error', 'content': mounted ? AppLocalizations.of(context)!.execTimeout : 'timeout'},
+        ]),
+      );
+
+      dynamic parsed;
+      try {
+        parsed = jsonDecode(raw);
+      } catch (_) {
+        return [
+          {'type': 'text', 'content': raw},
+        ];
+      }
+      final outputs = parsed is List ? parsed : [parsed];
+      return outputs.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+    } finally {
+      _pendingRuns.remove(blockId);
+    }
+  }
+
+  // 跟 Notebook _runJavaScript 同款：捕获 console.log 输出，返回值统一走
+  // JSON.stringify，避免不同平台 evaluateJavascript 对返回对象编组不一致
+  Future<List<Map<String, dynamic>>> _runJavaScriptBlock(String code) async {
+    if (_webCtrl == null) {
+      return [
+        {'type': 'error', 'content': AppLocalizations.of(context)!.envInitializing},
+      ];
+    }
+    try {
+      final wrappedCode =
+          '''
+(function() {
+  const logs = [];
+  const _log = console.log;
+  console.log = (...args) => {
+    logs.push(args.map(a =>
+      typeof a === 'object' ? JSON.stringify(a) : String(a)
+    ).join(' '));
+    _log(...args);
+  };
+  try {
+    $code
+    console.log = _log;
+    return JSON.stringify({ok: true, output: logs.join('\\n')});
+  } catch(e) {
+    console.log = _log;
+    return JSON.stringify({ok: false, error: e.message});
+  }
+})()
+''';
+      final result = await _webCtrl!.evaluateJavascript(source: wrappedCode);
+      if (result == null) {
+        return [
+          {'type': 'text', 'content': ''},
+        ];
+      }
+      final map = jsonDecode(result.toString()) as Map;
+      if (map['ok'] == true) {
+        return [
+          {'type': 'text', 'content': (map['output'] as String?) ?? ''},
+        ];
+      }
+      return [
+        {'type': 'error', 'content': map['error']?.toString() ?? 'unknown error'},
+      ];
+    } catch (e) {
+      return [
+        {'type': 'error', 'content': '$e'},
+      ];
+    }
   }
 
   String _uid() =>
@@ -167,54 +376,97 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         blocks: _blocks,
         coverImageUrl: _coverImageUrl,
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(l10n),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLeftToolbar(l10n),
-                  Expanded(
-                    child: ListView(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.all(12),
-                      children: [
-                        _buildMetaCard(l10n),
-                        const SizedBox(height: 8),
-                        ReorderableListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _blocks.length,
-                          onReorder: _onReorder,
-                          itemBuilder: (ctx, i) => BlockCard(
-                            key: ValueKey(_blocks[i].id),
-                            block: _blocks[i],
-                            index: i,
-                            total: _blocks.length,
-                            membership: membership,
-                            onDelete: () => _deleteBlock(_blocks[i].id),
-                            onMoveUp: i > 0
-                                ? () => _swapBlocks(i, i - 1)
-                                : null,
-                            onMoveDown: i < _blocks.length - 1
-                                ? () => _swapBlocks(i, i + 1)
-                                : null,
-                            onChanged: () => setState(() {}),
-                          ),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(l10n),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLeftToolbar(l10n),
+                      Expanded(
+                        child: ListView(
+                          controller: _scrollCtrl,
+                          padding: const EdgeInsets.all(12),
+                          children: [
+                            _buildMetaCard(l10n),
+                            const SizedBox(height: 8),
+                            ReorderableListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _blocks.length,
+                              onReorder: _onReorder,
+                              itemBuilder: (ctx, i) => BlockCard(
+                                key: ValueKey(_blocks[i].id),
+                                block: _blocks[i],
+                                index: i,
+                                total: _blocks.length,
+                                membership: membership,
+                                onRunCode: _runBlockCode,
+                                onDelete: () => _deleteBlock(_blocks[i].id),
+                                onMoveUp: i > 0
+                                    ? () => _swapBlocks(i, i - 1)
+                                    : null,
+                                onMoveDown: i < _blocks.length - 1
+                                    ? () => _swapBlocks(i, i + 1)
+                                    : null,
+                                onChanged: () => setState(() {}),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildAddBlockButton(l10n),
+                            const SizedBox(height: 80),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        _buildAddBlockButton(l10n),
-                        const SizedBox(height: 80),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          // 隐藏的 WebView，承载 Pyodide/compiler.js——跟 Notebook 编辑器
+          // 那边一样放到屏幕外、给一个 1x1 的极小尺寸，不能用 Offstage/
+          // 0 尺寸，部分平台下 WebView 尺寸为 0 时不会正常初始化
+          Positioned(
+            left: -9999,
+            top: -9999,
+            width: 1,
+            height: 1,
+            child: InAppWebView(
+              initialData: InAppWebViewInitialData(
+                data: _compilerHtml,
+                baseUrl: WebUri('https://dreamingpolar.com'),
+              ),
+              onWebViewCreated: (ctrl) {
+                _webCtrl = ctrl;
+                ctrl.addJavaScriptHandler(
+                  handlerName: 'compilerReady',
+                  callback: (args) {
+                    if (mounted) setState(() => _webReady = true);
+                    debugPrint('[Publish] Pyodide就绪');
+                  },
+                );
+                ctrl.addJavaScriptHandler(
+                  handlerName: 'onRunResult',
+                  callback: (args) {
+                    final blockId = args.isNotEmpty ? args[0].toString() : '';
+                    final result = args.length > 1 ? args[1].toString() : '[]';
+                    _pendingRuns[blockId]?.complete(result);
+                  },
+                );
+              },
+              initialSettings: InAppWebViewSettings(
+                javaScriptEnabled: true,
+                allowsInlineMediaPlayback: true,
+                mediaPlaybackRequiresUserGesture: false,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
