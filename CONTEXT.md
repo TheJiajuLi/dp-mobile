@@ -187,8 +187,10 @@ blocks 是 JSON 字符串：
   padding:EdgeInsets.zero，否则安全区自动padding撑出大缝隙）
 - 左上角汉堡 → 抽屉用 showGeneralDialog 强推到根Navigator（不是
   Scaffold.drawer，那个盖不住MainShell的底部导航栏和状态栏安全区）
-- 侧边栏：紫色渐变header + 会员卡 + 菜单 + 底部三按钮（这部分没有跟着
-  头图区一起改深色玻璃拟态，还是原来的样子）
+- 侧边栏：header 渐变同步成头图区那套 #2A1F3D→#1A2A3D 深色玻璃拟态
+  （不再是原来偏亮的 #6366F1→#7C3AED），右上角加了个纯用径向渐变做的
+  柔光装饰点缀；会员卡加了一圈低透明度紫色描边呼应；菜单列表/底部三
+  按钮维持原来的浅色 Theme 背景，没有跟着一起变深色
 - 状态栏图标用 AnnotatedRegion<SystemUiOverlayStyle>(value: .light) 强制
   白色，因为头图区总是深色；已知取舍：滚动很远头图完全滚出视口后状态栏
   区域会露出白色Tab栏背景，白图标短暂不好辨认，没做滚动监听动态切换

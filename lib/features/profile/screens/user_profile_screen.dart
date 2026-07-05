@@ -2109,7 +2109,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         children: [
           // 头像+用户名精简成网易云那样的单行，教程/获赞/粉丝/关注这些
           // 主页面本来就有，不用在这再摆一遍占空间——腾出来的高度让功能
-          // 列表少滚动几下。点这一行直接收起抽屉，回去看下面那份主页面
+          // 列表少滚动几下。点这一行直接收起抽屉，回去看下面那份主页面。
+          // 渐变换成跟主页头图区同一套深色玻璃拟态配色（#2A1F3D→
+          // #1A2A3D），不再是原来那个偏亮的靛紫——两处都是这个app的
+          // "头部视觉"，颜色不统一会像是两个不同页面拼起来的
           GestureDetector(
             onTap: () => Navigator.pop(ctx),
             child: Container(
@@ -2119,29 +2122,53 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF6366F1), Color(0xFF7C3AED)],
+                  colors: [Color(0xFF2A1F3D), Color(0xFF1A2A3D)],
                 ),
               ),
-              child: Row(
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  _buildAvatar(radius: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      username,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                  // 右上角一小团柔光——纯用渐变+模糊做的装饰，不需要额外
+                  // 素材，呼应参考图里那颗发光星球，但克制成一个抽象光斑
+                  Positioned(
+                    right: -20,
+                    top: -30,
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            _primary.withValues(alpha: 0.35),
+                            _primary.withValues(alpha: 0),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: Colors.white70,
-                    size: 20,
+                  Row(
+                    children: [
+                      _buildAvatar(radius: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          username,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -2162,6 +2189,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               decoration: BoxDecoration(
                 color: const Color(0xFF18122B),
                 borderRadius: BorderRadius.circular(12),
+                // 细描边加一点紫色光晕，跟上面头部/主页头图区那套深色
+                // 玻璃拟态呼应一下，不然纯深色块跟上面的渐变头部脱节
+                border: Border.all(
+                  color: _primary.withValues(alpha: 0.25),
+                  width: 0.5,
+                ),
               ),
               child: Row(
                 children: [
