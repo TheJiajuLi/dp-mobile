@@ -1612,17 +1612,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         () => _openProfileDrawer(l10n),
                                       ),
                                     const Spacer(),
-                                    if (_allLinks().isNotEmpty) ...[
+                                    // 自己主页时链接按钮挪到下面操作栏跟"分享"
+                                    // 合并成"个人链接"了，这里只在看别人主页时
+                                    // 才需要——查看对方的个人链接
+                                    if (_allLinks().isNotEmpty && !isSelfView)
                                       _heroIconButton(
                                         Icons.link_rounded,
                                         () => _showLinksSheet(l10n),
                                       ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    _heroIconButton(
-                                      Icons.more_horiz,
-                                      () => _todo(l10n.comingSoonStayTuned),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -2017,10 +2014,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                             ),
                                             const SizedBox(width: 6),
                                             _heroIconButton(
-                                              Icons.share_outlined,
-                                              () => _todo(
-                                                l10n.comingSoonStayTuned,
-                                              ),
+                                              Icons.link_rounded,
+                                              () => _showLinksSheet(l10n),
                                             ),
                                           ] else ...[
                                             SizedBox(
