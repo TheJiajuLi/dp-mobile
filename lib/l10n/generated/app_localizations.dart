@@ -2234,6 +2234,48 @@ abstract class AppLocalizations {
   /// **'{count} Comments'**
   String commentsCountLabel(int count);
 
+  /// No description provided for @authorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Author'**
+  String get authorLabel;
+
+  /// No description provided for @allCommentsCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'All comments {count}'**
+  String allCommentsCountLabel(int count);
+
+  /// No description provided for @sortHot.
+  ///
+  /// In en, this message translates to:
+  /// **'Hot'**
+  String get sortHot;
+
+  /// No description provided for @sortNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get sortNew;
+
+  /// No description provided for @viewAllCommentsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View all'**
+  String get viewAllCommentsAction;
+
+  /// No description provided for @estimatedReadMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min read'**
+  String estimatedReadMinutes(int minutes);
+
+  /// No description provided for @partOfColumnLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Part of column'**
+  String get partOfColumnLabel;
+
   /// No description provided for @noCommentsYetPrompt.
   ///
   /// In en, this message translates to:

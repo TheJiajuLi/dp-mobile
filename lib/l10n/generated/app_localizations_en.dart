@@ -1174,6 +1174,31 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get authorLabel => 'Author';
+
+  @override
+  String allCommentsCountLabel(int count) {
+    return 'All comments $count';
+  }
+
+  @override
+  String get sortHot => 'Hot';
+
+  @override
+  String get sortNew => 'New';
+
+  @override
+  String get viewAllCommentsAction => 'View all';
+
+  @override
+  String estimatedReadMinutes(int minutes) {
+    return '$minutes min read';
+  }
+
+  @override
+  String get partOfColumnLabel => 'Part of column';
+
+  @override
   String get noCommentsYetPrompt =>
       'No comments yet — be the first to say something';
 

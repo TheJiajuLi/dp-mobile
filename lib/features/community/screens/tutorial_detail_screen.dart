@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/topic_badge.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/screens/messages_screen.dart' show timeAgo;
@@ -26,6 +27,7 @@ class TutorialComment {
   final String? handle;
   final String content;
   final int createdAt;
+  final int likes;
   final List<TutorialComment> replies;
 
   TutorialComment({
@@ -36,6 +38,7 @@ class TutorialComment {
     this.handle,
     required this.content,
     required this.createdAt,
+    this.likes = 0,
     this.replies = const [],
   });
 
@@ -49,6 +52,7 @@ class TutorialComment {
       handle: j['handle'] as String?,
       content: j['content'] as String? ?? '',
       createdAt: (j['created_at'] as num?)?.toInt() ?? 0,
+      likes: (j['likes'] as num?)?.toInt() ?? 0,
       replies: repliesRaw
           .map(
             (r) =>
@@ -73,6 +77,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   List<dynamic> _blocks = [];
   bool _loading = true;
   bool _liked = false;
+  bool _saved = false;
+  // null = 还没查/不适用（比如在看自己的教程），不显示关注按钮
+  bool? _isFollowing;
 
   List<TutorialComment> _comments = [];
   bool _loadingComments = false;
@@ -81,6 +88,11 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   final _commentFocusNode = FocusNode();
   String? _replyToId;
   String? _replyToUsername;
+  String _commentSort = 'hot';
+  // 评论点赞：后端 tutorial_comments 表虽然有 likes 列，但目前没有任何
+  // "点赞评论"的接口去真的+1——这里只做本地临时切换，纯UI态，不落库，
+  // 刷新/重进页面就会丢失，等后端补上真实点赞接口后再换成真调用
+  final Set<String> _locallyLikedCommentIds = {};
 
   @override
   void initState() {
@@ -118,11 +130,15 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     }
   }
 
-  Future<void> _submitComment() async {
+  // 评论弹窗是 showModalBottomSheet 起的独立路由，不是父级 build() 的直接
+  // 子树——父级 setState 刷新不到弹窗里已经画出来的内容，弹窗内的操作都要
+  // 额外调一次 sheetSetState 才能让弹窗本身立刻看到最新数据
+  Future<void> _submitComment({StateSetter? sheetSetState}) async {
     final content = _commentCtrl.text.trim();
     if (content.isEmpty) return;
 
     setState(() => _submitting = true);
+    sheetSetState?.call(() {});
     final res = await ref
         .read(apiClientProvider)
         .post(
@@ -147,9 +163,13 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       );
     }
     if (mounted) setState(() => _submitting = false);
+    sheetSetState?.call(() {});
   }
 
-  Future<void> _confirmDeleteComment(String commentId) async {
+  Future<void> _confirmDeleteComment(
+    String commentId, {
+    StateSetter? sheetSetState,
+  }) async {
     final l10n = AppLocalizations.of(context)!;
     final confirm = await showDialog<bool>(
       context: context,
@@ -199,6 +219,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     if (!mounted) return;
     if (res.success) {
       await _loadComments();
+      sheetSetState?.call(() {});
     } else {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -235,9 +256,83 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       // 后端字段名未确认，兼容 is_liked / liked 两种可能，同时兼容 0/1 和 bool
       _liked =
           t['is_liked'] == 1 || t['is_liked'] == true || t['liked'] == true;
+      _saved =
+          t['is_saved'] == 1 || t['is_saved'] == true || t['saved'] == true;
       _loading = false;
     });
+
+    final authorId = t['user_id'] as String?;
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    if (authorId != null && authorId.isNotEmpty && authorId != currentUserId) {
+      final followRes = await api.get('/auth/users/$authorId/follow-status');
+      if (!mounted) return;
+      if (followRes.success && followRes.data != null) {
+        setState(
+          () => _isFollowing = (followRes.data as Map)['isFollowing'] == true,
+        );
+      }
+    }
   }
+
+  Future<void> _toggleFollow() async {
+    final authorId = _tutorial?['user_id'] as String?;
+    if (authorId == null || _isFollowing == null) return;
+    final api = ref.read(apiClientProvider);
+    final res = _isFollowing!
+        ? await api.delete('/auth/users/$authorId/follow')
+        : await api.post('/auth/users/$authorId/follow');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() => _isFollowing = !_isFollowing!);
+    } else {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
+      );
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    final api = ref.read(apiClientProvider);
+    final res = _saved
+        ? await api.delete('/auth/tutorials/${widget.tutorialId}/save')
+        : await api.post('/auth/tutorials/${widget.tutorialId}/save');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() => _saved = !_saved);
+    } else {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
+      );
+    }
+  }
+
+  void _toggleCommentLike(String commentId, StateSetter? sheetSetState) {
+    void update() {
+      if (_locallyLikedCommentIds.contains(commentId)) {
+        _locallyLikedCommentIds.remove(commentId);
+      } else {
+        _locallyLikedCommentIds.add(commentId);
+      }
+    }
+
+    setState(update);
+    sheetSetState?.call(() {});
+  }
+
+  List<TutorialComment> _sortedComments(String sort) {
+    final list = [..._comments];
+    if (sort == 'hot') {
+      list.sort((a, b) => _displayLikes(b).compareTo(_displayLikes(a)));
+    } else {
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return list;
+  }
+
+  int _displayLikes(TutorialComment c) =>
+      c.likes + (_locallyLikedCommentIds.contains(c.id) ? 1 : 0);
 
   Future<void> _toggleLike() async {
     final api = ref.read(apiClientProvider);
@@ -303,10 +398,16 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     );
   }
 
-  Widget _buildComment(TutorialComment c, {bool isReply = false}) {
+  Widget _buildComment(
+    TutorialComment c, {
+    bool isReply = false,
+    StateSetter? sheetSetState,
+  }) {
     final l10n = AppLocalizations.of(context)!;
     final currentUserId = ref.watch(currentUserProvider)?.id;
     final isOwn = c.userId.isNotEmpty && c.userId == currentUserId;
+    final isAuthor = c.userId.isNotEmpty && c.userId == _tutorial?['user_id'];
+    final commentLiked = _locallyLikedCommentIds.contains(c.id);
 
     return Padding(
       padding: EdgeInsets.only(left: isReply ? 52 : 16, right: 16, bottom: 12),
@@ -337,6 +438,27 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (isAuthor) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          l10n.authorLabel,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: _primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                     if (c.handle != null) ...[
                       const SizedBox(width: 4),
                       Text(
@@ -363,11 +485,35 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 Row(
                   children: [
                     GestureDetector(
+                      onTap: () => _toggleCommentLike(c.id, sheetSetState),
+                      child: Row(
+                        children: [
+                          Icon(
+                            commentLiked
+                                ? Icons.favorite
+                                : Icons.favorite_outline,
+                            size: 14,
+                            color: commentLiked ? Colors.red : Colors.grey,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${_displayLikes(c)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(
                       onTap: () {
                         setState(() {
                           _replyToId = c.id;
                           _replyToUsername = c.username;
                         });
+                        sheetSetState?.call(() {});
                         _commentFocusNode.requestFocus();
                       },
                       child: Row(
@@ -391,7 +537,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     if (isOwn) ...[
                       const SizedBox(width: 16),
                       GestureDetector(
-                        onTap: () => _confirmDeleteComment(c.id),
+                        onTap: () => _confirmDeleteComment(
+                          c.id,
+                          sheetSetState: sheetSetState,
+                        ),
                         child: Row(
                           children: [
                             const Icon(
@@ -415,7 +564,24 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 ),
                 if (c.replies.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  ...c.replies.map((r) => _buildComment(r, isReply: true)),
+                  ...c.replies.map((r) {
+                    final replyIsAuthor = r.userId == _tutorial?['user_id'];
+                    final reply = _buildComment(
+                      r,
+                      isReply: true,
+                      sheetSetState: sheetSetState,
+                    );
+                    if (!replyIsAuthor) return reply;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAFAF8),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: reply,
+                    );
+                  }),
                 ],
               ],
             ),
@@ -445,9 +611,17 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final username = t['username'] as String? ?? '';
     final avatar = t['avatar'] as String?;
     final likes = (t['likes'] as num?)?.toInt() ?? 0;
-    final views = (t['views'] as num?)?.toInt() ?? 0;
     final coverImage = t['cover_image'] as String?;
     final createdAt = (t['created_at'] as num?)?.toInt() ?? 0;
+    final summary = t['summary'] as String?;
+    // subtitle/series_tag/column_id：发布页"标题植入/加入专栏"功能会提交
+    // 这三个字段，但实测确认（2026-07-05）后端 tutorials 表压根没有这几列，
+    // POST 时会被静默丢弃——GET 永远拿不到，这里仍按给的设计做非空判断，
+    // 一旦后端补上这几列就能直接生效，不用等它已存在的原因是先把展示
+    // 逻辑接好比事后再补更省事
+    final subtitle = t['subtitle'] as String?;
+    final seriesTag = t['series_tag'] as String?;
+    final columnId = t['column_id'] as String?;
 
     // 格式化时间（后端时间戳是秒级）
     final dt = DateTime.fromMillisecondsSinceEpoch(createdAt * 1000);
@@ -466,45 +640,235 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       } catch (_) {}
     }
 
+    final topicRule = matchedTopicRuleFor(tags);
+    final previewComments = _comments.take(2).toList();
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: coverImage?.isNotEmpty == true ? 220 : 0,
+            expandedHeight: 220,
             pinned: true,
             backgroundColor: Theme.of(context).cardColor,
             foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
             elevation: 0,
-            flexibleSpace: coverImage?.isNotEmpty == true
-                ? FlexibleSpaceBar(
-                    background: CachedNetworkImage(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios, size: 18),
+              onPressed: () => context.pop(),
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(_saved ? Icons.bookmark : Icons.bookmark_outline),
+                onPressed: _toggleSave,
+              ),
+              IconButton(
+                icon: const Icon(Icons.share_outlined),
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.comingSoonStayTuned)),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.more_horiz),
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.comingSoonStayTuned)),
+                ),
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (coverImage?.isNotEmpty == true)
+                    CachedNetworkImage(
                       imageUrl: coverImage!,
                       fit: BoxFit.cover,
                       errorWidget: (context, url, error) =>
-                          Container(color: const Color(0xFFEEF0FF)),
+                          _CoverGradient(rule: topicRule),
+                    )
+                  else
+                    _CoverGradient(rule: topicRule),
+                  if (topicRule != null)
+                    Positioned(
+                      left: 16,
+                      top: 52,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A1A),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          topicRule.label,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
-                  )
-                : null,
+                  if (seriesTag != null && seriesTag.isNotEmpty)
+                    Positioned(
+                      right: 16,
+                      top: 52,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          seriesTag,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (subtitle != null && subtitle.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        subtitle,
+                        style: const TextStyle(fontSize: 12, color: _primary),
+                      ),
+                    ),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1A1A1A),
+                      letterSpacing: -0.3,
+                      height: 1.3,
+                    ),
+                  ),
+                  if (summary != null && summary.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      summary,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF888888),
+                        height: 1.65,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: username.isEmpty
+                              ? null
+                              : () => context.push('/users/$username'),
+                          child: Row(
+                            children: [
+                              _buildAuthorAvatar(avatar, username, radius: 18),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      username,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '$dateStr · ${l10n.estimatedReadMinutes(_readMinutes())}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFFBBBBBB),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_isFollowing != null)
+                        GestureDetector(
+                          onTap: _toggleFollow,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _isFollowing!
+                                  ? Theme.of(context).scaffoldBackgroundColor
+                                  : _primary,
+                              borderRadius: BorderRadius.circular(8),
+                              border: _isFollowing!
+                                  ? Border.all(
+                                      color: Theme.of(context).dividerColor,
+                                    )
+                                  : null,
+                            ),
+                            child: Text(
+                              _isFollowing!
+                                  ? l10n.followingAction
+                                  : l10n.followAction,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _isFollowing!
+                                    ? Theme.of(
+                                        context,
+                                      ).textTheme.bodyLarge?.color
+                                    : Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      height: 1.3,
-                    ),
+                ..._blocks.map(
+                  (b) => buildTutorialBlockWidget(
+                    context,
+                    l10n,
+                    Map<String, dynamic>.from(b as Map),
                   ),
                 ),
+                if (columnId != null && columnId.isNotEmpty)
+                  _buildColumnCard(l10n, columnId),
                 if (tags.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: Wrap(
                       spacing: 6,
                       children: tags
@@ -531,50 +895,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                           .toList(),
                     ),
                   ),
-                GestureDetector(
-                  onTap: username.isEmpty
-                      ? null
-                      : () => context.push('/users/$username'),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        _buildAuthorAvatar(avatar, username),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              username,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              dateStr,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Divider(height: 1),
-                ..._blocks.map(
-                  (b) => buildTutorialBlockWidget(
-                    context,
-                    l10n,
-                    Map<String, dynamic>.from(b as Map),
-                  ),
-                ),
               ],
             ),
           ),
@@ -585,12 +905,28 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    l10n.commentsCountLabel(_comments.length),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: Row(
+                    children: [
+                      Text(
+                        l10n.commentsCountLabel(_comments.length),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_comments.length > 2)
+                        GestureDetector(
+                          onTap: _openCommentSheet,
+                          child: Text(
+                            l10n.viewAllCommentsAction,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _primary,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (_loadingComments)
@@ -614,198 +950,406 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     ),
                   )
                 else
-                  ..._comments.map((c) => _buildComment(c)),
+                  ...previewComments.map((c) => _buildComment(c)),
                 const SizedBox(height: 80),
               ],
             ),
           ),
         ],
       ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              border: Border(
-                top: BorderSide(color: Theme.of(context).dividerColor),
-              ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border(
+              top: BorderSide(color: Theme.of(context).dividerColor),
             ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: _toggleLike,
-                  child: Row(
-                    children: [
-                      Icon(
-                        _liked ? Icons.favorite : Icons.favorite_outline,
-                        color: _liked ? Colors.red : Colors.grey,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$likes',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: _openCommentSheet,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).inputDecorationTheme.fillColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      l10n.writeCommentHint,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 20),
-                Row(
+              ),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: _toggleLike,
+                child: Row(
                   children: [
-                    const Icon(
-                      Icons.visibility_outlined,
-                      color: Colors.grey,
+                    Icon(
+                      _liked ? Icons.favorite : Icons.favorite_outline,
+                      color: _liked ? Colors.red : Colors.grey,
                       size: 22,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '$views',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      '$likes',
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
                 ),
-                const SizedBox(width: 20),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.chat_bubble_outline,
-                      color: Colors.grey,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_comments.length}',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                  ],
+              ),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: _toggleSave,
+                child: Icon(
+                  _saved ? Icons.bookmark : Icons.bookmark_outline,
+                  color: _saved ? _primary : Colors.grey,
+                  size: 22,
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.share_outlined),
-                  onPressed: () {},
+              ),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.comingSoonStayTuned)),
+                ),
+                child: const Icon(
+                  Icons.share_outlined,
+                  color: Colors.grey,
+                  size: 22,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  int _readMinutes() {
+    const wordsPerMinute = 300;
+    final chars = _blocks
+        .whereType<Map>()
+        .where((b) => b['type'] == null || b['type'] == 'text')
+        .fold<int>(0, (sum, b) => sum + ('${b['content'] ?? ''}'.length));
+    return (chars / wordsPerMinute).ceil().clamp(1, 999);
+  }
+
+  // 专栏卡片：column_id 目前永远是 null（见 build() 里的说明），这里只做
+  // 兜底渲染——一旦后端真的有专栏数据也不至于要再补一次UI
+  Widget _buildColumnCard(AppLocalizations l10n, String columnId) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_primary, Color(0xFFA855F7)],
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.partOfColumnLabel,
+                  style: const TextStyle(fontSize: 11, color: _primary),
+                ),
+                Text(
+                  _tutorial?['column_name'] as String? ?? columnId,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
-          Container(
-            color: Theme.of(context).cardColor,
-            padding: EdgeInsets.fromLTRB(
-              12,
-              8,
-              12,
-              MediaQuery.of(context).viewInsets.bottom + 8,
+          const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
+        ],
+      ),
+    );
+  }
+
+  void _openCommentSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => _buildCommentSheet(ctx, setModalState),
+      ),
+    );
+  }
+
+  Widget _buildCommentSheet(BuildContext ctx, StateSetter setModalState) {
+    final l10n = AppLocalizations.of(ctx)!;
+    final sorted = _sortedComments(_commentSort);
+    return FractionallySizedBox(
+      heightFactor: 0.75,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_replyToUsername != null)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    margin: const EdgeInsets.only(bottom: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF0FF),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(
-                          AppLocalizations.of(
-                            context,
-                          )!.replyingToLabel(_replyToUsername!),
-                          style: const TextStyle(fontSize: 12, color: _primary),
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: () => setState(() {
-                            _replyToId = null;
-                            _replyToUsername = null;
-                          }),
-                          child: const Icon(
-                            Icons.close,
-                            size: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Row(
+                children: [
+                  Text(
+                    l10n.allCommentsCountLabel(_comments.length),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).inputDecorationTheme.fillColor,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: TextField(
-                          controller: _commentCtrl,
-                          focusNode: _commentFocusNode,
-                          decoration: InputDecoration(
-                            hintText: AppLocalizations.of(
-                              context,
-                            )!.writeCommentHint,
-                            hintStyle: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                            ),
-                            border: InputBorder.none,
-                            filled: false,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          style: const TextStyle(fontSize: 14),
-                          maxLines: null,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _submitComment(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: _submitting ? null : _submitComment,
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(
-                          color: _primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: _submitting
-                            ? const Padding(
-                                padding: EdgeInsets.all(10),
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.send,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  const Spacer(),
+                  _sortToggleButton(l10n.sortHot, 'hot', setModalState),
+                  const SizedBox(width: 8),
+                  _sortToggleButton(l10n.sortNew, 'new', setModalState),
+                ],
+              ),
             ),
+            const Divider(height: 1),
+            Expanded(
+              child: _loadingComments
+                  ? const Center(child: CircularProgressIndicator())
+                  : sorted.isEmpty
+                  ? Center(
+                      child: Text(
+                        l10n.noCommentsYetPrompt,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.only(top: 12),
+                      children: sorted
+                          .map(
+                            (c) =>
+                                _buildComment(c, sheetSetState: setModalState),
+                          )
+                          .toList(),
+                    ),
+            ),
+            _buildCommentInputBar(sheetSetState: setModalState),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sortToggleButton(
+    String label,
+    String value,
+    StateSetter setModalState,
+  ) {
+    final selected = _commentSort == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _commentSort = value);
+        setModalState(() {});
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFEEF0FF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? _primary : Colors.grey,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommentInputBar({StateSetter? sheetSetState}) {
+    return Container(
+      color: Theme.of(context).cardColor,
+      padding: EdgeInsets.fromLTRB(
+        12,
+        8,
+        12,
+        MediaQuery.of(context).viewInsets.bottom + 8,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_replyToUsername != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF0FF),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    AppLocalizations.of(
+                      context,
+                    )!.replyingToLabel(_replyToUsername!),
+                    style: const TextStyle(fontSize: 12, color: _primary),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _replyToId = null;
+                        _replyToUsername = null;
+                      });
+                      sheetSetState?.call(() {});
+                    },
+                    child: const Icon(
+                      Icons.close,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 15,
+                backgroundColor: _primary,
+                child: Text(
+                  _initial(ref.watch(currentUserProvider)?.username),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).inputDecorationTheme.fillColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: TextField(
+                    controller: _commentCtrl,
+                    focusNode: _commentFocusNode,
+                    decoration: InputDecoration(
+                      hintText: AppLocalizations.of(context)!.writeCommentHint,
+                      hintStyle: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                      border: InputBorder.none,
+                      filled: false,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                    maxLines: null,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) =>
+                        _submitComment(sheetSetState: sheetSetState),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _submitting
+                    ? null
+                    : () => _submitComment(sheetSetState: sheetSetState),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1A1A1A),
+                    shape: BoxShape.circle,
+                  ),
+                  child: _submitting
+                      ? const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.send, color: Colors.white, size: 16),
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// 无封面图时的话题色渐变占位——跟首页 Feed 卡片的 _CoverPlaceholder（按
+// 标题首字符 hash 选色）不是一回事：这里按 CONTEXT.md 的领域配色表根据
+// tags 决定颜色，更贴题
+class _CoverGradient extends StatelessWidget {
+  final TopicBadgeRule? rule;
+  const _CoverGradient({required this.rule});
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = rule?.fg ?? topicBadgeDefault.fg;
+    final bg = rule?.bg ?? topicBadgeDefault.bg;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [bg, Color.lerp(bg, fg, 0.35) ?? bg],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.auto_awesome,
+          color: fg.withValues(alpha: 0.5),
+          size: 56,
+        ),
       ),
     );
   }

@@ -165,6 +165,43 @@ Widget buildTutorialBlockWidget(
         subtitleColor: Colors.grey,
       );
 
+    case 'quote':
+      // 目前发布页的 BlockType 枚举里还没有独立的 quote 类型（引用靠
+      // callout 顶），这个分支是给将来可能出现的 quote block 提前接好的
+      // 兼容渲染——现在的发布流程不会产出这个 type，但读取到了也不会
+      // 被吃掉当纯文本处理
+      final source = block['source'] as String?;
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAF8),
+          borderRadius: BorderRadius.circular(8),
+          border: const Border(left: BorderSide(color: _primary, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              content,
+              style: const TextStyle(
+                fontSize: 14,
+                fontStyle: FontStyle.italic,
+                color: Color(0xFF555555),
+                height: 1.6,
+              ),
+            ),
+            if (source != null && source.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                '— $source',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ],
+        ),
+      );
+
     case 'callout':
       final variant = block['variant'] as String? ?? 'info';
       final colors = {

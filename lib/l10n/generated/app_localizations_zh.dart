@@ -1147,6 +1147,31 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get authorLabel => '作者';
+
+  @override
+  String allCommentsCountLabel(int count) {
+    return '全部评论 $count';
+  }
+
+  @override
+  String get sortHot => '最热';
+
+  @override
+  String get sortNew => '最新';
+
+  @override
+  String get viewAllCommentsAction => '查看全部';
+
+  @override
+  String estimatedReadMinutes(int minutes) {
+    return '预计阅读 $minutes 分钟';
+  }
+
+  @override
+  String get partOfColumnLabel => '所属专栏';
+
+  @override
   String get noCommentsYetPrompt => '还没有评论，来说点什么吧';
 
   @override

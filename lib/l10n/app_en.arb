@@ -603,6 +603,27 @@
       }
     }
   },
+  "authorLabel": "Author",
+  "allCommentsCountLabel": "All comments {count}",
+  "@allCommentsCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sortHot": "Hot",
+  "sortNew": "New",
+  "viewAllCommentsAction": "View all",
+  "estimatedReadMinutes": "{minutes} min read",
+  "@estimatedReadMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "partOfColumnLabel": "Part of column",
   "noCommentsYetPrompt": "No comments yet — be the first to say something",
   "writeCommentHint": "Write a comment...",
   "replyAction": "Reply",

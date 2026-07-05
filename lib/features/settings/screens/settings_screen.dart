@@ -73,6 +73,11 @@ class SettingsScreen extends ConsumerWidget {
             ),
             Expanded(
               child: ListView(
+                // ListView 不显式传 padding 时会自动套 MediaQuery 安全区当
+                // 默认padding——顶栏已经自己处理过安全区了，这里再叠一次
+                // 就是"设置"标题跟下面第一个分组之间那截很大的空白的来源
+                // （跟GridView那个坑是同一类问题，见CONTEXT.md踩坑#14）
+                padding: EdgeInsets.zero,
                 children: [
                   _SectionTitle(l10n.sectionAccount),
                   _SettingsGroup([

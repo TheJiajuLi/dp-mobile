@@ -1457,9 +1457,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ],
                       ),
                       const SizedBox(height: 14),
-                      // 统计数据——白色圆角卡片，细描边，跟上面糊在
-                      // 背景里的其它内容形成对比，是这块头图区里
-                      // 唯一"跳出来"的元素
+                      // 统计数据 + 操作按钮合并进同一张卡片——之前两块各占
+                      // 一行、中间还留一整条 SizedBox(height:14) 的空档，
+                      // 撑高了整个头图区，挤得下面的 Tab 内容一进页面就要
+                      // 下滑才看得到。合并成一张卡片+一条内部分隔线，省下
+                      // 的高度让给下面的内容（我们内部的"头图区不占满一半
+                      // 屏幕"的精简原则）
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Container(
@@ -1468,141 +1471,167 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: _hairline, width: 0.5),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          child: Row(
+                          child: Column(
                             children: [
-                              _statItem(
-                                '${_profile!.tutorialCount}',
-                                l10n.articlesCountLabel,
-                              ),
-                              _divider(),
-                              _statItem(
-                                _formatCount(_totalLikes),
-                                l10n.likesCountLabel,
-                              ),
-                              _divider(),
-                              _statItem(
-                                _formatCount(_profile!.followerCount),
-                                l10n.followersCountLabel,
-                                onTap: () => context.push(
-                                  '/users/${_profile!.id}/followers',
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    _statItem(
+                                      '${_profile!.tutorialCount}',
+                                      l10n.articlesCountLabel,
+                                    ),
+                                    _divider(),
+                                    _statItem(
+                                      _formatCount(_totalLikes),
+                                      l10n.likesCountLabel,
+                                    ),
+                                    _divider(),
+                                    _statItem(
+                                      _formatCount(_profile!.followerCount),
+                                      l10n.followersCountLabel,
+                                      onTap: () => context.push(
+                                        '/users/${_profile!.id}/followers',
+                                      ),
+                                    ),
+                                    _divider(),
+                                    _statItem(
+                                      _formatCount(
+                                        isSelfView
+                                            ? (sharedFollowingCount ??
+                                                  _profile!.followingCount)
+                                            : _profile!.followingCount,
+                                      ),
+                                      l10n.followingCountLabel,
+                                      onTap: () => context.push(
+                                        '/users/${_profile!.id}/following',
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              _divider(),
-                              _statItem(
-                                _formatCount(
-                                  isSelfView
-                                      ? (sharedFollowingCount ??
-                                            _profile!.followingCount)
-                                      : _profile!.followingCount,
+                              const Divider(height: 1, color: _hairline),
+                              // 操作按钮行——自己主页：编辑资料(黑底白字) +
+                              // 分享主页(白底黑字细边框) + GitHub 方形图标
+                              // 按钮；别人主页：私信 + 关注，保留原有交互
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  10,
+                                  12,
+                                  10,
                                 ),
-                                l10n.followingCountLabel,
-                                onTap: () => context.push(
-                                  '/users/${_profile!.id}/following',
-                                ),
+                                child: isMe
+                                    ? Row(
+                                        children: [
+                                          Expanded(
+                                            child: _blackButton(
+                                              l10n.editProfile,
+                                              onTap: () async {
+                                                await context.push(
+                                                  '/edit-profile',
+                                                );
+                                                if (mounted) _loadProfile();
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: _outlineButton(
+                                              l10n.shareProfileAction,
+                                              onTap: () => _todo(
+                                                l10n.comingSoonStayTuned,
+                                              ),
+                                            ),
+                                          ),
+                                          if (_githubOrFirstLink() != null) ...[
+                                            const SizedBox(width: 8),
+                                            _squareIconButton(
+                                              Icons.code,
+                                              onTap: () => _openLink(
+                                                _githubOrFirstLink()!,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      )
+                                    : Row(
+                                        children: [
+                                          const Spacer(),
+                                          OutlinedButton.icon(
+                                            onPressed: _startingChat
+                                                ? null
+                                                : _startChat,
+                                            icon: _startingChat
+                                                ? const SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: _primary,
+                                                        ),
+                                                  )
+                                                : const Icon(
+                                                    Icons.message_outlined,
+                                                    size: 16,
+                                                  ),
+                                            label: Text(l10n.sendMessageAction),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: _primary,
+                                              side: const BorderSide(
+                                                color: _primary,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 14,
+                                                    vertical: 6,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton(
+                                            onPressed: _toggleFollow,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  _profile!.isFollowing
+                                                  ? Colors.white
+                                                  : _primary,
+                                              foregroundColor:
+                                                  _profile!.isFollowing
+                                                  ? _ink
+                                                  : Colors.white,
+                                              elevation: 0,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 6,
+                                                  ),
+                                            ),
+                                            child: Text(
+                                              _profile!.isFollowing
+                                                  ? l10n.followingAction
+                                                  : l10n.followAction,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      // 操作按钮行——自己主页：编辑资料(黑底白字) +
-                      // 分享主页(白底黑字细边框) + GitHub 方形图标
-                      // 按钮；别人主页：私信 + 关注，保留原有交互
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: isMe
-                            ? Row(
-                                children: [
-                                  Expanded(
-                                    child: _blackButton(
-                                      l10n.editProfile,
-                                      onTap: () async {
-                                        await context.push('/edit-profile');
-                                        if (mounted) _loadProfile();
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _outlineButton(
-                                      l10n.shareProfileAction,
-                                      onTap: () =>
-                                          _todo(l10n.comingSoonStayTuned),
-                                    ),
-                                  ),
-                                  if (_githubOrFirstLink() != null) ...[
-                                    const SizedBox(width: 8),
-                                    _squareIconButton(
-                                      Icons.code,
-                                      onTap: () =>
-                                          _openLink(_githubOrFirstLink()!),
-                                    ),
-                                  ],
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  const Spacer(),
-                                  OutlinedButton.icon(
-                                    onPressed: _startingChat
-                                        ? null
-                                        : _startChat,
-                                    icon: _startingChat
-                                        ? const SizedBox(
-                                            width: 14,
-                                            height: 14,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: _primary,
-                                            ),
-                                          )
-                                        : const Icon(
-                                            Icons.message_outlined,
-                                            size: 16,
-                                          ),
-                                    label: Text(l10n.sendMessageAction),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: _primary,
-                                      side: const BorderSide(color: _primary),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 6,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton(
-                                    onPressed: _toggleFollow,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _profile!.isFollowing
-                                          ? Colors.white
-                                          : _primary,
-                                      foregroundColor: _profile!.isFollowing
-                                          ? _ink
-                                          : Colors.white,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 6,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _profile!.isFollowing
-                                          ? l10n.followingAction
-                                          : l10n.followAction,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
 
                       // Tabs——文字标签，不再是纯图标；选中态用下划线+加粗，
                       // 未选中用浅灰，跟上面的头图区分明确用一条 0.5px 细线
