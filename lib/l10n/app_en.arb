@@ -56,6 +56,32 @@
   "tagVisualization": "Visualization",
   "tagStatistics": "Statistics",
   "tagMathModeling": "Math Modeling",
+  "categoryScience": "Science",
+  "categoryEconomy": "Economy",
+  "categoryCurrentAffairs": "Current Affairs",
+  "categoryLife": "Life",
+  "categoryData": "Data",
+  "categoryProgramming": "Programming",
+  "homeAppSubtitle": "Knowledge · Science · Life · Ideas",
+  "weeklyTopicBadge": "WEEK {week}",
+  "@weeklyTopicBadge": {
+    "placeholders": {
+      "week": {
+        "type": "int"
+      }
+    }
+  },
+  "weeklyTopicTitle": "How AI Is Reshaping the Frontiers of Science",
+  "weeklyTopicSummary": "From protein folding to climate simulation, AI is driving paradigm shifts across every scientific field. Should we celebrate, or stay cautious?",
+  "articlesCountWithValue": "{count} articles",
+  "@articlesCountWithValue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "enterTopicAction": "Enter Topic",
   "searchTutorialsHint": "Search tutorials, authors...",
   "noTutorialsYet": "No tutorials yet",
   "loadFailedWithReason": "Failed to load: {reason}",
@@ -200,6 +226,10 @@
   "noNotebooksYet": "No notebooks yet",
   "bookmarksComingSoon": "Bookmarks coming soon",
   "likesListComingSoon": "Likes list coming soon",
+  "articlesCountLabel": "Articles",
+  "shareProfileAction": "Share Profile",
+  "tabBookmarksLabel": "Bookmarks",
+  "tabLikesLabel": "Likes",
   "uploadFailedRetry": "Upload failed, please try again",
   "noFollowersYet": "No followers yet",
   "noFollowingYet": "Not following anyone yet",

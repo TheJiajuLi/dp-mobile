@@ -20,9 +20,17 @@ import '../../auth/auth_service.dart';
 import '../../messages/models/conversation_model.dart';
 import '../../messages/providers/messages_provider.dart';
 import '../../notebook/services/notebook_service.dart';
+import '../../../shared/utils/topic_badge.dart';
 import '../models/user_profile_model.dart';
 
 const _primary = Color(0xFF6366F1);
+// 网易云风格视觉语言（2026-07-05 重设计）：米白底 + 近黑正文 + 紫蓝只做
+// 点缀，卡片用 0.5px 细线不用阴影。深色模式下这几个不跟着主题走的固定色
+// 只在浅色场景使用，深色场景仍然读 Theme.of(context) 已有的那一套
+const _ink = Color(0xFF1A1A1A);
+const _muted = Color(0xFF999999);
+const _hairline = Color(0xFFF0F0F0);
+const _heroBg = Color(0xFFFAFAF8);
 
 String _initial(String? name) {
   if (name == null || name.isEmpty) return '?';
@@ -36,6 +44,13 @@ const _coverPalette = [
   (bg: Color(0xFFFDF2F8), icon: Icons.code, fg: Color(0xFFDB2777)),
   (bg: Color(0xFFEFF6FF), icon: Icons.table_chart, fg: Color(0xFF2563EB)),
 ];
+
+// 兴趣领域 badge 配色规则，跟 CONTEXT.md 里的规则表一一对应（现在跟首页
+// Feed 卡片的话题角标共用同一份定义，见 shared/utils/topic_badge.dart，
+// 不再各自维护一份）。后端 User 目前没有专门的"兴趣领域"字段，这里从
+// 用户自己发布过的教程 tags 里统计出现频率最高的 3 个当作兴趣领域——
+// 是真实数据的再加工，不是编出来的
+(Color bg, Color fg) _badgeStyleFor(String tag) => topicBadgeStyleFor(tag);
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle
@@ -79,6 +94,38 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
   int get _totalViews => _tutorials.fold(0, (sum, t) => sum + t.views);
 
+  // 按出现频率取前 3 个 tag 当"兴趣领域"，同频的按 tag 本身排序，保证
+  // 结果稳定（不会因为 Map 遍历顺序不确定而每次刷新显示不同的 3 个）
+  List<String> _interestTags() {
+    final freq = <String, int>{};
+    for (final t in _tutorials) {
+      for (final tag in t.tags) {
+        freq[tag] = (freq[tag] ?? 0) + 1;
+      }
+    }
+    final sorted = freq.keys.toList()
+      ..sort((a, b) {
+        final byFreq = freq[b]!.compareTo(freq[a]!);
+        return byFreq != 0 ? byFreq : a.compareTo(b);
+      });
+    return sorted.take(3).toList();
+  }
+
+  // "个人链接"里凑一个 GitHub 入口——没有专门的 github 字段，从已经在用
+  // 的 _links/website 里找一条包含 github.com 的，找不到就退而求其次用
+  // 第一条链接；一条链接都没有时调用方负责不显示这个按钮
+  String? _githubOrFirstLink() {
+    final all = [
+      ..._links,
+      if (_profile?.website?.isNotEmpty == true) _profile!.website!,
+    ];
+    if (all.isEmpty) return null;
+    return all.firstWhere(
+      (l) => l.toLowerCase().contains('github.com'),
+      orElse: () => all.first,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -90,7 +137,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   Future<void> _loadProfile() async {
     final api = ref.read(apiClientProvider);
     final currentUser = ref.read(currentUserProvider);
-    final isOwnProfile = currentUser != null &&
+    final isOwnProfile =
+        currentUser != null &&
         (widget.identifier == currentUser.username ||
             widget.identifier == currentUser.handle ||
             widget.identifier == currentUser.id);
@@ -121,7 +169,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       );
       await _loadLocalPrefs(profile);
       if (!widget.showBackButton) {
-        ref.read(myFollowingCountProvider.notifier).state = profile.followingCount;
+        ref.read(myFollowingCountProvider.notifier).state =
+            profile.followingCount;
       }
       if (!mounted) return;
       setState(() {
@@ -146,12 +195,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       final basicRes = await api.get('/auth/users/${widget.identifier}');
       if (!mounted) return;
       if (basicRes.success && basicRes.data != null) {
-        final profile = UserProfile.fromJson(basicRes.data as Map<String, dynamic>);
+        final profile = UserProfile.fromJson(
+          basicRes.data as Map<String, dynamic>,
+        );
         // 关注状态接口不受隐私开关影响（实测私密资料照样 200），能拿就拿，
         // 让受限视图里的关注按钮显示真实状态
         final currentUserId = currentUser?.id;
         if (currentUserId != null && currentUserId != profile.id) {
-          final followRes = await api.get('/auth/users/${profile.id}/follow-status');
+          final followRes = await api.get(
+            '/auth/users/${profile.id}/follow-status',
+          );
           if (followRes.success && followRes.data != null) {
             profile.isFollowing = followRes.data['isFollowing'] == true;
           }
@@ -279,7 +332,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         // 会跟外层前缀重复。widget 已经卸载的话这个 Exception 反正不会被
         // 展示出来（catch 块自己也会先判 mounted），随便给个占位原因即可，
         // 不值得为了这一步再去访问已经不安全的 context
-        final reason = res.message ?? (mounted ? AppLocalizations.of(context)!.requestFailed : 'request failed');
+        final reason =
+            res.message ??
+            (mounted
+                ? AppLocalizations.of(context)!.requestFailed
+                : 'request failed');
         throw Exception(reason);
       }
 
@@ -299,9 +356,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.uploadFailedWithReason(
-            e.toString().replaceAll('Exception: ', ''),
-          ))),
+          SnackBar(
+            content: Text(
+              l10n.uploadFailedWithReason(
+                e.toString().replaceAll('Exception: ', ''),
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -325,9 +386,15 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
     if (!res.success) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-        AppLocalizations.of(context)!.actionFailedWithReason('${res.message}'),
-      )));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(
+              context,
+            )!.actionFailedWithReason('${res.message}'),
+          ),
+        ),
+      );
       return;
     }
     final willFollow = !_profile!.isFollowing;
@@ -364,12 +431,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final currentUserId = ref.read(currentUserProvider)?.id;
     if (currentUserId == null || _profile == null) return;
 
-    final res = await ref.read(apiClientProvider).get('/auth/users/$currentUserId/followers');
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/users/$currentUserId/followers');
     if (!mounted) return;
     final followers = (res.success && res.data != null)
         ? ((res.data['followers'] as List?) ?? [])
         : const [];
-    final theyFollowMe = followers.any((f) => f['id']?.toString() == _profile!.id);
+    final theyFollowMe = followers.any(
+      (f) => f['id']?.toString() == _profile!.id,
+    );
 
     if (theyFollowMe) {
       _showMutualFollowDialog();
@@ -380,7 +451,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             children: [
               const Icon(Icons.info_outline, color: Colors.white, size: 16),
               const SizedBox(width: 8),
-              Expanded(child: Text(l10n.followedWaitingForFollowBack(_profile!.username))),
+              Expanded(
+                child: Text(
+                  l10n.followedWaitingForFollowBack(_profile!.username),
+                ),
+              ),
             ],
           ),
           duration: const Duration(seconds: 3),
@@ -402,7 +477,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(color: Color(0xFFEEF0FF), shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEEF0FF),
+                shape: BoxShape.circle,
+              ),
               child: const Icon(Icons.favorite, color: _primary, size: 32),
             ),
             const SizedBox(height: 16),
@@ -414,7 +492,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             const SizedBox(height: 8),
             Text(
               l10n.mutualFollowBody,
-              style: const TextStyle(fontSize: 13, color: Colors.grey, height: 1.5),
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.grey,
+                height: 1.5,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -424,14 +506,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
             ),
             onPressed: () {
               Navigator.pop(ctx);
               _startChat();
             },
-            child: Text(l10n.sendMessageAction, style: const TextStyle(color: Colors.white)),
+            child: Text(
+              l10n.sendMessageAction,
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -496,9 +583,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       if (!msgRes.success || msgRes.data == null) {
         debugPrint('[Chat] /auth/messages 请求失败: ${msgRes.message}');
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-          l10n.sendFailedWithReason('${msgRes.message}'),
-        )));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.sendFailedWithReason('${msgRes.message}')),
+          ),
+        );
         return;
       }
       if (!mounted) return;
@@ -605,9 +694,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.uploadFailedWithReason(
-            e.toString().replaceAll('Exception: ', ''),
-          ))),
+          SnackBar(
+            content: Text(
+              l10n.uploadFailedWithReason(
+                e.toString().replaceAll('Exception: ', ''),
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -668,11 +761,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx, false),
-            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
+            child: Text(
+              l10n.cancel,
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx, true),
-            child: Text(l10n.exit, style: const TextStyle(color: Color(0xFFDC2626))),
+            child: Text(
+              l10n.exit,
+              style: const TextStyle(color: Color(0xFFDC2626)),
+            ),
           ),
         ],
       ),
@@ -782,7 +881,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   ),
                 ),
                 child: Text(
-                  _profile!.isFollowing ? l10n.followingAction : l10n.followAction,
+                  _profile!.isFollowing
+                      ? l10n.followingAction
+                      : l10n.followAction,
                 ),
               ),
             ],
@@ -794,7 +895,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.lock_outline, size: 40, color: Colors.grey.shade400),
+                  Icon(
+                    Icons.lock_outline,
+                    size: 40,
+                    color: Colors.grey.shade400,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     l10n.profileIsPrivate,
@@ -883,12 +988,21 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final displayUsername = isSelfView
         ? (currentUser?.username ?? _profile?.username ?? '')
         : (_profile?.username ?? '');
-    final displayBio = isSelfView ? (currentUser?.bio ?? _profile?.bio) : _profile?.bio;
-    final displayGender = isSelfView ? (currentUser?.gender ?? _profile?.gender) : _profile?.gender;
-    final displayLocation = isSelfView ? (currentUser?.location ?? _profile?.location) : _profile?.location;
-    final displayIpLocation =
-        isSelfView ? (currentUser?.ipLocation ?? _profile?.ipLocation) : _profile?.ipLocation;
-    final displayZodiacName = isSelfView ? (currentUser?.zodiac ?? _zodiac) : _zodiac;
+    final displayBio = isSelfView
+        ? (currentUser?.bio ?? _profile?.bio)
+        : _profile?.bio;
+    final displayGender = isSelfView
+        ? (currentUser?.gender ?? _profile?.gender)
+        : _profile?.gender;
+    final displayLocation = isSelfView
+        ? (currentUser?.location ?? _profile?.location)
+        : _profile?.location;
+    final displayIpLocation = isSelfView
+        ? (currentUser?.ipLocation ?? _profile?.ipLocation)
+        : _profile?.ipLocation;
+    final displayZodiacName = isSelfView
+        ? (currentUser?.zodiac ?? _zodiac)
+        : _zodiac;
     ZodiacSign? displayZodiacSign;
     if (displayZodiacName != null) {
       for (final sign in ZodiacSign.values) {
@@ -902,9 +1016,29 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     // Positioned(top: 8) 再包 SafeArea 会把状态栏高度加两遍，导致按钮比预期
     // 靠下很多，紫色背景在右上角看起来像是"没盖满"
     final topPad = MediaQuery.paddingOf(context).top;
+    final interestTags = _interestTags();
+    // 重设计规范给的是明确的米白 #FAFAF8，不是全局主题那个 #F7F7FB——
+    // 只在浅色模式按规范覆盖，深色模式继续用主题自己的背景色，不强行套
+    // 一套没设计过深色版本的固定色值
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    // 简介区（bio/性别所在地/IP属地）挪出头图后是直接坐在 Scaffold 背景
+    // 上的——深色模式下那块背景是深色，规范给的 #555/#999 这类深色文字
+    // 会读不清，这几个只在深色模式回退到主题原有的自适应配色，浅色模式
+    // 仍然按规范用固定色值
+    final bioTextColor = isDarkMode
+        ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
+        : const Color(0xFF555555);
+    final metaTextColor = isDarkMode
+        ? (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)
+        : _muted;
+    final ipLocationTextColor = isDarkMode
+        ? bioTextColor.withValues(alpha: 0.5)
+        : _ink.withValues(alpha: 0.35);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDarkMode
+          ? Theme.of(context).scaffoldBackgroundColor
+          : _heroBg,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _profile == null
@@ -916,473 +1050,601 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      // 封面+头像
+                      // 头图区——封面/头像/用户名/badge/简介/统计卡全部糊在
+                      // 同一块背景上（网易云"内容嵌合进背景图"那种效果）。
+                      // 背景层用 Positioned.fill 铺满，真正的高度交给前景
+                      // 这个 Column 自然撑开，不用猜一个固定像素值。只有
+                      // 再往下的纯白统计卡会跳出来，跟背景形成对比
+                      // 只让"头图"这一小块（返回/汉堡 + 头像/用户名/星座 +
+                      // 兴趣领域 badge）真正糊在背景图/渐变上——badge 本身
+                      // 自带纯色底所以不怕撞色，但简介/性别所在地/IP属地/
+                      // 个人链接这些纯文字内容，第一版直接铺在整张用户自传
+                      // 的背景照片上时，真机验证发现照片颜色/亮度完全不可控
+                      // （实测传一张鲜艳的花丛照片，深色正文文字大段区域
+                      // 直接读不清），所以简介往下都挪回下面纯色米白底
+                      // 上，只有这一小块头图区享受"嵌合进背景"的效果
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          GestureDetector(
-                            onTap: isSelfView && !_uploadingCover
-                                ? _pickAndUploadCover
-                                : null,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                _coverImageUrl != null
-                                    ? CachedNetworkImage(
-                                        imageUrl: _coverImageUrl!,
-                                        width: double.infinity,
-                                        height: 160,
-                                        fit: BoxFit.cover,
-                                        errorWidget: (context, url, error) =>
-                                            const _CoverGradient(),
-                                      )
-                                    : const _CoverGradient(),
-                                if (_uploadingCover)
-                                  Container(
-                                    width: double.infinity,
-                                    height: 160,
-                                    color: Colors.black45,
-                                    child: const CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          if (widget.showBackButton)
-                            Positioned(
-                              top: topPad + 8,
-                              left: 8,
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.arrow_back_ios,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () => context.pop(),
-                              ),
-                            ),
-                          // 左上角汉堡菜单——点开一个从左侧滑入的抽屉，
-                          // 网易云"我的"页那套，不是铺在主页面里的常驻列表
-                          if (isSelfView)
-                            Positioned(
-                              top: topPad + 12,
-                              left: 12,
-                              child: GestureDetector(
-                                onTap: () => _openProfileDrawer(l10n),
-                                child: Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.3),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.menu,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          Positioned(
-                            top: 120,
-                            left: 16,
-                            child: Stack(
-                              // 默认 Clip.hardEdge 会把下面相机角标特意放大的
-                              // 那圈"看不见但能点"的判定区域按 Stack 自身
-                              // （头像本身的）边界裁掉——角标视觉上没变小，
-                              // 但真实可点范围被砍回了跟视觉一样大的 24x24，
-                              // 边缘几像素点不中，感觉像"点了没反应"
-                              clipBehavior: Clip.none,
-                              alignment: Alignment.center,
-                              children: [
-                                Container(
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.fromBorderSide(
-                                      BorderSide(color: Colors.white, width: 3),
-                                    ),
-                                  ),
-                                  child: _buildAvatar(radius: 40),
-                                ),
-                                if (_uploadingAvatar)
-                                  const CircleAvatar(
-                                    radius: 40,
-                                    backgroundColor: Colors.black45,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                if (isSelfView)
-                                  Positioned(
-                                    // 视觉上的圆角标还是 24x24，但可点区域
-                                    // 放大到 40x40（居中对齐同一个圆心），
-                                    // 更接近 iOS/Material 建议的最小 44pt
-                                    // 触控热区，角标又正好在头像跟顶部封面
-                                    // 图两块可点区域的交界处，热区太小很容易
-                                    // 点偏到旁边的封面图上，表现就是"点这个
-                                    // 没有用"
-                                    right: -8,
-                                    bottom: -8,
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: _showAvatarOptions,
-                                      child: Container(
-                                        width: 40,
-                                        height: 40,
-                                        alignment: Alignment.center,
-                                        child: Container(
-                                          width: 24,
-                                          height: 24,
+                          Positioned.fill(
+                            child: GestureDetector(
+                              onTap: isSelfView && !_uploadingCover
+                                  ? _pickAndUploadCover
+                                  : null,
+                              child: _coverImageUrl != null
+                                  ? Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        CachedNetworkImage(
+                                          imageUrl: _coverImageUrl!,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (context, url, error) =>
+                                              const _CoverGradient(),
+                                        ),
+                                        // 用户自传的照片明暗不可控，铺一层半透明
+                                        // 白色让上面深色文字/头像描边始终有
+                                        // 足够对比度，再往页面米白底做一层
+                                        // 渐隐，让图片跟下面纯色区衔接得更
+                                        // 自然，而不是硬切一条线
+                                        const DecoratedBox(
                                           decoration: BoxDecoration(
-                                            color: _primary,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.camera_alt,
-                                            color: Colors.white,
-                                            size: 12,
+                                            color: Color(0x8CFFFFFF),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                                        const DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Colors.transparent,
+                                                _heroBg,
+                                              ],
+                                              stops: [0.6, 1.0],
+                                            ),
+                                          ),
+                                        ),
+                                        if (_uploadingCover)
+                                          Container(
+                                            color: Colors.black38,
+                                            child: const Center(
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    )
+                                  : const _CoverGradient(),
                             ),
                           ),
-                          // 用户名紧跟在头像右侧，卡在头像露出白底那一半的
-                          // 高度上——不要再让它单独飘在下面一段
-                          Positioned(
-                            top: 168,
-                            left: 112,
-                            right: 16,
-                            child: Text(
-                              displayUsername,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(height: topPad + 8),
+                              // 返回/汉堡——白底半透明圆形按钮，不再假定
+                              // 背景一定够深，无论封面是浅色渐变占位还是
+                              // 用户自己传的任意亮度的照片，图标都能看清
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    if (widget.showBackButton)
+                                      _heroIconButton(
+                                        Icons.arrow_back_ios_new,
+                                        () => context.pop(),
+                                      )
+                                    else if (isSelfView)
+                                      _heroIconButton(
+                                        Icons.menu,
+                                        () => _openProfileDrawer(l10n),
+                                      ),
+                                  ],
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 14),
+                              // 头像 + 用户名/handle/星座
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Stack(
+                                      clipBehavior: Clip.none,
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Container(
+                                          decoration: const BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.fromBorderSide(
+                                              BorderSide(
+                                                color: Colors.white,
+                                                width: 3,
+                                              ),
+                                            ),
+                                          ),
+                                          child: _buildAvatar(radius: 32),
+                                        ),
+                                        if (_uploadingAvatar)
+                                          const CircleAvatar(
+                                            radius: 32,
+                                            backgroundColor: Colors.black45,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        if (isSelfView)
+                                          Positioned(
+                                            // 视觉上的圆角标是 22x22，可点
+                                            // 区域放大到 36x36（居中对齐同一
+                                            // 个圆心），头像变小之后更要注意
+                                            // 别让触控热区跟着一起缩水
+                                            right: -6,
+                                            bottom: -6,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: _showAvatarOptions,
+                                              child: Container(
+                                                width: 36,
+                                                height: 36,
+                                                alignment: Alignment.center,
+                                                child: Container(
+                                                  width: 22,
+                                                  height: 22,
+                                                  decoration: BoxDecoration(
+                                                    color: _primary,
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: Colors.white,
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.camera_alt,
+                                                    color: Colors.white,
+                                                    size: 11,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            displayUsername,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w800,
+                                              color: _ink,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              if (_profile!.handle != null)
+                                                Flexible(
+                                                  child: Text(
+                                                    '@${_profile!.handle}',
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: _muted,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (displayZodiacSign !=
+                                                  null) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(
+                                                      0xFFEEF0FF,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          99,
+                                                        ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      ZodiacIcon(
+                                                        sign: displayZodiacSign,
+                                                        size: 12,
+                                                      ),
+                                                      const SizedBox(width: 3),
+                                                      Text(
+                                                        zodiacDisplayName(
+                                                          l10n,
+                                                          displayZodiacSign,
+                                                        ),
+                                                        style: const TextStyle(
+                                                          fontSize: 10,
+                                                          color: Color(
+                                                            0xFF4F46E5,
+                                                          ),
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // 兴趣领域 badge——从自己发布过的教程 tags 里
+                              // 统计出现频率最高的 3 个，不是编出来的字段
+                              if (interestTags.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    10,
+                                    16,
+                                    0,
+                                  ),
+                                  child: Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: interestTags.map((tag) {
+                                      final style = _badgeStyleFor(tag);
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: style.$1,
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          tag,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: style.$2,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              const SizedBox(height: 16),
+                            ],
                           ),
                         ],
                       ),
-                      // 头像/用户名已经在上面 Stack 里用 Positioned 精确摆好了，
-                      // 这里只需要留够"操作按钮行"的高度别压到头像下沿就行——
-                      // 按钮行本身是靠右对齐（Spacer 顶开），左边是空的，不会
-                      // 跟左侧的头像/用户名打架，不需要留一大截空白
-                      const SizedBox(height: 8),
-
-                      // 操作按钮行
+                      const SizedBox(height: 14),
+                      // 简介区：bio + 性别/所在地 + IP属地 + 个人链接，挪回
+                      // 纯色米白底上（不再叠在头图背景上），保留原有全部
+                      // 字段，只换了字号/颜色
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            const Spacer(),
-                            if (!isMe) ...[
-                              OutlinedButton.icon(
-                                onPressed: _startingChat ? null : _startChat,
-                                icon: _startingChat
-                                    ? const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: _primary,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.message_outlined,
-                                        size: 16,
-                                      ),
-                                label: Text(l10n.sendMessageAction),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _primary,
-                                  side: const BorderSide(color: _primary),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 6,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton(
-                                onPressed: _toggleFollow,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _profile!.isFollowing
-                                      ? Theme.of(context).cardColor
-                                      : _primary,
-                                  foregroundColor: _profile!.isFollowing
-                                      ? Theme.of(context).textTheme.bodyLarge?.color
-                                      : Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 6,
-                                  ),
-                                ),
-                                child: Text(
-                                  _profile!.isFollowing ? l10n.followingAction : l10n.followAction,
-                                ),
-                              ),
-                            ] else
-                              OutlinedButton.icon(
-                                onPressed: () async {
-                                  await context.push('/edit-profile');
-                                  if (mounted) _loadProfile();
-                                },
-                                icon: const Icon(Icons.edit, size: 16),
-                                label: Text(l10n.editProfile),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-                                  side: BorderSide(color: Colors.grey.shade300),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // 用户信息（用户名已经显示在头像右侧了，这里只放
-                      // handle/星座/简介/链接）
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                if (_profile!.handle != null)
-                                  Text(
-                                    '@${_profile!.handle}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                if (displayZodiacSign != null) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEEF0FF),
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ZodiacIcon(sign: displayZodiacSign, size: 14),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          zodiacDisplayName(l10n, displayZodiacSign),
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xFF4F46E5),
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            if (displayBio?.isNotEmpty == true) ...[
-                              const SizedBox(height: 4),
+                            if (displayBio?.isNotEmpty == true)
                               Text(
                                 displayBio!,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  height: 1.3,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: bioTextColor,
+                                  height: 1.6,
                                 ),
                               ),
-                            ],
                             if ((displayGender?.isNotEmpty ?? false) ||
-                                (displayLocation?.isNotEmpty ?? false)) ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  if (displayGender?.isNotEmpty ?? false) ...[
-                                    Icon(
-                                      displayGender == '男'
-                                          ? Icons.male
-                                          : displayGender == '女'
-                                          ? Icons.female
-                                          : Icons.person_outline,
-                                      size: 14,
-                                      color: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall?.color,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      genderDisplayLabel(l10n, displayGender!),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.color,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                  ],
-                                  if (displayLocation?.isNotEmpty ??
-                                      false) ...[
-                                    Icon(
-                                      Icons.location_on_outlined,
-                                      size: 14,
-                                      color: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall?.color,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      displayLocation!,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.color,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                            // 小红书风格"IP属地"——系统判定、不可编辑，跟
-                            // 上面用户自己填的"所在地"是两码事，所以样式
-                            // 特意做得更淡、更不起眼，不跟自报的信息抢视觉
-                            if (displayIpLocation != null && displayIpLocation.isNotEmpty)
+                                (displayLocation?.isNotEmpty ?? false))
                               Padding(
-                                padding: const EdgeInsets.only(top: 4, bottom: 2),
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    if (displayGender?.isNotEmpty ?? false) ...[
+                                      Icon(
+                                        displayGender == '男'
+                                            ? Icons.male
+                                            : displayGender == '女'
+                                            ? Icons.female
+                                            : Icons.person_outline,
+                                        size: 14,
+                                        color: metaTextColor,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        genderDisplayLabel(
+                                          l10n,
+                                          displayGender!,
+                                        ),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: metaTextColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                    ],
+                                    if (displayLocation?.isNotEmpty ??
+                                        false) ...[
+                                      Icon(
+                                        Icons.location_on_outlined,
+                                        size: 14,
+                                        color: metaTextColor,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        displayLocation!,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: metaTextColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            // 小红书风格"IP属地"——系统判定、不可编辑，
+                            // 跟上面用户自己填的"所在地"是两码事，样式
+                            // 特意做得更淡，不跟自报的信息抢视觉
+                            if (displayIpLocation != null &&
+                                displayIpLocation.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 4,
+                                  bottom: 2,
+                                ),
                                 child: Row(
                                   children: [
                                     Icon(
                                       Icons.location_on_outlined,
                                       size: 12,
-                                      color: (Theme.of(context).textTheme.bodySmall?.color ??
-                                              Colors.grey)
-                                          .withValues(alpha: 0.5),
+                                      color: metaTextColor.withValues(
+                                        alpha: 0.6,
+                                      ),
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
                                       l10n.ipLocationLabel(displayIpLocation),
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: (Theme.of(context).textTheme.bodyLarge?.color ??
-                                                Colors.black)
-                                            .withValues(alpha: 0.35),
+                                        color: ipLocationTextColor,
                                         letterSpacing: 0.3,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            if (_links.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              ..._links.map(
-                                (link) => Padding(
-                                  padding: const EdgeInsets.only(top: 1),
-                                  child: _linkRow(link, link),
+                            if (_links.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: _links
+                                      .map(
+                                        (link) => Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 1,
+                                          ),
+                                          child: _linkRow(link, link),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              )
+                            else if (_profile!.website?.isNotEmpty == true)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: _linkRow(
+                                  _profile!.website!
+                                      .replaceAll('https://', '')
+                                      .replaceAll('http://', ''),
+                                  _profile!.website!,
                                 ),
                               ),
-                            ] else if (_profile!.website?.isNotEmpty ==
-                                true) ...[
-                              const SizedBox(height: 4),
-                              _linkRow(
-                                _profile!.website!
-                                    .replaceAll('https://', '')
-                                    .replaceAll('http://', ''),
-                                _profile!.website!,
-                              ),
-                            ],
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-
-                      // 统计数据
-                      Container(
-                        color: Theme.of(context).cardColor,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          children: [
-                            _statItem('${_profile!.tutorialCount}', l10n.tutorial),
-                            _divider(),
-                            _statItem(_formatCount(_totalLikes), l10n.likesCountLabel),
-                            _divider(),
-                            _statItem(
-                              _formatCount(_profile!.followerCount),
-                              l10n.followersCountLabel,
-                              onTap: () => context.push(
-                                '/users/${_profile!.id}/followers',
+                      const SizedBox(height: 14),
+                      // 统计数据——白色圆角卡片，细描边，跟上面糊在
+                      // 背景里的其它内容形成对比，是这块头图区里
+                      // 唯一"跳出来"的元素
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: _hairline, width: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Row(
+                            children: [
+                              _statItem(
+                                '${_profile!.tutorialCount}',
+                                l10n.articlesCountLabel,
                               ),
-                            ),
-                            _divider(),
-                            _statItem(
-                              _formatCount(
-                                isSelfView
-                                    ? (sharedFollowingCount ??
-                                        _profile!.followingCount)
-                                    : _profile!.followingCount,
+                              _divider(),
+                              _statItem(
+                                _formatCount(_totalLikes),
+                                l10n.likesCountLabel,
                               ),
-                              l10n.followingCountLabel,
-                              onTap: () => context.push(
-                                '/users/${_profile!.id}/following',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Tabs
-                      // Material 的 TabBar 就算只放 icon 不放文字，也会按
-                      // 默认单行高度（46）留白，图标只占 20，上下各空出一大截，
-                      // 紧接着下面的九宫格就显得中间空了一条——用固定高度的
-                      // SizedBox 把它按下去
-                      Container(
-                        color: Theme.of(context).cardColor,
-                        child: SizedBox(
-                          height: 32,
-                          child: TabBar(
-                            controller: _tabCtrl,
-                            labelColor: _primary,
-                            unselectedLabelColor: Colors.grey,
-                            indicatorColor: _primary,
-                            indicatorWeight: 2,
-                            labelPadding: EdgeInsets.zero,
-                            tabs: [
-                              const Tab(icon: Icon(Icons.grid_view, size: 20)),
-                              if (_showNotebookTab)
-                                const Tab(
-                                  icon: Icon(Icons.menu_book_outlined, size: 20),
+                              _divider(),
+                              _statItem(
+                                _formatCount(_profile!.followerCount),
+                                l10n.followersCountLabel,
+                                onTap: () => context.push(
+                                  '/users/${_profile!.id}/followers',
                                 ),
-                              const Tab(
-                                icon: Icon(Icons.bookmark_outline, size: 20),
                               ),
-                              const Tab(
-                                icon: Icon(Icons.favorite_outline, size: 20),
+                              _divider(),
+                              _statItem(
+                                _formatCount(
+                                  isSelfView
+                                      ? (sharedFollowingCount ??
+                                            _profile!.followingCount)
+                                      : _profile!.followingCount,
+                                ),
+                                l10n.followingCountLabel,
+                                onTap: () => context.push(
+                                  '/users/${_profile!.id}/following',
+                                ),
                               ),
                             ],
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 14),
+                      // 操作按钮行——自己主页：编辑资料(黑底白字) +
+                      // 分享主页(白底黑字细边框) + GitHub 方形图标
+                      // 按钮；别人主页：私信 + 关注，保留原有交互
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: isMe
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: _blackButton(
+                                      l10n.editProfile,
+                                      onTap: () async {
+                                        await context.push('/edit-profile');
+                                        if (mounted) _loadProfile();
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _outlineButton(
+                                      l10n.shareProfileAction,
+                                      onTap: () =>
+                                          _todo(l10n.comingSoonStayTuned),
+                                    ),
+                                  ),
+                                  if (_githubOrFirstLink() != null) ...[
+                                    const SizedBox(width: 8),
+                                    _squareIconButton(
+                                      Icons.code,
+                                      onTap: () =>
+                                          _openLink(_githubOrFirstLink()!),
+                                    ),
+                                  ],
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  const Spacer(),
+                                  OutlinedButton.icon(
+                                    onPressed: _startingChat
+                                        ? null
+                                        : _startChat,
+                                    icon: _startingChat
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: _primary,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.message_outlined,
+                                            size: 16,
+                                          ),
+                                    label: Text(l10n.sendMessageAction),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: _primary,
+                                      side: const BorderSide(color: _primary),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 6,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton(
+                                    onPressed: _toggleFollow,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _profile!.isFollowing
+                                          ? Colors.white
+                                          : _primary,
+                                      foregroundColor: _profile!.isFollowing
+                                          ? _ink
+                                          : Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 6,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      _profile!.isFollowing
+                                          ? l10n.followingAction
+                                          : l10n.followAction,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Tabs——文字标签，不再是纯图标；选中态用下划线+加粗，
+                      // 未选中用浅灰，跟上面的头图区分明确用一条 0.5px 细线
+                      TabBar(
+                        controller: _tabCtrl,
+                        labelColor: bioTextColor,
+                        unselectedLabelColor: isDarkMode
+                            ? const Color(0xFF666666)
+                            : const Color(0xFFBBBBBB),
+                        labelStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        indicatorColor: bioTextColor,
+                        indicatorSize: TabBarIndicatorSize.label,
+                        indicatorWeight: 2.4,
+                        dividerColor: isDarkMode
+                            ? Theme.of(context).dividerColor
+                            : _hairline,
+                        tabs: [
+                          Tab(text: l10n.articlesCountLabel),
+                          if (_showNotebookTab) const Tab(text: 'Notebook'),
+                          Tab(text: l10n.tabBookmarksLabel),
+                          Tab(text: l10n.tabLikesLabel),
+                        ],
                       ),
                     ],
                   ),
@@ -1406,7 +1668,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   // 跟这次的空白无关，但仍然值得保留）
                   _tutorials.isEmpty
                       ? Center(
-                          key: const PageStorageKey('profile-tab-tutorials-empty'),
+                          key: const PageStorageKey(
+                            'profile-tab-tutorials-empty',
+                          ),
                           child: Text(
                             l10n.noTutorialsPublished,
                             style: const TextStyle(color: Colors.grey),
@@ -1434,26 +1698,25 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   if (_showNotebookTab)
                     _notebooks.isEmpty
                         ? Center(
-                            key: const PageStorageKey('profile-tab-notebooks-empty'),
+                            key: const PageStorageKey(
+                              'profile-tab-notebooks-empty',
+                            ),
                             child: Text(
                               l10n.noNotebooksYet,
                               style: const TextStyle(color: Colors.grey),
                             ),
                           )
-                        : GridView.builder(
+                        // Notebook 这个 tab 按规范是列表式（文件名+语言badge+
+                        // cells数量+时间），不是跟文章/收藏/点赞一样的九宫格
+                        : ListView.separated(
                             key: const PageStorageKey('profile-tab-notebooks'),
                             padding: EdgeInsets.zero,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 2,
-                                  mainAxisSpacing: 2,
-                                  childAspectRatio: 1.0,
-                                ),
                             itemCount: _notebooks.length,
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1, color: _hairline),
                             itemBuilder: (ctx, i) {
                               final nb = _notebooks[i];
-                              return _NotebookGridItem(
+                              return _NotebookListItem(
                                 notebook: nb,
                                 onTap: () =>
                                     context.push('/notebook/${nb['id']}'),
@@ -1490,12 +1753,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           children: [
             Text(
               value,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: _ink,
+              ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Text(
               label,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: 10, color: Color(0xFFAAAAAA)),
             ),
           ],
         ),
@@ -1503,8 +1770,78 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  Widget _divider() =>
-      Container(width: 0.5, height: 32, color: Colors.grey.shade200);
+  Widget _divider() => Container(width: 0.5, height: 28, color: _hairline);
+
+  // 头图区里叠在背景上的圆形按钮（返回/汉堡）——半透明白底保证无论背景
+  // 是浅色渐变占位还是用户传的任意亮度照片，深色图标都能看清
+  Widget _heroIconButton(IconData icon, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.85),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: _ink, size: 16),
+    ),
+  );
+
+  Widget _blackButton(String label, {required VoidCallback onTap}) => SizedBox(
+    height: 36,
+    child: ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _ink,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+    ),
+  );
+
+  Widget _outlineButton(String label, {required VoidCallback onTap}) =>
+      SizedBox(
+        height: 36,
+        child: OutlinedButton(
+          onPressed: onTap,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: _ink,
+            side: const BorderSide(color: Color(0xFFE0E0E0)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      );
+
+  Widget _squareIconButton(IconData icon, {required VoidCallback onTap}) =>
+      SizedBox(
+        width: 38,
+        height: 36,
+        child: OutlinedButton(
+          onPressed: onTap,
+          style: OutlinedButton.styleFrom(
+            padding: EdgeInsets.zero,
+            backgroundColor: Colors.white,
+            foregroundColor: _ink,
+            side: const BorderSide(color: Color(0xFFE0E0E0)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Icon(icon, size: 18),
+        ),
+      );
 
   // 网易云音乐"我的"页那套——从左侧滑入的抽屉，不是铺在主页面里的常驻
   // 列表。头部复用主页面已经算好的这几个数字，不在这里重新读一遍 provider
@@ -1530,9 +1867,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         ),
       ),
       transitionBuilder: (ctx, animation, _, child) => SlideTransition(
-        position: Tween<Offset>(begin: const Offset(-1, 0), end: Offset.zero).animate(
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-        ),
+        position: Tween<Offset>(begin: const Offset(-1, 0), end: Offset.zero)
+            .animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            ),
         child: child,
       ),
     );
@@ -1581,7 +1919,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       ),
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
                 ],
               ),
             ),
@@ -1611,7 +1953,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       color: const Color(0xFFD97706),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.workspace_premium, color: Colors.white, size: 18),
+                    child: const Icon(
+                      Icons.workspace_premium,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1625,7 +1971,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFD97706),
                       borderRadius: BorderRadius.circular(99),
@@ -1678,13 +2027,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 _profileMenuItem(
                   icon: Icons.menu_book_outlined,
                   label: l10n.myNotebookMenuLabel,
-                  trailingText: _notebooks.isNotEmpty ? '${_notebooks.length}' : null,
+                  trailingText: _notebooks.isNotEmpty
+                      ? '${_notebooks.length}'
+                      : null,
                   onTap: () {
                     Navigator.pop(ctx);
                     context.push('/notebook');
                   },
                 ),
-                Divider(height: 1, thickness: 1, indent: 52, color: Theme.of(ctx).dividerColor),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: 52,
+                  color: Theme.of(ctx).dividerColor,
+                ),
                 _profileMenuItem(
                   icon: Icons.article_outlined,
                   label: l10n.creatorCenter,
@@ -1704,7 +2060,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                     _todo(l10n.comingSoonStayTuned);
                   },
                 ),
-                Divider(height: 1, thickness: 1, indent: 52, color: Theme.of(ctx).dividerColor),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: 52,
+                  color: Theme.of(ctx).dividerColor,
+                ),
                 _profileMenuItem(
                   icon: Icons.dark_mode_outlined,
                   label: l10n.darkModeMenuLabel,
@@ -1765,32 +2126,53 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: Theme.of(context).textTheme.bodySmall?.color),
+            Icon(
+              icon,
+              size: 20,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyLarge?.color),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
             ),
             if (badgeCount > 0)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(99)),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(99),
+                ),
                 child: Text(
                   badgeCount > 99 ? '99+' : '$badgeCount',
-                  style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               )
             else if (trailingText != null) ...[
               Text(
                 trailingText,
-                style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodySmall?.color),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
               ),
               const SizedBox(width: 4),
             ],
             const SizedBox(width: 2),
-            Icon(Icons.chevron_right, size: 18, color: Theme.of(context).textTheme.bodySmall?.color),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
           ],
         ),
       ),
@@ -1809,11 +2191,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: color ?? Theme.of(context).textTheme.bodySmall?.color),
+            Icon(
+              icon,
+              size: 20,
+              color: color ?? Theme.of(context).textTheme.bodySmall?.color,
+            ),
             const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(fontSize: 12, color: color ?? Theme.of(context).textTheme.bodySmall?.color),
+              style: TextStyle(
+                fontSize: 12,
+                color: color ?? Theme.of(context).textTheme.bodySmall?.color,
+              ),
             ),
           ],
         ),
@@ -1821,11 +2210,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  String _themeLabel(AppLocalizations l10n, ThemePreference pref) => switch (pref) {
-    ThemePreference.system => l10n.themeSystem,
-    ThemePreference.light => l10n.themeLight,
-    ThemePreference.dark => l10n.themeDark,
-  };
+  String _themeLabel(AppLocalizations l10n, ThemePreference pref) =>
+      switch (pref) {
+        ThemePreference.system => l10n.themeSystem,
+        ThemePreference.light => l10n.themeLight,
+        ThemePreference.dark => l10n.themeDark,
+      };
 
   // 深色模式直接在侧栏里选——不再跳全部设置那边（那边的"主题"入口已经
   // 拿掉了）。ctx 是抽屉那个 showGeneralDialog 路由自己的 context，这里
@@ -1902,20 +2292,23 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   }
 }
 
-// 没设置背景图时的默认渐变，也是加载失败时的兜底
+// 没设置背景图时的默认渐变，也是加载失败时的兜底——特意选了跟页面米白底
+// 很接近的浅紫色，让头图"嵌合"进背景里，而不是像旧版那样一块很跳的深紫
+// 色块。不写死高度：这层背景铺在 Stack 里的 Positioned.fill 下面，会跟着
+// 前景内容（头像/用户名/简介/统计卡）自然撑开的高度一起拉伸
 class _CoverGradient extends StatelessWidget {
   const _CoverGradient();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 160,
       width: double.infinity,
+      height: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+          colors: [Color(0xFFE8E0FF), Color(0xFFD4D8FF)],
         ),
       ),
     );
@@ -2025,12 +2418,12 @@ class _TutorialGridItem extends StatelessWidget {
   }
 }
 
-// Notebook 九宫格 item
-class _NotebookGridItem extends StatelessWidget {
+// Notebook tab 列表项：文件名 + 语言 badge + cells 数量 + 时间
+class _NotebookListItem extends StatelessWidget {
   final Map<String, dynamic> notebook;
   final VoidCallback onTap;
 
-  const _NotebookGridItem({required this.notebook, required this.onTap});
+  const _NotebookListItem({required this.notebook, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -2046,54 +2439,32 @@ class _NotebookGridItem extends StatelessWidget {
         _primary;
     final name = notebook['name'] as String? ?? '';
     final cellCount = notebook['cellCount'] as int? ?? 0;
+    final updatedAt = (notebook['updatedAt'] as num?)?.toInt() ?? 0;
+    final dt = DateTime.fromMillisecondsSinceEpoch(updatedAt * 1000);
+    final dateStr =
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 
     return GestureDetector(
       onTap: onTap,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            color: Colors.grey[100],
-            child: const Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: badgeColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Icon(
                 Icons.description_outlined,
-                size: 32,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          Positioned(
-            top: 6,
-            left: 6,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
+                size: 18,
                 color: badgeColor,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                badgeLabel,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Colors.black54, Colors.transparent],
-                ),
-              ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2102,20 +2473,50 @@ class _NotebookGridItem extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _ink,
                     ),
                   ),
-                  Text(
-                    '$cellCount cells',
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: badgeColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          badgeLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$cellCount cells',
+                        style: const TextStyle(fontSize: 12, color: _muted),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        dateStr,
+                        style: const TextStyle(fontSize: 12, color: _muted),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            const Icon(Icons.chevron_right, size: 18, color: _muted),
+          ],
+        ),
       ),
     );
   }

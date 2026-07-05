@@ -62,7 +62,7 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
       // 主动重新拉一次私信/通知（不用等 30 秒轮询），然后 go('/home')
       // 弹回首页 tab——这只是在已经存活的 shell 内部切 branch，不会碰
       // shell 自己的 Navigator，没有 GlobalKey 冲突的风险。首页的
-      // recentTutorialsProvider 本来就 watch 了 currentUserProvider，
+      // homeFeedProvider 本来就 watch 了 currentUserProvider，
       // 会自动用新账号重新拉；"我的" tab 有专门的保险（build() 里发现
       // currentUserProvider 跟已加载的资料对不上号就自动重新加载）
       ref.read(myFollowingCountProvider.notifier).state = null;

@@ -177,6 +177,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tagMathModeling => '数学建模';
 
   @override
+  String get categoryScience => '科学';
+
+  @override
+  String get categoryEconomy => '经济';
+
+  @override
+  String get categoryCurrentAffairs => '时事';
+
+  @override
+  String get categoryLife => '生活';
+
+  @override
+  String get categoryData => '数据';
+
+  @override
+  String get categoryProgramming => '编程';
+
+  @override
+  String get homeAppSubtitle => '知识 · 科学 · 生活 · 思想';
+
+  @override
+  String weeklyTopicBadge(int week) {
+    return 'WEEK $week';
+  }
+
+  @override
+  String get weeklyTopicTitle => 'AI 如何重塑科学研究的边界';
+
+  @override
+  String get weeklyTopicSummary => '从蛋白质折叠到气候模拟，人工智能正在每个科学领域引发范式转变。我们该欢呼，还是警惕？';
+
+  @override
+  String articlesCountWithValue(int count) {
+    return '$count 篇文章';
+  }
+
+  @override
+  String get enterTopicAction => '进入专题';
+
+  @override
   String get searchTutorialsHint => '搜索教程、作者...';
 
   @override
@@ -436,6 +476,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get likesListComingSoon => '点赞列表即将上线';
+
+  @override
+  String get articlesCountLabel => '文章';
+
+  @override
+  String get shareProfileAction => '分享主页';
+
+  @override
+  String get tabBookmarksLabel => '收藏';
+
+  @override
+  String get tabLikesLabel => '点赞';
 
   @override
   String get uploadFailedRetry => '上传失败，请重试';

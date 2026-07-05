@@ -434,6 +434,78 @@ abstract class AppLocalizations {
   /// **'Math Modeling'**
   String get tagMathModeling;
 
+  /// No description provided for @categoryScience.
+  ///
+  /// In en, this message translates to:
+  /// **'Science'**
+  String get categoryScience;
+
+  /// No description provided for @categoryEconomy.
+  ///
+  /// In en, this message translates to:
+  /// **'Economy'**
+  String get categoryEconomy;
+
+  /// No description provided for @categoryCurrentAffairs.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Affairs'**
+  String get categoryCurrentAffairs;
+
+  /// No description provided for @categoryLife.
+  ///
+  /// In en, this message translates to:
+  /// **'Life'**
+  String get categoryLife;
+
+  /// No description provided for @categoryData.
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get categoryData;
+
+  /// No description provided for @categoryProgramming.
+  ///
+  /// In en, this message translates to:
+  /// **'Programming'**
+  String get categoryProgramming;
+
+  /// No description provided for @homeAppSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Knowledge · Science · Life · Ideas'**
+  String get homeAppSubtitle;
+
+  /// No description provided for @weeklyTopicBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'WEEK {week}'**
+  String weeklyTopicBadge(int week);
+
+  /// No description provided for @weeklyTopicTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How AI Is Reshaping the Frontiers of Science'**
+  String get weeklyTopicTitle;
+
+  /// No description provided for @weeklyTopicSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'From protein folding to climate simulation, AI is driving paradigm shifts across every scientific field. Should we celebrate, or stay cautious?'**
+  String get weeklyTopicSummary;
+
+  /// No description provided for @articlesCountWithValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} articles'**
+  String articlesCountWithValue(int count);
+
+  /// No description provided for @enterTopicAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Topic'**
+  String get enterTopicAction;
+
   /// No description provided for @searchTutorialsHint.
   ///
   /// In en, this message translates to:
@@ -919,6 +991,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Likes list coming soon'**
   String get likesListComingSoon;
+
+  /// No description provided for @articlesCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Articles'**
+  String get articlesCountLabel;
+
+  /// No description provided for @shareProfileAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Profile'**
+  String get shareProfileAction;
+
+  /// No description provided for @tabBookmarksLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Bookmarks'**
+  String get tabBookmarksLabel;
+
+  /// No description provided for @tabLikesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Likes'**
+  String get tabLikesLabel;
 
   /// No description provided for @uploadFailedRetry.
   ///

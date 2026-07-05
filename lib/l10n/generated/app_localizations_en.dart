@@ -182,6 +182,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tagMathModeling => 'Math Modeling';
 
   @override
+  String get categoryScience => 'Science';
+
+  @override
+  String get categoryEconomy => 'Economy';
+
+  @override
+  String get categoryCurrentAffairs => 'Current Affairs';
+
+  @override
+  String get categoryLife => 'Life';
+
+  @override
+  String get categoryData => 'Data';
+
+  @override
+  String get categoryProgramming => 'Programming';
+
+  @override
+  String get homeAppSubtitle => 'Knowledge · Science · Life · Ideas';
+
+  @override
+  String weeklyTopicBadge(int week) {
+    return 'WEEK $week';
+  }
+
+  @override
+  String get weeklyTopicTitle => 'How AI Is Reshaping the Frontiers of Science';
+
+  @override
+  String get weeklyTopicSummary =>
+      'From protein folding to climate simulation, AI is driving paradigm shifts across every scientific field. Should we celebrate, or stay cautious?';
+
+  @override
+  String articlesCountWithValue(int count) {
+    return '$count articles';
+  }
+
+  @override
+  String get enterTopicAction => 'Enter Topic';
+
+  @override
   String get searchTutorialsHint => 'Search tutorials, authors...';
 
   @override
@@ -443,6 +484,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get likesListComingSoon => 'Likes list coming soon';
+
+  @override
+  String get articlesCountLabel => 'Articles';
+
+  @override
+  String get shareProfileAction => 'Share Profile';
+
+  @override
+  String get tabBookmarksLabel => 'Bookmarks';
+
+  @override
+  String get tabLikesLabel => 'Likes';
 
   @override
   String get uploadFailedRetry => 'Upload failed, please try again';
