@@ -1235,6 +1235,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tapToUploadLabel => 'Tap to upload';
 
   @override
+  String get joinColumnAction => 'Join Column';
+
+  @override
+  String get joinColumnSubtitleHint =>
+      'Optional — appears in the column directory once added';
+
+  @override
+  String get myColumnsLabel => 'My Columns';
+
+  @override
+  String columnArticlesSubscribers(int count, int subscribers) {
+    return '$count articles · $subscribers subscribers';
+  }
+
+  @override
+  String get noColumnOption => 'Don\'t join a column';
+
+  @override
+  String get createColumnAction => 'New Column';
+
+  @override
+  String get confirmAction => 'Confirm';
+
+  @override
+  String get titleInsertionAction => 'Title Details';
+
+  @override
+  String get titleInsertionSubtitleHint =>
+      'Subtitle / Series tag / Issue number';
+
+  @override
+  String get subtitleLabel => 'Subtitle';
+
+  @override
+  String get subtitleHint => 'e.g. James Webb Series · Part 1';
+
+  @override
+  String get seriesTagLabel => 'Series Tag';
+
+  @override
+  String get issueNumberLabel => 'Issue Number (optional)';
+
+  @override
+  String get issueNumberHint => 'e.g. Vol.01 / Issue 3';
+
+  @override
+  String get previewLabel => 'Preview';
+
+  @override
   String get saveDraftAction => 'Draft';
 
   @override

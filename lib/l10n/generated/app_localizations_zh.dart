@@ -1207,6 +1207,53 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tapToUploadLabel => '点击上传';
 
   @override
+  String get joinColumnAction => '加入专栏';
+
+  @override
+  String get joinColumnSubtitleHint => '可选，加入后出现在专栏目录';
+
+  @override
+  String get myColumnsLabel => '我的专栏';
+
+  @override
+  String columnArticlesSubscribers(int count, int subscribers) {
+    return '$count篇 · $subscribers订阅';
+  }
+
+  @override
+  String get noColumnOption => '不加入专栏';
+
+  @override
+  String get createColumnAction => '新建专栏';
+
+  @override
+  String get confirmAction => '确认';
+
+  @override
+  String get titleInsertionAction => '标题植入';
+
+  @override
+  String get titleInsertionSubtitleHint => '副标题 / 系列标记 / 期号';
+
+  @override
+  String get subtitleLabel => '副标题';
+
+  @override
+  String get subtitleHint => '例：韦伯系列 · 第一期';
+
+  @override
+  String get seriesTagLabel => '系列标记';
+
+  @override
+  String get issueNumberLabel => '期号（可选）';
+
+  @override
+  String get issueNumberHint => '例：Vol.01 / 第3期';
+
+  @override
+  String get previewLabel => '预览';
+
+  @override
   String get saveDraftAction => '草稿';
 
   @override

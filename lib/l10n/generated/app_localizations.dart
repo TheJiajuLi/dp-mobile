@@ -2342,6 +2342,96 @@ abstract class AppLocalizations {
   /// **'Tap to upload'**
   String get tapToUploadLabel;
 
+  /// No description provided for @joinColumnAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Join Column'**
+  String get joinColumnAction;
+
+  /// No description provided for @joinColumnSubtitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional — appears in the column directory once added'**
+  String get joinColumnSubtitleHint;
+
+  /// No description provided for @myColumnsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'My Columns'**
+  String get myColumnsLabel;
+
+  /// No description provided for @columnArticlesSubscribers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} articles · {subscribers} subscribers'**
+  String columnArticlesSubscribers(int count, int subscribers);
+
+  /// No description provided for @noColumnOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t join a column'**
+  String get noColumnOption;
+
+  /// No description provided for @createColumnAction.
+  ///
+  /// In en, this message translates to:
+  /// **'New Column'**
+  String get createColumnAction;
+
+  /// No description provided for @confirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirmAction;
+
+  /// No description provided for @titleInsertionAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Title Details'**
+  String get titleInsertionAction;
+
+  /// No description provided for @titleInsertionSubtitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitle / Series tag / Issue number'**
+  String get titleInsertionSubtitleHint;
+
+  /// No description provided for @subtitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitle'**
+  String get subtitleLabel;
+
+  /// No description provided for @subtitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. James Webb Series · Part 1'**
+  String get subtitleHint;
+
+  /// No description provided for @seriesTagLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Series Tag'**
+  String get seriesTagLabel;
+
+  /// No description provided for @issueNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Issue Number (optional)'**
+  String get issueNumberLabel;
+
+  /// No description provided for @issueNumberHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Vol.01 / Issue 3'**
+  String get issueNumberHint;
+
+  /// No description provided for @previewLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get previewLabel;
+
   /// No description provided for @saveDraftAction.
   ///
   /// In en, this message translates to:

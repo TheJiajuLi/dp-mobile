@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../services/pyodide_engine.dart';
+import '../utils/code_highlight.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -357,6 +358,14 @@ td,th{border:1px solid #334155;padding:4px 8px;}
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
             child: Row(
               children: [
+                // macOS 窗口三色点，跟发布页编辑态的代码块保持一致的
+                // 视觉语言（读者预览/正式阅读页共用这一份渲染逻辑）
+                const _ReaderMacDot(color: Color(0xFFFF5F56)),
+                const SizedBox(width: 6),
+                const _ReaderMacDot(color: Color(0xFFFFBD2E)),
+                const SizedBox(width: 6),
+                const _ReaderMacDot(color: Color(0xFF27C93F)),
+                const SizedBox(width: 10),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -426,13 +435,18 @@ td,th{border:1px solid #334155;padding:4px 8px;}
             padding: const EdgeInsets.all(12),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: Text(
-                widget.content,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  color: Colors.white,
-                  height: 1.6,
+              child: Text.rich(
+                TextSpan(
+                  children: highlightCode(
+                    widget.content,
+                    widget.language.toLowerCase(),
+                    const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      color: Colors.white,
+                      height: 1.6,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -559,4 +573,18 @@ Widget _tappableCard(
       ),
     ),
   );
+}
+
+class _ReaderMacDot extends StatelessWidget {
+  final Color color;
+  const _ReaderMacDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
 }

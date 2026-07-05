@@ -225,9 +225,40 @@ class PreviewDrawer extends ConsumerWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                l10n.timeJustNow,
+                                '${l10n.timeJustNow} · ${l10n.estimatedReadTime(minutes)}',
                                 style: const TextStyle(
                                   fontSize: 12,
+                                  color: Color(0xFF999999),
+                                ),
+                              ),
+                              const Spacer(),
+                              // 跟最终发布页读者看到的一致——收藏/分享目前
+                              // 都还没有真正的后端接口，点了给个"即将上线"
+                              // 占位，不是纯装饰
+                              GestureDetector(
+                                onTap: () =>
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(l10n.comingSoonStayTuned),
+                                      ),
+                                    ),
+                                child: const Icon(
+                                  Icons.bookmark_border,
+                                  size: 19,
+                                  color: Color(0xFF999999),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              GestureDetector(
+                                onTap: () =>
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(l10n.comingSoonStayTuned),
+                                      ),
+                                    ),
+                                child: const Icon(
+                                  Icons.share_outlined,
+                                  size: 19,
                                   color: Color(0xFF999999),
                                 ),
                               ),

@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/code_highlight.dart';
 import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
@@ -49,6 +50,8 @@ class BlockCard extends ConsumerStatefulWidget {
   )
   onRunCode;
   final VoidCallback onDelete;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
   final VoidCallback onChanged;
 
   const BlockCard({
@@ -59,6 +62,8 @@ class BlockCard extends ConsumerStatefulWidget {
     required this.membership,
     required this.onRunCode,
     required this.onDelete,
+    this.onMoveUp,
+    this.onMoveDown,
     required this.onChanged,
   });
 
@@ -69,26 +74,17 @@ class BlockCard extends ConsumerStatefulWidget {
 class _BlockCardState extends ConsumerState<BlockCard> {
   bool _running = false;
   bool _focused = false;
+  // 代码块专用——用能实时按 token 上色的 controller 替代默认的
+  // TextFormField(initialValue: ...)，编辑态才能跟阅读态一样有语法高亮
+  late final HighlightingCodeController _codeCtrl = HighlightingCodeController(
+    text: widget.block.content,
+    language: widget.block.language ?? 'python',
+  );
 
-  Color get _typeColor {
-    switch (widget.block.type) {
-      case BlockType.code:
-        return const Color(0xFF0F172A);
-      case BlockType.latex:
-        return const Color(0xFFFEF3C7);
-      case BlockType.image:
-        return const Color(0xFFECFDF5);
-      case BlockType.file:
-        return const Color(0xFFEFF6FF);
-      case BlockType.audio:
-        return const Color(0xFFFDF4FF);
-      case BlockType.video:
-        return const Color(0xFFFFF7ED);
-      case BlockType.link:
-        return const Color(0xFFF0FDF4);
-      default:
-        return Colors.white;
-    }
+  @override
+  void dispose() {
+    _codeCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -107,41 +103,46 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 类型图标+类型名一行，操作按钮（上移/下移/删除/拖拽）放在
+          // 同一行右侧——不再是右上角单独飘一组图标，视觉上归属更清楚
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 8, 0),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _typeColor,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    blockTypeLabel(l10n, widget.block.type),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: widget.block.type == BlockType.code
-                          ? const Color(0xFFA5F3FC)
-                          : Colors.grey[700],
-                    ),
+                Icon(
+                  blockTypeIcon(widget.block.type),
+                  size: 14,
+                  color: const Color(0xFF999999),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  blockTypeLabel(l10n, widget.block.type),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF999999),
                   ),
                 ),
                 const Spacer(),
-                // 只保留拖拽 + 删除——上下箭头是拖拽排序之外的第二套排序
-                // 入口，跟新设计"右上角固定显示拖拽图标+删除图标"这个更
-                // 精简的规范重复了，去掉；拖拽排序本身（ReorderableListView）
-                // 功能不受影响
+                if (widget.onMoveUp != null)
+                  _actionBtn(Icons.keyboard_arrow_up, widget.onMoveUp!),
+                if (widget.onMoveDown != null)
+                  _actionBtn(Icons.keyboard_arrow_down, widget.onMoveDown!),
                 _actionBtn(Icons.delete_outline, widget.onDelete),
                 const SizedBox(width: 2),
-                const Icon(
-                  Icons.drag_handle,
-                  size: 18,
-                  color: Color(0xFFDDDDDD),
+                // 光一个 Icon 摆在那不会自己变成拖拽热区——
+                // ReorderableListView 默认是"长按列表项里任意没被别的
+                // 手势抢走的地方"才能拖，跟"按住这个把手图标就立刻能拖"
+                // 的直觉不一样。用 ReorderableDragStartListener 把拖拽
+                // 手势精确绑定在这一个图标上，摁下就能拖，不用长按，
+                // 也不会跟这一行其它按钮/下面的输入框抢手势
+                ReorderableDragStartListener(
+                  index: widget.index,
+                  child: const Icon(
+                    Icons.drag_handle,
+                    size: 18,
+                    color: Color(0xFFDDDDDD),
+                  ),
                 ),
               ],
             ),
@@ -249,6 +250,13 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           ),
           child: Row(
             children: [
+              // macOS 窗口三色点装饰，跟阅读态/预览态的代码块保持一致
+              const _MacDot(color: Color(0xFFFF5F56)),
+              const SizedBox(width: 6),
+              const _MacDot(color: Color(0xFFFFBD2E)),
+              const SizedBox(width: 6),
+              const _MacDot(color: Color(0xFF27C93F)),
+              const SizedBox(width: 10),
               DropdownButton<String>(
                 value: widget.block.language ?? 'python',
                 dropdownColor: const Color(0xFF1A1A1A),
@@ -269,7 +277,13 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                       ),
                     )
                     .toList(),
-                onChanged: (v) => setState(() => widget.block.language = v),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() {
+                    widget.block.language = v;
+                    _codeCtrl.language = v;
+                  });
+                },
               ),
               const Spacer(),
               GestureDetector(
@@ -311,9 +325,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           color: const Color(0xFF1A1A1A),
           padding: const EdgeInsets.all(10),
           child: TextFormField(
-            initialValue: widget.block.content.isNotEmpty
-                ? widget.block.content
-                : null,
+            controller: _codeCtrl,
             decoration: InputDecoration(
               filled: false,
               hintText: l10n.codeBlockHint,
@@ -1199,6 +1211,20 @@ th{background:#1e293b;color:#94a3b8}
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MacDot extends StatelessWidget {
+  final Color color;
+  const _MacDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }

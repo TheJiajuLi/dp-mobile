@@ -651,6 +651,31 @@
   },
   "changeCoverAction": "Change",
   "tapToUploadLabel": "Tap to upload",
+  "joinColumnAction": "Join Column",
+  "joinColumnSubtitleHint": "Optional — appears in the column directory once added",
+  "myColumnsLabel": "My Columns",
+  "columnArticlesSubscribers": "{count} articles · {subscribers} subscribers",
+  "@columnArticlesSubscribers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "subscribers": {
+        "type": "int"
+      }
+    }
+  },
+  "noColumnOption": "Don't join a column",
+  "createColumnAction": "New Column",
+  "confirmAction": "Confirm",
+  "titleInsertionAction": "Title Details",
+  "titleInsertionSubtitleHint": "Subtitle / Series tag / Issue number",
+  "subtitleLabel": "Subtitle",
+  "subtitleHint": "e.g. James Webb Series · Part 1",
+  "seriesTagLabel": "Series Tag",
+  "issueNumberLabel": "Issue Number (optional)",
+  "issueNumberHint": "e.g. Vol.01 / Issue 3",
+  "previewLabel": "Preview",
   "saveDraftAction": "Draft",
   "pleaseEnterNoteTitle": "Please enter a note title",
   "publishSuccessMessage": "Published successfully",
