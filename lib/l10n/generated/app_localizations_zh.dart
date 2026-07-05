@@ -220,6 +220,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchTutorialsHint => '搜索教程、作者...';
 
   @override
+  String get searchHint => '搜索教程、用户、话题...';
+
+  @override
+  String get searchCancel => '取消';
+
+  @override
+  String get searchHistory => '最近搜索';
+
+  @override
+  String get searchClear => '清除';
+
+  @override
+  String get searchHotTopics => '热门话题';
+
+  @override
+  String get searchTutorials => '教程';
+
+  @override
+  String get searchUsers => '用户';
+
+  @override
+  String get searchTags => '话题';
+
+  @override
+  String searchNoResult(Object type) {
+    return '没有找到相关$type';
+  }
+
+  @override
+  String get searchTryOther => '试试其他关键词';
+
+  @override
   String get noTutorialsYet => '暂无教程';
 
   @override

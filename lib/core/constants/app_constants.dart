@@ -11,4 +11,10 @@ class AppConstants {
   // 用来支持"切换账号"列表页的免密切换
   static const String keyRecentAccounts = 'recent_accounts';
   static const int maxRecentAccounts = 3;
+
+  // 搜索历史按账号隔离——跟 token/username 同一套per-user前缀规则，见
+  // flutter_implementation_pitfalls.md 里"账号数据隔离"那条
+  static String keySearchHistory(String userId) =>
+      'user_${userId}_search_history';
+  static const int maxSearchHistory = 10;
 }

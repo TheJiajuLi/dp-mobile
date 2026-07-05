@@ -20,6 +20,7 @@ import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/follow_list_screen.dart';
 import '../../features/profile/screens/user_profile_screen.dart';
 import '../../features/publish/screens/publish_screen.dart';
+import '../../features/search/screens/search_screen.dart';
 import '../../features/settings/screens/about_screen.dart';
 import '../../features/settings/screens/account_security_screen.dart';
 import '../../features/settings/screens/login_history_screen.dart';
@@ -46,6 +47,11 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/publish',
       builder: (context, state) => const PublishScreen(),
+    ),
+    GoRoute(
+      path: '/search',
+      builder: (context, state) =>
+          SearchScreen(initialQuery: state.uri.queryParameters['q']),
     ),
     GoRoute(
       path: '/notebook',

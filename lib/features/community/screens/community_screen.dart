@@ -44,7 +44,6 @@ class CommunityScreen extends ConsumerStatefulWidget {
 }
 
 class _CommunityScreenState extends ConsumerState<CommunityScreen> {
-  final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
   @override
@@ -57,7 +56,6 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   void dispose() {
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
-    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -81,27 +79,33 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (v) =>
-                    ref.read(communityProvider.notifier).setSearchQuery(v),
-                decoration: InputDecoration(
-                  hintText: l10n.searchTutorialsHint,
-                  hintStyle: TextStyle(
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                    fontSize: 14,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                    size: 20,
-                  ),
-                  filled: true,
-                  fillColor: Theme.of(context).inputDecorationTheme.fillColor,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                  border: OutlineInputBorder(
+              // 这里改成纯跳转入口，不再是 inline 实时过滤——真正的搜索
+              // 交互（联想词/历史/热门话题/分类结果）统一放到 /search 页
+              child: GestureDetector(
+                onTap: () => context.push('/search'),
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).inputDecorationTheme.fillColor,
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.searchTutorialsHint,
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -178,7 +182,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           const SizedBox(height: 80),
           Center(
             child: Text(
-              AppLocalizations.of(context)!.loadFailedWithReason('${state.error}'),
+              AppLocalizations.of(
+                context,
+              )!.loadFailedWithReason('${state.error}'),
               style: const TextStyle(color: AppColors.danger, fontSize: 13),
             ),
           ),
@@ -193,7 +199,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
           Center(
             child: Text(
               AppLocalizations.of(context)!.noTutorialsYet,
-              style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
             ),
           ),
         ],
@@ -285,7 +293,9 @@ class _TutorialCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context).textTheme.bodySmall?.color,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.color,
                             ),
                           ),
                         ),
@@ -350,7 +360,8 @@ class _CoverImage extends StatelessWidget {
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
-      placeholder: (context, url) => Container(color: Theme.of(context).dividerColor),
+      placeholder: (context, url) =>
+          Container(color: Theme.of(context).dividerColor),
       errorWidget: (context, url, error) => _CoverPlaceholder(title: title),
     );
   }
@@ -417,7 +428,8 @@ class _AuthorAvatar extends StatelessWidget {
         child: CachedNetworkImage(
           imageUrl: avatar!,
           fit: BoxFit.cover,
-          placeholder: (context, url) => Container(color: Theme.of(context).dividerColor),
+          placeholder: (context, url) =>
+              Container(color: Theme.of(context).dividerColor),
           errorWidget: (context, url, error) => _letter(),
         ),
       ),

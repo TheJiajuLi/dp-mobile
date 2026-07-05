@@ -2811,7 +2811,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   },
                 ),
                 _bottomActionButton(
-                  icon: Icons.switch_account_outlined,
+                  icon: Icons.swap_horizontal_circle_outlined,
                   label: l10n.switchAccount,
                   onTap: () {
                     Navigator.pop(ctx);
@@ -2908,23 +2908,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: color ?? Theme.of(context).textTheme.bodySmall?.color,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: 44,
+          child: Center(
+            child: Tooltip(
+              message: label,
+              child: Icon(
+                icon,
+                size: 22,
                 color: color ?? Theme.of(context).textTheme.bodySmall?.color,
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

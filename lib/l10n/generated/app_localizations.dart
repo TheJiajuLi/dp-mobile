@@ -512,6 +512,66 @@ abstract class AppLocalizations {
   /// **'Search tutorials, authors...'**
   String get searchTutorialsHint;
 
+  /// No description provided for @searchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search tutorials, users, tags...'**
+  String get searchHint;
+
+  /// No description provided for @searchCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get searchCancel;
+
+  /// No description provided for @searchHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Searches'**
+  String get searchHistory;
+
+  /// No description provided for @searchClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get searchClear;
+
+  /// No description provided for @searchHotTopics.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending Tags'**
+  String get searchHotTopics;
+
+  /// No description provided for @searchTutorials.
+  ///
+  /// In en, this message translates to:
+  /// **'Tutorials'**
+  String get searchTutorials;
+
+  /// No description provided for @searchUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Users'**
+  String get searchUsers;
+
+  /// No description provided for @searchTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get searchTags;
+
+  /// No description provided for @searchNoResult.
+  ///
+  /// In en, this message translates to:
+  /// **'No {type} found'**
+  String searchNoResult(Object type);
+
+  /// No description provided for @searchTryOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different keyword'**
+  String get searchTryOther;
+
   /// No description provided for @noTutorialsYet.
   ///
   /// In en, this message translates to:

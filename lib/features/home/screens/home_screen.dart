@@ -298,9 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           GestureDetector(
-            onTap: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(l10n.comingSoonStayTuned))),
+            onTap: () => context.push('/search'),
             child: Container(
               width: 36,
               height: 36,
@@ -471,10 +469,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         physics: const NeverScrollableScrollPhysics(),
         itemCount: _appEntries.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.95,
+          crossAxisCount: 6,
+          mainAxisSpacing: 6,
+          crossAxisSpacing: 6,
+          childAspectRatio: 0.72,
         ),
         itemBuilder: (context, index) {
           final entry = _appEntries[index];
@@ -569,67 +567,70 @@ class _AppEntryCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final live = entry.status == _EntryStatus.live;
     return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.lg),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
-        ),
-        child: Stack(
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: entry.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  child: Icon(entry.icon, color: entry.color, size: 22),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _appName(l10n, entry.id),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                ),
-              ],
+      child: Tooltip(
+        message:
+            '${_appName(l10n, entry.id)} · ${_statusLabel(l10n, entry.status)}',
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(
+              color: Theme.of(context).dividerColor,
+              width: 0.5,
             ),
-            Positioned(
-              top: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: live
-                      ? const Color(0xFF16A34A).withValues(alpha: 0.12)
-                      : Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _statusLabel(l10n, entry.status),
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: entry.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Icon(entry.icon, color: entry.color, size: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _appName(l10n, entry.id),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                ],
+              ),
+              // 6列挤下来给"已上线/即将上线"这种完整文字徽标已经没有可读性了，
+              // 改成一个圆点——绿色=已上线，灰色=其余所有未上线状态，只保留
+              // "上没上线"这一层最关键的信息，具体是"即将上线"还是"敬请期待"
+              // 靠长按 Tooltip 看完整文案
+              Positioned(
+                top: -2,
+                right: 6,
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
                     color: live
                         ? const Color(0xFF16A34A)
-                        : Theme.of(context).textTheme.bodySmall?.color,
+                        : const Color(0xFFC7C7CC),
+                    shape: BoxShape.circle,
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

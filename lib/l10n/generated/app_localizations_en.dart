@@ -226,6 +226,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchTutorialsHint => 'Search tutorials, authors...';
 
   @override
+  String get searchHint => 'Search tutorials, users, tags...';
+
+  @override
+  String get searchCancel => 'Cancel';
+
+  @override
+  String get searchHistory => 'Recent Searches';
+
+  @override
+  String get searchClear => 'Clear';
+
+  @override
+  String get searchHotTopics => 'Trending Tags';
+
+  @override
+  String get searchTutorials => 'Tutorials';
+
+  @override
+  String get searchUsers => 'Users';
+
+  @override
+  String get searchTags => 'Tags';
+
+  @override
+  String searchNoResult(Object type) {
+    return 'No $type found';
+  }
+
+  @override
+  String get searchTryOther => 'Try a different keyword';
+
+  @override
   String get noTutorialsYet => 'No tutorials yet';
 
   @override
