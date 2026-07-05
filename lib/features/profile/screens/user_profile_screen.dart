@@ -942,11 +942,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               top: topPad + 12,
                               left: 12,
                               child: GestureDetector(
-                                onTap: () => _openProfileDrawer(
-                                  l10n,
-                                  _profile!.tutorialCount,
-                                  _totalLikes,
-                                ),
+                                onTap: () => _openProfileDrawer(l10n),
                                 child: Container(
                                   width: 34,
                                   height: 34,
@@ -1492,7 +1488,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 顶部状态栏那圈 SafeArea。改用 showGeneralDialog 强制推到根 Navigator
   // 上（默认 useRootNavigator: true），叠在包括底部导航栏在内的整个 App
   // 上面，才能做到真正贴边全高
-  void _openProfileDrawer(AppLocalizations l10n, int tutorialCount, int totalLikes) {
+  void _openProfileDrawer(AppLocalizations l10n) {
     showGeneralDialog(
       context: context,
       barrierLabel: '',
@@ -1504,7 +1500,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         child: SizedBox(
           width: 290,
           height: double.infinity,
-          child: _buildProfileDrawer(ctx, l10n, tutorialCount, totalLikes),
+          child: _buildProfileDrawer(ctx, l10n),
         ),
       ),
       transitionBuilder: (ctx, animation, _, child) => SlideTransition(
@@ -1516,70 +1512,52 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  Widget _buildProfileDrawer(
-    BuildContext ctx,
-    AppLocalizations l10n,
-    int tutorialCount,
-    int totalLikes,
-  ) {
+  Widget _buildProfileDrawer(BuildContext ctx, AppLocalizations l10n) {
     // 头部用户信息按要求直接读 currentUserProvider（/auth/me 的实时数据），
-    // 不是从主页面已经算好的 displayUsername/_profile 传下来的——这样
-    // 别处改了头像/资料后，抽屉这边不用等 _profile 重新加载就能跟着更新。
-    // tutorialCount/totalLikes 这两项 UserModel 上没有，只能继续从主页面传
+    // 不是从主页面已经算好的 displayUsername 传下来的——这样别处改了头像/
+    // 资料后，抽屉这边不用等 _profile 重新加载就能跟着更新
     final currentUser = ref.watch(currentUserProvider);
     final username = currentUser?.username ?? '';
-    final handle = currentUser?.handle;
-    final followerCount = currentUser?.followerCount ?? 0;
-    final followingCount = currentUser?.followingCount ?? 0;
     final safePadding = MediaQuery.of(ctx).padding;
 
     return Material(
       color: Theme.of(ctx).scaffoldBackgroundColor,
       child: Column(
         children: [
-          Container(
-            width: double.infinity,
-            // 顶部 padding 单独加状态栏高度，而不是套 SafeArea——SafeArea
-            // 会把整个 Container 往下推，紫色渐变就没法一路铺到最顶上，
-            // 状态栏那块会露出后面 scaffoldBackgroundColor 的白色/黑色
-            padding: EdgeInsets.fromLTRB(20, safePadding.top + 20, 20, 20),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF6366F1), Color(0xFF7C3AED)],
+          // 头像+用户名精简成网易云那样的单行，教程/获赞/粉丝/关注这些
+          // 主页面本来就有，不用在这再摆一遍占空间——腾出来的高度让功能
+          // 列表少滚动几下。点这一行直接收起抽屉，回去看下面那份主页面
+          GestureDetector(
+            onTap: () => Navigator.pop(ctx),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(20, safePadding.top + 16, 16, 16),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF6366F1), Color(0xFF7C3AED)],
+                ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildAvatar(radius: 32),
-                const SizedBox(height: 12),
-                Text(
-                  username,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+              child: Row(
+                children: [
+                  _buildAvatar(radius: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      username,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                ),
-                if (handle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '@$handle',
-                    style: const TextStyle(fontSize: 13, color: Colors.white70),
-                  ),
+                  const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
                 ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _drawerStatItem('$tutorialCount', l10n.tutorial),
-                    _drawerStatItem(_formatCount(totalLikes), l10n.likesCountLabel),
-                    _drawerStatItem(_formatCount(followerCount), l10n.followersCountLabel),
-                    _drawerStatItem(_formatCount(followingCount), l10n.followingCountLabel),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
           // 会员卡——升级跳去已经真实存在的订阅页（/settings/subscription），
@@ -1745,22 +1723,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _drawerStatItem(String value, String label) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
-          ),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
         ],
       ),
     );
