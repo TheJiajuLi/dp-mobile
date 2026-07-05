@@ -146,6 +146,8 @@
   "readCountLabel": "阅读量",
   "readCountWithValue": "{count} 阅读",
   "noTutorialsPublished": "还没有发布的教程",
+  "tutorialStatusPublished": "已发布",
+  "tutorialStatusDraft": "草稿",
   "noNotebooksYet": "还没有 Notebook",
   "bookmarksComingSoon": "收藏功能即将上线",
   "likesListComingSoon": "点赞列表即将上线",

@@ -477,6 +477,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noTutorialsPublished => 'No tutorials published yet';
 
   @override
+  String get tutorialStatusPublished => 'Published';
+
+  @override
+  String get tutorialStatusDraft => 'Draft';
+
+  @override
   String get noNotebooksYet => 'No notebooks yet';
 
   @override

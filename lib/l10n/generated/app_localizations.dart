@@ -974,6 +974,18 @@ abstract class AppLocalizations {
   /// **'No tutorials published yet'**
   String get noTutorialsPublished;
 
+  /// No description provided for @tutorialStatusPublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Published'**
+  String get tutorialStatusPublished;
+
+  /// No description provided for @tutorialStatusDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get tutorialStatusDraft;
+
   /// No description provided for @noNotebooksYet.
   ///
   /// In en, this message translates to:

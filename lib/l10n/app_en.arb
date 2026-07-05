@@ -223,6 +223,8 @@
     }
   },
   "noTutorialsPublished": "No tutorials published yet",
+  "tutorialStatusPublished": "Published",
+  "tutorialStatusDraft": "Draft",
   "noNotebooksYet": "No notebooks yet",
   "bookmarksComingSoon": "Bookmarks coming soon",
   "likesListComingSoon": "Likes list coming soon",

@@ -469,6 +469,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noTutorialsPublished => '还没有发布的教程';
 
   @override
+  String get tutorialStatusPublished => '已发布';
+
+  @override
+  String get tutorialStatusDraft => '草稿';
+
+  @override
   String get noNotebooksYet => '还没有 Notebook';
 
   @override

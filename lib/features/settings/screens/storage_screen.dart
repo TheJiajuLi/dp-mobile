@@ -1,8 +1,14 @@
+import 'dart:typed_data';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+
+enum _MediaKind { image, video, audio, other }
 
 class StorageScreen extends ConsumerStatefulWidget {
   const StorageScreen({super.key});
@@ -72,6 +78,130 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     return _uuidPattern.hasMatch(candidate) ? candidate : null;
   }
 
+  // 实测确认：media/docs/notebooks 分类里 cos_key 是相对路径
+  // ("users/{userId}/{fileId}-{文件名}")，但 tutorials 分类的 cos_key
+  // 已经是完整的 https:// URL——两种格式混在同一个渲染逻辑里，靠
+  // startsWith('http') 区分，不能无脑拼前缀（拼出来会是重复前缀的坏URL）
+  static const _cosBaseUrl = 'https://dp-1317483118.cos.ap-hongkong.myqcloud.com/';
+
+  String? _coverUrl(String? cosKey) {
+    if (cosKey == null || cosKey.isEmpty) return null;
+    return cosKey.startsWith('http') ? cosKey : '$_cosBaseUrl$cosKey';
+  }
+
+  // 实测确认：/auth/files/upload 对所有上传（图片/视频/音频）返回的
+  // file_type 统一都是 "other"，后端并不区分媒体子类型——图片/视频/音频
+  // 只能靠文件名后缀在客户端自己猜
+  static const _imageExts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic'};
+  static const _videoExts = {'mp4', 'mov', 'm4v', 'avi', 'mkv', 'webm'};
+  static const _audioExts = {'mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg'};
+
+  _MediaKind _mediaKindOf(String filename) {
+    final dot = filename.lastIndexOf('.');
+    if (dot < 0 || dot == filename.length - 1) return _MediaKind.other;
+    final ext = filename.substring(dot + 1).toLowerCase();
+    if (_imageExts.contains(ext)) return _MediaKind.image;
+    if (_videoExts.contains(ext)) return _MediaKind.video;
+    if (_audioExts.contains(ext)) return _MediaKind.audio;
+    return _MediaKind.other;
+  }
+
+  Widget _buildThumbnail(dynamic f, String categoryKey) {
+    final name = f['filename'] as String? ?? '';
+    final isTutorial = categoryKey == 'tutorials';
+    final coverUrl = _coverUrl(f['cos_key'] as String?);
+    final kind = isTutorial ? null : _mediaKindOf(name);
+
+    if (kind == _MediaKind.audio) {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: const BoxDecoration(color: Color(0xFFF3E8FF), shape: BoxShape.circle),
+        child: const Icon(Icons.music_note, size: 18, color: Color(0xFF9333EA)),
+      );
+    }
+
+    if (kind == _MediaKind.video) {
+      return SizedBox(
+        width: 52,
+        height: 44,
+        child: coverUrl != null
+            ? _VideoThumbnail(url: coverUrl)
+            : Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.videocam_outlined, size: 18, color: Colors.grey[400]),
+              ),
+      );
+    }
+
+    // 教程封面 / 图片缩略图：走同一套 CachedNetworkImage 逻辑，跟首页封面
+    // 图渲染方式保持一致（占位色块+错误兜底图标）
+    if (isTutorial || kind == _MediaKind.image) {
+      final fallbackIcon = isTutorial ? Icons.article_outlined : Icons.image_outlined;
+      return Container(
+        width: 52,
+        height: 44,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: coverUrl != null
+            ? CachedNetworkImage(
+                imageUrl: coverUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => const Center(
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 1.6),
+                  ),
+                ),
+                errorWidget: (context, url, error) =>
+                    Icon(fallbackIcon, size: 18, color: Colors.grey[400]),
+              )
+            : Icon(fallbackIcon, size: 18, color: Colors.grey[400]),
+      );
+    }
+
+    // 兜底：doc/notebook 或无法识别后缀的文件
+    return SizedBox(
+      width: 52,
+      height: 44,
+      child: Icon(Icons.insert_drive_file_outlined, size: 22, color: Colors.grey[400]),
+    );
+  }
+
+  Widget _buildWaveform() {
+    // 模拟波形——不是真实音频波形分析，只是固定高度序列做出音频列表项
+    // 该有的视觉质感
+    const heights = [
+      5.0, 10.0, 16.0, 9.0, 14.0, 7.0, 12.0, 6.0, 15.0, 8.0,
+      11.0, 5.0, 13.0, 9.0, 16.0, 6.0, 10.0, 14.0, 7.0, 12.0,
+    ];
+    return SizedBox(
+      height: 16,
+      child: Row(
+        children: heights
+            .map(
+              (h) => Container(
+                width: 2.5,
+                height: h,
+                margin: const EdgeInsets.only(right: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9333EA).withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
   Widget _buildFileItem(dynamic f, String categoryKey) {
     final l10n = AppLocalizations.of(context)!;
     final name = f['filename'] as String? ?? l10n.unknownFile;
@@ -79,6 +209,8 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     final platform = f['platform'] as String? ?? 'mobile';
     final fileId = _extractFileId(f['cos_key'] as String?);
     final isTutorial = categoryKey == 'tutorials';
+    final status = f['status'] as String?;
+    final isAudio = !isTutorial && _mediaKindOf(name) == _MediaKind.audio;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -88,7 +220,8 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 52),
+          _buildThumbnail(f, categoryKey),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,6 +236,28 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (isTutorial && status != null)
+                      Container(
+                        margin: const EdgeInsets.only(left: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: status == 'published'
+                              ? const Color(0xFFE8F8F0)
+                              : const Color(0xFFFFF7E6),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status == 'published'
+                              ? l10n.tutorialStatusPublished
+                              : l10n.tutorialStatusDraft,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: status == 'published'
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFD97706),
+                          ),
+                        ),
+                      ),
                     if (platform != 'mobile')
                       Container(
                         margin: const EdgeInsets.only(left: 6),
@@ -118,6 +273,10 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                       ),
                   ],
                 ),
+                if (isAudio) ...[
+                  const SizedBox(height: 4),
+                  _buildWaveform(),
+                ],
                 if (size > 0)
                   Text(
                     _fmt(size),
@@ -634,6 +793,74 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
           ),
 
           const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+}
+
+// 从视频 URL 截取首帧当缩略图。video_thumbnail 支持直接传网络 URL（内部会
+// 自己下载解码），不需要先手动下载到本地文件
+class _VideoThumbnail extends StatefulWidget {
+  const _VideoThumbnail({required this.url});
+
+  final String url;
+
+  @override
+  State<_VideoThumbnail> createState() => _VideoThumbnailState();
+}
+
+class _VideoThumbnailState extends State<_VideoThumbnail> {
+  Uint8List? _bytes;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _generate();
+  }
+
+  Future<void> _generate() async {
+    try {
+      final bytes = await VideoThumbnail.thumbnailData(
+        video: widget.url,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 200,
+        quality: 75,
+      );
+      if (!mounted) return;
+      setState(() => _bytes = bytes);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _failed = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        alignment: Alignment.center,
+        children: [
+          if (_bytes != null)
+            Image.memory(_bytes!, fit: BoxFit.cover)
+          else if (!_failed)
+            const Center(
+              child: SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 1.6, color: Colors.white70),
+              ),
+            )
+          else
+            Icon(Icons.videocam_outlined, size: 18, color: Colors.grey[400]),
+          const Icon(Icons.play_circle_fill, size: 20, color: Colors.white70),
         ],
       ),
     );
