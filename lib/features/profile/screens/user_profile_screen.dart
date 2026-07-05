@@ -708,6 +708,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     try {
       final newAvatar = await pickAndUploadAvatar(ref, source);
       if (newAvatar != null && _profile != null) {
+        // 同一个固定 COS key 覆盖写——见 _setAvatarFromUrl 里的详细说明，
+        // 不清缓存的话这里换头像也会遇到一样的"设置成功但界面没变"
+        await CachedNetworkImage.evictFromCache(newAvatar);
+
         final updated = _profile!.copyWith(avatar: newAvatar);
         // 自己的主页：头像也是 currentUserProvider 里那份 UserModel 的字段，
         // 首页顶栏等其他地方的头像才会跟着一起换
@@ -1160,6 +1164,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
       final newAvatar = (res.data as Map?)?['avatar'] as String?;
       if (newAvatar != null && _profile != null) {
+        // /auth/update-avatar 每次都写回同一个固定 COS key（avatars/{userId}
+        // .jpg，同一用户永远是这条 URL），换头像只是覆盖同一个文件的内容——
+        // _profile/currentUserProvider 的状态其实一直更新对了，界面"看起来"
+        // 没变是因为 CachedNetworkImageProvider 按 URL 做缓存 key，URL 没变
+        // 就不会重新拉取，头像组件继续画着旧的缓存字节。这里手动把这个 URL
+        // 从磁盘+内存缓存里都清掉，逼下一次绘制重新走网络
+        await CachedNetworkImage.evictFromCache(newAvatar);
+
         final updated = _profile!.copyWith(avatar: newAvatar);
         if (!widget.showBackButton) {
           final currentUser = ref.read(currentUserProvider);

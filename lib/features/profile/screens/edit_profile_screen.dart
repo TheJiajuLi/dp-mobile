@@ -240,6 +240,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     try {
       final newAvatar = await pickAndUploadAvatar(ref, source);
       if (newAvatar != null && _user != null) {
+        // /auth/update-avatar 每次都覆盖写同一个固定 COS key，URL 不变，
+        // CachedNetworkImageProvider 按 URL 做缓存就不会重新拉取——不清掉
+        // 旧缓存的话，状态其实更新对了，界面却"看起来"没变
+        await CachedNetworkImage.evictFromCache(newAvatar);
+
         final updated = _user!.copyWith(avatar: newAvatar);
         ref.read(authServiceProvider).updateCurrentUser(updated);
         setState(() => _user = updated);
