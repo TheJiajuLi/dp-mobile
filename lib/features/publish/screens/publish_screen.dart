@@ -2253,23 +2253,210 @@ result
                 '根据标题和标签自动生成',
                 style: TextStyle(fontSize: 11),
               ),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  '即将上线',
-                  style: TextStyle(fontSize: 10, color: Colors.grey),
-                ),
-              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
               onTap: () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('封面AI生成即将上线，敬请期待 🐻')),
-                );
+                _aiGenerateCover();
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _aiGenerateCover() async {
+    if (_titleCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先填写标题，小梦才能生成封面')));
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF6366F1)),
+            SizedBox(height: 16),
+            Text('小梦正在生成封面...', style: TextStyle(fontSize: 14)),
+            SizedBox(height: 4),
+            Text(
+              '通常需要10-20秒',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(
+            '/auth/xmeng/cover',
+            data: {
+              'title': _titleCtrl.text.trim(),
+              'tags': _tags,
+              'summary': _summaryCtrl.text.trim(),
+            },
+          );
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (!res.success) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(res.message ?? '生成失败，请重试')));
+        return;
+      }
+
+      final urls = List<String>.from(
+        (res.data as Map?)?['urls'] as List? ?? [],
+      );
+      if (urls.isEmpty) return;
+
+      _showCoverPickerSheet(urls);
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('生成失败，请稍后重试')));
+      }
+    }
+  }
+
+  void _showCoverPickerSheet(List<String> urls) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF0FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 14,
+                    color: Color(0xFF6366F1),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  '选择一张封面',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '点击即可应用',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 14),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 16 / 9,
+              ),
+              itemCount: urls.length,
+              itemBuilder: (ctx, i) => GestureDetector(
+                onTap: () {
+                  setState(() => _coverImageUrl = urls[i]);
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('封面已应用'),
+                      backgroundColor: Color(0xFF16A34A),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    urls[i],
+                    fit: BoxFit.cover,
+                    loadingBuilder: (ctx, child, progress) => progress == null
+                        ? child
+                        : Container(
+                            color: Colors.grey[100],
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: Color(0xFF6366F1),
+                              ),
+                            ),
+                          ),
+                    errorBuilder: (_, __, ___) => Container(
+                      color: Colors.grey[100],
+                      child: const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _aiGenerateCover();
+                },
+                icon: const Icon(
+                  Icons.refresh,
+                  size: 16,
+                  color: Color(0xFF6366F1),
+                ),
+                label: const Text(
+                  '重新生成',
+                  style: TextStyle(color: Color(0xFF6366F1)),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF6366F1)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
             ),
           ],
         ),

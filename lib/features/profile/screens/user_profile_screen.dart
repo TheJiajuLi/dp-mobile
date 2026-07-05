@@ -681,6 +681,21 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   _pickAndUploadAvatar(ImageSource.camera);
                 },
               ),
+              ListTile(
+                leading: const Icon(
+                  Icons.auto_awesome_outlined,
+                  color: _primary,
+                ),
+                title: const Text('AI 生成头像'),
+                subtitle: const Text(
+                  '描述你想要的风格，小梦帮你生成',
+                  style: TextStyle(fontSize: 11),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAiAvatarSheet();
+                },
+              ),
             ],
           ),
         ),
@@ -723,6 +738,338 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             ),
           ),
         );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
+  void _showAiAvatarSheet() {
+    final descCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF0FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_outlined,
+                      size: 14,
+                      color: _primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'AI 生成头像',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descCtrl,
+                decoration: InputDecoration(
+                  hintText: '描述你想要的风格（可选），如"极地风景，极光，简约"',
+                  hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _primary),
+                  ),
+                ),
+                maxLines: 2,
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: ['极地风光', '几何抽象', '赛博朋克', '水彩插画', '星空宇宙'].map((t) {
+                  return GestureDetector(
+                    onTap: () => descCtrl.text = t,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        t,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF555555),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await _aiGenerateAvatar(descCtrl.text.trim());
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    '开始生成（约20秒）',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _aiGenerateAvatar(String description) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: _primary),
+            SizedBox(height: 16),
+            Text('小梦正在生成头像...', style: TextStyle(fontSize: 14)),
+            SizedBox(height: 4),
+            Text(
+              '通常需要15-25秒',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post('/auth/xmeng/avatar', data: {'description': description});
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (!res.success) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(res.message ?? '生成失败')));
+        return;
+      }
+
+      final urls = List<String>.from(
+        (res.data as Map?)?['urls'] as List? ?? [],
+      );
+      if (urls.isEmpty) return;
+
+      _showAvatarPickerSheet(urls);
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('生成失败，请稍后重试')));
+      }
+    }
+  }
+
+  void _showAvatarPickerSheet(List<String> urls) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF0FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 14,
+                    color: _primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  '选择一个头像',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '点击即可设为头像',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 14),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1,
+              ),
+              itemCount: urls.length,
+              itemBuilder: (ctx, i) => GestureDetector(
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _setAvatarFromUrl(urls[i]);
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    urls[i],
+                    fit: BoxFit.cover,
+                    loadingBuilder: (ctx, child, progress) => progress == null
+                        ? child
+                        : Container(
+                            color: Colors.grey[100],
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: _primary,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 生成结果的 url 是小梦后端另外生成的图，不是走 /auth/update-avatar 那套
+  // 上传流程拿到的 COS 链接——实测确认 PATCH /auth/me 传 avatar 字段会被
+  // 后端静默丢弃（响应显示"更新成功"，但回读 GET /auth/me 时 avatar 仍是
+  // 传入前的值，不会报错也不生效，属于后端没接这个字段而不是权限/参数问题）。
+  // 所以这里改成把生成图下载下来，再走已经验证过真正能生效的
+  // /auth/update-avatar multipart 上传，跟相册/拍照选头像走同一条已验证路径
+  Future<void> _setAvatarFromUrl(String url) async {
+    setState(() => _uploadingAvatar = true);
+    try {
+      final download = await Dio().get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final bytes = download.data;
+      if (bytes == null) throw Exception('下载失败');
+
+      final formData = FormData.fromMap({
+        'avatar': MultipartFile.fromBytes(
+          bytes,
+          filename: 'ai_avatar.jpg',
+          contentType: DioMediaType('image', 'jpeg'),
+        ),
+      });
+      final res = await ref
+          .read(apiClientProvider)
+          .post('/auth/update-avatar', data: formData);
+      if (!res.success) throw Exception(res.message ?? '设置失败');
+
+      final newAvatar = (res.data as Map?)?['avatar'] as String?;
+      if (newAvatar != null && _profile != null) {
+        final updated = _profile!.copyWith(avatar: newAvatar);
+        if (!widget.showBackButton) {
+          final currentUser = ref.read(currentUserProvider);
+          if (currentUser != null) {
+            ref
+                .read(authServiceProvider)
+                .updateCurrentUser(currentUser.copyWith(avatar: newAvatar));
+          }
+        }
+        setState(() => _profile = updated);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('头像已更新'),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('设置失败，请重试')));
       }
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
