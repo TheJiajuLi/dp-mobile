@@ -1705,10 +1705,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   icon: Icons.dark_mode_outlined,
                   label: l10n.darkModeMenuLabel,
                   trailingText: _themeLabel(l10n, ref.watch(themeProvider)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    context.push('/settings');
-                  },
+                  // 直接在侧栏里选，不用跳全部设置——全部设置里原来那个
+                  // "主题"入口已经拿掉了，深色模式现在只在这一个地方改
+                  onTap: () => _showThemePicker(ctx, l10n),
                 ),
               ],
             ),
@@ -1842,6 +1841,68 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     ThemePreference.light => l10n.themeLight,
     ThemePreference.dark => l10n.themeDark,
   };
+
+  // 深色模式直接在侧栏里选——不再跳全部设置那边（那边的"主题"入口已经
+  // 拿掉了）。ctx 是抽屉那个 showGeneralDialog 路由自己的 context，这里
+  // 弹出的底部弹层挂在同一个根 Navigator 上，跟抽屉叠在一起
+  void _showThemePicker(BuildContext ctx, AppLocalizations l10n) {
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(sheetCtx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.theme,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(sheetCtx).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Consumer(
+              builder: (consumerCtx, ref, _) {
+                final current = ref.watch(themeProvider);
+                return Column(
+                  children: ThemePreference.values
+                      .map(
+                        (pref) => ListTile(
+                          title: Text(_themeLabel(l10n, pref)),
+                          trailing: current == pref
+                              ? const Icon(Icons.check, color: _primary)
+                              : null,
+                          onTap: () {
+                            ref.read(themeProvider.notifier).setTheme(pref);
+                            Navigator.pop(sheetCtx);
+                          },
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
   String _formatCount(int n) {
     if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}万';

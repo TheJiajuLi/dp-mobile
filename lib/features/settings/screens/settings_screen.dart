@@ -6,18 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/font_size_provider.dart';
 import '../../../core/locale_provider.dart';
 import '../../../core/notification_provider.dart';
-import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../providers/storage_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-
-  static Map<ThemePreference, String> _themeLabels(AppLocalizations l10n) => {
-    ThemePreference.system: l10n.themeSystem,
-    ThemePreference.light: l10n.themeLight,
-    ThemePreference.dark: l10n.themeDark,
-  };
 
   // double 重写了 ==/hashCode，不能作为 const map 的 key，这里用 final
   static Map<double, String> _fontSizeLabels(AppLocalizations l10n) => {
@@ -36,7 +29,6 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final themePref = ref.watch(themeProvider);
     final fontSize = ref.watch(fontSizeProvider);
     final localePref = ref.watch(localeProvider);
 
@@ -105,14 +97,6 @@ class SettingsScreen extends ConsumerWidget {
 
                   _SectionTitle(l10n.sectionGeneral),
                   _SettingsGroup([
-                    _SettingsRow(
-                      icon: Icons.palette_outlined,
-                      iconColor: const Color(0xFFD97706),
-                      iconBg: const Color(0xFFFFF7E6),
-                      title: l10n.theme,
-                      trailing: _themeLabels(l10n)[themePref],
-                      onTap: () => _showThemePicker(context, ref),
-                    ),
                     _SettingsRow(
                       icon: Icons.text_fields,
                       iconColor: const Color(0xFF6366F1),
@@ -254,66 +238,6 @@ class SettingsScreen extends ConsumerWidget {
       return '${(b / 1024 / 1024 / 1024).toStringAsFixed(0)}GB';
     }
     return '${(b / 1024 / 1024).toStringAsFixed(0)}MB';
-  }
-
-  void _showThemePicker(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.theme,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(ctx).textTheme.bodyLarge?.color,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Consumer(
-              builder: (ctx, ref, _) {
-                final current = ref.watch(themeProvider);
-                return Column(
-                  children: _themeLabels(l10n).entries
-                      .map(
-                        (e) => ListTile(
-                          title: Text(e.value),
-                          trailing: current == e.key
-                              ? const Icon(Icons.check, color: Color(0xFF6366F1))
-                              : null,
-                          onTap: () {
-                            ref.read(themeProvider.notifier).setTheme(e.key);
-                            Navigator.pop(ctx);
-                          },
-                        ),
-                      )
-                      .toList(),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
   }
 
   void _showFontPicker(BuildContext context, WidgetRef ref) {
