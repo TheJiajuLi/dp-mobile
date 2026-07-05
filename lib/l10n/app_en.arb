@@ -633,7 +633,35 @@
       }
     }
   },
-  "publishTitleHint": "Enter a title for your note...",
+  "publishTitleHint": "Article title...",
+  "addSummaryHint": "Add a summary...",
+  "wordCountAndBlocksLabel": "{words} words · {blocks} blocks",
+  "@wordCountAndBlocksLabel": {
+    "placeholders": {
+      "words": {
+        "type": "int"
+      },
+      "blocks": {
+        "type": "int"
+      }
+    }
+  },
+  "wordBlocksReadTimeLabel": "{words} words · {blocks} blocks · ~{minutes} min read",
+  "@wordBlocksReadTimeLabel": {
+    "placeholders": {
+      "words": {
+        "type": "int"
+      },
+      "blocks": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "changeCoverAction": "Change",
+  "tapToUploadLabel": "Tap to upload",
   "saveDraftAction": "Draft",
   "pleaseEnterNoteTitle": "Please enter a note title",
   "publishSuccessMessage": "Published successfully",
@@ -665,7 +693,7 @@
   "blockTypeAudio": "Audio",
   "blockTypeVideo": "Video",
   "blockTypeLink": "Link",
-  "blockTypeCallout": "Callout",
+  "blockTypeCallout": "Quote",
   "textBlockHint": "Enter text content...",
   "headingBlockHint": "Heading {level}...",
   "@headingBlockHint": {
@@ -707,9 +735,7 @@
     }
   },
   "videoSizeHint": "Pro ≤50MB · Pro Max ≤100MB",
-  "calloutVariantTip": "Tip",
-  "calloutVariantWarning": "Warning",
-  "calloutVariantInfo": "Note",
+  "calloutBlockHint": "Quote something...",
   "addBlockSheetTitle": "Choose a block type",
   "livePreviewLabel": "Live Preview",
   "readerViewLabel": "Reader view",

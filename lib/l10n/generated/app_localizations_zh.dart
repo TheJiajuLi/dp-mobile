@@ -1190,7 +1190,26 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get publishTitleHint => '输入笔记标题...';
+  String get publishTitleHint => '文章标题...';
+
+  @override
+  String get addSummaryHint => '添加摘要...';
+
+  @override
+  String wordCountAndBlocksLabel(int words, int blocks) {
+    return '$words字 · $blocks blocks';
+  }
+
+  @override
+  String wordBlocksReadTimeLabel(int words, int blocks, int minutes) {
+    return '$words字 · ${blocks}blocks · 约$minutes分钟阅读';
+  }
+
+  @override
+  String get changeCoverAction => '更换';
+
+  @override
+  String get tapToUploadLabel => '点击上传';
 
   @override
   String get saveDraftAction => '草稿';
@@ -1267,7 +1286,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get blockTypeLink => '链接';
 
   @override
-  String get blockTypeCallout => '提示';
+  String get blockTypeCallout => '引用';
 
   @override
   String get textBlockHint => '输入文字内容...';
@@ -1336,13 +1355,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get videoSizeHint => 'Pro ≤50MB · Pro Max ≤100MB';
 
   @override
-  String get calloutVariantTip => '小贴士';
-
-  @override
-  String get calloutVariantWarning => '警告';
-
-  @override
-  String get calloutVariantInfo => '说明';
+  String get calloutBlockHint => '引用一段话...';
 
   @override
   String get addBlockSheetTitle => '选择内容类型';

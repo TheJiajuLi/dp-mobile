@@ -1218,7 +1218,26 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get publishTitleHint => 'Enter a title for your note...';
+  String get publishTitleHint => 'Article title...';
+
+  @override
+  String get addSummaryHint => 'Add a summary...';
+
+  @override
+  String wordCountAndBlocksLabel(int words, int blocks) {
+    return '$words words · $blocks blocks';
+  }
+
+  @override
+  String wordBlocksReadTimeLabel(int words, int blocks, int minutes) {
+    return '$words words · $blocks blocks · ~$minutes min read';
+  }
+
+  @override
+  String get changeCoverAction => 'Change';
+
+  @override
+  String get tapToUploadLabel => 'Tap to upload';
 
   @override
   String get saveDraftAction => 'Draft';
@@ -1295,7 +1314,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockTypeLink => 'Link';
 
   @override
-  String get blockTypeCallout => 'Callout';
+  String get blockTypeCallout => 'Quote';
 
   @override
   String get textBlockHint => 'Enter text content...';
@@ -1367,13 +1386,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get videoSizeHint => 'Pro ≤50MB · Pro Max ≤100MB';
 
   @override
-  String get calloutVariantTip => 'Tip';
-
-  @override
-  String get calloutVariantWarning => 'Warning';
-
-  @override
-  String get calloutVariantInfo => 'Note';
+  String get calloutBlockHint => 'Quote something...';
 
   @override
   String get addBlockSheetTitle => 'Choose a block type';

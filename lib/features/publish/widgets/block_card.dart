@@ -42,10 +42,13 @@ class BlockCard extends ConsumerStatefulWidget {
   // 实现；这里不需要知道 WebView 是否就绪、SQL 要不要包装这些细节，调用
   // 一次拿到一份 [{type, content}, ...] 结果就行——环境还没就绪时会在
   // PublishScreen 那边等最多60秒，不是立刻失败
-  final Future<List<Map<String, dynamic>>> Function(String blockId, String code, String language) onRunCode;
+  final Future<List<Map<String, dynamic>>> Function(
+    String blockId,
+    String code,
+    String language,
+  )
+  onRunCode;
   final VoidCallback onDelete;
-  final VoidCallback? onMoveUp;
-  final VoidCallback? onMoveDown;
   final VoidCallback onChanged;
 
   const BlockCard({
@@ -56,8 +59,6 @@ class BlockCard extends ConsumerStatefulWidget {
     required this.membership,
     required this.onRunCode,
     required this.onDelete,
-    this.onMoveUp,
-    this.onMoveDown,
     required this.onChanged,
   });
 
@@ -94,12 +95,12 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: _focused ? _primary : const Color(0xFFE5E5EA),
+          color: _focused ? _primary : const Color(0xFFEBEBEB),
           width: _focused ? 1.0 : 0.5,
         ),
       ),
@@ -131,16 +132,17 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   ),
                 ),
                 const Spacer(),
-                if (widget.onMoveUp != null)
-                  _actionBtn(Icons.keyboard_arrow_up, widget.onMoveUp!),
-                if (widget.onMoveDown != null)
-                  _actionBtn(Icons.keyboard_arrow_down, widget.onMoveDown!),
-                _actionBtn(
-                  Icons.delete_outline,
-                  widget.onDelete,
-                  color: const Color(0xFFDC2626),
+                // 只保留拖拽 + 删除——上下箭头是拖拽排序之外的第二套排序
+                // 入口，跟新设计"右上角固定显示拖拽图标+删除图标"这个更
+                // 精简的规范重复了，去掉；拖拽排序本身（ReorderableListView）
+                // 功能不受影响
+                _actionBtn(Icons.delete_outline, widget.onDelete),
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.drag_handle,
+                  size: 18,
+                  color: Color(0xFFDDDDDD),
                 ),
-                const Icon(Icons.drag_handle, size: 18, color: Colors.grey),
               ],
             ),
           ),
@@ -153,14 +155,13 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     );
   }
 
-  Widget _actionBtn(IconData icon, VoidCallback onTap, {Color? color}) =>
-      GestureDetector(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 16, color: color ?? Colors.grey),
-        ),
-      );
+  Widget _actionBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.all(4),
+      child: Icon(icon, size: 16, color: const Color(0xFFDDDDDD)),
+    ),
+  );
 
   Widget _buildContent(AppLocalizations l10n) {
     switch (widget.block.type) {
@@ -240,17 +241,17 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: const BoxDecoration(
-            color: Color(0xFF1A1A2E),
+            color: Color(0xFF1A1A1A),
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
+              topLeft: Radius.circular(14),
+              topRight: Radius.circular(14),
             ),
           ),
           child: Row(
             children: [
               DropdownButton<String>(
                 value: widget.block.language ?? 'python',
-                dropdownColor: const Color(0xFF1A1A2E),
+                dropdownColor: const Color(0xFF1A1A1A),
                 style: const TextStyle(fontSize: 12, color: Color(0xFFE5E7EB)),
                 underline: const SizedBox(),
                 isDense: true,
@@ -280,7 +281,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   ),
                   decoration: BoxDecoration(
                     color: _running ? Colors.grey : _primary,
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -307,14 +308,14 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           ),
         ),
         Container(
-          color: const Color(0xFF0F172A),
+          color: const Color(0xFF1A1A1A),
           padding: const EdgeInsets.all(10),
           child: TextFormField(
             initialValue: widget.block.content.isNotEmpty
                 ? widget.block.content
                 : null,
             decoration: InputDecoration(
-      filled: false,
+              filled: false,
               hintText: l10n.codeBlockHint,
               hintStyle: const TextStyle(
                 color: Color(0xFF64748B),
@@ -326,8 +327,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             ),
             style: const TextStyle(
               fontFamily: 'monospace',
-              fontSize: 13,
-              color: Color(0xFFE2E8F0),
+              fontSize: 12,
+              color: Color(0xFFA8B4C8),
               height: 1.6,
             ),
             maxLines: null,
@@ -351,14 +352,20 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       width: double.infinity,
       constraints: const BoxConstraints(maxHeight: 300),
       decoration: const BoxDecoration(
-        color: Color(0xFF0A0F1A),
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(8), bottomRight: Radius.circular(8)),
+        color: Color(0xFF111111),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(14),
+          bottomRight: Radius.circular(14),
+        ),
       ),
       // html 输出自己就是一个内部可滚动的 WebView，外面不能再套一层
       // SingleChildScrollView——两层滚动区域叠在一起，手势会被内层
       // WebView 吃掉，外层永远收不到
       child: widget.block.outputType == 'html'
-          ? SizedBox(height: 200, child: _renderOutput(content, widget.block.outputType))
+          ? SizedBox(
+              height: 200,
+              child: _renderOutput(content, widget.block.outputType),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(10),
               child: _renderOutput(content, widget.block.outputType),
@@ -371,13 +378,18 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       case 'image':
         // matplotlib 图表：compiler.js 吐回来的是 base64 图片
         try {
-          final base64Data = content.contains(',') ? content.split(',').last : content;
+          final base64Data = content.contains(',')
+              ? content.split(',').last
+              : content;
           return ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: Image.memory(base64Decode(base64Data), fit: BoxFit.contain),
           );
         } catch (e) {
-          return Text('图表渲染失败：$e', style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12));
+          return Text(
+            '图表渲染失败：$e',
+            style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12),
+          );
         }
 
       case 'html':
@@ -404,19 +416,34 @@ th{background:#1e293b;color:#94a3b8}
       case 'error':
         return Text(
           content,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFFFCA5A5), height: 1.6),
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            color: Color(0xFFFCA5A5),
+            height: 1.6,
+          ),
         );
 
       case 'info':
         return Text(
           content,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFF94A3B8), height: 1.6),
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            color: Color(0xFF94A3B8),
+            height: 1.6,
+          ),
         );
 
       default:
         return Text(
           content,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFF4ADE80), height: 1.6),
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            color: Color(0xFF4EC9B0),
+            height: 1.6,
+          ),
         );
     }
   }
@@ -442,14 +469,18 @@ th{background:#1e293b;color:#94a3b8}
     for (final out in outputs) {
       final type = out['type'] as String? ?? 'text';
       final content = out['content'] as String? ?? '';
-      if (['viz-suggestion', 'missing-package', 'debug'].contains(type)) continue;
+      if (['viz-suggestion', 'missing-package', 'debug'].contains(type)) {
+        continue;
+      }
       if (type == 'text' && content.trim().isEmpty) continue;
       foundContent = content;
       foundType = type;
       break;
     }
     setState(() {
-      widget.block.outputContent = foundContent ?? AppLocalizations.of(context)!.runCompleteNoOutputMessage;
+      widget.block.outputContent =
+          foundContent ??
+          AppLocalizations.of(context)!.runCompleteNoOutputMessage;
       widget.block.outputType = foundType ?? 'text';
     });
     widget.onChanged();
@@ -462,8 +493,12 @@ th{background:#1e293b;color:#94a3b8}
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF332701) : const Color(0xFFFFFBEB);
     final border = isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A);
-    final mathColor = isDark ? const Color(0xFFFCD34D) : const Color(0xFF78350F);
-    final hintColor = isDark ? const Color(0xFFB45309) : const Color(0xFFFCD34D);
+    final mathColor = isDark
+        ? const Color(0xFFFCD34D)
+        : const Color(0xFF78350F);
+    final hintColor = isDark
+        ? const Color(0xFFB45309)
+        : const Color(0xFFFCD34D);
     final inputHintColor = isDark
         ? const Color(0xFF92702B)
         : const Color(0xFFC7C7CC);
@@ -541,7 +576,7 @@ th{background:#1e293b;color:#94a3b8}
           TextFormField(
             initialValue: widget.block.caption,
             decoration: InputDecoration(
-      filled: false,
+              filled: false,
               hintText: l10n.imageCaptionHint,
               hintStyle: const TextStyle(
                 color: Color(0xFFC7C7CC),
@@ -563,23 +598,22 @@ th{background:#1e293b;color:#94a3b8}
     return GestureDetector(
       onTap: _pickImage,
       child: Container(
-        height: 120,
+        height: 140,
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F7),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE5E5EA)),
+          color: const Color(0xFFF8F8F8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
-              Icons.cloud_upload_outlined,
+              Icons.photo_camera_outlined,
               color: Color(0xFFC7C7CC),
               size: 28,
             ),
             const SizedBox(height: 6),
             Text(
-              l10n.uploadImageFromGallery,
+              l10n.tapToUploadLabel,
               style: const TextStyle(fontSize: 13, color: Color(0xFFC7C7CC)),
             ),
             const SizedBox(height: 2),
@@ -967,52 +1001,85 @@ th{background:#1e293b;color:#94a3b8}
         }
       },
       child: Container(
-        height: 120,
+        height: 140,
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFF111111),
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: widget.block.content.isNotEmpty
-            ? Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(
-                    Icons.play_circle_outline,
-                    color: Colors.white,
-                    size: 44,
-                  ),
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: Text(
-                      widget.block.fileName ?? 'video.mp4',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white70,
-                      ),
+        child: Stack(
+          children: [
+            Center(
+              child: widget.block.content.isNotEmpty
+                  ? Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const Icon(
+                          Icons.play_circle_outline,
+                          color: Colors.white,
+                          size: 44,
+                        ),
+                        Positioned(
+                          bottom: -30,
+                          child: Text(
+                            widget.block.fileName ?? 'video.mp4',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.videocam_outlined,
+                          color: Colors.white54,
+                          size: 28,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          l10n.uploadVideoFromGallery,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.white54,
+                          ),
+                        ),
+                        Text(
+                          l10n.videoSizeHint,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white38,
+                          ),
+                        ),
+                      ],
                     ),
+            ),
+            // 常驻的 PRO 角标——标记这是会员专属的 block 类型，不是"锁住了
+            // 才显示"的状态提示（免费用户走的是上面 free 分支那套完全
+            // 不同的锁定提示，走到这里已经是 Pro/Pro Max 用户）
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _primary,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: const Text(
+                  'PRO',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.videocam_outlined,
-                    color: Colors.white54,
-                    size: 28,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    l10n.uploadVideoFromGallery,
-                    style: const TextStyle(fontSize: 13, color: Colors.white54),
-                  ),
-                  Text(
-                    l10n.videoSizeHint,
-                    style: const TextStyle(fontSize: 10, color: Colors.white38),
-                  ),
-                ],
+                ),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1043,7 +1110,7 @@ th{background:#1e293b;color:#94a3b8}
                   ? widget.block.content
                   : null,
               decoration: const InputDecoration(
-      filled: false,
+                filled: false,
                 hintText: 'https://...',
                 hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 13),
                 border: InputBorder.none,
@@ -1064,88 +1131,50 @@ th{background:#1e293b;color:#94a3b8}
     );
   }
 
+  // 简化成单一"引用"样式——左紫线+米白底+斜体，不再有 tip/warning/info
+  // 三态切换。variant 字段还留着（对应已发布内容里可能存在的旧数据），
+  // 编辑器这边统一按新样式显示，不再往 variant 写除 info 以外的值
   Widget _buildCalloutBlock(AppLocalizations l10n) {
-    final bgColors = {
-      'tip': const Color(0xFFE8F8F0),
-      'warning': const Color(0xFFFFF7E6),
-      'info': const Color(0xFFEEF0FF),
-    };
-    final textColors = {
-      'tip': const Color(0xFF16A34A),
-      'warning': const Color(0xFFD97706),
-      'info': const Color(0xFF4F46E5),
-    };
-    final variantLabels = {
-      'tip': l10n.calloutVariantTip,
-      'warning': l10n.calloutVariantWarning,
-      'info': l10n.calloutVariantInfo,
-    };
-    final variant = widget.block.variant ?? 'info';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
+    final textColor = isDark
+        ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
+        : const Color(0xFF1A1A1A);
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: bgColors[variant],
-        borderRadius: BorderRadius.circular(8),
-        border: Border(left: BorderSide(color: textColors[variant]!, width: 3)),
+        color: bg,
+        border: const Border(left: BorderSide(color: _primary, width: 3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: ['tip', 'warning', 'info'].map((v) {
-              final selected = variant == v;
-              return GestureDetector(
-                onTap: () {
-                  setState(() => widget.block.variant = v);
-                  widget.onChanged();
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected ? textColors[v] : Colors.white,
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: textColors[v]!),
-                  ),
-                  child: Text(
-                    variantLabels[v]!,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: selected ? Colors.white : textColors[v],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+      child: TextFormField(
+        initialValue: widget.block.content.isNotEmpty
+            ? widget.block.content
+            : null,
+        decoration: InputDecoration(
+          filled: false,
+          hintText: l10n.calloutBlockHint,
+          hintStyle: TextStyle(
+            fontStyle: FontStyle.italic,
+            color: textColor.withValues(alpha: 0.4),
           ),
-          const SizedBox(height: 8),
-          TextFormField(
-            initialValue: widget.block.content.isNotEmpty
-                ? widget.block.content
-                : null,
-            decoration: const InputDecoration(
-      filled: false,
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-            ),
-            style: TextStyle(
-              fontSize: 14,
-              color: textColors[variant],
-              height: 1.5,
-            ),
-            maxLines: null,
-            onChanged: (v) {
-              widget.block.content = v;
-              widget.onChanged();
-            },
-          ),
-        ],
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        style: TextStyle(
+          fontSize: 14,
+          fontStyle: FontStyle.italic,
+          color: textColor,
+          height: 1.6,
+        ),
+        maxLines: null,
+        onChanged: (v) {
+          widget.block.content = v;
+          widget.onChanged();
+        },
       ),
     );
   }

@@ -2315,8 +2315,38 @@ abstract class AppLocalizations {
   /// No description provided for @publishTitleHint.
   ///
   /// In en, this message translates to:
-  /// **'Enter a title for your note...'**
+  /// **'Article title...'**
   String get publishTitleHint;
+
+  /// No description provided for @addSummaryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a summary...'**
+  String get addSummaryHint;
+
+  /// No description provided for @wordCountAndBlocksLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{words} words · {blocks} blocks'**
+  String wordCountAndBlocksLabel(int words, int blocks);
+
+  /// No description provided for @wordBlocksReadTimeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{words} words · {blocks} blocks · ~{minutes} min read'**
+  String wordBlocksReadTimeLabel(int words, int blocks, int minutes);
+
+  /// No description provided for @changeCoverAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get changeCoverAction;
+
+  /// No description provided for @tapToUploadLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to upload'**
+  String get tapToUploadLabel;
 
   /// No description provided for @saveDraftAction.
   ///
@@ -2465,7 +2495,7 @@ abstract class AppLocalizations {
   /// No description provided for @blockTypeCallout.
   ///
   /// In en, this message translates to:
-  /// **'Callout'**
+  /// **'Quote'**
   String get blockTypeCallout;
 
   /// No description provided for @textBlockHint.
@@ -2588,23 +2618,11 @@ abstract class AppLocalizations {
   /// **'Pro ≤50MB · Pro Max ≤100MB'**
   String get videoSizeHint;
 
-  /// No description provided for @calloutVariantTip.
+  /// No description provided for @calloutBlockHint.
   ///
   /// In en, this message translates to:
-  /// **'Tip'**
-  String get calloutVariantTip;
-
-  /// No description provided for @calloutVariantWarning.
-  ///
-  /// In en, this message translates to:
-  /// **'Warning'**
-  String get calloutVariantWarning;
-
-  /// No description provided for @calloutVariantInfo.
-  ///
-  /// In en, this message translates to:
-  /// **'Note'**
-  String get calloutVariantInfo;
+  /// **'Quote something...'**
+  String get calloutBlockHint;
 
   /// No description provided for @addBlockSheetTitle.
   ///

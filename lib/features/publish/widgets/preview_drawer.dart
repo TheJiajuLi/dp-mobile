@@ -1,13 +1,19 @@
+import 'dart:convert';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart';
+import '../../auth/auth_service.dart';
 import '../models/block_model.dart';
 
 const _primary = Color(0xFF6366F1);
+const _ink = Color(0xFF1A1A1A);
+const _bg = Color(0xFFFAFAF8);
 
-class PreviewDrawer extends StatelessWidget {
+class PreviewDrawer extends ConsumerWidget {
   final String title;
   final String summary;
   final List<String> tags;
@@ -23,45 +29,53 @@ class PreviewDrawer extends StatelessWidget {
     this.coverImageUrl,
   });
 
-  // 纯预览用的粗略估算，不追求精确：正文类 block 按字符数算字数，
-  // 图片/代码/文件/音频/视频这些"要花时间看"的 block 每个再加 0.5 分钟
-  (int words, int minutes) _stats() {
-    var chars = 0;
-    var heavyBlocks = 0;
-    for (final b in blocks) {
-      switch (b.type) {
-        case BlockType.text:
-        case BlockType.heading:
-        case BlockType.code:
-        case BlockType.latex:
-        case BlockType.callout:
-          chars += b.content.length;
-          if (b.type == BlockType.code || b.type == BlockType.latex) {
-            heavyBlocks++;
-          }
-          break;
-        case BlockType.image:
-        case BlockType.file:
-        case BlockType.audio:
-        case BlockType.video:
-        case BlockType.link:
-          heavyBlocks++;
-          break;
+  Widget _authorAvatar(String? avatar, String username) {
+    if (avatar != null && avatar.isNotEmpty) {
+      if (avatar.startsWith('data:image')) {
+        try {
+          return CircleAvatar(
+            radius: 14,
+            backgroundImage: MemoryImage(base64Decode(avatar.split(',').last)),
+          );
+        } catch (_) {
+          // 解码失败落到下面的首字母占位
+        }
+      } else {
+        return CircleAvatar(
+          radius: 14,
+          backgroundImage: CachedNetworkImageProvider(avatar),
+        );
       }
     }
-    final minutes = ((chars / 200) + heavyBlocks * 0.5).ceil().clamp(1, 999);
-    return (chars, minutes);
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: _primary,
+      child: Text(
+        username.isNotEmpty ? username.substring(0, 1).toUpperCase() : '?',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final (words, minutes) = _stats();
+    final user = ref.watch(currentUserProvider);
+    final (words, minutes) = computeBlockStats(blocks);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.86,
       shape: const RoundedRectangleBorder(),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // "读者预览"跟首页 Feed 用同一套米白底视觉语言，不再跟着全局主题的
+      // #F7F7FB 走——深色模式还是继续用主题自己的背景色
+      backgroundColor: isDarkMode
+          ? Theme.of(context).scaffoldBackgroundColor
+          : _bg,
       child: SafeArea(
         child: Column(
           children: [
@@ -192,6 +206,31 @@ class PreviewDrawer extends StatelessWidget {
                                       .toList(),
                                 ),
                               ],
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                          child: Row(
+                            children: [
+                              _authorAvatar(user?.avatar, user?.username ?? ''),
+                              const SizedBox(width: 8),
+                              Text(
+                                user?.username ?? '',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _ink,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                l10n.timeJustNow,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF999999),
+                                ),
+                              ),
                             ],
                           ),
                         ),

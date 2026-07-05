@@ -77,3 +77,35 @@ class EditorBlock {
     if (type == BlockType.callout) 'variant': variant,
   };
 }
+
+// 发布页底部状态栏、预览抽屉都要一份"多少字/多少分钟"的粗略估算，抽成
+// 共用函数，不要两处各写一份容易慢慢跑偏。纯预览用的粗略估算，不追求
+// 精确：正文类 block 按字符数算字数，图片/代码/文件/音频/视频这些
+// "要花时间看"的 block 每个再加 0.5 分钟
+(int chars, int minutes) computeBlockStats(List<EditorBlock> blocks) {
+  var chars = 0;
+  var heavyBlocks = 0;
+  for (final b in blocks) {
+    switch (b.type) {
+      case BlockType.text:
+      case BlockType.heading:
+      case BlockType.code:
+      case BlockType.latex:
+      case BlockType.callout:
+        chars += b.content.length;
+        if (b.type == BlockType.code || b.type == BlockType.latex) {
+          heavyBlocks++;
+        }
+        break;
+      case BlockType.image:
+      case BlockType.file:
+      case BlockType.audio:
+      case BlockType.video:
+      case BlockType.link:
+        heavyBlocks++;
+        break;
+    }
+  }
+  final minutes = ((chars / 200) + heavyBlocks * 0.5).ceil().clamp(1, 999);
+  return (chars, minutes);
+}
