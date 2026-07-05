@@ -1264,7 +1264,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navHome => 'Home';
 
   @override
-  String get navCommunity => 'Community';
+  String get navCommunity => 'Discover';
 
   @override
   String get navProfile => 'Profile';

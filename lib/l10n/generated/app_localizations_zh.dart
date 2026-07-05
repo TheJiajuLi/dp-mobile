@@ -1235,7 +1235,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get navHome => '首页';
 
   @override
-  String get navCommunity => '社区';
+  String get navCommunity => '发现';
 
   @override
   String get navProfile => '我的';

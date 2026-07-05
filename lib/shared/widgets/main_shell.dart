@@ -23,52 +23,63 @@ class MainShell extends StatelessWidget {
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 16,
+              offset: Offset(0, -2),
+            ),
+          ],
         ),
-        child: SafeArea(
-          child: SizedBox(
-            height: 56,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _NavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: l10n.navHome,
-                  selected: navigationShell.currentIndex == 0,
-                  onTap: () => _onTap(0),
-                ),
-                _NavItem(
-                  icon: Icons.groups_outlined,
-                  activeIcon: Icons.groups,
-                  label: l10n.navCommunity,
-                  selected: navigationShell.currentIndex == 1,
-                  onTap: () => _onTap(1),
-                ),
-                _PublishButton(onTap: () => context.push('/publish')),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final unread = ref.watch(unreadCountProvider);
-                    return _NavItem(
-                      icon: Icons.chat_bubble_outline,
-                      activeIcon: Icons.chat_bubble,
-                      label: l10n.messagesTitle,
-                      selected: navigationShell.currentIndex == 2,
-                      badgeCount: unread,
-                      onTap: () => _onTap(2),
-                    );
-                  },
-                ),
-                _NavItem(
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: l10n.navProfile,
-                  selected: navigationShell.currentIndex == 3,
-                  onTap: () => _onTap(3),
-                ),
-              ],
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 60,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _NavItem(
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home,
+                    label: l10n.navHome,
+                    selected: navigationShell.currentIndex == 0,
+                    onTap: () => _onTap(0),
+                  ),
+                  _NavItem(
+                    icon: Icons.explore_outlined,
+                    activeIcon: Icons.explore,
+                    label: l10n.navCommunity,
+                    selected: navigationShell.currentIndex == 1,
+                    onTap: () => _onTap(1),
+                  ),
+                  _PublishButton(onTap: () => context.push('/publish')),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final unread = ref.watch(unreadCountProvider);
+                      return _NavItem(
+                        icon: Icons.chat_bubble_outline,
+                        activeIcon: Icons.chat_bubble,
+                        label: l10n.messagesTitle,
+                        selected: navigationShell.currentIndex == 2,
+                        badgeCount: unread,
+                        onTap: () => _onTap(2),
+                      );
+                    },
+                  ),
+                  _NavItem(
+                    icon: Icons.person_outline,
+                    activeIcon: Icons.person,
+                    label: l10n.navProfile,
+                    selected: navigationShell.currentIndex == 3,
+                    onTap: () => _onTap(3),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -96,9 +107,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected
-        ? AppColors.primary
-        : Theme.of(context).textTheme.bodySmall?.color ?? AppColors.textMuted;
+    final color = selected ? AppColors.textPrimary : AppColors.textMuted;
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
@@ -119,7 +128,7 @@ class _NavItem extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 fontSize: 10,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
               ),
             ),
           ],
@@ -138,13 +147,13 @@ class _PublishButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 36,
-        height: 36,
-        decoration: const BoxDecoration(
-          color: AppColors.primary,
-          shape: BoxShape.circle,
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppColors.textPrimary,
+          borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(Icons.add, color: Colors.white, size: 20),
+        child: const Icon(Icons.add, color: Colors.white, size: 24),
       ),
     );
   }
