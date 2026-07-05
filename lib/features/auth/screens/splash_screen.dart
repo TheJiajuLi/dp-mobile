@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -28,11 +27,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // Logo 一次性淡入+轻微放大的入场动画，不是循环动画——启动页停留时间
     // 通常很短（tryAutoLogin 一般几百毫秒就有结果），循环动画反而容易让
     // 这一闪而过的页面显得拖沓
-    _animCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _fade = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
-    _scale = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutBack),
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
     );
+    _fade = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _scale = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutBack));
     _animCtrl.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) => _restore());
   }
@@ -79,7 +82,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Center(
+      body: Align(
+        alignment: const Alignment(0, -0.12),
         child: FadeTransition(
           opacity: _fade,
           child: ScaleTransition(
@@ -87,8 +91,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SvgPicture.asset('assets/icons/logo.svg', width: 100, height: 100),
-                const SizedBox(height: 20),
                 Text(
                   l10n.appName,
                   style: const TextStyle(
@@ -111,7 +113,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 const SizedBox(
                   width: 22,
                   height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: AppColors.primary,
+                  ),
                 ),
               ],
             ),

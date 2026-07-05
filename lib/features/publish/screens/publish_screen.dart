@@ -112,7 +112,15 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🐻', style: TextStyle(fontSize: 40)),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(
+                color: Color(0xFFEEF0FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.auto_awesome, color: _primary, size: 32),
+            ),
             const SizedBox(height: 12),
             const Text(
               '我是小梦，来帮你开始',
@@ -143,7 +151,19 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                         Navigator.pop(ctx);
                         _addBlock(BlockType.text);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('🐻 开始写$topic吧！有问题随时叫我')),
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_awesome,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text('开始写$topic吧！有问题随时叫我')),
+                              ],
+                            ),
+                          ),
                         );
                       },
                       child: Container(
@@ -206,7 +226,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
             children: [
               const Row(
                 children: [
-                  Text('🐻', style: TextStyle(fontSize: 20)),
+                  Icon(Icons.auto_awesome, size: 20, color: _primary),
                   SizedBox(width: 8),
                   Text(
                     '小梦为你生成了几个标题',
@@ -967,13 +987,24 @@ result
                                     color: _primary,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Text(
-                                    '✨ 小梦生成',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.auto_awesome,
+                                        size: 10,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        '小梦生成',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1287,7 +1318,11 @@ result
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('💡', style: TextStyle(fontSize: 16)),
+                  const Icon(
+                    Icons.lightbulb_outline,
+                    size: 16,
+                    color: Color(0xFFD97706),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1353,12 +1388,6 @@ result
                       onTap: () => _addBlock(type),
                     ),
                   ),
-                  _toolbarButton(
-                    icon: Icons.more_horiz,
-                    tooltip: l10n.addContentBlockLabel,
-                    selected: false,
-                    onTap: _showBlockPicker,
-                  ),
                 ],
               ),
             ),
@@ -1412,19 +1441,6 @@ result
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  void _showBlockPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => BlockPickerSheet(
-        onSelect: (type) {
-          Navigator.pop(ctx);
-          _addBlock(type);
-        },
       ),
     );
   }
@@ -2141,7 +2157,17 @@ result
           setState(() => _summaryCtrl.text = summary);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('🐻 摘要已生成'),
+              content: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                  SizedBox(width: 8),
+                  Text('摘要已生成'),
+                ],
+              ),
               backgroundColor: Color(0xFF16A34A),
               duration: Duration(seconds: 2),
             ),
@@ -2244,8 +2270,10 @@ result
                   color: const Color(0xFFEEF0FF),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Center(
-                  child: Text('✨', style: TextStyle(fontSize: 18)),
+                child: const Icon(
+                  Icons.auto_awesome_outlined,
+                  size: 18,
+                  color: _primary,
                 ),
               ),
               title: const Text('小梦帮我生成封面'),

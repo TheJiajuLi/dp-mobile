@@ -285,7 +285,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${greetingText(context)} 👋',
+                                    greetingText(context),
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey[500],

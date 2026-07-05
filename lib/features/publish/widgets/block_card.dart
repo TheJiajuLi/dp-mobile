@@ -95,6 +95,21 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     super.dispose();
   }
 
+  // LaTeX 的"用自然语言生成公式"不需要已有内容，其余几种都需要已有内容才
+  // 有得优化/解释——不然点开菜单里全是点了也没反应的选项
+  bool get _showsAiButton {
+    const aiTypes = {
+      BlockType.text,
+      BlockType.heading,
+      BlockType.callout,
+      BlockType.code,
+      BlockType.latex,
+    };
+    if (!aiTypes.contains(widget.block.type)) return false;
+    if (widget.block.type == BlockType.latex) return true;
+    return widget.block.content.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -136,8 +151,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   _actionBtn(Icons.keyboard_arrow_up, widget.onMoveUp!),
                 if (widget.onMoveDown != null)
                   _actionBtn(Icons.keyboard_arrow_down, widget.onMoveDown!),
-                if (widget.block.type == BlockType.text &&
-                    widget.block.content.isNotEmpty)
+                if (_showsAiButton)
                   _polishing
                       ? const Padding(
                           padding: EdgeInsets.all(4),
@@ -151,10 +165,14 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                           ),
                         )
                       : GestureDetector(
-                          onTap: () => _showPolishMenu(context),
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Text('✨', style: TextStyle(fontSize: 14)),
+                          onTap: _showAiMenu,
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.auto_awesome_outlined,
+                              size: 15,
+                              color: Colors.grey.shade400,
+                            ),
                           ),
                         ),
                 _actionBtn(Icons.delete_outline, widget.onDelete),
@@ -239,7 +257,22 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     onEditingComplete: () => setState(() => _focused = false),
   );
 
-  void _showPolishMenu(BuildContext context) {
+  void _showAiMenu() {
+    switch (widget.block.type) {
+      case BlockType.text:
+      case BlockType.heading:
+      case BlockType.callout:
+        _showTextAiMenu();
+      case BlockType.code:
+        _showCodeAiMenu();
+      case BlockType.latex:
+        _showLatexAiMenu();
+      default:
+        break;
+    }
+  }
+
+  void _showTextAiMenu() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -263,7 +296,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             ),
             const Row(
               children: [
-                Text('🐻', style: TextStyle(fontSize: 18)),
+                Icon(Icons.auto_awesome, size: 18, color: _primary),
                 SizedBox(width: 8),
                 Text(
                   '小梦优化',
@@ -273,12 +306,24 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             ),
             const SizedBox(height: 12),
             ...[
-              ('vivid', '💎', '优化文字', '让表达更生动流畅'),
-              ('concise', '✂️', '精简浓缩', '删掉废话，留下精华'),
-              ('formal', '📋', '正式化', '适合学术/报告风格'),
+              ('vivid', Icons.diamond_outlined, '优化文字', '让表达更生动流畅'),
+              ('concise', Icons.content_cut, '精简浓缩', '删掉废话，留下精华'),
+              ('formal', Icons.description_outlined, '正式化', '适合学术/报告风格'),
             ].map(
               (item) => ListTile(
-                leading: Text(item.$2, style: const TextStyle(fontSize: 20)),
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    item.$2,
+                    size: 17,
+                    color: const Color(0xFF555555),
+                  ),
+                ),
                 title: Text(
                   item.$3,
                   style: const TextStyle(
@@ -316,7 +361,13 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           showDialog(
             context: context,
             builder: (dCtx) => AlertDialog(
-              title: const Text('🐻 小梦的修改'),
+              title: const Row(
+                children: [
+                  Icon(Icons.auto_awesome, size: 18, color: _primary),
+                  SizedBox(width: 8),
+                  Text('小梦的修改'),
+                ],
+              ),
               content: SingleChildScrollView(
                 child: Text(
                   result,
@@ -367,7 +418,459 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     }
   }
 
+  void _showCodeAiMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF0FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 14,
+                    color: _primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  '小梦代码助手',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...[
+              ('explain', Icons.menu_book_outlined, '解释代码', '用简单语言解释这段代码'),
+              ('optimize', Icons.speed_outlined, '优化代码', '提升可读性和性能'),
+              ('comment', Icons.comment_outlined, '添加注释', '为每行添加中文注释'),
+              ('bug', Icons.bug_report_outlined, '查找问题', '检查潜在的bug'),
+            ].map(
+              (item) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    item.$2,
+                    size: 17,
+                    color: const Color(0xFF555555),
+                  ),
+                ),
+                title: Text(
+                  item.$3,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: Text(item.$4, style: const TextStyle(fontSize: 12)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _assistCode(item.$1);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _assistCode(String action) async {
+    final code = widget.block.content;
+    if (code.isEmpty) return;
+
+    final prompts = {
+      'explain':
+          '请用简洁的中文解释以下代码的功能和逻辑，分点说明：\n\n'
+          '```${widget.block.language}\n$code\n```',
+      'optimize':
+          '请优化以下代码，提升可读性和性能，直接输出优化后的完整代码：\n\n'
+          '```${widget.block.language}\n$code\n```',
+      'comment':
+          '为以下代码每行添加简洁的中文注释，直接输出带注释的完整代码：\n\n'
+          '```${widget.block.language}\n$code\n```',
+      'bug':
+          '检查以下代码中可能存在的bug或问题，列出问题和修改建议：\n\n'
+          '```${widget.block.language}\n$code\n```',
+    };
+
+    setState(() {
+      widget.block.outputContent = '小梦分析中...';
+      widget.block.outputType = 'info';
+    });
+    widget.onChanged();
+
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(
+            '/auth/xmeng/chat',
+            data: {
+              'messages': [
+                {'role': 'user', 'content': prompts[action] ?? ''},
+              ],
+            },
+            options: Options(receiveTimeout: const Duration(seconds: 60)),
+          );
+
+      setState(() {
+        widget.block.outputContent = null;
+        widget.block.outputType = null;
+      });
+
+      if (!res.success || !mounted) return;
+      final result = (res.data as Map?)?['message'] as String? ?? '';
+      if (result.isEmpty) return;
+
+      if (action == 'optimize' || action == 'comment') {
+        // 优化/注释这两种是"替换代码"操作，弹确认框而不是直接覆盖，避免
+        // 一言不合就把用户已经写好的代码冲掉
+        showDialog(
+          context: context,
+          builder: (dCtx) => AlertDialog(
+            title: const Text('小梦的建议'),
+            content: SingleChildScrollView(
+              child: Text(
+                result,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.6,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dCtx),
+                child: const Text('关闭', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final codeMatch = RegExp(
+                    r'```\w*\n?([\s\S]*?)```',
+                  ).firstMatch(result);
+                  final extracted = codeMatch?.group(1)?.trim() ?? result;
+                  setState(() {
+                    widget.block.content = extracted;
+                    _codeCtrl.text = extracted;
+                  });
+                  widget.onChanged();
+                  Navigator.pop(dCtx);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('应用', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // 解释/查找问题：直接当作一次"运行输出"展示在代码块下方
+        setState(() {
+          widget.block.outputContent = result;
+          widget.block.outputType = 'text';
+        });
+        widget.onChanged();
+      }
+    } catch (e) {
+      setState(() {
+        widget.block.outputContent = null;
+        widget.block.outputType = null;
+      });
+      widget.onChanged();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+      }
+    }
+  }
+
+  void _showLatexAiMenu() {
+    final promptCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF0FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_outlined,
+                      size: 14,
+                      color: _primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '小梦公式助手',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (widget.block.content.isNotEmpty)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F5F2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.menu_book_outlined,
+                      size: 17,
+                      color: Color(0xFF555555),
+                    ),
+                  ),
+                  title: const Text(
+                    '解释这个公式',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: const Text(
+                    '用通俗语言解释公式含义',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _explainLatex();
+                  },
+                ),
+              const Text(
+                '用自然语言描述公式',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: promptCtrl,
+                decoration: InputDecoration(
+                  hintText: '如：泊松分布的概率质量函数',
+                  hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _primary),
+                  ),
+                ),
+                style: const TextStyle(fontSize: 13),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: ['正态分布', '贝叶斯定理', '泰勒展开', '矩阵行列式'].map((t) {
+                  return GestureDetector(
+                    onTap: () => promptCtrl.text = t,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        t,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF555555),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final desc = promptCtrl.text.trim();
+                    if (desc.isEmpty) return;
+                    Navigator.pop(ctx);
+                    await _generateLatex(desc);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    '生成 LaTeX',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _explainLatex() async {
+    final formula = widget.block.content;
+    setState(() {
+      widget.block.outputContent = '小梦解释中...';
+      widget.block.outputType = 'info';
+    });
+    widget.onChanged();
+
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(
+            '/auth/xmeng/chat',
+            data: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': '请用通俗语言解释以下LaTeX公式的数学含义：\n\n$formula',
+                },
+              ],
+            },
+            options: Options(receiveTimeout: const Duration(seconds: 60)),
+          );
+
+      if (!mounted) return;
+      setState(() {
+        widget.block.outputContent = res.success
+            ? ((res.data as Map?)?['message'] as String? ?? '')
+            : null;
+        widget.block.outputType = 'text';
+      });
+      widget.onChanged();
+    } catch (e) {
+      setState(() {
+        widget.block.outputContent = null;
+        widget.block.outputType = null;
+      });
+      widget.onChanged();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+      }
+    }
+  }
+
+  Future<void> _generateLatex(String description) async {
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(
+            '/auth/xmeng/chat',
+            data: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content':
+                      '请把以下数学概念转换为LaTeX公式代码，只输出LaTeX代码本身，不要解释，不要markdown代码块：\n\n$description',
+                },
+              ],
+            },
+            options: Options(receiveTimeout: const Duration(seconds: 60)),
+          );
+
+      if (!res.success || !mounted) return;
+      final latex = (res.data as Map?)?['message'] as String? ?? '';
+      if (latex.isNotEmpty) {
+        setState(() {
+          widget.block.content = latex.trim();
+          _textRevision++;
+        });
+        widget.onChanged();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('生成失败，请重试')));
+      }
+    }
+  }
+
   Widget _buildHeadingBlock(AppLocalizations l10n) => TextFormField(
+    key: ValueKey('heading_${widget.block.id}_$_textRevision'),
     initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
     decoration: InputDecoration(
       filled: false,
@@ -696,6 +1199,7 @@ th{background:#1e293b;color:#94a3b8}
               : Text(l10n.latexBlockHint, style: TextStyle(color: hintColor)),
           const SizedBox(height: 8),
           TextFormField(
+            key: ValueKey('latex_${widget.block.id}_$_textRevision'),
             initialValue: widget.block.content.isNotEmpty
                 ? widget.block.content
                 : null,
@@ -722,6 +1226,30 @@ th{background:#1e293b;color:#94a3b8}
               widget.onChanged();
             },
           ),
+          if (widget.block.outputContent != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.15)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: border),
+              ),
+              child: Text(
+                widget.block.outputContent!,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.6,
+                  color: widget.block.outputType == 'info'
+                      ? inputHintColor
+                      : (isDark ? Colors.white70 : const Color(0xFF444444)),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1320,6 +1848,7 @@ th{background:#1e293b;color:#94a3b8}
         border: const Border(left: BorderSide(color: _primary, width: 3)),
       ),
       child: TextFormField(
+        key: ValueKey('callout_${widget.block.id}_$_textRevision'),
         initialValue: widget.block.content.isNotEmpty
             ? widget.block.content
             : null,
