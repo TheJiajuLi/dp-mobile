@@ -2495,7 +2495,7 @@ abstract class AppLocalizations {
   /// No description provided for @quickStartAria.
   ///
   /// In en, this message translates to:
-  /// **'Ask ARIA to Help'**
+  /// **'Ask Xiaomeng for Help'**
   String get quickStartAria;
 
   /// No description provided for @todaysInspirationLabel.

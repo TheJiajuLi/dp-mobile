@@ -1320,7 +1320,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickStartImage => 'Upload Image';
 
   @override
-  String get quickStartAria => 'Ask ARIA to Help';
+  String get quickStartAria => 'Ask Xiaomeng for Help';
 
   @override
   String get todaysInspirationLabel => 'Today\'s Inspiration';

@@ -1290,7 +1290,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get quickStartImage => '上传图片';
 
   @override
-  String get quickStartAria => 'ARIA 帮我写';
+  String get quickStartAria => '小梦帮我写';
 
   @override
   String get todaysInspirationLabel => '今日灵感';

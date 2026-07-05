@@ -74,6 +74,14 @@ class BlockCard extends ConsumerStatefulWidget {
 class _BlockCardState extends ConsumerState<BlockCard> {
   bool _running = false;
   bool _focused = false;
+  bool _polishing = false;
+  // 文字 block 用的是 TextFormField(initialValue: ...)，不是受控的
+  // controller——小梦优化后台把 widget.block.content 改掉再 setState 是
+  // 不会自动反映到输入框上的（initialValue 只在第一次创建时读一次）。
+  // 靠这个计数器换 key 强制 TextFormField 整个重建，才能捡到新的
+  // initialValue；只在"应用优化结果"时才 +1，正常打字不碰它，
+  // 不会打断输入焦点/光标位置
+  int _textRevision = 0;
   // 代码块专用——用能实时按 token 上色的 controller 替代默认的
   // TextFormField(initialValue: ...)，编辑态才能跟阅读态一样有语法高亮
   late final HighlightingCodeController _codeCtrl = HighlightingCodeController(
@@ -128,6 +136,27 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   _actionBtn(Icons.keyboard_arrow_up, widget.onMoveUp!),
                 if (widget.onMoveDown != null)
                   _actionBtn(Icons.keyboard_arrow_down, widget.onMoveDown!),
+                if (widget.block.type == BlockType.text &&
+                    widget.block.content.isNotEmpty)
+                  _polishing
+                      ? const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: _primary,
+                            ),
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: () => _showPolishMenu(context),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Text('✨', style: TextStyle(fontSize: 14)),
+                          ),
+                        ),
                 _actionBtn(Icons.delete_outline, widget.onDelete),
                 const SizedBox(width: 2),
                 // 光一个 Icon 摆在那不会自己变成拖拽热区——
@@ -190,6 +219,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   }
 
   Widget _buildTextBlock(AppLocalizations l10n) => TextFormField(
+    key: ValueKey('text_${widget.block.id}_$_textRevision'),
     initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
     decoration: InputDecoration(
       filled: false,
@@ -208,6 +238,134 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     onTap: () => setState(() => _focused = true),
     onEditingComplete: () => setState(() => _focused = false),
   );
+
+  void _showPolishMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Row(
+              children: [
+                Text('🐻', style: TextStyle(fontSize: 18)),
+                SizedBox(width: 8),
+                Text(
+                  '小梦优化',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...[
+              ('vivid', '💎', '优化文字', '让表达更生动流畅'),
+              ('concise', '✂️', '精简浓缩', '删掉废话，留下精华'),
+              ('formal', '📋', '正式化', '适合学术/报告风格'),
+            ].map(
+              (item) => ListTile(
+                leading: Text(item.$2, style: const TextStyle(fontSize: 20)),
+                title: Text(
+                  item.$3,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: Text(item.$4, style: const TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _polishBlock(item.$1);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _polishBlock(String style) async {
+    final original = widget.block.content;
+    if (original.isEmpty) return;
+
+    setState(() => _polishing = true);
+
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post('/auth/xmeng/polish', data: {'text': original, 'style': style});
+
+      if (res.success && mounted) {
+        final result = (res.data as Map?)?['result'] as String? ?? '';
+        if (result.isNotEmpty) {
+          showDialog(
+            context: context,
+            builder: (dCtx) => AlertDialog(
+              title: const Text('🐻 小梦的修改'),
+              content: SingleChildScrollView(
+                child: Text(
+                  result,
+                  style: const TextStyle(fontSize: 14, height: 1.6),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dCtx),
+                  child: const Text(
+                    '不用了',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      widget.block.content = result;
+                      _textRevision++;
+                    });
+                    widget.onChanged();
+                    Navigator.pop(dCtx);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    '应用',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+      }
+    } finally {
+      if (mounted) setState(() => _polishing = false);
+    }
+  }
 
   Widget _buildHeadingBlock(AppLocalizations l10n) => TextFormField(
     initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,

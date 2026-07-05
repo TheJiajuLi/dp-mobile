@@ -55,6 +55,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   final List<EditorBlock> _blocks = [];
   final List<String> _tags = ['Python', '数据分析'];
   bool _saving = false;
+  bool _generatingSummary = false;
   String? _coverImageUrl;
   // 底部工具栏里"当前选中"的高亮态——没有真的去接每个 block 内部输入框
   // 的 focus 变化（链路太长），退而求其次：跟着"最近一次点了哪个类型的
@@ -91,14 +92,178 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     );
   }
 
-  void _askAria() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          AppLocalizations.of(context)!.ariaWritingAssistantComingSoon,
+  Future<void> _askXmeng() async {
+    if (_titleCtrl.text.isNotEmpty ||
+        _blocks.any((b) => b.content.isNotEmpty)) {
+      await _aiSuggestTitles();
+      return;
+    }
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🐻', style: TextStyle(fontSize: 40)),
+            const SizedBox(height: 12),
+            const Text(
+              '我是小梦，来帮你开始',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '先告诉我你想写什么方向？',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  [
+                    '数据分析',
+                    '机器学习',
+                    'Python编程',
+                    '数学公式',
+                    '可视化',
+                    '论文笔记',
+                    '个人总结',
+                    '读书笔记',
+                  ].map((topic) {
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _addBlock(BlockType.text);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('🐻 开始写$topic吧！有问题随时叫我')),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F5F7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          topic,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF1C1C1E),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _aiSuggestTitles() async {
+    final content = [
+      if (_titleCtrl.text.isNotEmpty) _titleCtrl.text,
+      ..._blocks.where((b) => b.content.isNotEmpty).map((b) => b.content),
+    ].join('\n');
+
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post('/auth/xmeng/title', data: {'content': content, 'tags': _tags});
+
+      if (!res.success || !mounted) return;
+
+      final titles = List<String>.from(
+        (res.data as Map?)?['titles'] as List? ?? [],
+      );
+      if (titles.isEmpty) return;
+
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Text('🐻', style: TextStyle(fontSize: 20)),
+                  SizedBox(width: 8),
+                  Text(
+                    '小梦为你生成了几个标题',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '点击即可应用',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 14),
+              ...titles.map(
+                (t) => GestureDetector(
+                  onTap: () {
+                    setState(() => _titleCtrl.text = t);
+                    Navigator.pop(ctx);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAFAF8),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE5E5EA)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            t,
+                            style: const TextStyle(fontSize: 14, height: 1.4),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.north_west,
+                          size: 14,
+                          color: Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+      }
+    }
   }
 
   // 复用 notebook_editor_screen.dart 里已经跑通的那套 Pyodide 引擎——同一个
@@ -711,7 +876,7 @@ result
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
-                      onTap: _pickCoverImage,
+                      onTap: _showCoverOptions,
                       child: Container(
                         width: 64,
                         height: 64,
@@ -751,27 +916,69 @@ result
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
-                        controller: _summaryCtrl,
-                        decoration: InputDecoration(
-                          filled: false,
-                          hintText: l10n.addSummaryHint,
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF888888),
-                            fontSize: 13,
+                      child: Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          TextField(
+                            controller: _summaryCtrl,
+                            decoration: InputDecoration(
+                              filled: false,
+                              hintText: l10n.addSummaryHint,
+                              hintStyle: const TextStyle(
+                                color: Color(0xFF888888),
+                                fontSize: 13,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF888888),
+                              height: 1.4,
+                            ),
+                            maxLines: 4,
+                            minLines: 3,
+                            onChanged: (_) => setState(() {}),
                           ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF888888),
-                          height: 1.4,
-                        ),
-                        maxLines: 4,
-                        minLines: 3,
-                        onChanged: (_) => setState(() {}),
+                          if (_generatingSummary)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 4),
+                              child: SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: _primary,
+                                ),
+                              ),
+                            )
+                          else if (_summaryCtrl.text.isEmpty)
+                            GestureDetector(
+                              onTap: _aiGenerateSummary,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _primary,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    '✨ 小梦生成',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -1059,7 +1266,7 @@ result
                       label: l10n.quickStartAria,
                       color: const Color(0xFFD97706),
                       bg: const Color(0xFFFFF7E6),
-                      onTap: _askAria,
+                      onTap: _askXmeng,
                     ),
                   ],
                 ),
@@ -1903,6 +2110,55 @@ result
     );
   }
 
+  Future<void> _aiGenerateSummary() async {
+    final content = [
+      if (_titleCtrl.text.isNotEmpty) '标题：${_titleCtrl.text}',
+      ..._blocks
+          .where(
+            (b) =>
+                b.content.isNotEmpty &&
+                (b.type == BlockType.text || b.type == BlockType.heading),
+          )
+          .map((b) => b.content),
+    ].join('\n\n');
+
+    if (content.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('先写点内容，小梦才能帮你生成摘要')));
+      return;
+    }
+
+    setState(() => _generatingSummary = true);
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post('/auth/xmeng/summary', data: {'content': content});
+
+      if (res.success && mounted) {
+        final summary = (res.data as Map?)?['summary'] as String? ?? '';
+        if (summary.isNotEmpty) {
+          setState(() => _summaryCtrl.text = summary);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🐻 摘要已生成'),
+              backgroundColor: Color(0xFF16A34A),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+      }
+    } finally {
+      if (mounted) setState(() => _generatingSummary = false);
+    }
+  }
+
   Future<void> _pickCoverImage() async {
     final picker = ImagePicker();
     final file = await picker.pickImage(
@@ -1935,6 +2191,90 @@ result
         );
       }
     }
+  }
+
+  Future<void> _showCoverOptions() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.photo_library_outlined,
+                  size: 20,
+                  color: Colors.grey,
+                ),
+              ),
+              title: const Text('从相册选择'),
+              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickCoverImage();
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF0FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Center(
+                  child: Text('✨', style: TextStyle(fontSize: 18)),
+                ),
+              ),
+              title: const Text('小梦帮我生成封面'),
+              subtitle: const Text(
+                '根据标题和标签自动生成',
+                style: TextStyle(fontSize: 11),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F7),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  '即将上线',
+                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('封面AI生成即将上线，敬请期待 🐻')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
