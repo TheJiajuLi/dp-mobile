@@ -1196,13 +1196,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addSummaryHint => '添加摘要...';
 
   @override
-  String wordCountAndBlocksLabel(int words, int blocks) {
-    return '$words字 · $blocks blocks';
-  }
-
-  @override
   String wordBlocksReadTimeLabel(int words, int blocks, int minutes) {
-    return '$words字 · ${blocks}blocks · 约$minutes分钟阅读';
+    return '$words字 · $blocks blocks · 约$minutes分钟阅读';
   }
 
   @override

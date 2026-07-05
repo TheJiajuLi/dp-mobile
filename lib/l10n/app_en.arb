@@ -635,17 +635,6 @@
   },
   "publishTitleHint": "Article title...",
   "addSummaryHint": "Add a summary...",
-  "wordCountAndBlocksLabel": "{words} words · {blocks} blocks",
-  "@wordCountAndBlocksLabel": {
-    "placeholders": {
-      "words": {
-        "type": "int"
-      },
-      "blocks": {
-        "type": "int"
-      }
-    }
-  },
   "wordBlocksReadTimeLabel": "{words} words · {blocks} blocks · ~{minutes} min read",
   "@wordBlocksReadTimeLabel": {
     "placeholders": {

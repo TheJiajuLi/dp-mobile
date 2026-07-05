@@ -2324,12 +2324,6 @@ abstract class AppLocalizations {
   /// **'Add a summary...'**
   String get addSummaryHint;
 
-  /// No description provided for @wordCountAndBlocksLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'{words} words · {blocks} blocks'**
-  String wordCountAndBlocksLabel(int words, int blocks);
-
   /// No description provided for @wordBlocksReadTimeLabel.
   ///
   /// In en, this message translates to:

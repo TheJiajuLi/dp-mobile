@@ -1021,19 +1021,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     // 只在浅色模式按规范覆盖，深色模式继续用主题自己的背景色，不强行套
     // 一套没设计过深色版本的固定色值
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    // 简介区（bio/性别所在地/IP属地）挪出头图后是直接坐在 Scaffold 背景
-    // 上的——深色模式下那块背景是深色，规范给的 #555/#999 这类深色文字
-    // 会读不清，这几个只在深色模式回退到主题原有的自适应配色，浅色模式
-    // 仍然按规范用固定色值
+    // 头图区（封面+头像+简介）现在统一用白字+黑色蒙层，跟 app 明暗主题
+    // 无关；这个只给下面 Tab 栏（坐在纯色 Scaffold 背景上）用，深色模式
+    // 沿用主题自适应文字色，浅色模式按规范用固定色值
     final bioTextColor = isDarkMode
         ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
         : const Color(0xFF555555);
-    final metaTextColor = isDarkMode
-        ? (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)
-        : _muted;
-    final ipLocationTextColor = isDarkMode
-        ? bioTextColor.withValues(alpha: 0.5)
-        : _ink.withValues(alpha: 0.35);
 
     return Scaffold(
       backgroundColor: isDarkMode
@@ -1050,19 +1043,15 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      // 头图区——封面/头像/用户名/badge/简介/统计卡全部糊在
-                      // 同一块背景上（网易云"内容嵌合进背景图"那种效果）。
-                      // 背景层用 Positioned.fill 铺满，真正的高度交给前景
-                      // 这个 Column 自然撑开，不用猜一个固定像素值。只有
-                      // 再往下的纯白统计卡会跳出来，跟背景形成对比
-                      // 只让"头图"这一小块（返回/汉堡 + 头像/用户名/星座 +
-                      // 兴趣领域 badge）真正糊在背景图/渐变上——badge 本身
-                      // 自带纯色底所以不怕撞色，但简介/性别所在地/IP属地/
-                      // 个人链接这些纯文字内容，第一版直接铺在整张用户自传
-                      // 的背景照片上时，真机验证发现照片颜色/亮度完全不可控
-                      // （实测传一张鲜艳的花丛照片，深色正文文字大段区域
-                      // 直接读不清），所以简介往下都挪回下面纯色米白底
-                      // 上，只有这一小块头图区享受"嵌合进背景"的效果
+                      // 头图区——封面/头像/用户名/星座/兴趣领域 badge/简介
+                      // 全部糊在同一块背景上（小红书/网易云那种"内容嵌合
+                      // 进背景图"效果）。背景层用 Positioned.fill 铺满，
+                      // 真正的高度交给前景这个 Column 自然撑开。文字统一用
+                      // 白色，不再跟着猜背景图片的明暗去挑深色文字——真机
+                      // 验证过，用户自传的照片亮度完全不可控，"猜文字颜色"
+                      // 这条路走不通；改成网易云/小红书的正解：整块头图区
+                      // 铺一层由浅到深的黑色蒙层，白色文字在蒙层之上永远有
+                      // 稳定对比度，不用管背景图具体是什么内容
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -1071,51 +1060,42 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               onTap: isSelfView && !_uploadingCover
                                   ? _pickAndUploadCover
                                   : null,
-                              child: _coverImageUrl != null
-                                  ? Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        CachedNetworkImage(
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  _coverImageUrl != null
+                                      ? CachedNetworkImage(
                                           imageUrl: _coverImageUrl!,
                                           fit: BoxFit.cover,
                                           errorWidget: (context, url, error) =>
                                               const _CoverGradient(),
+                                        )
+                                      : const _CoverGradient(),
+                                  const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Color(0x00000000),
+                                          Color(0x40000000),
+                                          Color(0xB3000000),
+                                        ],
+                                        stops: [0.0, 0.32, 0.62],
+                                      ),
+                                    ),
+                                  ),
+                                  if (_uploadingCover)
+                                    Container(
+                                      color: Colors.black38,
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
                                         ),
-                                        // 用户自传的照片明暗不可控，铺一层半透明
-                                        // 白色让上面深色文字/头像描边始终有
-                                        // 足够对比度，再往页面米白底做一层
-                                        // 渐隐，让图片跟下面纯色区衔接得更
-                                        // 自然，而不是硬切一条线
-                                        const DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            color: Color(0x8CFFFFFF),
-                                          ),
-                                        ),
-                                        const DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Colors.transparent,
-                                                _heroBg,
-                                              ],
-                                              stops: [0.6, 1.0],
-                                            ),
-                                          ),
-                                        ),
-                                        if (_uploadingCover)
-                                          Container(
-                                            color: Colors.black38,
-                                            child: const Center(
-                                              child: CircularProgressIndicator(
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    )
-                                  : const _CoverGradient(),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                           Column(
@@ -1228,71 +1208,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                             style: const TextStyle(
                                               fontSize: 18,
                                               fontWeight: FontWeight.w800,
-                                              color: _ink,
+                                              color: Colors.white,
                                             ),
                                           ),
                                           const SizedBox(height: 3),
-                                          Row(
-                                            children: [
-                                              if (_profile!.handle != null)
-                                                Flexible(
-                                                  child: Text(
-                                                    '@${_profile!.handle}',
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: _muted,
-                                                    ),
-                                                  ),
-                                                ),
-                                              if (displayZodiacSign !=
-                                                  null) ...[
-                                                const SizedBox(width: 6),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 2,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0xFFEEF0FF,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          99,
-                                                        ),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      ZodiacIcon(
-                                                        sign: displayZodiacSign,
-                                                        size: 12,
-                                                      ),
-                                                      const SizedBox(width: 3),
-                                                      Text(
-                                                        zodiacDisplayName(
-                                                          l10n,
-                                                          displayZodiacSign,
-                                                        ),
-                                                        style: const TextStyle(
-                                                          fontSize: 10,
-                                                          color: Color(
-                                                            0xFF4F46E5,
-                                                          ),
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
+                                          if (_profile!.handle != null)
+                                            Text(
+                                              '@${_profile!.handle}',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white70,
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -1338,136 +1266,195 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   ),
                                 ),
                               const SizedBox(height: 16),
+                              // 简介区：bio + 性别/所在地/星座 + IP属地 +
+                              // 个人链接——星座从上面用户名那一行挪到这里，
+                              // 跟性别/所在地放一起；统一用白色文字，不再
+                              // 跟着猜背景图片的明暗去挑深色，靠上面那层
+                              // 黑色蒙层保证对比度
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  0,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (displayBio?.isNotEmpty == true)
+                                      Text(
+                                        displayBio!,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.white,
+                                          height: 1.6,
+                                        ),
+                                      ),
+                                    if ((displayGender?.isNotEmpty ?? false) ||
+                                        (displayLocation?.isNotEmpty ??
+                                            false) ||
+                                        displayZodiacSign != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Row(
+                                          children: [
+                                            if (displayGender?.isNotEmpty ??
+                                                false) ...[
+                                              Icon(
+                                                displayGender == '男'
+                                                    ? Icons.male
+                                                    : displayGender == '女'
+                                                    ? Icons.female
+                                                    : Icons.person_outline,
+                                                size: 14,
+                                                color: Colors.white70,
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                genderDisplayLabel(
+                                                  l10n,
+                                                  displayGender!,
+                                                ),
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.white70,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                            ],
+                                            if (displayLocation?.isNotEmpty ??
+                                                false) ...[
+                                              const Icon(
+                                                Icons.location_on_outlined,
+                                                size: 14,
+                                                color: Colors.white70,
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                displayLocation!,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.white70,
+                                                ),
+                                              ),
+                                            ],
+                                            if (displayZodiacSign != null) ...[
+                                              const SizedBox(width: 12),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                    0xFFEEF0FF,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(99),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    ZodiacIcon(
+                                                      sign: displayZodiacSign,
+                                                      size: 12,
+                                                    ),
+                                                    const SizedBox(width: 3),
+                                                    Text(
+                                                      zodiacDisplayName(
+                                                        l10n,
+                                                        displayZodiacSign,
+                                                      ),
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color: Color(
+                                                          0xFF4F46E5,
+                                                        ),
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    // 小红书风格"IP属地"——系统判定、不可编辑，
+                                    // 跟上面用户自己填的"所在地"是两码事，样式
+                                    // 特意做得更淡，不跟自报的信息抢视觉
+                                    if (displayIpLocation != null &&
+                                        displayIpLocation.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 4,
+                                          bottom: 2,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.location_on_outlined,
+                                              size: 12,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.55,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              l10n.ipLocationLabel(
+                                                displayIpLocation,
+                                              ),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.55,
+                                                ),
+                                                letterSpacing: 0.3,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (_links.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: _links
+                                              .map(
+                                                (link) => Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 1,
+                                                      ),
+                                                  child: _linkRow(link, link),
+                                                ),
+                                              )
+                                              .toList(),
+                                        ),
+                                      )
+                                    else if (_profile!.website?.isNotEmpty ==
+                                        true)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: _linkRow(
+                                          _profile!.website!
+                                              .replaceAll('https://', '')
+                                              .replaceAll('http://', ''),
+                                          _profile!.website!,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
                             ],
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 14),
-                      // 简介区：bio + 性别/所在地 + IP属地 + 个人链接，挪回
-                      // 纯色米白底上（不再叠在头图背景上），保留原有全部
-                      // 字段，只换了字号/颜色
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (displayBio?.isNotEmpty == true)
-                              Text(
-                                displayBio!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: bioTextColor,
-                                  height: 1.6,
-                                ),
-                              ),
-                            if ((displayGender?.isNotEmpty ?? false) ||
-                                (displayLocation?.isNotEmpty ?? false))
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Row(
-                                  children: [
-                                    if (displayGender?.isNotEmpty ?? false) ...[
-                                      Icon(
-                                        displayGender == '男'
-                                            ? Icons.male
-                                            : displayGender == '女'
-                                            ? Icons.female
-                                            : Icons.person_outline,
-                                        size: 14,
-                                        color: metaTextColor,
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        genderDisplayLabel(
-                                          l10n,
-                                          displayGender!,
-                                        ),
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: metaTextColor,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                    ],
-                                    if (displayLocation?.isNotEmpty ??
-                                        false) ...[
-                                      Icon(
-                                        Icons.location_on_outlined,
-                                        size: 14,
-                                        color: metaTextColor,
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        displayLocation!,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: metaTextColor,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            // 小红书风格"IP属地"——系统判定、不可编辑，
-                            // 跟上面用户自己填的"所在地"是两码事，样式
-                            // 特意做得更淡，不跟自报的信息抢视觉
-                            if (displayIpLocation != null &&
-                                displayIpLocation.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 4,
-                                  bottom: 2,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.location_on_outlined,
-                                      size: 12,
-                                      color: metaTextColor.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      l10n.ipLocationLabel(displayIpLocation),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: ipLocationTextColor,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            if (_links.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: _links
-                                      .map(
-                                        (link) => Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 1,
-                                          ),
-                                          child: _linkRow(link, link),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              )
-                            else if (_profile!.website?.isNotEmpty == true)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: _linkRow(
-                                  _profile!.website!
-                                      .replaceAll('https://', '')
-                                      .replaceAll('http://', ''),
-                                  _profile!.website!,
-                                ),
-                              ),
-                          ],
-                        ),
                       ),
                       const SizedBox(height: 14),
                       // 统计数据——白色圆角卡片，细描边，跟上面糊在

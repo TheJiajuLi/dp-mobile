@@ -1224,11 +1224,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addSummaryHint => 'Add a summary...';
 
   @override
-  String wordCountAndBlocksLabel(int words, int blocks) {
-    return '$words words · $blocks blocks';
-  }
-
-  @override
   String wordBlocksReadTimeLabel(int words, int blocks, int minutes) {
     return '$words words · $blocks blocks · ~$minutes min read';
   }
