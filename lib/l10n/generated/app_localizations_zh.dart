@@ -1207,10 +1207,49 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tapToUploadLabel => '点击上传';
 
   @override
+  String get emptyStateGreetingTitle => '今天想写点什么？';
+
+  @override
+  String get emptyStateGreetingSubtitle => '一个想法、一段代码、一个公式，都是好的开始';
+
+  @override
+  String get quickStartLabel => '快速开始';
+
+  @override
+  String get quickStartWriting => '开始写作';
+
+  @override
+  String get quickStartCode => '插入代码';
+
+  @override
+  String get quickStartLatex => 'LaTeX 公式';
+
+  @override
+  String get quickStartQuote => '引用';
+
+  @override
+  String get quickStartImage => '上传图片';
+
+  @override
+  String get quickStartAria => 'ARIA 帮我写';
+
+  @override
+  String get todaysInspirationLabel => '今日灵感';
+
+  @override
+  String get ariaWritingAssistantComingSoon => 'ARIA 写作助手即将上线';
+
+  @override
   String get joinColumnAction => '加入专栏';
 
   @override
   String get joinColumnSubtitleHint => '可选，加入后出现在专栏目录';
+
+  @override
+  String get optionalLabel => '可选';
+
+  @override
+  String get titleInsertionSubtitleShortHint => '副标题 / 期号';
 
   @override
   String get myColumnsLabel => '我的专栏';

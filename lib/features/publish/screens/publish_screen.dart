@@ -109,6 +109,36 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   String _seriesTag = '';
   String _issueNumber = '';
 
+  // 空白引导区——"今日灵感"随机显示一条，点刷新换下一条（顺序轮换，
+  // 不是真随机，保证点了刷新一定会换到不一样的一条，不会连着点两次
+  // 还是同一句）
+  int _inspirationIndex = 0;
+  static const _inspirations = [
+    '试着用一张图解释一个复杂概念，往往比千字更有力。',
+    '你最近解决了什么有趣的问题？把过程写下来，它比答案更有价值。',
+    '把你今天读到的一篇论文，用5句话讲给普通人听。',
+    '有没有一个大家都误解的事情，你正好知道真相？',
+    '写一段你最喜欢的代码，解释为什么它让你着迷。',
+    '今天发生了什么让你觉得"这很有意思"的事？',
+    '选一个领域，用数据说话，不用观点。',
+  ];
+
+  void _nextInspiration() {
+    setState(
+      () => _inspirationIndex = (_inspirationIndex + 1) % _inspirations.length,
+    );
+  }
+
+  void _askAria() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          AppLocalizations.of(context)!.ariaWritingAssistantComingSoon,
+        ),
+      ),
+    );
+  }
+
   // 复用 notebook_editor_screen.dart 里已经跑通的那套 Pyodide 引擎——同一个
   // compiler.js，同一个隐藏 WebView 承载方式。之前给的方案是"每个 block
   // 自己注册一个 onRunResult_<blockId> handler"，实测 Notebook 那边用的其实
@@ -156,7 +186,9 @@ setTimeout(() => {
   @override
   void initState() {
     super.initState();
-    _blocks.add(EditorBlock(id: _uid(), type: BlockType.text, content: ''));
+    // 不再默认塞一个空文字 block——一打开就是空白容易让人不知道从哪
+    // 下手，改成"快速开始"引导区（_buildEmptyState），blocks 真的空的
+    // 时候才显示，加了第一个 block 之后就跟正常编辑流程一样了
   }
 
   // Notebook 里用来把 SQL cell 包成 Python 通过 sqlite3 跑的同一个包装法——
@@ -497,31 +529,36 @@ result
                 _buildTopBar(l10n),
                 _buildMetaSection(l10n, isDarkMode),
                 Expanded(
-                  child: ReorderableListView.builder(
-                    scrollController: _scrollCtrl,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    itemCount: _blocks.length,
-                    onReorder: _onReorder,
-                    // 拖拽只从 BlockCard 里那个手柄图标触发（见
-                    // ReorderableDragStartListener），关掉默认的"长按
-                    // 列表项任意位置拖拽"——不然长按 block 里的文字/代码
-                    // 输入框想选中文本时会跟这个默认拖拽手势抢
-                    buildDefaultDragHandles: false,
-                    itemBuilder: (ctx, i) => BlockCard(
-                      key: ValueKey(_blocks[i].id),
-                      block: _blocks[i],
-                      index: i,
-                      total: _blocks.length,
-                      membership: membership,
-                      onRunCode: _runBlockCode,
-                      onDelete: () => _deleteBlock(_blocks[i].id),
-                      onMoveUp: i > 0 ? () => _swapBlocks(i, i - 1) : null,
-                      onMoveDown: i < _blocks.length - 1
-                          ? () => _swapBlocks(i, i + 1)
-                          : null,
-                      onChanged: () => setState(() {}),
-                    ),
-                  ),
+                  child: _blocks.isEmpty
+                      ? _buildEmptyState(l10n)
+                      : ReorderableListView.builder(
+                          scrollController: _scrollCtrl,
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          itemCount: _blocks.length,
+                          onReorder: _onReorder,
+                          // 拖拽只从 BlockCard 里那个手柄图标触发（见
+                          // ReorderableDragStartListener），关掉默认的
+                          // "长按列表项任意位置拖拽"——不然长按 block 里的
+                          // 文字/代码输入框想选中文本时会跟这个默认拖拽
+                          // 手势抢
+                          buildDefaultDragHandles: false,
+                          itemBuilder: (ctx, i) => BlockCard(
+                            key: ValueKey(_blocks[i].id),
+                            block: _blocks[i],
+                            index: i,
+                            total: _blocks.length,
+                            membership: membership,
+                            onRunCode: _runBlockCode,
+                            onDelete: () => _deleteBlock(_blocks[i].id),
+                            onMoveUp: i > 0
+                                ? () => _swapBlocks(i, i - 1)
+                                : null,
+                            onMoveDown: i < _blocks.length - 1
+                                ? () => _swapBlocks(i, i + 1)
+                                : null,
+                            onChanged: () => setState(() {}),
+                          ),
+                        ),
                 ),
                 _buildBottomToolbar(l10n, isDarkMode),
               ],
@@ -674,115 +711,11 @@ result
 
     return Column(
       children: [
-        GestureDetector(
-          onTap: _pickCoverImage,
-          child: Container(
-            height: 140,
-            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F0F8),
-              borderRadius: BorderRadius.circular(14),
-              image: _coverImageUrl != null
-                  ? DecorationImage(
-                      image: NetworkImage(_coverImageUrl!),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
-            child: Stack(
-              children: [
-                if (_coverImageUrl == null)
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.camera_alt_outlined,
-                          color: (topicRule?.fg ?? _primary).withValues(
-                            alpha: 0.55,
-                          ),
-                          size: 26,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          l10n.coverImageLabel,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: (topicRule?.fg ?? _primary).withValues(
-                              alpha: 0.55,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (topicRule != null)
-                  Positioned(
-                    top: 10,
-                    left: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        topicRule.label,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  bottom: 10,
-                  right: 10,
-                  child: GestureDetector(
-                    onTap: _pickCoverImage,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.camera_alt,
-                            size: 12,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            l10n.changeCoverAction,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        // 摘要/标签/加入专栏/标题植入统一装进一张白卡，行与行之间用
-        // 0.5px 细线分隔——比之前"零散摆在页面米白底上"更成一体
+        // 封面图缩小成一个小方块，塞进摘要这一行左边，跟摘要输入框合并
+        // 成一行——不再单独占一整张 140px 高的卡，省下来的空间让整个
+        // 元信息区更紧凑
         Container(
-          margin: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(14),
@@ -797,25 +730,74 @@ result
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                child: TextField(
-                  controller: _summaryCtrl,
-                  decoration: InputDecoration(
-                    filled: false,
-                    hintText: l10n.addSummaryHint,
-                    hintStyle: const TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 13,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: _pickCoverImage,
+                      child: Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F0F8),
+                          borderRadius: BorderRadius.circular(10),
+                          image: _coverImageUrl != null
+                              ? DecorationImage(
+                                  image: NetworkImage(_coverImageUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: _coverImageUrl == null
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    size: 20,
+                                    color: (topicRule?.fg ?? _primary)
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    l10n.coverImageLabel,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: (topicRule?.fg ?? _primary)
+                                          .withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : null,
+                      ),
                     ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF888888),
-                  ),
-                  maxLines: 2,
-                  onChanged: (_) => setState(() {}),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _summaryCtrl,
+                        decoration: InputDecoration(
+                          filled: false,
+                          hintText: l10n.addSummaryHint,
+                          hintStyle: const TextStyle(
+                            color: Color(0xFF888888),
+                            fontSize: 13,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF888888),
+                          height: 1.4,
+                        ),
+                        maxLines: 4,
+                        minLines: 3,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               _rowDivider(isDarkMode),
@@ -881,27 +863,46 @@ result
                 ),
               ),
               _rowDivider(isDarkMode),
-              _metaEntryRow(
-                icon: Icons.view_column_outlined,
-                iconBg: const Color(0xFFEEF0FF),
-                iconColor: _primary,
-                title: l10n.joinColumnAction,
-                subtitle: _selectedColumnName ?? l10n.joinColumnSubtitleHint,
-                onTap: _showColumnSheet,
-              ),
-              _rowDivider(isDarkMode),
-              _metaEntryRow(
-                icon: Icons.sell_outlined,
-                iconBg: const Color(0xFFF5F5F5),
-                iconColor: const Color(0xFF888888),
-                title: l10n.titleInsertionAction,
-                subtitle: _seriesTag.isNotEmpty || _subtitle.isNotEmpty
-                    ? [
-                        if (_seriesTag.isNotEmpty) _seriesTag,
-                        if (_subtitle.isNotEmpty) _subtitle,
-                      ].join(' · ')
-                    : l10n.titleInsertionSubtitleHint,
-                onTap: _showTitleInsertionSheet,
+              // 加入专栏/标题植入并成两列——一行显示俩，比之前各占一整行
+              // 更紧凑；副文字也换成更短的版本，两列挤在一起放不下长句子
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _metaEntryRow(
+                        icon: Icons.view_column_outlined,
+                        iconBg: const Color(0xFFEEF0FF),
+                        iconColor: _primary,
+                        title: l10n.joinColumnAction,
+                        subtitle: _selectedColumnName ?? l10n.optionalLabel,
+                        onTap: _showColumnSheet,
+                      ),
+                    ),
+                    VerticalDivider(
+                      width: 0.5,
+                      thickness: 0.5,
+                      color: isDarkMode
+                          ? Theme.of(context).dividerColor
+                          : const Color(0xFFF5F5F5),
+                    ),
+                    Expanded(
+                      child: _metaEntryRow(
+                        icon: Icons.sell_outlined,
+                        iconBg: const Color(0xFFF5F5F5),
+                        iconColor: const Color(0xFF888888),
+                        title: l10n.titleInsertionAction,
+                        subtitle: _seriesTag.isNotEmpty || _subtitle.isNotEmpty
+                            ? [
+                                if (_seriesTag.isNotEmpty) _seriesTag,
+                                if (_subtitle.isNotEmpty) _subtitle,
+                              ].join(' · ')
+                            : l10n.titleInsertionSubtitleShortHint,
+                        onTap: _showTitleInsertionSheet,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -931,19 +932,19 @@ result
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         child: Row(
           children: [
             Container(
-              width: 28,
-              height: 28,
+              width: 26,
+              height: 26,
               decoration: BoxDecoration(
                 color: iconBg,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 15, color: iconColor),
+              child: Icon(icon, size: 14, color: iconColor),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -972,6 +973,175 @@ result
             const Icon(Icons.chevron_right, size: 18, color: Color(0xFFBBBBBB)),
           ],
         ),
+      ),
+    );
+  }
+
+  // 一个 block 都没有时的引导区——不是一片空白，而是问候语+快速开始+
+  // 今日灵感，让用户一打开就知道从哪下手，不会有"不知道写什么"的
+  // 空白焦虑。加了第一个 block 之后就自动切回正常的 block 列表
+  Widget _buildEmptyState(AppLocalizations l10n) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.emptyStateGreetingTitle,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: _ink,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.emptyStateGreetingSubtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: _muted,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.quickStartLabel,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFBBBBBB),
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                GridView.count(
+                  shrinkWrap: true,
+                  // GridView 没显式传 padding 时会自动套一层
+                  // MediaQuery.of(context).padding（状态栏/home indicator
+                  // 安全区）当 SliverPadding——这是专门给"整页根滚动视图"
+                  // 设计的默认行为，这里只是嵌在 Column 里的一小块网格，
+                  // 不需要，不关掉的话"快速开始"和按钮网格之间会空出一大截
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 2.8,
+                  children: [
+                    _QuickStartBtn(
+                      icon: Icons.text_fields,
+                      label: l10n.quickStartWriting,
+                      color: _ink,
+                      bg: const Color(0xFFF5F5F5),
+                      onTap: () => _addBlock(BlockType.text),
+                    ),
+                    _QuickStartBtn(
+                      icon: Icons.code,
+                      label: l10n.quickStartCode,
+                      color: _primary,
+                      bg: const Color(0xFFEEF0FF),
+                      onTap: () => _addBlock(BlockType.code),
+                    ),
+                    _QuickStartBtn(
+                      icon: Icons.functions,
+                      label: l10n.quickStartLatex,
+                      color: const Color(0xFFC026D3),
+                      bg: const Color(0xFFFDF0F8),
+                      onTap: () => _addBlock(BlockType.latex),
+                    ),
+                    _QuickStartBtn(
+                      icon: Icons.format_quote,
+                      label: l10n.quickStartQuote,
+                      color: const Color(0xFF2563EB),
+                      bg: const Color(0xFFE6F0FF),
+                      onTap: () => _addBlock(BlockType.callout),
+                    ),
+                    _QuickStartBtn(
+                      icon: Icons.image_outlined,
+                      label: l10n.quickStartImage,
+                      color: const Color(0xFF16A34A),
+                      bg: const Color(0xFFE8F8F0),
+                      onTap: () => _addBlock(BlockType.image),
+                    ),
+                    _QuickStartBtn(
+                      icon: Icons.auto_awesome_outlined,
+                      label: l10n.quickStartAria,
+                      color: const Color(0xFFD97706),
+                      bg: const Color(0xFFFFF7E6),
+                      onTap: _askAria,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAFAF8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('💡', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.todaysInspirationLabel,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFBBBBBB),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _inspirations[_inspirationIndex],
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF555555),
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _nextInspiration,
+                    child: const Icon(
+                      Icons.refresh,
+                      size: 16,
+                      color: Color(0xFFBBBBBB),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1674,5 +1844,53 @@ result
     _summaryCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+}
+
+class _QuickStartBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color bg;
+  final VoidCallback onTap;
+
+  const _QuickStartBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.bg,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

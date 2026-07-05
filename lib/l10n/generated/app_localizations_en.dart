@@ -1235,11 +1235,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tapToUploadLabel => 'Tap to upload';
 
   @override
+  String get emptyStateGreetingTitle => 'What do you want to write today?';
+
+  @override
+  String get emptyStateGreetingSubtitle =>
+      'An idea, a snippet of code, a formula — any of them is a good start';
+
+  @override
+  String get quickStartLabel => 'Quick Start';
+
+  @override
+  String get quickStartWriting => 'Start Writing';
+
+  @override
+  String get quickStartCode => 'Insert Code';
+
+  @override
+  String get quickStartLatex => 'LaTeX Formula';
+
+  @override
+  String get quickStartQuote => 'Quote';
+
+  @override
+  String get quickStartImage => 'Upload Image';
+
+  @override
+  String get quickStartAria => 'Ask ARIA to Help';
+
+  @override
+  String get todaysInspirationLabel => 'Today\'s Inspiration';
+
+  @override
+  String get ariaWritingAssistantComingSoon =>
+      'ARIA writing assistant coming soon';
+
+  @override
   String get joinColumnAction => 'Join Column';
 
   @override
   String get joinColumnSubtitleHint =>
       'Optional — appears in the column directory once added';
+
+  @override
+  String get optionalLabel => 'Optional';
+
+  @override
+  String get titleInsertionSubtitleShortHint => 'Subtitle / Issue No.';
 
   @override
   String get myColumnsLabel => 'My Columns';

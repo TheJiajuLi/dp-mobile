@@ -2342,6 +2342,72 @@ abstract class AppLocalizations {
   /// **'Tap to upload'**
   String get tapToUploadLabel;
 
+  /// No description provided for @emptyStateGreetingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you want to write today?'**
+  String get emptyStateGreetingTitle;
+
+  /// No description provided for @emptyStateGreetingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'An idea, a snippet of code, a formula — any of them is a good start'**
+  String get emptyStateGreetingSubtitle;
+
+  /// No description provided for @quickStartLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Start'**
+  String get quickStartLabel;
+
+  /// No description provided for @quickStartWriting.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Writing'**
+  String get quickStartWriting;
+
+  /// No description provided for @quickStartCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert Code'**
+  String get quickStartCode;
+
+  /// No description provided for @quickStartLatex.
+  ///
+  /// In en, this message translates to:
+  /// **'LaTeX Formula'**
+  String get quickStartLatex;
+
+  /// No description provided for @quickStartQuote.
+  ///
+  /// In en, this message translates to:
+  /// **'Quote'**
+  String get quickStartQuote;
+
+  /// No description provided for @quickStartImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Image'**
+  String get quickStartImage;
+
+  /// No description provided for @quickStartAria.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask ARIA to Help'**
+  String get quickStartAria;
+
+  /// No description provided for @todaysInspirationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Inspiration'**
+  String get todaysInspirationLabel;
+
+  /// No description provided for @ariaWritingAssistantComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'ARIA writing assistant coming soon'**
+  String get ariaWritingAssistantComingSoon;
+
   /// No description provided for @joinColumnAction.
   ///
   /// In en, this message translates to:
@@ -2353,6 +2419,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Optional — appears in the column directory once added'**
   String get joinColumnSubtitleHint;
+
+  /// No description provided for @optionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get optionalLabel;
+
+  /// No description provided for @titleInsertionSubtitleShortHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitle / Issue No.'**
+  String get titleInsertionSubtitleShortHint;
 
   /// No description provided for @myColumnsLabel.
   ///
