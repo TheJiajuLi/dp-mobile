@@ -1165,6 +1165,194 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get publishTitleHint => 'Enter a title for your note...';
+
+  @override
+  String get saveDraftAction => 'Draft';
+
+  @override
+  String get pleaseEnterNoteTitle => 'Please enter a note title';
+
+  @override
+  String get publishSuccessMessage => 'Published successfully';
+
+  @override
+  String get draftSavedMessage => 'Draft saved';
+
+  @override
+  String saveFailedWithReason(String reason) {
+    return 'Save failed: $reason';
+  }
+
+  @override
+  String get coverImageLabel => 'Cover Image';
+
+  @override
+  String get notePlaceholderTitle => 'Note title';
+
+  @override
+  String get summaryHint => 'One-line description...';
+
+  @override
+  String get addTagAction => 'Add tag';
+
+  @override
+  String get columnLabel => 'Column';
+
+  @override
+  String get joinColumnOptional => 'Join a column (optional)';
+
+  @override
+  String get columnComingSoonMessage => 'Columns coming soon';
+
+  @override
+  String get tagNameHint => 'Enter a tag name';
+
+  @override
+  String get addContentBlockLabel => 'Add a content block';
+
+  @override
+  String get previewTooltip => 'Preview';
+
+  @override
+  String get blockTypeText => 'Text';
+
+  @override
+  String get blockTypeHeading => 'Heading';
+
+  @override
+  String get blockTypeCode => 'Code';
+
+  @override
+  String get blockTypeLatex => 'LaTeX';
+
+  @override
+  String get blockTypeImage => 'Image';
+
+  @override
+  String get blockTypeFile => 'File';
+
+  @override
+  String get blockTypeAudio => 'Audio';
+
+  @override
+  String get blockTypeVideo => 'Video';
+
+  @override
+  String get blockTypeLink => 'Link';
+
+  @override
+  String get blockTypeCallout => 'Callout';
+
+  @override
+  String get textBlockHint => 'Enter text content...';
+
+  @override
+  String headingBlockHint(int level) {
+    return 'Heading $level...';
+  }
+
+  @override
+  String get codeBlockHint => '# Enter code...';
+
+  @override
+  String get runAction => 'Run';
+
+  @override
+  String get runningLabel => 'Running';
+
+  @override
+  String get runCompleteNoOutputMessage => 'Run complete (no output)';
+
+  @override
+  String get latexBlockHint => 'e.g. E = mc^2';
+
+  @override
+  String get imageCaptionHint => 'Add a caption (optional)';
+
+  @override
+  String get uploadImageFromGallery => 'Upload image from gallery';
+
+  @override
+  String get imageSizeHint => 'min 80px · max 400px · scrolls horizontally';
+
+  @override
+  String get fileBlockMembershipLock =>
+      'File blocks are a membership feature — upgrade to Pro to unlock';
+
+  @override
+  String get uploadFileLabel => 'Upload a file (CSV/Excel/JSON/PDF...)';
+
+  @override
+  String fileSizeExceedsLimit(String limit) {
+    return 'File exceeds the limit ($limit)';
+  }
+
+  @override
+  String get audioBlockMembershipLock =>
+      'Audio blocks are a membership feature';
+
+  @override
+  String get uploadAudioLabel => 'Upload audio (MP3/WAV/M4A)';
+
+  @override
+  String get tapToPlayLabel => 'Tap to play';
+
+  @override
+  String get videoBlockMembershipLock =>
+      'Video blocks are a Pro membership feature';
+
+  @override
+  String get uploadVideoFromGallery => 'Upload video from gallery';
+
+  @override
+  String videoSizeExceedsLimit(String limit) {
+    return 'Video exceeds the size limit ($limit)';
+  }
+
+  @override
+  String get videoSizeHint => 'Pro ≤50MB · Pro Max ≤100MB';
+
+  @override
+  String get calloutVariantTip => 'Tip';
+
+  @override
+  String get calloutVariantWarning => 'Warning';
+
+  @override
+  String get calloutVariantInfo => 'Note';
+
+  @override
+  String get addBlockSheetTitle => 'Choose a block type';
+
+  @override
+  String get livePreviewLabel => 'Live Preview';
+
+  @override
+  String get readerViewLabel => 'Reader view';
+
+  @override
+  String wordsCountLabel(int count) {
+    return '$count words';
+  }
+
+  @override
+  String blocksCountLabel(int count) {
+    return '$count blocks';
+  }
+
+  @override
+  String estimatedReadTime(int minutes) {
+    return '~$minutes min read';
+  }
+
+  @override
+  String get previewEmptyContent => 'No content yet — add your first block';
+
+  @override
+  String get downloadFileTooltip => 'Tap to download';
+
+  @override
   String get networkTimeout => 'Network connection timed out';
 
   @override

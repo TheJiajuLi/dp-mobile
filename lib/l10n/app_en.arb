@@ -603,6 +603,112 @@
       }
     }
   },
+  "publishTitleHint": "Enter a title for your note...",
+  "saveDraftAction": "Draft",
+  "pleaseEnterNoteTitle": "Please enter a note title",
+  "publishSuccessMessage": "Published successfully",
+  "draftSavedMessage": "Draft saved",
+  "saveFailedWithReason": "Save failed: {reason}",
+  "@saveFailedWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "coverImageLabel": "Cover Image",
+  "notePlaceholderTitle": "Note title",
+  "summaryHint": "One-line description...",
+  "addTagAction": "Add tag",
+  "columnLabel": "Column",
+  "joinColumnOptional": "Join a column (optional)",
+  "columnComingSoonMessage": "Columns coming soon",
+  "tagNameHint": "Enter a tag name",
+  "addContentBlockLabel": "Add a content block",
+  "previewTooltip": "Preview",
+  "blockTypeText": "Text",
+  "blockTypeHeading": "Heading",
+  "blockTypeCode": "Code",
+  "blockTypeLatex": "LaTeX",
+  "blockTypeImage": "Image",
+  "blockTypeFile": "File",
+  "blockTypeAudio": "Audio",
+  "blockTypeVideo": "Video",
+  "blockTypeLink": "Link",
+  "blockTypeCallout": "Callout",
+  "textBlockHint": "Enter text content...",
+  "headingBlockHint": "Heading {level}...",
+  "@headingBlockHint": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "codeBlockHint": "# Enter code...",
+  "runAction": "Run",
+  "runningLabel": "Running",
+  "runCompleteNoOutputMessage": "Run complete (no output)",
+  "latexBlockHint": "e.g. E = mc^2",
+  "imageCaptionHint": "Add a caption (optional)",
+  "uploadImageFromGallery": "Upload image from gallery",
+  "imageSizeHint": "min 80px · max 400px · scrolls horizontally",
+  "fileBlockMembershipLock": "File blocks are a membership feature — upgrade to Pro to unlock",
+  "uploadFileLabel": "Upload a file (CSV/Excel/JSON/PDF...)",
+  "fileSizeExceedsLimit": "File exceeds the limit ({limit})",
+  "@fileSizeExceedsLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
+  "audioBlockMembershipLock": "Audio blocks are a membership feature",
+  "uploadAudioLabel": "Upload audio (MP3/WAV/M4A)",
+  "tapToPlayLabel": "Tap to play",
+  "videoBlockMembershipLock": "Video blocks are a Pro membership feature",
+  "uploadVideoFromGallery": "Upload video from gallery",
+  "videoSizeExceedsLimit": "Video exceeds the size limit ({limit})",
+  "@videoSizeExceedsLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
+  "videoSizeHint": "Pro ≤50MB · Pro Max ≤100MB",
+  "calloutVariantTip": "Tip",
+  "calloutVariantWarning": "Warning",
+  "calloutVariantInfo": "Note",
+  "addBlockSheetTitle": "Choose a block type",
+  "livePreviewLabel": "Live Preview",
+  "readerViewLabel": "Reader view",
+  "wordsCountLabel": "{count} words",
+  "@wordsCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "blocksCountLabel": "{count} blocks",
+  "@blocksCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "estimatedReadTime": "~{minutes} min read",
+  "@estimatedReadTime": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "previewEmptyContent": "No content yet — add your first block",
+  "downloadFileTooltip": "Tap to download",
   "networkTimeout": "Network connection timed out",
   "networkConnectionFailed": "Network connection failed",
   "requestFailed": "Request failed",

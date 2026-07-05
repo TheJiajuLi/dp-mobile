@@ -2,12 +2,12 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/tutorial_block_renderer.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -77,11 +77,15 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
 
     if (!res.success) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(
-        AppLocalizations.of(context)!.actionFailedWithReason('${res.message}'),
-      )));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(
+              context,
+            )!.actionFailedWithReason('${res.message}'),
+          ),
+        ),
+      );
       return;
     }
     setState(() {
@@ -124,155 +128,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     );
   }
 
-  Widget _buildBlock(Map<String, dynamic> block) {
-    final type = block['type'] as String? ?? 'text';
-    final content = block['content'] as String? ?? '';
-
-    switch (type) {
-      case 'heading':
-        final level = block['level'] as int? ?? 2;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            content,
-            style: TextStyle(
-              fontSize: level == 2
-                  ? 20
-                  : level == 3
-                  ? 17
-                  : 15,
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          ),
-        );
-
-      case 'code':
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C1C1E),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _primary.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        block['language'] as String? ?? 'python',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Text(
-                    content,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                      color: Colors.white,
-                      height: 1.6,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-
-      case 'latex':
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Math.tex(
-            content.replaceAll(r'$$', '').trim(),
-            textStyle: const TextStyle(fontSize: 16),
-            onErrorFallback: (err) => Text(
-              content,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
-            ),
-          ),
-        );
-
-      case 'image':
-        final imageUrl = block['imageUrl'] as String? ?? '';
-        if (imageUrl.isEmpty) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: CachedNetworkImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            errorWidget: (context, url, error) => const SizedBox.shrink(),
-          ),
-        );
-
-      case 'callout':
-        final variant = block['variant'] as String? ?? 'info';
-        final colors = {
-          'tip': const Color(0xFF16A34A),
-          'warning': const Color(0xFFD97706),
-          'info': _primary,
-        };
-        final bgColors = {
-          'tip': const Color(0xFFE8F8F0),
-          'warning': const Color(0xFFFFF7E6),
-          'info': const Color(0xFFEEF0FF),
-        };
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: bgColors[variant] ?? const Color(0xFFEEF0FF),
-            borderRadius: BorderRadius.circular(10),
-            border: Border(
-              left: BorderSide(color: colors[variant] ?? _primary, width: 3),
-            ),
-          ),
-          child: Text(
-            content,
-            style: TextStyle(
-              fontSize: 14,
-              color: colors[variant] ?? _primary,
-              height: 1.5,
-            ),
-          ),
-        );
-
-      default: // text
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Text(
-            content,
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.7,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          ),
-        );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -287,6 +142,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       );
     }
 
+    final l10n = AppLocalizations.of(context)!;
     final t = _tutorial!;
     final title = t['title'] as String? ?? '';
     final username = t['username'] as String? ?? '';
@@ -416,7 +272,11 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 ),
                 const Divider(height: 1),
                 ..._blocks.map(
-                  (b) => _buildBlock(Map<String, dynamic>.from(b as Map)),
+                  (b) => buildTutorialBlockWidget(
+                    context,
+                    l10n,
+                    Map<String, dynamic>.from(b as Map),
+                  ),
                 ),
                 const SizedBox(height: 80),
               ],
@@ -428,7 +288,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor),
+          ),
         ),
         child: Row(
           children: [

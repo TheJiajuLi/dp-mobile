@@ -2216,6 +2216,348 @@ abstract class AppLocalizations {
   /// **'{page} page is under development'**
   String pageUnderDevelopment(String page);
 
+  /// No description provided for @publishTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a title for your note...'**
+  String get publishTitleHint;
+
+  /// No description provided for @saveDraftAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get saveDraftAction;
+
+  /// No description provided for @pleaseEnterNoteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a note title'**
+  String get pleaseEnterNoteTitle;
+
+  /// No description provided for @publishSuccessMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Published successfully'**
+  String get publishSuccessMessage;
+
+  /// No description provided for @draftSavedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft saved'**
+  String get draftSavedMessage;
+
+  /// No description provided for @saveFailedWithReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed: {reason}'**
+  String saveFailedWithReason(String reason);
+
+  /// No description provided for @coverImageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover Image'**
+  String get coverImageLabel;
+
+  /// No description provided for @notePlaceholderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Note title'**
+  String get notePlaceholderTitle;
+
+  /// No description provided for @summaryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'One-line description...'**
+  String get summaryHint;
+
+  /// No description provided for @addTagAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add tag'**
+  String get addTagAction;
+
+  /// No description provided for @columnLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Column'**
+  String get columnLabel;
+
+  /// No description provided for @joinColumnOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Join a column (optional)'**
+  String get joinColumnOptional;
+
+  /// No description provided for @columnComingSoonMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Columns coming soon'**
+  String get columnComingSoonMessage;
+
+  /// No description provided for @tagNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a tag name'**
+  String get tagNameHint;
+
+  /// No description provided for @addContentBlockLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a content block'**
+  String get addContentBlockLabel;
+
+  /// No description provided for @previewTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get previewTooltip;
+
+  /// No description provided for @blockTypeText.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get blockTypeText;
+
+  /// No description provided for @blockTypeHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Heading'**
+  String get blockTypeHeading;
+
+  /// No description provided for @blockTypeCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get blockTypeCode;
+
+  /// No description provided for @blockTypeLatex.
+  ///
+  /// In en, this message translates to:
+  /// **'LaTeX'**
+  String get blockTypeLatex;
+
+  /// No description provided for @blockTypeImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Image'**
+  String get blockTypeImage;
+
+  /// No description provided for @blockTypeFile.
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get blockTypeFile;
+
+  /// No description provided for @blockTypeAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get blockTypeAudio;
+
+  /// No description provided for @blockTypeVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get blockTypeVideo;
+
+  /// No description provided for @blockTypeLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Link'**
+  String get blockTypeLink;
+
+  /// No description provided for @blockTypeCallout.
+  ///
+  /// In en, this message translates to:
+  /// **'Callout'**
+  String get blockTypeCallout;
+
+  /// No description provided for @textBlockHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter text content...'**
+  String get textBlockHint;
+
+  /// No description provided for @headingBlockHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Heading {level}...'**
+  String headingBlockHint(int level);
+
+  /// No description provided for @codeBlockHint.
+  ///
+  /// In en, this message translates to:
+  /// **'# Enter code...'**
+  String get codeBlockHint;
+
+  /// No description provided for @runAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Run'**
+  String get runAction;
+
+  /// No description provided for @runningLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get runningLabel;
+
+  /// No description provided for @runCompleteNoOutputMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Run complete (no output)'**
+  String get runCompleteNoOutputMessage;
+
+  /// No description provided for @latexBlockHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. E = mc^2'**
+  String get latexBlockHint;
+
+  /// No description provided for @imageCaptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a caption (optional)'**
+  String get imageCaptionHint;
+
+  /// No description provided for @uploadImageFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload image from gallery'**
+  String get uploadImageFromGallery;
+
+  /// No description provided for @imageSizeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'min 80px · max 400px · scrolls horizontally'**
+  String get imageSizeHint;
+
+  /// No description provided for @fileBlockMembershipLock.
+  ///
+  /// In en, this message translates to:
+  /// **'File blocks are a membership feature — upgrade to Pro to unlock'**
+  String get fileBlockMembershipLock;
+
+  /// No description provided for @uploadFileLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload a file (CSV/Excel/JSON/PDF...)'**
+  String get uploadFileLabel;
+
+  /// No description provided for @fileSizeExceedsLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'File exceeds the limit ({limit})'**
+  String fileSizeExceedsLimit(String limit);
+
+  /// No description provided for @audioBlockMembershipLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio blocks are a membership feature'**
+  String get audioBlockMembershipLock;
+
+  /// No description provided for @uploadAudioLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload audio (MP3/WAV/M4A)'**
+  String get uploadAudioLabel;
+
+  /// No description provided for @tapToPlayLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to play'**
+  String get tapToPlayLabel;
+
+  /// No description provided for @videoBlockMembershipLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Video blocks are a Pro membership feature'**
+  String get videoBlockMembershipLock;
+
+  /// No description provided for @uploadVideoFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload video from gallery'**
+  String get uploadVideoFromGallery;
+
+  /// No description provided for @videoSizeExceedsLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Video exceeds the size limit ({limit})'**
+  String videoSizeExceedsLimit(String limit);
+
+  /// No description provided for @videoSizeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro ≤50MB · Pro Max ≤100MB'**
+  String get videoSizeHint;
+
+  /// No description provided for @calloutVariantTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip'**
+  String get calloutVariantTip;
+
+  /// No description provided for @calloutVariantWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning'**
+  String get calloutVariantWarning;
+
+  /// No description provided for @calloutVariantInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get calloutVariantInfo;
+
+  /// No description provided for @addBlockSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a block type'**
+  String get addBlockSheetTitle;
+
+  /// No description provided for @livePreviewLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Preview'**
+  String get livePreviewLabel;
+
+  /// No description provided for @readerViewLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader view'**
+  String get readerViewLabel;
+
+  /// No description provided for @wordsCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} words'**
+  String wordsCountLabel(int count);
+
+  /// No description provided for @blocksCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} blocks'**
+  String blocksCountLabel(int count);
+
+  /// No description provided for @estimatedReadTime.
+  ///
+  /// In en, this message translates to:
+  /// **'~{minutes} min read'**
+  String estimatedReadTime(int minutes);
+
+  /// No description provided for @previewEmptyContent.
+  ///
+  /// In en, this message translates to:
+  /// **'No content yet — add your first block'**
+  String get previewEmptyContent;
+
+  /// No description provided for @downloadFileTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to download'**
+  String get downloadFileTooltip;
+
   /// No description provided for @networkTimeout.
   ///
   /// In en, this message translates to:

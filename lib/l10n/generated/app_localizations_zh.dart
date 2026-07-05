@@ -1138,6 +1138,191 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get publishTitleHint => '输入笔记标题...';
+
+  @override
+  String get saveDraftAction => '草稿';
+
+  @override
+  String get pleaseEnterNoteTitle => '请输入笔记标题';
+
+  @override
+  String get publishSuccessMessage => '发布成功';
+
+  @override
+  String get draftSavedMessage => '草稿已保存';
+
+  @override
+  String saveFailedWithReason(String reason) {
+    return '保存失败：$reason';
+  }
+
+  @override
+  String get coverImageLabel => '封面图';
+
+  @override
+  String get notePlaceholderTitle => '笔记标题';
+
+  @override
+  String get summaryHint => '一句话描述...';
+
+  @override
+  String get addTagAction => '添加标签';
+
+  @override
+  String get columnLabel => '专栏';
+
+  @override
+  String get joinColumnOptional => '加入专栏（可选）';
+
+  @override
+  String get columnComingSoonMessage => '专栏功能即将上线';
+
+  @override
+  String get tagNameHint => '输入标签名';
+
+  @override
+  String get addContentBlockLabel => '添加内容块';
+
+  @override
+  String get previewTooltip => '预览';
+
+  @override
+  String get blockTypeText => '文字';
+
+  @override
+  String get blockTypeHeading => '标题';
+
+  @override
+  String get blockTypeCode => '代码';
+
+  @override
+  String get blockTypeLatex => 'LaTeX';
+
+  @override
+  String get blockTypeImage => '图片';
+
+  @override
+  String get blockTypeFile => '文件';
+
+  @override
+  String get blockTypeAudio => '音频';
+
+  @override
+  String get blockTypeVideo => '视频';
+
+  @override
+  String get blockTypeLink => '链接';
+
+  @override
+  String get blockTypeCallout => '提示';
+
+  @override
+  String get textBlockHint => '输入文字内容...';
+
+  @override
+  String headingBlockHint(int level) {
+    return 'Heading $level...';
+  }
+
+  @override
+  String get codeBlockHint => '# 输入代码...';
+
+  @override
+  String get runAction => '运行';
+
+  @override
+  String get runningLabel => '运行中';
+
+  @override
+  String get runCompleteNoOutputMessage => '运行完成（无输出）';
+
+  @override
+  String get latexBlockHint => '例：E = mc^2';
+
+  @override
+  String get imageCaptionHint => '添加图片说明（可选）';
+
+  @override
+  String get uploadImageFromGallery => '从相册上传图片';
+
+  @override
+  String get imageSizeHint => 'min 80px · max 400px · 支持横向滚动';
+
+  @override
+  String get fileBlockMembershipLock => '文件块为会员功能，升级 Pro 解锁';
+
+  @override
+  String get uploadFileLabel => '上传文件（CSV/Excel/JSON/PDF...）';
+
+  @override
+  String fileSizeExceedsLimit(String limit) {
+    return '文件超出限制（$limit）';
+  }
+
+  @override
+  String get audioBlockMembershipLock => '音频块为会员功能';
+
+  @override
+  String get uploadAudioLabel => '上传音频（MP3/WAV/M4A）';
+
+  @override
+  String get tapToPlayLabel => '点击播放';
+
+  @override
+  String get videoBlockMembershipLock => '视频块为 Pro 会员功能';
+
+  @override
+  String get uploadVideoFromGallery => '从相册上传视频';
+
+  @override
+  String videoSizeExceedsLimit(String limit) {
+    return '视频超出大小限制（$limit）';
+  }
+
+  @override
+  String get videoSizeHint => 'Pro ≤50MB · Pro Max ≤100MB';
+
+  @override
+  String get calloutVariantTip => '小贴士';
+
+  @override
+  String get calloutVariantWarning => '警告';
+
+  @override
+  String get calloutVariantInfo => '说明';
+
+  @override
+  String get addBlockSheetTitle => '选择内容类型';
+
+  @override
+  String get livePreviewLabel => '实时预览';
+
+  @override
+  String get readerViewLabel => '读者视角';
+
+  @override
+  String wordsCountLabel(int count) {
+    return '$count 字';
+  }
+
+  @override
+  String blocksCountLabel(int count) {
+    return '$count blocks';
+  }
+
+  @override
+  String estimatedReadTime(int minutes) {
+    return '~$minutes 分钟阅读';
+  }
+
+  @override
+  String get previewEmptyContent => '还没有内容，开始添加第一个 Block 吧';
+
+  @override
+  String get downloadFileTooltip => '点击下载';
+
+  @override
   String get networkTimeout => '网络连接超时';
 
   @override
