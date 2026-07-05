@@ -161,6 +161,8 @@
   "allSettings": "All settings",
   "allSettingsSubtitle": "Account security / Notifications / Theme / Membership, etc.",
   "logout": "Log out",
+  "confirmLogoutMessage": "Are you sure you want to log out?",
+  "exit": "Log Out",
   "userNotFound": "User not found",
   "profileIsPrivate": "This user has set their profile to private",
   "sendMessageAction": "Message",

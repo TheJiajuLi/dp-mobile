@@ -656,6 +656,32 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     if (mounted) context.go('/login');
   }
 
+  // ctx 是抽屉那个 showGeneralDialog 路由自己的 context——确认框先弹在
+  // 抽屉上面，用户点"取消"的话抽屉还在，不受影响；点了"退出"才真的
+  // 收起抽屉去登出，不是一点"退出登录"就直接登出
+  Future<void> _confirmLogout(BuildContext ctx, AppLocalizations l10n) async {
+    final confirm = await showDialog<bool>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(l10n.logout),
+        content: Text(l10n.confirmLogoutMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: Text(l10n.exit, style: const TextStyle(color: Color(0xFFDC2626))),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !ctx.mounted) return;
+    Navigator.pop(ctx);
+    await _logout();
+  }
+
   // 对方主页设置了"不公开"：只展示头像/用户名/id 这几项基础信息（像
   // 网易云那样），发布的内容/收藏这些直接不显示——不复用下面那套带
   // Positioned 精确定位的头图布局，那套是为了让操作按钮/用户名跟正常
@@ -1715,10 +1741,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   icon: Icons.logout,
                   label: l10n.logout,
                   color: const Color(0xFFDC2626),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _logout();
-                  },
+                  onTap: () => _confirmLogout(ctx, l10n),
                 ),
               ],
             ),

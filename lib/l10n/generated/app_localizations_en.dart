@@ -365,6 +365,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logout => 'Log out';
 
   @override
+  String get confirmLogoutMessage => 'Are you sure you want to log out?';
+
+  @override
+  String get exit => 'Log Out';
+
+  @override
   String get userNotFound => 'User not found';
 
   @override

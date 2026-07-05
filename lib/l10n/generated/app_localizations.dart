@@ -770,6 +770,18 @@ abstract class AppLocalizations {
   /// **'Log out'**
   String get logout;
 
+  /// No description provided for @confirmLogoutMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to log out?'**
+  String get confirmLogoutMessage;
+
+  /// No description provided for @exit.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Out'**
+  String get exit;
+
   /// No description provided for @userNotFound.
   ///
   /// In en, this message translates to:

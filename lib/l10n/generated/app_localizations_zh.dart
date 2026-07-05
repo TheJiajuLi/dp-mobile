@@ -359,6 +359,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get logout => '退出登录';
 
   @override
+  String get confirmLogoutMessage => '确定要退出登录吗？';
+
+  @override
+  String get exit => '退出';
+
+  @override
   String get userNotFound => '用户不存在';
 
   @override
