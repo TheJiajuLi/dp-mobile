@@ -11,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/services/xmeng_image_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -24,7 +23,6 @@ import '../../messages/models/conversation_model.dart';
 import '../../notebook/services/notebook_service.dart';
 import '../../../shared/widgets/interest_tag.dart';
 import '../models/user_profile_model.dart';
-import '../widgets/tutorial_grid_item.dart';
 
 const _primary = Color(0xFF6366F1);
 // 网易云风格视觉语言（2026-07-05 重设计）：米白底 + 近黑正文 + 紫蓝只做
@@ -48,6 +46,23 @@ String _initial(String? name) {
 // 不是自己另配一个更深的藏青色。跟全局深色主题背景不一致，会显得这个
 // 页面是另外拼上去的，不像同一个 app
 const _profileDarkBg = Color(0xFF1C1C1E);
+
+// 教程九宫格卡片没有封面图时的兜底渐变——深色主题用深色两色渐变，跟深色
+// 底色连成一体；浅色主题保留原来那套浅色纯色块+图标，不强行套深色
+const _coverPaletteDark = [
+  (gradient: [Color(0xFF3B2F63), Color(0xFF1F1B3A)]),
+  (gradient: [Color(0xFF6D28D9), Color(0xFF3B0764)]),
+  (gradient: [Color(0xFF115E59), Color(0xFF0F2027)]),
+  (gradient: [Color(0xFF9A3412), Color(0xFF27140D)]),
+  (gradient: [Color(0xFF1E3A8A), Color(0xFF0B1120)]),
+];
+const _coverPaletteLight = [
+  (bg: Color(0xFFEEF2FF), icon: Icons.bar_chart, fg: Color(0xFF6366F1)),
+  (bg: Color(0xFFECFDF5), icon: Icons.functions, fg: Color(0xFF16A34A)),
+  (bg: Color(0xFFFFF7ED), icon: Icons.psychology, fg: Color(0xFFD97706)),
+  (bg: Color(0xFFFDF2F8), icon: Icons.code, fg: Color(0xFFDB2777)),
+  (bg: Color(0xFFEFF6FF), icon: Icons.table_chart, fg: Color(0xFF2563EB)),
+];
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle
@@ -110,6 +125,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: _showNotebookTab ? 5 : 4, vsync: this);
+    // 文章/专栏/Notebook/收藏/点赞这行本身现在就是tab切换器（不再有单独的
+    // TabBar），swipe切页也要让它跟着更新高亮态，不能只在点击时刷新
+    _tabCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadProfile();
     if (_showNotebookTab) _loadNotebooks();
   }
@@ -879,9 +899,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
 
     try {
-      final urls = await ref
-          .read(xmengImageServiceProvider)
-          .generateAvatar(description: description);
+      // 图像生成实测要 15-25 秒，Dio 默认 10 秒 receiveTimeout 会提前超时——
+      // 只给这一个请求单独放宽，不动全局默认值影响其他接口
+      final res = await ref
+          .read(apiClientProvider)
+          .post(
+            '/auth/xmeng/avatar',
+            data: {'description': description},
+            options: Options(
+              sendTimeout: const Duration(seconds: 30),
+              receiveTimeout: const Duration(seconds: 90),
+            ),
+          );
 
       if (mounted && dialogShowing) {
         dialogShowing = false;
@@ -889,12 +918,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       }
       if (!mounted) return;
 
-      if (urls.isEmpty) {
+      if (!res.success) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('生成失败')));
+        ).showSnackBar(SnackBar(content: Text(res.message ?? '生成失败')));
         return;
       }
+
+      final urls = List<String>.from(
+        (res.data as Map?)?['urls'] as List? ?? [],
+      );
+      if (urls.isEmpty) return;
 
       if (urls.length == 1) {
         _showSingleAvatarConfirm(urls.first);
@@ -1340,31 +1374,23 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  // 头像图片本身排除出语义树——用户名在旁边另有文字承载，头像纯装饰；
-  // 这个页面刚好是"点头像跳转过来"的落地页，头像图片异步解码/加载完成
-  // 触发的 relayout 跟自己入场的转场动画抢语义树更新会炸断言，跟上面
-  // 封面图是同一个坑
   Widget _buildAvatar({double radius = 40}) {
     final p = _profile;
     if (p?.avatar != null && p!.avatar!.isNotEmpty) {
       if (p.avatar!.startsWith('data:image')) {
         final base64Data = p.avatar!.split(',').last;
         try {
-          return ExcludeSemantics(
-            child: CircleAvatar(
-              radius: radius,
-              backgroundImage: MemoryImage(base64Decode(base64Data)),
-            ),
+          return CircleAvatar(
+            radius: radius,
+            backgroundImage: MemoryImage(base64Decode(base64Data)),
           );
         } catch (_) {
           // 解码失败落到下面的首字母占位
         }
       } else {
-        return ExcludeSemantics(
-          child: CircleAvatar(
-            radius: radius,
-            backgroundImage: CachedNetworkImageProvider(p.avatar!),
-          ),
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: CachedNetworkImageProvider(p.avatar!),
         );
       }
     }
@@ -1495,53 +1521,42 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     onTap: isSelfView && !_uploadingCover
                                         ? _pickAndUploadCover
                                         : null,
-                                    // 封面图纯装饰（用户名/简介另有文字承载），排除
-                                    // 出语义树——这个页面正是"点头像 context.push
-                                    // 跳转过来"的落地页，封面图异步加载完成触发的
-                                    // relayout 跟自己入场的转场动画抢语义树更新，
-                                    // 就会炸出 `!semantics.parentDataDirty` 断言，
-                                    // tutorial_detail_screen.dart/
-                                    // column_detail_screen.dart 的同款封面图
-                                    // 已经踩过这个坑
-                                    child: ExcludeSemantics(
-                                      child: Stack(
-                                        fit: StackFit.expand,
-                                        children: [
-                                          _coverImageUrl != null
-                                              ? CachedNetworkImage(
-                                                  imageUrl: _coverImageUrl!,
-                                                  fit: BoxFit.cover,
-                                                  errorWidget:
-                                                      (context, url, error) =>
-                                                          const _CoverGradient(),
-                                                )
-                                              : const _CoverGradient(),
-                                          const DecoratedBox(
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topCenter,
-                                                end: Alignment.bottomCenter,
-                                                colors: [
-                                                  Color(0x00000000),
-                                                  Color(0x40000000),
-                                                  Color(0xB3000000),
-                                                ],
-                                                stops: [0.0, 0.32, 0.62],
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        _coverImageUrl != null
+                                            ? CachedNetworkImage(
+                                                imageUrl: _coverImageUrl!,
+                                                fit: BoxFit.cover,
+                                                errorWidget:
+                                                    (context, url, error) =>
+                                                        const _CoverGradient(),
+                                              )
+                                            : const _CoverGradient(),
+                                        const DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Color(0x00000000),
+                                                Color(0x40000000),
+                                                Color(0xB3000000),
+                                              ],
+                                              stops: [0.0, 0.32, 0.62],
+                                            ),
+                                          ),
+                                        ),
+                                        if (_uploadingCover)
+                                          Container(
+                                            color: Colors.black38,
+                                            child: const Center(
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
                                               ),
                                             ),
                                           ),
-                                          if (_uploadingCover)
-                                            Container(
-                                              color: Colors.black38,
-                                              child: const Center(
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      color: Colors.white,
-                                                    ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -2157,7 +2172,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               itemCount: _tutorials.length,
                               itemBuilder: (ctx, i) {
                                 final t = _tutorials[i];
-                                return TutorialGridItem(
+                                return _TutorialGridItem(
                                   tutorial: t,
                                   onTap: () =>
                                       context.push('/tutorial/${t.id}'),
@@ -2545,6 +2560,122 @@ class _CoverGradient extends StatelessWidget {
   }
 }
 
+// 教程九宫格 item
+class _TutorialGridItem extends StatelessWidget {
+  final TutorialModel tutorial;
+  final VoidCallback onTap;
+
+  const _TutorialGridItem({required this.tutorial, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final idx = tutorial.title.isNotEmpty
+        ? tutorial.title.codeUnitAt(0) %
+              (isDark ? _coverPaletteDark.length : _coverPaletteLight.length)
+        : 0;
+    final fallbackBg = isDark
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: _coverPaletteDark[idx].gradient,
+              ),
+            ),
+          )
+        : Container(
+            color: _coverPaletteLight[idx].bg,
+            child: Icon(
+              _coverPaletteLight[idx].icon,
+              size: 32,
+              color: _coverPaletteLight[idx].fg,
+            ),
+          );
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          tutorial.coverImage?.isNotEmpty == true
+              ? CachedNetworkImage(
+                  imageUrl: tutorial.coverImage!,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => fallbackBg,
+                  errorWidget: (context, url, error) => fallbackBg,
+                )
+              : fallbackBg,
+
+          // 底部渐变信息
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black54, Colors.transparent],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tutorial.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.favorite,
+                        size: 10,
+                        color: Colors.white70,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${tutorial.likes}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.visibility,
+                        size: 10,
+                        color: Colors.white70,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${tutorial.views}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // Notebook tab 列表项：文件名 + 语言 badge + cells 数量 + 时间
 class _NotebookListItem extends StatelessWidget {
   final Map<String, dynamic> notebook;
@@ -2697,20 +2828,14 @@ class _ColumnCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // 缩略图纯装饰，专栏名/篇数在下面 Positioned 里另有文字
-                    // 承载，排除出语义树——跟头图/头像/教程缩略图同一个坑
-                    ExcludeSemantics(
-                      child:
-                          column.coverImage != null &&
-                              column.coverImage!.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: column.coverImage!,
-                              fit: BoxFit.cover,
-                              errorWidget: (context, url, error) =>
-                                  _gradBg(gradient),
-                            )
-                          : _gradBg(gradient),
-                    ),
+                    column.coverImage != null && column.coverImage!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: column.coverImage!,
+                            fit: BoxFit.cover,
+                            errorWidget: (context, url, error) =>
+                                _gradBg(gradient),
+                          )
+                        : _gradBg(gradient),
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -2853,10 +2978,7 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
     );
   }
 
-  // tabBar 每次父级 build() 都会 new 一个新实例，按引用比较 (!=) 永远为
-  // true——之前这行等于白写，父级任何一次 setState 都会连带把这个 pinned
-  // header 重新 build 一遍。只有 isDark 会真的影响这里画出来的东西
   @override
   bool shouldRebuild(covariant _ProfileTabBarDelegate oldDelegate) =>
-      oldDelegate.isDark != isDark;
+      oldDelegate.tabBar != tabBar || oldDelegate.isDark != isDark;
 }
