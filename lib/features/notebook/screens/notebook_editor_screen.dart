@@ -16,6 +16,422 @@ import '../services/notebook_service.dart';
 
 const _primary = Color(0xFF6366F1);
 
+// 单页 CodeMirror 6 编辑器，所有 cell 共用同一个 WebView 实例——不是每个
+// cell 各开一个 WebView（那样 N 个 cell 就要重复加载 N 份 esm.sh 模块，
+// 内存/性能开销随 cell 数线性增长）。点开某个 cell 时用这份 HTML 起一个
+// 全屏编辑页，setCode/setLanguage 灌入内容，编辑页关掉后 WebView 也随之
+// 销毁，不会有多个实例同时占着内存。
+//
+// 工具栏按钮没有用内联 onclick="ins('...')" 塞引号字符——HTML 属性定界符
+// 和 JS 字符串定界符只要选的引号种类一样就会互相截断（想插入一对双引号
+// 时尤其容易踩），改用 data-ins 属性 + addEventListener 统一分发，彻底
+// 避免这类转义问题
+const _editorHtml = r'''
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+  content="width=device-width,
+  initial-scale=1.0, maximum-scale=1.0">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1E1E2E;
+  font-family: 'JetBrains Mono', 'Fira Code',
+    'Cascadia Code', monospace;
+  overscroll-behavior: none;
+}
+
+.cm-editor {
+  height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+  padding-bottom: 50px;
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-scroller {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cm-editor .cm-content {
+  padding: 12px 0;
+  caret-color: #6366F1;
+}
+
+.cm-editor .cm-activeLine {
+  background: rgba(99,102,241,0.08) !important;
+}
+
+.cm-editor .cm-gutters {
+  background: #1E1E2E;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.2);
+  min-width: 40px;
+}
+
+.cm-editor .cm-activeLineGutter {
+  background: rgba(99,102,241,0.12);
+  color: #6366F1;
+}
+
+.cm-editor .cm-selectionBackground {
+  background: rgba(99,102,241,0.25) !important;
+}
+
+.cm-editor .cm-matchingBracket {
+  background: rgba(99,102,241,0.3);
+  border: 1px solid #6366F1;
+  border-radius: 2px;
+}
+
+.cm-tooltip-autocomplete {
+  background: #2A2A3A !important;
+  border: 1px solid rgba(99,102,241,0.3) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+  font-size: 13px !important;
+}
+
+.cm-tooltip-autocomplete > ul > li {
+  padding: 5px 12px !important;
+  color: rgba(255,255,255,0.8) !important;
+}
+
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: rgba(99,102,241,0.3) !important;
+  color: #fff !important;
+}
+
+.cm-searchMatch {
+  background: rgba(245,158,11,0.3);
+  border-radius: 2px;
+}
+
+.tok-keyword    { color: #818CF8; font-weight: 500; }
+.tok-string     { color: #4ADE80; }
+.tok-comment    { color: #4B5563; font-style: italic; }
+.tok-number     { color: #F59E0B; }
+.tok-function   { color: #60A5FA; }
+.tok-className  { color: #F472B6; }
+.tok-operator   { color: #C084FC; }
+.tok-variableName { color: #E2E8F0; }
+.tok-typeName   { color: #34D399; }
+.tok-bool       { color: #FB923C; }
+.tok-null       { color: #FB923C; }
+.tok-regexp     { color: #4ADE80; }
+.tok-punctuation { color: rgba(255,255,255,0.4); }
+
+#loading {
+  position: fixed;
+  inset: 0;
+  background: #1E1E2E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.4);
+  font-size: 13px;
+  z-index: 200;
+}
+
+#toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  background: #16162A;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  padding-bottom: env(safe-area-inset-bottom);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 4px;
+  z-index: 100;
+  scrollbar-width: none;
+}
+
+#toolbar::-webkit-scrollbar { display: none; }
+
+.tb-btn {
+  min-width: 36px;
+  height: 32px;
+  border-radius: 7px;
+  border: none;
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.tb-btn:active {
+  background: rgba(99,102,241,0.3);
+  color: #fff;
+}
+
+.tb-btn.run {
+  background: #6366F1;
+  color: #fff;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.tb-btn.run:active {
+  background: #4F46E5;
+}
+
+.tb-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,0.08);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+</style>
+</head>
+<body>
+<div id="editor"></div>
+<div id="toolbar">
+  <button class="tb-btn" data-ins="    ">&#8677; Tab</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" data-ins="()">( )</button>
+  <button class="tb-btn" data-ins="[]">[  ]</button>
+  <button class="tb-btn" data-ins="{}">{  }</button>
+  <button class="tb-btn" data-ins="''">'  '</button>
+  <button class="tb-btn" data-ins="&quot;&quot;">"  "</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" data-ins=":">:</button>
+  <button class="tb-btn" data-ins="=">=</button>
+  <button class="tb-btn" data-ins="->">&rarr;</button>
+  <button class="tb-btn" data-ins="#">#</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" data-ins="import ">import</button>
+  <button class="tb-btn" data-ins="def ">def</button>
+  <button class="tb-btn" data-ins="print()">print</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn run" id="run-btn">&#9654; Run</button>
+</div>
+<div id="loading">正在加载编辑器…</div>
+
+<script type="module">
+import {EditorView, keymap, lineNumbers,
+  highlightActiveLineGutter,
+  highlightActiveLine, drawSelection,
+  dropCursor, rectangularSelection,
+  crosshairCursor, highlightSpecialChars}
+  from 'https://esm.sh/@codemirror/view@6';
+import {EditorState, Compartment}
+  from 'https://esm.sh/@codemirror/state@6';
+import {defaultKeymap, historyKeymap, history,
+  indentWithTab}
+  from 'https://esm.sh/@codemirror/commands@6';
+import {python}
+  from 'https://esm.sh/@codemirror/lang-python@6';
+import {javascript}
+  from 'https://esm.sh/@codemirror/lang-javascript@6';
+import {sql}
+  from 'https://esm.sh/@codemirror/lang-sql@6';
+import {markdown}
+  from 'https://esm.sh/@codemirror/lang-markdown@6';
+import {autocompletion, completionKeymap,
+  closeBrackets, closeBracketsKeymap}
+  from 'https://esm.sh/@codemirror/autocomplete@6';
+import {foldGutter, foldKeymap,
+  indentOnInput, syntaxHighlighting,
+  defaultHighlightStyle, bracketMatching}
+  from 'https://esm.sh/@codemirror/language@6';
+import {lintKeymap}
+  from 'https://esm.sh/@codemirror/lint@6';
+import {classHighlighter}
+  from 'https://esm.sh/@lezer/highlight@1';
+
+// 语言切换器
+const langConf = new Compartment();
+
+// Python关键字自动补全
+const pythonCompletions = [
+  'import','from','as','def','class',
+  'return','if','elif','else','for',
+  'while','try','except','finally',
+  'with','lambda','yield','pass',
+  'break','continue','True','False',
+  'None','and','or','not','in','is',
+  'print','len','range','list','dict',
+  'set','tuple','str','int','float',
+  'bool','type','input','open','sum',
+  'max','min','sorted','enumerate',
+  'zip','map','filter','isinstance',
+  'hasattr','getattr','setattr',
+  'super','self','cls',
+].map(label => ({label, type: 'keyword'}));
+
+function pythonCompletion(context) {
+  const word = context.matchBefore(/\w*/);
+  if (!word || (word.from == word.to &&
+      !context.explicit)) return null;
+  return {
+    from: word.from,
+    options: pythonCompletions,
+  };
+}
+
+const extensions = [
+  lineNumbers(),
+  highlightActiveLineGutter(),
+  highlightSpecialChars(),
+  history(),
+  foldGutter(),
+  drawSelection(),
+  dropCursor(),
+  EditorState.allowMultipleSelections.of(true),
+  indentOnInput(),
+  syntaxHighlighting(defaultHighlightStyle),
+  syntaxHighlighting(classHighlighter),
+  bracketMatching(),
+  closeBrackets(),
+  autocompletion({
+    override: [pythonCompletion],
+    activateOnTyping: true,
+  }),
+  rectangularSelection(),
+  crosshairCursor(),
+  highlightActiveLine(),
+  keymap.of([
+    ...closeBracketsKeymap,
+    ...defaultKeymap,
+    ...historyKeymap,
+    ...foldKeymap,
+    ...completionKeymap,
+    ...lintKeymap,
+    indentWithTab,
+  ]),
+  langConf.of(python()),
+  EditorView.updateListener.of(v => {
+    if (v.docChanged) {
+      const content = v.state.doc.toString();
+      if (window.flutter_inappwebview) {
+        window.flutter_inappwebview
+          .callHandler('onContentChange', content);
+      }
+    }
+  }),
+];
+
+const view = new EditorView({
+  state: EditorState.create({
+    doc: '',
+    extensions,
+  }),
+  parent: document.getElementById('editor'),
+});
+
+window.setCode = (code) => {
+  view.dispatch({
+    changes: {
+      from: 0,
+      to: view.state.doc.length,
+      insert: code,
+    }
+  });
+};
+
+window.getCode = () =>
+  view.state.doc.toString();
+
+window.setLanguage = (lang) => {
+  const langMap = {
+    python: python(),
+    javascript: javascript(),
+    sql: sql(),
+    markdown: markdown(),
+  };
+  view.dispatch({
+    effects: langConf.reconfigure(
+      langMap[lang] || python())
+  });
+};
+
+window.focusEditor = () => view.focus();
+
+// 工具栏插入字符——括号/引号类是"包住选区"，其余是纯文本插入
+window.ins = (text) => {
+  const sel = view.state.selection.main;
+  const pairs = {
+    '()': ['(', ')'],
+    '[]': ['[', ']'],
+    '{}': ['{', '}'],
+    "''": ["'", "'"],
+    '""': ['"', '"'],
+  };
+  if (pairs[text]) {
+    const [l, r] = pairs[text];
+    const selected = view.state.sliceDoc(
+      sel.from, sel.to);
+    view.dispatch({
+      changes: {
+        from: sel.from, to: sel.to,
+        insert: l + selected + r,
+      },
+      selection: {
+        anchor: sel.from + 1,
+        head: sel.to + 1,
+      }
+    });
+  } else {
+    view.dispatch({
+      changes: {
+        from: sel.from, to: sel.to,
+        insert: text,
+      },
+      selection: {
+        anchor: sel.from + text.length
+      }
+    });
+  }
+  view.focus();
+};
+
+document.querySelectorAll('[data-ins]').forEach(btn => {
+  btn.addEventListener('click', () => window.ins(btn.dataset.ins));
+});
+
+window.runCode = () => {
+  const code = view.state.doc.toString();
+  if (window.flutter_inappwebview) {
+    window.flutter_inappwebview
+      .callHandler('onRunCode', code);
+  }
+};
+document.getElementById('run-btn')
+  .addEventListener('click', window.runCode);
+
+const loadingEl = document.getElementById('loading');
+setTimeout(() => {
+  if (loadingEl) loadingEl.remove();
+  if (window.flutter_inappwebview) {
+    window.flutter_inappwebview
+      .callHandler('editorReady');
+  }
+}, 300);
+</script>
+</body>
+</html>
+''';
+
 class NotebookEditorScreen extends ConsumerStatefulWidget {
   final String nbId;
   const NotebookEditorScreen({super.key, required this.nbId});
@@ -112,6 +528,34 @@ setTimeout(() => {
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // 打开 CodeMirror 6 全屏编辑页。所有 cell 共用同一份 _editorHtml，编辑页
+  // 关掉时 WebView 也随之销毁——不会同时有多个 WebView 实例常驻。运行
+  // 走的还是现有 _runCell（Pyodide 隐藏 WebView 那条链路），不是另起一套
+  Future<void> _openCellEditor(NotebookCell cell, String label) async {
+    final ctrl =
+        _controllers[cell.id] ??
+        (_controllers[cell.id] = TextEditingController(text: cell.code));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _CodeEditorPage(
+          initialCode: cell.code,
+          language: cell.type,
+          cellLabel: label,
+          onContentChanged: (code) {
+            cell.code = code;
+            ctrl.text = code;
+            _scheduleSave();
+          },
+          onRun: (code) async {
+            cell.code = code;
+            ctrl.text = code;
+            await _runCell(cell);
+          },
+        ),
+      ),
+    );
   }
 
   // 统一更新单个 cell 的输出：同步进内存态 map（驱动 UI）和 cell 字段（用于持久化）。
@@ -1089,10 +1533,9 @@ finally:
             padding: const EdgeInsets.all(10),
             child: TextField(
               controller: ctrl,
-              onChanged: (val) {
-                cell.code = val;
-                _scheduleSave();
-              },
+              readOnly: true,
+              showCursor: false,
+              onTap: () => _openCellEditor(cell, badgeLabel),
               maxLines: null,
               style: TextStyle(
                 fontFamily: 'monospace',
@@ -1242,6 +1685,189 @@ th{background:#f5f5f5;font-weight:600}
           ),
         );
     }
+  }
+}
+
+// CodeMirror 6 全屏编辑页——所有 cell 打开编辑时复用这一个 widget/WebView，
+// 不是每个 cell 各自常驻一个 WebView 实例。进页面时 setCode/setLanguage
+// 灌入内容，每次改动通过 onContentChanged 实时同步回 cell，关闭页面时
+// WebView 随路由一起销毁
+class _CodeEditorPage extends StatefulWidget {
+  final String initialCode;
+  final String language;
+  final String cellLabel;
+  final ValueChanged<String> onContentChanged;
+  final Future<void> Function(String code) onRun;
+
+  const _CodeEditorPage({
+    required this.initialCode,
+    required this.language,
+    required this.cellLabel,
+    required this.onContentChanged,
+    required this.onRun,
+  });
+
+  @override
+  State<_CodeEditorPage> createState() => _CodeEditorPageState();
+}
+
+class _CodeEditorPageState extends State<_CodeEditorPage> {
+  InAppWebViewController? _webCtrl;
+  bool _ready = false;
+  bool _timedOut = false;
+  Timer? _timeoutTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _armTimeout();
+  }
+
+  void _armTimeout() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer(const Duration(seconds: 12), () {
+      if (mounted && !_ready) setState(() => _timedOut = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timeoutTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1E1E2E),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF16162A),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            size: 18,
+            color: Colors.white70,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.cellLabel,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: Stack(
+        children: [
+          InAppWebView(
+            initialData: InAppWebViewInitialData(
+              data: _editorHtml,
+              baseUrl: WebUri('https://dreamingpolar.com'),
+            ),
+            initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              allowUniversalAccessFromFileURLs: true,
+              allowFileAccessFromFileURLs: true,
+              allowsInlineMediaPlayback: true,
+              mediaPlaybackRequiresUserGesture: false,
+            ),
+            onWebViewCreated: (ctrl) {
+              _webCtrl = ctrl;
+              ctrl.addJavaScriptHandler(
+                handlerName: 'onContentChange',
+                callback: (args) {
+                  widget.onContentChanged(
+                    args.isNotEmpty ? (args[0] as String? ?? '') : '',
+                  );
+                  return null;
+                },
+              );
+              ctrl.addJavaScriptHandler(
+                handlerName: 'onRunCode',
+                callback: (args) async {
+                  final code = args.isNotEmpty
+                      ? (args[0] as String? ?? '')
+                      : '';
+                  final messenger = ScaffoldMessenger.of(context);
+                  await widget.onRun(code);
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('已运行，返回可查看结果'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                  return null;
+                },
+              );
+              ctrl.addJavaScriptHandler(
+                handlerName: 'editorReady',
+                callback: (args) {
+                  _timeoutTimer?.cancel();
+                  if (!mounted) return null;
+                  setState(() {
+                    _ready = true;
+                    _timedOut = false;
+                  });
+                  ctrl.evaluateJavascript(
+                    source: 'window.setLanguage(${jsonEncode(widget.language)})',
+                  );
+                  ctrl.evaluateJavascript(
+                    source: 'window.setCode(${jsonEncode(widget.initialCode)})',
+                  );
+                  return null;
+                },
+              );
+            },
+          ),
+          if (!_ready)
+            Container(
+              color: const Color(0xFF1E1E2E),
+              alignment: Alignment.center,
+              child: _timedOut
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.wifi_off,
+                          color: Colors.white38,
+                          size: 32,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          '加载较慢，请检查网络',
+                          style: TextStyle(color: Colors.white54, fontSize: 13),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () {
+                            setState(() => _timedOut = false);
+                            _armTimeout();
+                            _webCtrl?.reload();
+                          },
+                          child: const Text('重试'),
+                        ),
+                      ],
+                    )
+                  : const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: _primary),
+                        SizedBox(height: 12),
+                        Text(
+                          '正在加载编辑器…',
+                          style: TextStyle(color: Colors.white54, fontSize: 13),
+                        ),
+                      ],
+                    ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
