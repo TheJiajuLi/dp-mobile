@@ -542,6 +542,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Keep it up, your creative journey never stops!';
 
   @override
+  String get continueCreatingTitle => 'Continue Creating';
+
+  @override
+  String get trendingTopicsTitle => 'Trending Topics';
+
+  @override
+  String get recommendedArticlesTitle => 'Recommended';
+
+  @override
+  String get shuffleAction => 'Shuffle';
+
+  @override
+  String notebookCellsCount(Object count) {
+    return '$count cells';
+  }
+
+  @override
   String get shareProfileAction => 'Share Profile';
 
   @override

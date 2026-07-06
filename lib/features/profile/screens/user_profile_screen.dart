@@ -47,6 +47,9 @@ String _initial(String? name) {
 // 不是自己另配一个更深的藏青色。跟全局深色主题背景不一致，会显得这个
 // 页面是另外拼上去的，不像同一个 app
 const _profileDarkBg = Color(0xFF1C1C1E);
+// tab栏 pinned header 顶部圆角半径——头图背景要往下多铺这么多才能让圆角
+// 裁掉的三角形露出头图颜色而不是页面主背景色，两处必须用同一个值
+const _kTabBarRadius = 20.0;
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle
@@ -1446,6 +1449,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     required double topPad,
   }) {
     final links = _allLinks();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       children: [
         // 封面图/渐变纯装饰，排除出语义树——跟 tutorial_detail_screen.dart/
@@ -1781,7 +1785,37 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   const SizedBox(height: 14),
                   _buildStreakCard(l10n),
                 ],
+                // 给下面圆角"卡片沿"留出空间——内容到这里为止，圆角沿贴在
+                // 正下方，不会互相压着
+                const SizedBox(height: _kTabBarRadius),
               ],
+            ),
+          ),
+        ),
+        // 网易云那种"卡片浮在头图上"的圆角沿——必须放在头图区自己这个
+        // Stack 里（跟封面图渐变同一层，不隔着 Sliver 边界），圆角裁掉的
+        // 两个直角三角形才能露出正下方的头图渐变色。之前想靠 tab栏
+        // pinned header 自己的圆角去露头图颜色，指望它的绘制能"溢出"到
+        // 上一个 sliver 的画面里——NestedScrollView 的普通 sliver 之间
+        // 没有这种重叠机制（那是 SliverOverlapAbsorber 专门解决的问题，
+        // 这里没用那套），所以完全不显示，圆角形同虚设
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: isDarkMode ? _profileDarkBg : Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(_kTabBarRadius),
+                  topRight: Radius.circular(_kTabBarRadius),
+                ),
+              ),
+              child: const SizedBox(
+                height: _kTabBarRadius,
+                width: double.infinity,
+              ),
             ),
           ),
         ),
@@ -2728,14 +2762,21 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => 42;
 
+  // 圆角"卡片沿"是头图区自己 Stack 里的一个装饰层（_buildProfileHeader
+  // 末尾那个 Positioned），不是这里——这层 pinned header 只负责紧接着
+  // 圆角沿之后原样铺开一块同色平面，两者颜色一致、紧贴着，看起来才是
+  // 一整块从头图上"浮"出来的圆角卡片。之前想在这里单独裁一次圆角，
+  // 指望能透出上一个 sliver（头图）的颜色——NestedScrollView 的普通
+  // sliver 之间没有这种重叠机制，圆角背后只会露出页面主背景色，跟这里
+  // 的白/深色几乎撞色，圆角形同虚设，所以挪到头图自己的 Stack 里做
   @override
   Widget build(
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(
-      color: isDark ? _profileDarkBg : Colors.white,
+    return DecoratedBox(
+      decoration: BoxDecoration(color: isDark ? _profileDarkBg : Colors.white),
       child: tabBar,
     );
   }

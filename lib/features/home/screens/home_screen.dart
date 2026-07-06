@@ -11,6 +11,7 @@ import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/screens/messages_screen.dart' show timeAgo;
+import '../../notebook/services/notebook_service.dart';
 import '../providers/home_feed_provider.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -172,11 +173,20 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollCtrl = ScrollController();
+  // "继续创作"用的是本地最近 Notebook 列表（NotebookService.getRecentList，
+  // 跟个人主页 Notebook tab 同一份数据源），不是编个假的完成度百分比——
+  // 这些 Notebook 本来就没有"完成度"这个概念，只有真实的 cell 数/更新时间
+  List<Map<String, dynamic>> _recentNotebooks = [];
+  // "换一换"——本地重新洗一次牌，不是重新拉接口；换分类之后旧的洗牌顺序
+  // 就不对了，靠 _shuffleCategory 记住是对着哪个分类洗的，分类一变就失效
+  List<TutorialModel>? _shuffleSeed;
+  String? _shuffleCategory;
 
   @override
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
+    _loadRecentNotebooks();
   }
 
   @override
@@ -184,6 +194,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRecentNotebooks() async {
+    final userId = ref.read(currentUserProvider)?.id ?? 'guest';
+    final list = await NotebookService(userId).getRecentList();
+    if (mounted) setState(() => _recentNotebooks = list);
   }
 
   void _onScroll() {
@@ -220,11 +236,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _ => l10n.tagAll,
       };
 
+  // 本地重新洗一次牌，不重新拉接口；换了分类之后旧洗牌顺序对不上新分类
+  // 的结果，直接失效退回接口原始顺序
+  List<TutorialModel> _displayTutorials(HomeFeedState state) {
+    if (_shuffleCategory != state.selectedCategory) return state.filtered;
+    return _shuffleSeed ?? state.filtered;
+  }
+
+  void _onShuffleTap(HomeFeedState state) {
+    setState(() {
+      _shuffleCategory = state.selectedCategory;
+      _shuffleSeed = List.of(state.filtered)..shuffle();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(homeFeedProvider);
-    final rows = _buildRows(state.filtered);
+    final rows = _buildRows(_displayTutorials(state));
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -420,11 +450,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
-    // index 0 固定放 app 入口宫格；之后是 tutorial.isEmpty 的占位文案，
-    // 否则是 Feed 卡片行；末尾按需加载更多的转圈
+    // 前面几段固定区块（入口宫格/继续创作/热门话题/推荐文章标题）先拼成
+    // 一个 widget 列表，后面 Feed 卡片行接着往下排——比手动算好几段偏移量
+    // 简单可靠，加/减一段不用重新核对下标
+    final prefixWidgets = <Widget>[
+      _buildAppGrid(context, l10n),
+      if (_recentNotebooks.isNotEmpty) ...[
+        _buildContinueCreating(context, l10n, isDarkMode),
+        const SizedBox(height: 20),
+      ],
+      if (_buildTrendingTopics(context, l10n, state, isDarkMode)
+          case final topics?) ...[
+        topics,
+        const SizedBox(height: 20),
+      ],
+      _buildRecommendedHeader(context, l10n, state),
+      const SizedBox(height: 10),
+    ];
+
     final showEmpty = rows.isEmpty;
     final itemCount =
-        1 + (showEmpty ? 1 : rows.length) + (state.isLoadingMore ? 1 : 0);
+        prefixWidgets.length +
+        (showEmpty ? 1 : rows.length) +
+        (state.isLoadingMore ? 1 : 0);
 
     return ListView.builder(
       controller: _scrollCtrl,
@@ -432,8 +480,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: itemCount,
       itemBuilder: (context, index) {
-        if (index == 0) return _buildAppGrid(context, l10n);
-        final rowIndex = index - 1;
+        if (index < prefixWidgets.length) return prefixWidgets[index];
+        final rowIndex = index - prefixWidgets.length;
         if (showEmpty) {
           return Padding(
             padding: const EdgeInsets.only(top: 60),
@@ -468,16 +516,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildAppGrid(BuildContext context, AppLocalizations l10n) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 20),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: _appEntries.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 6,
-          mainAxisSpacing: 6,
-          crossAxisSpacing: 6,
-          childAspectRatio: 0.72,
+          crossAxisCount: 3,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 8,
+          childAspectRatio: 0.95,
         ),
         itemBuilder: (context, index) {
           final entry = _appEntries[index];
@@ -487,6 +535,209 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           );
         },
       ),
+    );
+  }
+
+  // 继续创作——真实的本地最近 Notebook 列表，不编完成度百分比（这些
+  // Notebook 本来就没有这个概念），只展示真实的 cell 数和更新时间
+  Widget _buildContinueCreating(
+    BuildContext context,
+    AppLocalizations l10n,
+    bool isDarkMode,
+  ) {
+    final items = _recentNotebooks.take(4).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(title: l10n.continueCreatingTitle),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final nb = items[index];
+              final name = nb['name'] as String? ?? '';
+              final cellCount = nb['cellCount'] as int? ?? 0;
+              final updatedAt = (nb['updatedAt'] as num?)?.toInt() ?? 0;
+              return GestureDetector(
+                onTap: () => context.push('/notebook/${nb['id']}'),
+                child: Container(
+                  width: 168,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Theme.of(context).dividerColor,
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: _primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.description_outlined,
+                          size: 15,
+                          color: _primary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${l10n.notebookCellsCount(cellCount)} · ${timeAgo(l10n, updatedAt * 1000)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 热门话题——真实统计当前已加载教程里的标签出现次数（不是后端聚合
+  // 总数，后端目前没有这个接口），取频次最高的几个；数量级会比"全站
+  // 总量"小很多，但至少是真的，不编个好看的假数字
+  Widget? _buildTrendingTopics(
+    BuildContext context,
+    AppLocalizations l10n,
+    HomeFeedState state,
+    bool isDarkMode,
+  ) {
+    final tagCounts = <String, int>{};
+    for (final t in state.tutorials) {
+      for (final tag in t.tags) {
+        if (tag.isEmpty) continue;
+        tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
+      }
+    }
+    if (tagCounts.isEmpty) return null;
+    final sorted = tagCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top = sorted.take(8).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(title: l10n.trendingTopicsTitle),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 64,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: top.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final tag = top[index].key;
+              final count = top[index].value;
+              final style = topicBadgeStyleFor(tag);
+              return GestureDetector(
+                onTap: () =>
+                    context.push('/search?q=${Uri.encodeComponent(tag)}'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Theme.of(context).dividerColor,
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: style.$1,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Icon(
+                          Icons.tag_rounded,
+                          size: 15,
+                          color: style.$2,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            tag,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyLarge?.color,
+                            ),
+                          ),
+                          Text(
+                            l10n.articlesCountWithValue(count),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecommendedHeader(
+    BuildContext context,
+    AppLocalizations l10n,
+    HomeFeedState state,
+  ) {
+    return _SectionHeader(
+      title: l10n.recommendedArticlesTitle,
+      action: state.filtered.length > 1
+          ? (label: l10n.shuffleAction, onTap: () => _onShuffleTap(state))
+          : null,
     );
   }
 
@@ -520,6 +771,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 void _openTutorial(BuildContext context, TutorialModel t) {
   context.push('/tutorial/${t.id}');
+}
+
+// 各段小标题统一样式——继续创作/热门话题/推荐文章 三段都用这个，右侧
+// action 是可选的一个文字按钮（推荐文章的"换一换"），大多数段不需要
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final ({String label, VoidCallback onTap})? action;
+  const _SectionHeader({required this.title, this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        const Spacer(),
+        if (action != null)
+          GestureDetector(
+            onTap: action!.onTap,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  action!.label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
+                ),
+                Icon(
+                  Icons.refresh_rounded,
+                  size: 14,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _Avatar extends StatelessWidget {
@@ -561,6 +858,10 @@ class _Avatar extends StatelessWidget {
   }
 }
 
+// 工具入口宫格——一线产品那种更宽松、更"确信"的视觉语言：大一号的浅色
+// 圆角图标块 + 图标本身也更大，不再靠一个圆点去标"上没上线"（一排排
+// 圆点反而显得没自信/像半成品），未上线的入口整体调低透明度就够直观，
+// 具体状态文案还是靠长按 Tooltip
 class _AppEntryCard extends StatelessWidget {
   final _AppEntry entry;
   final VoidCallback onTap;
@@ -572,66 +873,35 @@ class _AppEntryCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final live = entry.status == _EntryStatus.live;
     return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.sm),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       onTap: onTap,
       child: Tooltip(
         message:
             '${_appName(l10n, entry.id)} · ${_statusLabel(l10n, entry.status)}',
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            border: Border.all(
-              color: Theme.of(context).dividerColor,
-              width: 0.5,
-            ),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
+        child: Opacity(
+          opacity: live ? 1 : 0.55,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: entry.color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Icon(entry.icon, color: entry.color, size: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _appName(l10n, entry.id),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                ],
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: entry.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(entry.icon, color: entry.color, size: 24),
               ),
-              // 6列挤下来给"已上线/即将上线"这种完整文字徽标已经没有可读性了，
-              // 改成一个圆点——绿色=已上线，灰色=其余所有未上线状态，只保留
-              // "上没上线"这一层最关键的信息，具体是"即将上线"还是"敬请期待"
-              // 靠长按 Tooltip 看完整文案
-              Positioned(
-                top: -2,
-                right: 6,
-                child: Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: live
-                        ? const Color(0xFF16A34A)
-                        : const Color(0xFFC7C7CC),
-                    shape: BoxShape.circle,
-                  ),
+              const SizedBox(height: 8),
+              Text(
+                _appName(l10n, entry.id),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
             ],

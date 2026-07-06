@@ -533,6 +533,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get creationStreakSubtitle => '继续加油，创作之路永不止步！';
 
   @override
+  String get continueCreatingTitle => '继续创作';
+
+  @override
+  String get trendingTopicsTitle => '热门话题';
+
+  @override
+  String get recommendedArticlesTitle => '推荐文章';
+
+  @override
+  String get shuffleAction => '换一换';
+
+  @override
+  String notebookCellsCount(Object count) {
+    return '$count 个 cell';
+  }
+
+  @override
   String get shareProfileAction => '分享主页';
 
   @override

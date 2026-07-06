@@ -33,15 +33,10 @@ class MainShell extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1C1C1E) : AppColors.bg,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: isDark
-              ? null
-              : const [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 16,
-                    offset: Offset(0, -2),
-                  ),
-                ],
+          // 深色模式底部bar跟页面内容看起来是"一体的"（没有阴影），浅色
+          // 模式之前留了一圈阴影，页面内容和底部bar之间露出一条看得出来的
+          // 接缝，两种模式观感不一致——去掉阴影，浅色模式也跟深色模式一样
+          // 融为一体
         ),
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),

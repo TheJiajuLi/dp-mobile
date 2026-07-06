@@ -1094,6 +1094,36 @@ abstract class AppLocalizations {
   /// **'Keep it up, your creative journey never stops!'**
   String get creationStreakSubtitle;
 
+  /// No description provided for @continueCreatingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue Creating'**
+  String get continueCreatingTitle;
+
+  /// No description provided for @trendingTopicsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending Topics'**
+  String get trendingTopicsTitle;
+
+  /// No description provided for @recommendedArticlesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get recommendedArticlesTitle;
+
+  /// No description provided for @shuffleAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle'**
+  String get shuffleAction;
+
+  /// No description provided for @notebookCellsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} cells'**
+  String notebookCellsCount(Object count);
+
   /// No description provided for @shareProfileAction.
   ///
   /// In en, this message translates to:
