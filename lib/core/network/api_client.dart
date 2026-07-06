@@ -170,7 +170,22 @@ class ApiClient {
     }
   }
 
-  Future<void> _forceLogout() async {
+  // 跟 _refreshToken() 同一个道理，只是这次要防的是另一层：打开一个页面
+  // 经常会连着发好几个请求（比如用户主页的 _loadProfile 一次要连打
+  // profile/follow-status/tutorials/columns 四个接口），token 真的过期
+  // 又刷新失败时，这几个请求会各自独立撞进这层拦截器、各自调一次
+  // _forceLogout()——不去重的话就是好几次 appRouter.go('/login') 挤在
+  // 同一小段时间里连续触发，会有好几次真实的路由树变更抢着跑，表现为
+  // 反复炸 `!semantics.parentDataDirty` 断言、页面卡死在白屏。用共享
+  // Future 把同一波并发失败合并成一次真正的登出+跳转
+  Future<void>? _loggingOut;
+  Future<void> _forceLogout() {
+    return _loggingOut ??= _doForceLogout().whenComplete(
+      () => _loggingOut = null,
+    );
+  }
+
+  Future<void> _doForceLogout() async {
     final userId =
         await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
     if (userId.isNotEmpty) {

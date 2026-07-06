@@ -1243,36 +1243,48 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   Widget _buildBlockedProfile(AppLocalizations l10n, double topPad, bool isMe) {
     return Column(
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const _CoverGradient(),
-            if (widget.showBackButton)
-              Positioned(
-                top: topPad + 8,
-                left: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                  onPressed: () => context.pop(),
-                ),
-              ),
-            Positioned(
-              bottom: -40,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.fromBorderSide(
-                      BorderSide(color: Colors.white, width: 3),
-                    ),
+        // 真机实测抓到的真正崩溃根因：_CoverGradient 自己的注释就说明它是
+        // 设计给 Stack 里的 Positioned.fill 用的（靠 Stack 已经解出来的
+        // 有限尺寸撑开），但这里直接把它当 Stack 的裸的非定位子项放，Stack
+        // 外层又是 Column 直接摆放、没有任何地方给出高度上限——
+        // Container(height: double.infinity) 在无边界高度约束下解不出
+        // 数值，直接炸 "BoxConstraints forces an infinite height"，然后
+        // 每一帧重新布局都再炸一次，表现为疯狂反复的崩溃日志。点一个设置了
+        // "主页不公开" 的用户头像、落到这个受限视图，就是这么崩的——
+        // 用固定高度的 SizedBox 包一层，配合 Positioned.fill 用法一致
+        SizedBox(
+          height: 200,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Positioned.fill(child: _CoverGradient()),
+              if (widget.showBackButton)
+                Positioned(
+                  top: topPad + 8,
+                  left: 8,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                    onPressed: () => context.pop(),
                   ),
-                  child: _buildAvatar(radius: 40),
+                ),
+              Positioned(
+                bottom: -40,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.fromBorderSide(
+                        BorderSide(color: Colors.white, width: 3),
+                      ),
+                    ),
+                    child: _buildAvatar(radius: 40),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 48),
         Text(
