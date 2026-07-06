@@ -23,6 +23,7 @@ import '../../messages/models/conversation_model.dart';
 import '../../notebook/services/notebook_service.dart';
 import '../../../shared/widgets/interest_tag.dart';
 import '../models/user_profile_model.dart';
+import '../widgets/tutorial_list_card.dart';
 
 const _primary = Color(0xFF6366F1);
 // 网易云风格视觉语言（2026-07-05 重设计）：米白底 + 近黑正文 + 紫蓝只做
@@ -46,23 +47,6 @@ String _initial(String? name) {
 // 不是自己另配一个更深的藏青色。跟全局深色主题背景不一致，会显得这个
 // 页面是另外拼上去的，不像同一个 app
 const _profileDarkBg = Color(0xFF1C1C1E);
-
-// 教程九宫格卡片没有封面图时的兜底渐变——深色主题用深色两色渐变，跟深色
-// 底色连成一体；浅色主题保留原来那套浅色纯色块+图标，不强行套深色
-const _coverPaletteDark = [
-  (gradient: [Color(0xFF3B2F63), Color(0xFF1F1B3A)]),
-  (gradient: [Color(0xFF6D28D9), Color(0xFF3B0764)]),
-  (gradient: [Color(0xFF115E59), Color(0xFF0F2027)]),
-  (gradient: [Color(0xFF9A3412), Color(0xFF27140D)]),
-  (gradient: [Color(0xFF1E3A8A), Color(0xFF0B1120)]),
-];
-const _coverPaletteLight = [
-  (bg: Color(0xFFEEF2FF), icon: Icons.bar_chart, fg: Color(0xFF6366F1)),
-  (bg: Color(0xFFECFDF5), icon: Icons.functions, fg: Color(0xFF16A34A)),
-  (bg: Color(0xFFFFF7ED), icon: Icons.psychology, fg: Color(0xFFD97706)),
-  (bg: Color(0xFFFDF2F8), icon: Icons.code, fg: Color(0xFFDB2777)),
-  (bg: Color(0xFFEFF6FF), icon: Icons.table_chart, fg: Color(0xFF2563EB)),
-];
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle
@@ -105,6 +89,27 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   bool _uploadingCover = false;
 
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
+  int get _totalViews => _tutorials.fold(0, (sum, t) => sum + t.views);
+
+  // 真实计算的"连续创作天数"——从今天开始倒推，_tutorials 里有发布记录的
+  // 那些自然日连续多少天，不是后端字段（后端和Web参考站都没有这个统计），
+  // 今天没发布过就是 0（不给"昨天算不算"的宽限），streak 为 0 时头图区
+  // 那张卡片直接不显示，不用假数字凑颜值
+  int get _creationStreak {
+    if (_tutorials.isEmpty) return 0;
+    final days = _tutorials.map((t) {
+      final d = DateTime.fromMillisecondsSinceEpoch(t.createdAt);
+      return DateTime(d.year, d.month, d.day);
+    }).toSet();
+    var streak = 0;
+    var cursor = DateTime.now();
+    cursor = DateTime(cursor.year, cursor.month, cursor.day);
+    while (days.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
 
   // 2026-07-06 起改为用户在编辑资料页自己选的"兴趣标签"（最多3个，后端
   // users.tags 字段），不再从发布过的教程 tags 里统计频率——那套自动推断
@@ -125,11 +130,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: _showNotebookTab ? 5 : 4, vsync: this);
-    // 文章/专栏/Notebook/收藏/点赞这行本身现在就是tab切换器（不再有单独的
-    // TabBar），swipe切页也要让它跟着更新高亮态，不能只在点击时刷新
-    _tabCtrl.addListener(() {
-      if (mounted) setState(() {});
-    });
     _loadProfile();
     if (_showNotebookTab) _loadNotebooks();
   }
@@ -1374,23 +1374,31 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
+  // 头像图片本身排除出语义树——用户名在旁边另有文字承载，头像纯装饰；
+  // 这个页面刚好是"点头像跳转过来"的落地页，头像图片异步解码/加载完成
+  // 触发的 relayout 跟自己入场的转场动画抢语义树更新会炸断言，跟上面
+  // 封面图是同一个坑
   Widget _buildAvatar({double radius = 40}) {
     final p = _profile;
     if (p?.avatar != null && p!.avatar!.isNotEmpty) {
       if (p.avatar!.startsWith('data:image')) {
         final base64Data = p.avatar!.split(',').last;
         try {
-          return CircleAvatar(
-            radius: radius,
-            backgroundImage: MemoryImage(base64Decode(base64Data)),
+          return ExcludeSemantics(
+            child: CircleAvatar(
+              radius: radius,
+              backgroundImage: MemoryImage(base64Decode(base64Data)),
+            ),
           );
         } catch (_) {
           // 解码失败落到下面的首字母占位
         }
       } else {
-        return CircleAvatar(
-          radius: radius,
-          backgroundImage: CachedNetworkImageProvider(p.avatar!),
+        return ExcludeSemantics(
+          child: CircleAvatar(
+            radius: radius,
+            backgroundImage: CachedNetworkImageProvider(p.avatar!),
+          ),
         );
       }
     }
@@ -1404,6 +1412,484 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           color: Colors.white,
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+
+  // 头图区——封面背景铺满，内容按截图参考重排：顶部图标行、头像+用户名/
+  // 认证勾/handle、简介、位置+星座+链接一行（右侧挂编辑资料/关注+发消息
+  // 按钮）、内容计数统计行、连续创作卡片。不再用固定屏幕高度的 Positioned
+  // 绝对定位堆叠——高度跟内容走，封面图作为背景层用 Stack 撑到内容实际
+  // 高度（Stack 默认按非 Positioned 子项——也就是这条内容 Column——来定
+  // 尺寸，Positioned.fill 的背景层会跟着一起伸缩）
+  Widget _buildProfileHeader({
+    required AppLocalizations l10n,
+    required bool isSelfView,
+    required bool isMe,
+    required String displayUsername,
+    required String? displayBio,
+    required String? displayLocation,
+    required ZodiacSign? displayZodiacSign,
+    required List<String> interestTags,
+    required double topPad,
+  }) {
+    final links = _allLinks();
+    return Stack(
+      children: [
+        // 封面图/渐变纯装饰，排除出语义树——跟 tutorial_detail_screen.dart/
+        // column_detail_screen.dart 的封面图同一个坑：图片异步加载完成的
+        // relayout 可能跟这个页面自己入场的转场动画抢语义树更新
+        Positioned.fill(
+          child: ExcludeSemantics(
+            child: GestureDetector(
+              onTap: isSelfView && !_uploadingCover
+                  ? _pickAndUploadCover
+                  : null,
+              child: _coverImageUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: _coverImageUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) =>
+                          const _CoverGradient(),
+                    )
+                  : const _CoverGradient(),
+            ),
+          ),
+        ),
+        const Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x33000000), Color(0xCC000000)],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (_uploadingCover)
+          const Positioned.fill(
+            child: IgnorePointer(
+              ignoring: false,
+              child: ColoredBox(
+                color: Colors.black38,
+                child: Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (widget.showBackButton)
+                      _heroIconButton(
+                        Icons.arrow_back_ios_new,
+                        () => context.pop(),
+                      ),
+                    const Spacer(),
+                    if (isSelfView) ...[
+                      _heroIconButton(
+                        Theme.of(context).brightness == Brightness.dark
+                            ? Icons.dark_mode_outlined
+                            : Icons.light_mode_outlined,
+                        _toggleTheme,
+                      ),
+                      _heroIconButton(
+                        Icons.people_outline,
+                        () => context.push('/friends'),
+                      ),
+                      _heroIconButton(
+                        Icons.article_outlined,
+                        () => context.push('/creator'),
+                      ),
+                      _heroIconButton(
+                        Icons.settings_outlined,
+                        () => context.push('/settings'),
+                      ),
+                    ] else if (links.isNotEmpty)
+                      _heroIconButton(
+                        Icons.link_rounded,
+                        () => _showLinksSheet(l10n),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.fromBorderSide(
+                              BorderSide(color: Colors.white, width: 2.5),
+                            ),
+                          ),
+                          child: _buildAvatar(radius: 34),
+                        ),
+                        if (_uploadingAvatar)
+                          const CircleAvatar(
+                            radius: 34,
+                            backgroundColor: Colors.black45,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                        if (isSelfView)
+                          Positioned(
+                            right: -4,
+                            bottom: -4,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _showAvatarOptions,
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                alignment: Alignment.center,
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: _primary,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                    size: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  displayUsername,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              // 认证徽章——UserProfile.isVerified 目前后端恒为
+                              // false，这里只是把渲染逻辑接好，字段一旦上线
+                              // 直接生效，不需要再改这里
+                              if (_profile!.isVerified) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.verified,
+                                  size: 16,
+                                  color: _primary,
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (_profile!.handle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              '@${_profile!.handle}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white60,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (interestTags.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: interestTags
+                        .map((tag) => InterestTag(label: tag))
+                        .toList(),
+                  ),
+                ],
+                if (displayBio?.isNotEmpty == true) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    displayBio!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (displayLocation?.isNotEmpty ?? false)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.location_on_outlined,
+                                  size: 12,
+                                  color: Colors.white70,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  displayLocation!,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (displayZodiacSign != null)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ZodiacIcon(sign: displayZodiacSign, size: 12),
+                                const SizedBox(width: 3),
+                                Text(
+                                  zodiacDisplayName(l10n, displayZodiacSign),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (links.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => _openLink(links.first),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.language,
+                                    size: 12,
+                                    color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 150,
+                                    ),
+                                    child: Text(
+                                      links.first
+                                          .replaceAll('https://', '')
+                                          .replaceAll('http://', ''),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (isMe) ...[
+                      _headerActionButton(
+                        label: l10n.editProfile,
+                        filled: true,
+                        onTap: () async {
+                          await context.push('/edit-profile');
+                          if (mounted) _loadProfile();
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      _heroIconButton(
+                        Icons.link_rounded,
+                        () => _showLinksSheet(l10n),
+                      ),
+                    ] else ...[
+                      _headerActionButton(
+                        label: _profile!.isFollowing
+                            ? l10n.followingAction
+                            : l10n.followAction,
+                        filled: !_profile!.isFollowing,
+                        onTap: _toggleFollow,
+                      ),
+                      const SizedBox(width: 6),
+                      _headerActionButton(
+                        label: l10n.sendMessageAction,
+                        filled: false,
+                        loading: _startingChat,
+                        onTap: _startingChat ? null : _startChat,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildStatsRow(l10n),
+                if (_creationStreak > 0) ...[
+                  const SizedBox(height: 14),
+                  _buildStreakCard(l10n),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _headerActionButton({
+    required String label,
+    required bool filled,
+    VoidCallback? onTap,
+    bool loading = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: filled ? Colors.white : Colors.transparent,
+          border: filled ? null : Border.all(color: Colors.white54),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: loading
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: filled ? _ink : Colors.white,
+                ),
+              ),
+      ),
+    );
+  }
+
+  // 内容计数统计行——文章/专栏/Notebook/收藏/点赞/阅读，纯展示不可点
+  // （截图里这行没有任何一项有"可点"的视觉提示，真正的切 tab 交给下面
+  // 单独的白底 TabBar）。收藏数没有真实后端聚合数据（只有单条save/unsave
+  // 接口，没有"我收藏了多少篇"这个统计），显示"-"而不是编个假数字
+  Widget _buildStatsRow(AppLocalizations l10n) {
+    Widget stat(String value, String label) => Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: Colors.white60),
+          ),
+        ],
+      ),
+    );
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          stat('${_tutorials.length}', l10n.articlesCountLabel),
+          stat('${_columns.length}', l10n.tabColumnsLabel),
+          if (_showNotebookTab) stat('${_notebooks.length}', 'Notebook'),
+          stat('-', l10n.tabBookmarksLabel),
+          stat(_formatCount(_totalLikes), l10n.tabLikesLabel),
+          stat(_formatCount(_totalViews), l10n.viewsCountLabel),
+        ],
+      ),
+    );
+  }
+
+  // 连续创作天数卡片——真实计算（见 _creationStreak），streak 为 0 时
+  // 上层已经不渲染这个 widget 了
+  Widget _buildStreakCard(AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Text('🔥', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.creationStreakDays(_creationStreak),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.creationStreakSubtitle,
+                  style: const TextStyle(fontSize: 11, color: Colors.white60),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1495,597 +1981,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 child: NestedScrollView(
                   headerSliverBuilder: (ctx, _) => [
                     SliverToBoxAdapter(
-                      child: Column(
-                        children: [
-                          // 头图区——封面/头像/用户名/星座/兴趣领域 badge/简介
-                          // 全部糊在同一块背景上（小红书/网易云那种"内容嵌合
-                          // 进背景图"效果）。文字统一用白色，不再跟着猜背景
-                          // 图片的明暗去挑深色文字——真机验证过，用户自传的
-                          // 照片亮度完全不可控，"猜文字颜色"这条路走不通；
-                          // 改成网易云/小红书的正解：整块头图区铺一层由浅到
-                          // 深的黑色蒙层，白色文字在蒙层之上永远有稳定对比度。
-                          // 固定高度（屏幕50% - Tab栏42 - 底部导航83）而不是
-                          // 让内容撑开——顶部按钮/底部信息都用 Positioned 绝对
-                          // 定位叠在封面上，不管内容多高，封面区域比例保持稳定
-                          SizedBox(
-                            height:
-                                (MediaQuery.sizeOf(context).height * 0.5 -
-                                        42 -
-                                        83)
-                                    .clamp(280.0, 520.0),
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Positioned.fill(
-                                  child: GestureDetector(
-                                    onTap: isSelfView && !_uploadingCover
-                                        ? _pickAndUploadCover
-                                        : null,
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        _coverImageUrl != null
-                                            ? CachedNetworkImage(
-                                                imageUrl: _coverImageUrl!,
-                                                fit: BoxFit.cover,
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        const _CoverGradient(),
-                                              )
-                                            : const _CoverGradient(),
-                                        const DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Color(0x00000000),
-                                                Color(0x40000000),
-                                                Color(0xB3000000),
-                                              ],
-                                              stops: [0.0, 0.32, 0.62],
-                                            ),
-                                          ),
-                                        ),
-                                        if (_uploadingCover)
-                                          Container(
-                                            color: Colors.black38,
-                                            child: const Center(
-                                              child: CircularProgressIndicator(
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                // 顶部毛玻璃按钮行——绝对定位浮在封面上，不挤占
-                                // 下面用户信息区的空间
-                                Positioned(
-                                  top: topPad + 8,
-                                  left: 16,
-                                  right: 16,
-                                  child: Row(
-                                    children: [
-                                      // 2026-07-06 移除了侧边栏整套入口，
-                                      // 自己主页左上角不再有汉堡按钮——
-                                      // 原来挂在抽屉里的功能要么挪到下面
-                                      // 这一排图标（创作者中心/设置），
-                                      // 要么挪进"全部设置"页（切换账号/
-                                      // 退出登录），左上角单纯空出来
-                                      if (widget.showBackButton)
-                                        _heroIconButton(
-                                          Icons.arrow_back_ios_new,
-                                          () => context.pop(),
-                                        ),
-                                      const Spacer(),
-                                      // 主题/创作者中心/设置 三个图标一排，
-                                      // 全部裸图标（靠黑色投影保证可读性，
-                                      // 不再套毛玻璃圆角底）——主题图标本身
-                                      // 跟着当前实际生效的明暗态换（不是跟
-                                      // 着 ThemePreference 的取值，"跟随
-                                      // 系统"那个值本身看不出到底是亮是暗，
-                                      // 只有 Theme.of(context).brightness 是
-                                      // 真算出来的结果），点一下直接切换
-                                      // 明暗，不弹选择框
-                                      if (isSelfView) ...[
-                                        _heroIconButton(
-                                          Theme.of(context).brightness ==
-                                                  Brightness.dark
-                                              ? Icons.dark_mode_outlined
-                                              : Icons.light_mode_outlined,
-                                          _toggleTheme,
-                                        ),
-                                        // 好友列表（互相关注的用户，GET
-                                        // /auth/friends）——2026-07-06 加，
-                                        // 位置卡在主题和创作者中心中间
-                                        _heroIconButton(
-                                          Icons.people_outline,
-                                          () => context.push('/friends'),
-                                        ),
-                                        _heroIconButton(
-                                          Icons.article_outlined,
-                                          () => context.push('/creator'),
-                                        ),
-                                        _heroIconButton(
-                                          Icons.settings_outlined,
-                                          () => context.push('/settings'),
-                                        ),
-                                      ]
-                                      // 自己主页时链接按钮挪到下面操作栏跟"分享"
-                                      // 合并成"个人链接"了，这里只在看别人主页时
-                                      // 才需要——查看对方的个人链接
-                                      else if (_allLinks().isNotEmpty)
-                                        _heroIconButton(
-                                          Icons.link_rounded,
-                                          () => _showLinksSheet(l10n),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                // 用户信息区——绝对定位压在封面底部，不管上面头像/
-                                // 简介/badge 具体多高，都贴着封面下沿对齐，跟顶部
-                                // 按钮行留出的空间无关（这两块是各自独立定位的，
-                                // 不是同一条 Column 从上往下自然排）
-                                Positioned(
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 14,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // 头像 + 用户名/handle/星座
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.center,
-                                          children: [
-                                            Stack(
-                                              clipBehavior: Clip.none,
-                                              alignment: Alignment.center,
-                                              children: [
-                                                Container(
-                                                  decoration: const BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    border:
-                                                        Border.fromBorderSide(
-                                                          BorderSide(
-                                                            color: Colors.white,
-                                                            width: 3,
-                                                          ),
-                                                        ),
-                                                  ),
-                                                  child: _buildAvatar(
-                                                    radius: 32,
-                                                  ),
-                                                ),
-                                                if (_uploadingAvatar)
-                                                  const CircleAvatar(
-                                                    radius: 32,
-                                                    backgroundColor:
-                                                        Colors.black45,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          color: Colors.white,
-                                                        ),
-                                                  ),
-                                                if (isSelfView)
-                                                  Positioned(
-                                                    // 视觉上的圆角标是 22x22，可点
-                                                    // 区域放大到 36x36（居中对齐同一
-                                                    // 个圆心），头像变小之后更要注意
-                                                    // 别让触控热区跟着一起缩水
-                                                    right: -6,
-                                                    bottom: -6,
-                                                    child: GestureDetector(
-                                                      behavior: HitTestBehavior
-                                                          .opaque,
-                                                      onTap: _showAvatarOptions,
-                                                      child: Container(
-                                                        width: 36,
-                                                        height: 36,
-                                                        alignment:
-                                                            Alignment.center,
-                                                        child: Container(
-                                                          width: 22,
-                                                          height: 22,
-                                                          decoration:
-                                                              BoxDecoration(
-                                                                color: _primary,
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                                border: Border.all(
-                                                                  color: Colors
-                                                                      .white,
-                                                                  width: 2,
-                                                                ),
-                                                              ),
-                                                          child: const Icon(
-                                                            Icons.camera_alt,
-                                                            color: Colors.white,
-                                                            size: 11,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                            const SizedBox(width: 14),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    displayUsername,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 3),
-                                                  if (_profile!.handle != null)
-                                                    Text(
-                                                      '@${_profile!.handle}',
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: Colors.white70,
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      // 兴趣标签——用户在编辑资料页自己选的（最多3
-                                      // 个），毛玻璃配色由 InterestTag 统一处理
-                                      if (interestTags.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            16,
-                                            10,
-                                            16,
-                                            0,
-                                          ),
-                                          child: Wrap(
-                                            spacing: 6,
-                                            runSpacing: 6,
-                                            children: interestTags
-                                                .map(
-                                                  (tag) =>
-                                                      InterestTag(label: tag),
-                                                )
-                                                .toList(),
-                                          ),
-                                        ),
-                                      const SizedBox(height: 16),
-                                      // 简介区：bio + 性别/所在地/星座 + IP属地 +
-                                      // 个人链接——星座从上面用户名那一行挪到这里，
-                                      // 跟性别/所在地放一起；统一用白色文字，不再
-                                      // 跟着猜背景图片的明暗去挑深色，靠上面那层
-                                      // 黑色蒙层保证对比度
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          16,
-                                          0,
-                                          16,
-                                          0,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            if (displayBio?.isNotEmpty == true)
-                                              Text(
-                                                displayBio!,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.white,
-                                                  height: 1.4,
-                                                ),
-                                              ),
-                                            // 空间经济化——位置+星座+网站压成一行，
-                                            // 单独占一行的性别图标、以及自成一行的
-                                            // IP属地都拿掉了：跟这一行比起来是次要
-                                            // 信息，不值得再多占一整行的垂直空间
-                                            if ((displayLocation?.isNotEmpty ??
-                                                    false) ||
-                                                displayZodiacSign != null ||
-                                                _allLinks().isNotEmpty)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                  top: 4,
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    if (displayLocation
-                                                            ?.isNotEmpty ??
-                                                        false) ...[
-                                                      const Icon(
-                                                        Icons
-                                                            .location_on_outlined,
-                                                        size: 12,
-                                                        color: Colors.white70,
-                                                      ),
-                                                      const SizedBox(width: 3),
-                                                      Text(
-                                                        displayLocation!,
-                                                        style: const TextStyle(
-                                                          fontSize: 11,
-                                                          color: Colors.white70,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 10),
-                                                    ],
-                                                    if (displayZodiacSign !=
-                                                        null) ...[
-                                                      ZodiacIcon(
-                                                        sign: displayZodiacSign,
-                                                        size: 12,
-                                                      ),
-                                                      const SizedBox(width: 3),
-                                                      Text(
-                                                        zodiacDisplayName(
-                                                          l10n,
-                                                          displayZodiacSign,
-                                                        ),
-                                                        style: const TextStyle(
-                                                          fontSize: 11,
-                                                          color: Colors.white70,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 10),
-                                                    ],
-                                                    if (_allLinks()
-                                                        .isNotEmpty) ...[
-                                                      const Icon(
-                                                        Icons.language,
-                                                        size: 12,
-                                                        color: Colors.white70,
-                                                      ),
-                                                      const SizedBox(width: 3),
-                                                      Flexible(
-                                                        child: GestureDetector(
-                                                          onTap: () =>
-                                                              _openLink(
-                                                                _allLinks()
-                                                                    .first,
-                                                              ),
-                                                          child: Text(
-                                                            _allLinks().first
-                                                                .replaceAll(
-                                                                  'https://',
-                                                                  '',
-                                                                )
-                                                                .replaceAll(
-                                                                  'http://',
-                                                                  '',
-                                                                ),
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 11,
-                                                                  color: Colors
-                                                                      .white70,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      // 统计+按钮一行——统计数字改成内联文字排列
-                                      // （之前那版把统计做成卡片、还兼当tab切换器，
-                                      // 这次拆开：切换tab交给下面单独的白底TabBar，
-                                      // 这里只做静态展示，社交数据也换回原本的
-                                      // 文章/获赞/粉丝/关注，不再是内容分类计数）
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: SingleChildScrollView(
-                                                scrollDirection:
-                                                    Axis.horizontal,
-                                                child: Row(
-                                                  children: [
-                                                    _inlineStat(
-                                                      '${_profile!.tutorialCount}',
-                                                      l10n.articlesCountLabel,
-                                                    ),
-                                                    _inlineStat(
-                                                      _formatCount(_totalLikes),
-                                                      l10n.likesCountLabel,
-                                                    ),
-                                                    _inlineStat(
-                                                      _formatCount(
-                                                        _profile!.followerCount,
-                                                      ),
-                                                      l10n.followersCountLabel,
-                                                      onTap: () => context.push(
-                                                        '/users/${_profile!.id}/followers',
-                                                      ),
-                                                    ),
-                                                    _inlineStat(
-                                                      _formatCount(
-                                                        _profile!
-                                                            .followingCount,
-                                                      ),
-                                                      l10n.followingCountLabel,
-                                                      onTap: () => context.push(
-                                                        '/users/${_profile!.id}/following',
-                                                      ),
-                                                      last: true,
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            if (isMe) ...[
-                                              SizedBox(
-                                                height: 32,
-                                                child: ElevatedButton(
-                                                  onPressed: () async {
-                                                    await context.push(
-                                                      '/edit-profile',
-                                                    );
-                                                    if (mounted) _loadProfile();
-                                                  },
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        Colors.white,
-                                                    foregroundColor: _ink,
-                                                    elevation: 0,
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 14,
-                                                        ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            10,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    l10n.editProfile,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              _heroIconButton(
-                                                Icons.link_rounded,
-                                                () => _showLinksSheet(l10n),
-                                              ),
-                                            ] else ...[
-                                              SizedBox(
-                                                height: 32,
-                                                child: OutlinedButton.icon(
-                                                  onPressed: _startingChat
-                                                      ? null
-                                                      : _startChat,
-                                                  icon: _startingChat
-                                                      ? const SizedBox(
-                                                          width: 12,
-                                                          height: 12,
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                                strokeWidth: 2,
-                                                                color: Colors
-                                                                    .white,
-                                                              ),
-                                                        )
-                                                      : const Icon(
-                                                          Icons
-                                                              .message_outlined,
-                                                          size: 14,
-                                                        ),
-                                                  label: Text(
-                                                    l10n.sendMessageAction,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                  style: OutlinedButton.styleFrom(
-                                                    foregroundColor:
-                                                        Colors.white,
-                                                    side: const BorderSide(
-                                                      color: Colors.white70,
-                                                    ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            10,
-                                                          ),
-                                                    ),
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 10,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              SizedBox(
-                                                height: 32,
-                                                child: ElevatedButton(
-                                                  onPressed: _toggleFollow,
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        _profile!.isFollowing
-                                                        ? Colors.white
-                                                        : _primary,
-                                                    foregroundColor:
-                                                        _profile!.isFollowing
-                                                        ? _ink
-                                                        : Colors.white,
-                                                    elevation: 0,
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 12,
-                                                        ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            10,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    _profile!.isFollowing
-                                                        ? l10n.followingAction
-                                                        : l10n.followAction,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      child: _buildProfileHeader(
+                        l10n: l10n,
+                        isSelfView: isSelfView,
+                        isMe: isMe,
+                        displayUsername: displayUsername,
+                        displayBio: displayBio,
+                        displayLocation: displayLocation,
+                        displayZodiacSign: displayZodiacSign,
+                        interestTags: interestTags,
+                        topPad: topPad,
                       ),
                     ),
                     // Tab 栏——42px 白底，跟头图区分开，选中态黑字+黑色下划线；
@@ -2134,19 +2039,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                   body: TabBarView(
                     controller: _tabCtrl,
                     children: [
-                      // 发布的教程九宫格
-                      // GridView 在没显式传 padding 时，会自动用
-                      // MediaQuery.of(context).padding（状态栏/刘海/底部安全区）
-                      // 当作自己的 SliverPadding——这是 Flutter 专门给"作为整个
-                      // 页面根滚动视图"的 ListView/GridView 设计的默认行为，
-                      // 用来避免内容被状态栏挡住。但这里的 GridView 只是嵌套在
-                      // NestedScrollView+TabBarView 里的一个子滚动视图，
-                      // 顶部已经有头图+Tab栏挡着，不需要再避让一次安全区，
-                      // 这个"自动"padding 才是 Tab 栏和九宫格之间那截空白的
-                      // 真正来源——显式传 EdgeInsets.zero 关掉这个默认行为。
-                      // （给每个 tab 一个独立 PageStorageKey 是上一版修复时顺手
-                      // 加的，用来避免几个结构相同的 tab 之间滚动位置互相串，
-                      // 跟这次的空白无关，但仍然值得保留）
+                      // 发布的教程——截图参考改成缩略图在左的横向列表卡片，
+                      // 不再是九宫格瀑布流（那套挪到 tutorial_list_card.dart，
+                      // 这里跟专栏页九宫格是不同场景各自的正确呈现方式）。
+                      // padding 显式传 EdgeInsets.all(12) 而不是零——ListView
+                      // 不像 GridView 那样会自动用 MediaQuery padding 当
+                      // SliverPadding，这里是嵌套在 NestedScrollView+
+                      // TabBarView 里的子滚动视图，顶部已经有头图+Tab栏挡着，
+                      // 只是想要普通的四周留白
                       _tutorials.isEmpty
                           ? Center(
                               key: const PageStorageKey(
@@ -2157,25 +2057,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 style: const TextStyle(color: Colors.grey),
                               ),
                             )
-                          : GridView.builder(
+                          : ListView.builder(
                               key: const PageStorageKey(
                                 'profile-tab-tutorials',
                               ),
-                              padding: EdgeInsets.zero,
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    crossAxisSpacing: 2,
-                                    mainAxisSpacing: 2,
-                                    childAspectRatio: 1.0,
-                                  ),
+                              padding: const EdgeInsets.all(12),
                               itemCount: _tutorials.length,
                               itemBuilder: (ctx, i) {
                                 final t = _tutorials[i];
-                                return _TutorialGridItem(
+                                return TutorialListCard(
                                   tutorial: t,
                                   onTap: () =>
                                       context.push('/tutorial/${t.id}'),
+                                  onMoreTap: () =>
+                                      _todo(l10n.comingSoonStayTuned),
                                 );
                               },
                             ),
@@ -2240,41 +2135,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   // 统计数字内联文字排列——文章/获赞/粉丝/关注挨个写在一行，last:true
   // 的最后一项右边不再留间距
-  Widget _inlineStat(
-    String value,
-    String label, {
-    VoidCallback? onTap,
-    bool last = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.only(right: last ? 0 : 14),
-        child: RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              TextSpan(
-                text: ' $label',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.white.withValues(alpha: 0.45),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildColumnsTab(AppLocalizations l10n, bool isSelfView) {
     if (_columns.isEmpty && !isSelfView) {
       return Center(
@@ -2560,122 +2420,6 @@ class _CoverGradient extends StatelessWidget {
   }
 }
 
-// 教程九宫格 item
-class _TutorialGridItem extends StatelessWidget {
-  final TutorialModel tutorial;
-  final VoidCallback onTap;
-
-  const _TutorialGridItem({required this.tutorial, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final idx = tutorial.title.isNotEmpty
-        ? tutorial.title.codeUnitAt(0) %
-              (isDark ? _coverPaletteDark.length : _coverPaletteLight.length)
-        : 0;
-    final fallbackBg = isDark
-        ? DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: _coverPaletteDark[idx].gradient,
-              ),
-            ),
-          )
-        : Container(
-            color: _coverPaletteLight[idx].bg,
-            child: Icon(
-              _coverPaletteLight[idx].icon,
-              size: 32,
-              color: _coverPaletteLight[idx].fg,
-            ),
-          );
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          tutorial.coverImage?.isNotEmpty == true
-              ? CachedNetworkImage(
-                  imageUrl: tutorial.coverImage!,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => fallbackBg,
-                  errorWidget: (context, url, error) => fallbackBg,
-                )
-              : fallbackBg,
-
-          // 底部渐变信息
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Colors.black54, Colors.transparent],
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tutorial.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.favorite,
-                        size: 10,
-                        color: Colors.white70,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${tutorial.likes}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.visibility,
-                        size: 10,
-                        color: Colors.white70,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${tutorial.views}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // Notebook tab 列表项：文件名 + 语言 badge + cells 数量 + 时间
 class _NotebookListItem extends StatelessWidget {
   final Map<String, dynamic> notebook;
@@ -2828,14 +2572,20 @@ class _ColumnCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    column.coverImage != null && column.coverImage!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: column.coverImage!,
-                            fit: BoxFit.cover,
-                            errorWidget: (context, url, error) =>
-                                _gradBg(gradient),
-                          )
-                        : _gradBg(gradient),
+                    // 缩略图纯装饰，专栏名/篇数在下面 Positioned 里另有文字
+                    // 承载，排除出语义树——跟头图/头像同一个坑
+                    ExcludeSemantics(
+                      child:
+                          column.coverImage != null &&
+                              column.coverImage!.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: column.coverImage!,
+                              fit: BoxFit.cover,
+                              errorWidget: (context, url, error) =>
+                                  _gradBg(gradient),
+                            )
+                          : _gradBg(gradient),
+                    ),
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -2978,7 +2728,10 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
     );
   }
 
+  // tabBar 每次父级 build() 都会 new 一个新实例，按引用比较 (!=) 永远为
+  // true——之前这行等于白写，父级任何一次 setState 都会连带把这个 pinned
+  // header 重新 build 一遍。只有 isDark 会真的影响这里画出来的东西
   @override
   bool shouldRebuild(covariant _ProfileTabBarDelegate oldDelegate) =>
-      oldDelegate.tabBar != tabBar || oldDelegate.isDark != isDark;
+      oldDelegate.isDark != isDark;
 }

@@ -522,6 +522,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get articlesCountLabel => '文章';
 
   @override
+  String get viewsCountLabel => '阅读';
+
+  @override
+  String creationStreakDays(Object days) {
+    return '连续创作 $days 天';
+  }
+
+  @override
+  String get creationStreakSubtitle => '继续加油，创作之路永不止步！';
+
+  @override
   String get shareProfileAction => '分享主页';
 
   @override

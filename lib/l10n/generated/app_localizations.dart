@@ -1076,6 +1076,24 @@ abstract class AppLocalizations {
   /// **'Articles'**
   String get articlesCountLabel;
 
+  /// No description provided for @viewsCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reads'**
+  String get viewsCountLabel;
+
+  /// No description provided for @creationStreakDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{days}-day creation streak'**
+  String creationStreakDays(Object days);
+
+  /// No description provided for @creationStreakSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep it up, your creative journey never stops!'**
+  String get creationStreakSubtitle;
+
   /// No description provided for @shareProfileAction.
   ///
   /// In en, this message translates to:

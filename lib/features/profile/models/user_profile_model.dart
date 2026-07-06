@@ -24,6 +24,9 @@ class UserProfile {
   // profile/:identifier 都已经返回这个字段，不是像上面几个字段那样的
   // 过渡期占位
   final List<String> tags;
+  // 认证徽章——后端目前没有这个字段，恒为 false，UI 已经按"false 就不显示"
+  // 处理，等后端加上 is_verified 字段直接生效，不需要再改这里
+  final bool isVerified;
 
   UserProfile({
     required this.id,
@@ -42,6 +45,7 @@ class UserProfile {
     this.isFollowing = false,
     this.ipLocation,
     this.tags = const [],
+    this.isVerified = false,
   });
 
   UserProfile copyWith({String? avatar, List<String>? tags}) => UserProfile(
@@ -61,6 +65,7 @@ class UserProfile {
     isFollowing: isFollowing,
     ipLocation: ipLocation,
     tags: tags ?? this.tags,
+    isVerified: isVerified,
   );
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -80,5 +85,6 @@ class UserProfile {
     createdAt: ((j['created_at'] as num?) ?? 0).toInt() * 1000,
     ipLocation: j['ip_location']?.toString(),
     tags: (j['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+    isVerified: j['is_verified'] == true,
   );
 }

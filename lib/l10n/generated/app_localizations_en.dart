@@ -530,6 +530,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get articlesCountLabel => 'Articles';
 
   @override
+  String get viewsCountLabel => 'Reads';
+
+  @override
+  String creationStreakDays(Object days) {
+    return '$days-day creation streak';
+  }
+
+  @override
+  String get creationStreakSubtitle =>
+      'Keep it up, your creative journey never stops!';
+
+  @override
   String get shareProfileAction => 'Share Profile';
 
   @override
