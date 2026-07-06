@@ -900,8 +900,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
 
     try {
-      // 原来后端转发调 moyu.info 网络不稳定，改成 Flutter 直接调生成接口，
-      // 后端 /auth/xmeng/upload-image 只负责把临时图片转存到 COS
       final urls = await ref
           .read(xmengImageServiceProvider)
           .generateAvatar(description: description);
