@@ -15,6 +15,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/utils/avatar_upload.dart';
 import '../../../shared/utils/gender_label.dart';
+import '../../../shared/widgets/interest_tag.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 
@@ -43,6 +44,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   bool _uploadingAvatar = false;
   String? _error;
   UserModel? _user;
+  List<String> _tags = [];
 
   ZodiacSign? get _zodiacSign => _birthday == null
       ? null
@@ -75,6 +77,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _bioCtrl.text = _user?.bio ?? '';
     _selectedGender = _user?.gender;
     _locationCtrl.text = _user?.location ?? '';
+    _tags = List.of(_user?.tags ?? []);
 
     // 生日/星座优先读后端字段；后端还没这两个字段之前，退回读本地
     // legacy key（上一版编辑资料页存的），保存成功一次后就迁移过去了
@@ -164,6 +167,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               'location': _locationCtrl.text.trim(),
               'birthday': birthdayStr,
               'zodiac': _zodiacSign?.name,
+              'tags': _tags,
             },
           );
       if (!res.success) {
@@ -215,6 +219,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               location: resUser['location']?.toString(),
               zodiac: resUser['zodiac']?.toString(),
               birthday: birthdayStr,
+              tags:
+                  (resUser['tags'] as List?)
+                      ?.map((e) => e.toString())
+                      .toList() ??
+                  _tags,
             )
           : base.copyWith(
               username: username,
@@ -224,6 +233,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               location: _locationCtrl.text.trim(),
               birthday: birthdayStr,
               zodiac: _zodiacSign?.name,
+              tags: _tags,
             );
       ref.read(authServiceProvider).updateCurrentUser(updated);
 
@@ -288,6 +298,226 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       _linkCtrls[index].dispose();
       _linkCtrls.removeAt(index);
     });
+  }
+
+  static const _recommendedTags = [
+    'Python',
+    '数据分析',
+    'LaTeX',
+    '机器学习',
+    'matplotlib',
+    '统计学',
+    '宇宙科学',
+    '经济',
+    '编程',
+    '生命科学',
+    '时事',
+    '生活',
+  ];
+
+  void _showInterestTagsSheet() {
+    final customCtrl = TextEditingController();
+    final customFocusNode = FocusNode();
+    var selected = List<String>.from(_tags);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          void addTag(String tag) {
+            final t = tag.trim();
+            if (t.isEmpty || selected.contains(t)) return;
+            if (selected.length >= 3) {
+              ScaffoldMessenger.of(
+                ctx,
+              ).showSnackBar(const SnackBar(content: Text('最多添加3个兴趣标签')));
+              return;
+            }
+            setSheetState(() => selected.add(t));
+          }
+
+          final atLimit = selected.length >= 3;
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).cardColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        '兴趣标签（最多3个）',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '根据关键词自动推理类别和配色',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(ctx).textTheme.bodySmall?.color,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ...selected.map(
+                            (t) => InterestTag(
+                              label: t,
+                              removable: true,
+                              onRemove: () =>
+                                  setSheetState(() => selected.remove(t)),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              if (atLimit) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(content: Text('最多添加3个兴趣标签')),
+                                );
+                                return;
+                              }
+                              FocusScope.of(ctx).requestFocus(customFocusNode);
+                            },
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: atLimit
+                                    ? Colors.grey.shade200
+                                    : Theme.of(
+                                        ctx,
+                                      ).inputDecorationTheme.fillColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.add,
+                                size: 18,
+                                color: atLimit ? Colors.grey : _primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        '推荐标签',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(ctx).textTheme.bodySmall?.color,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _recommendedTags.map((t) {
+                          return InterestTag(
+                            label: t,
+                            selected: selected.contains(t),
+                            onTap: () => addTag(t),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: customCtrl,
+                        focusNode: customFocusNode,
+                        decoration: InputDecoration(
+                          hintText: '输入自定义标签，回车添加',
+                          hintStyle: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                          filled: true,
+                          fillColor: Theme.of(
+                            ctx,
+                          ).inputDecorationTheme.fillColor,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                        ),
+                        style: const TextStyle(fontSize: 14),
+                        onSubmitted: (v) {
+                          addTag(v);
+                          customCtrl.clear();
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        '提示：系统会根据关键词自动匹配配色',
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() => _tags = selected);
+                            Navigator.pop(ctx);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primary,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            '完成',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showBirthdayPicker() {
@@ -638,6 +868,28 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                         ),
                                       ),
                                     ],
+                                  ),
+                          ),
+                          _formRow(
+                            label: '兴趣标签',
+                            onTap: _showInterestTagsSheet,
+                            child: _tags.isEmpty
+                                ? Text(
+                                    '未设置',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.color,
+                                    ),
+                                  )
+                                : Wrap(
+                                    alignment: WrapAlignment.end,
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: _tags
+                                        .map((t) => InterestTag(label: t))
+                                        .toList(),
                                   ),
                           ),
                           Divider(

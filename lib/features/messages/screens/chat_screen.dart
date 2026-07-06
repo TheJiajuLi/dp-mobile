@@ -104,14 +104,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // 消息 tab 的角标在 15 秒轮询间隔里还显示旧的未读数
     _clearUnread();
     // 每 5 秒拉新消息
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _loadMessages());
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadMessages(),
+    );
   }
 
   void _clearUnread() {
     final convs = ref.read(conversationsProvider);
     final idx = convs.indexWhere((c) => c.id == widget.conversationId);
     if (idx != -1 && convs[idx].unreadCount > 0) {
-      ref.read(conversationsProvider.notifier).clearUnread(widget.conversationId);
+      ref
+          .read(conversationsProvider.notifier)
+          .clearUnread(widget.conversationId);
     }
   }
 
@@ -164,8 +169,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     final myLastIdx = _messages.indexOf(myLastMsg);
-    final hasReplyAfter =
-        _messages.sublist(myLastIdx + 1).any((m) => m.senderId != currentUserId);
+    final hasReplyAfter = _messages
+        .sublist(myLastIdx + 1)
+        .any((m) => m.senderId != currentUserId);
 
     setState(() => _strangerLimited = !hasReplyAfter);
   }
@@ -194,12 +200,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     debugPrint('[Chat] 准备发送到 /auth/messages');
     _ctrl.clear();
-    final res = await ref.read(apiClientProvider).post('/auth/messages', data: {
-      'toUserId': otherId,
-      'content': content,
-      'type': type,
-      if (metadata != null) 'metadata': metadata,
-    });
+    final res = await ref
+        .read(apiClientProvider)
+        .post(
+          '/auth/messages',
+          data: {
+            'toUserId': otherId,
+            'content': content,
+            'type': type,
+            if (metadata != null) 'metadata': metadata,
+          },
+        );
     if (!res.success) {
       if (!mounted) return;
       // 后端目前还没有陌生人消息限制（实测确认过，连发多条都直接 200
@@ -210,9 +221,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _showStrangerLimitDialog();
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-        AppLocalizations.of(context)!.sendFailedWithReason('${res.message}'),
-      )));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(
+              context,
+            )!.sendFailedWithReason('${res.message}'),
+          ),
+        ),
+      );
       return;
     }
     await _loadMessages();
@@ -243,13 +260,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () {
               Navigator.pop(ctx);
               _goToOtherProfile();
             },
-            child: Text(l10n.followThisUser, style: const TextStyle(color: Colors.white)),
+            child: Text(
+              l10n.followThisUser,
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -317,9 +339,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.sendImageFailedWithReason(
-            e.toString().replaceAll('Exception: ', ''),
-          ))),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.sendImageFailedWithReason(
+                e.toString().replaceAll('Exception: ', ''),
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -339,9 +365,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             elevation: 0,
           ),
           body: Center(
-            child: InteractiveViewer(
-              child: CachedNetworkImage(imageUrl: url),
-            ),
+            child: InteractiveViewer(child: CachedNetworkImage(imageUrl: url)),
           ),
         ),
       ),
@@ -365,8 +389,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Container(
               width: 36,
               height: 4,
-              decoration:
-                  BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             const SizedBox(height: 20),
             Row(
@@ -409,25 +435,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           color: Theme.of(ctx).cardColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l10n.sendCode, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            Text(
+              l10n.sendCode,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             Container(
-              decoration:
-                  BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1C1C1E),
+                borderRadius: BorderRadius.circular(12),
+              ),
               padding: const EdgeInsets.all(12),
               child: TextField(
                 controller: codeCtrl,
                 maxLines: 6,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Colors.white),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  color: Colors.white,
+                ),
                 decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: l10n.codeInputHint,
-                    hintStyle: const TextStyle(color: Colors.grey)),
+                  border: InputBorder.none,
+                  hintText: l10n.codeInputHint,
+                  hintStyle: const TextStyle(color: Colors.grey),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -436,13 +477,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               height: 44,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: _primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  backgroundColor: _primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 onPressed: () {
                   Navigator.pop(ctx);
                   _send(text: codeCtrl.text.trim(), type: 'code');
                 },
-                child: Text(l10n.send, style: const TextStyle(color: Colors.white)),
+                child: Text(
+                  l10n.send,
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
             ),
           ],
@@ -463,12 +510,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           color: Theme.of(ctx).cardColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l10n.sendFormula, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            Text(
+              l10n.sendFormula,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: latexCtrl,
@@ -478,7 +533,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 filled: true,
                 fillColor: Theme.of(ctx).inputDecorationTheme.fillColor,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -487,8 +544,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               height: 44,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: _primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  backgroundColor: _primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 onPressed: () {
                   final latex = latexCtrl.text.trim();
                   // 之前这里不管输入框是不是空的都先 pop 再发，空输入时
@@ -502,7 +562,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   // 容易失配的环节——type 字段是消息模型里保证一定有的
                   _send(text: latex, type: 'latex');
                 },
-                child: Text(l10n.send, style: const TextStyle(color: Colors.white)),
+                child: Text(
+                  l10n.send,
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
             ),
           ],
@@ -519,8 +582,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Container(
             width: 56,
             height: 56,
-            decoration:
-                BoxDecoration(color: const Color(0xFFEEF0FF), borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF0FF),
+              borderRadius: BorderRadius.circular(14),
+            ),
             child: Icon(icon, color: _primary, size: 24),
           ),
           const SizedBox(height: 6),
@@ -542,36 +607,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final currentUserId = ref.watch(currentUserProvider)?.id ?? '';
-    final otherName = widget.conversation?.otherUsername ?? l10n.defaultUserName;
+    final otherName =
+        widget.conversation?.otherUsername ?? l10n.defaultUserName;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // top/bottom 不在这层留白——顶栏和输入栏各自用 SafeArea 把自己的白色
+      // 背景铺进状态栏/home indicator 那圈安全区，不然这里统一留白会露出
+      // Scaffold 背景色，跟顶栏/输入栏的纯白刀切不连贯（跟 publish_screen.dart
+      // 顶栏/底部工具栏是同一套处理）
       body: SafeArea(
+        top: false,
+        bottom: false,
         child: Column(
           children: [
             // 顶部栏
             Container(
               color: Theme.of(context).cardColor,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, size: 18),
-                    onPressed: () => context.pop(),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 10,
                   ),
-                  _buildAvatar(
-                    widget.conversation?.otherAvatar,
-                    otherName,
-                    _primary,
-                    radius: 18,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios, size: 18),
+                        onPressed: () => context.pop(),
+                      ),
+                      _buildAvatar(
+                        widget.conversation?.otherAvatar,
+                        otherName,
+                        _primary,
+                        radius: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          otherName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.more_horiz, size: 22),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(otherName,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                  const Icon(Icons.more_horiz, size: 22),
-                ],
+                ),
               ),
             ),
 
@@ -583,7 +668,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       controller: _scrollCtrl,
                       padding: const EdgeInsets.all(12),
                       itemCount: _messages.length,
-                      itemBuilder: (ctx, i) => _buildBubble(_messages[i], currentUserId),
+                      itemBuilder: (ctx, i) =>
+                          _buildBubble(_messages[i], currentUserId),
                     ),
             ),
 
@@ -593,18 +679,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               Container(
                 width: double.infinity,
                 color: Theme.of(context).cardColor,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 child: Row(
                   children: [
                     const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _primary,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       l10n.sendingImage,
-                      style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
                     ),
                   ],
                 ),
@@ -615,11 +710,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             if (_strangerLimited)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 color: const Color(0xFFFFF7E6),
                 child: Row(
                   children: [
-                    const Icon(Icons.lock_outline, size: 14, color: Color(0xFFD97706)),
+                    const Icon(
+                      Icons.lock_outline,
+                      size: 14,
+                      color: Color(0xFFD97706),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -634,7 +736,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     GestureDetector(
                       onTap: _goToOtherProfile,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: _primary,
                           borderRadius: BorderRadius.circular(99),
@@ -656,48 +761,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             // 输入栏
             Container(
               color: Theme.of(context).cardColor,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: _showAttachMenu,
-                    child: const Icon(Icons.add_circle_outline, size: 26, color: Colors.grey),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).inputDecorationTheme.fillColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: TextField(
-                        controller: _ctrl,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: l10n.messageInputHint,
-                          hintStyle: const TextStyle(color: Colors.grey),
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: _showAttachMenu,
+                        child: const Icon(
+                          Icons.add_circle_outline,
+                          size: 26,
+                          color: Colors.grey,
                         ),
-                        onSubmitted: (_) => _send(),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).inputDecorationTheme.fillColor,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: TextField(
+                            controller: _ctrl,
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              hintText: l10n.messageInputHint,
+                              hintStyle: const TextStyle(color: Colors.grey),
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onSubmitted: (_) => _send(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          debugPrint('[Chat] 发送按钮点击');
+                          _send();
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: _primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.send,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      debugPrint('[Chat] 发送按钮点击');
-                      _send();
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle),
-                      child: const Icon(Icons.send, color: Colors.white, size: 18),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -712,24 +841,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
             GestureDetector(
               onTap: () => context.push('/users/${msg.senderUsername}'),
-              child: _buildAvatar(msg.senderAvatar, msg.senderUsername, const Color(0xFF16A34A)),
+              child: _buildAvatar(
+                msg.senderAvatar,
+                msg.senderUsername,
+                const Color(0xFF16A34A),
+              ),
             ),
             const SizedBox(width: 8),
           ],
           Flexible(
             child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 _buildBubbleContent(msg, isMe),
                 const SizedBox(height: 3),
-                Text(_formatTime(msg.createdAt),
-                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text(
+                  _formatTime(msg.createdAt),
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
               ],
             ),
           ),
@@ -773,9 +912,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     // type=='latex' 是现在发公式走的路径；旧的 type=='code'+metadata.language
     // 这个组合以前也用来发过公式，两个都认，历史消息不会突然变回代码块
-    final isLatex = msg.type == 'latex' || (msg.type == 'code' && msg.metadata?['language'] == 'latex');
+    final isLatex =
+        msg.type == 'latex' ||
+        (msg.type == 'code' && msg.metadata?['language'] == 'latex');
     if (isLatex) {
-      final tex = msg.content.replaceAll(r'$$', '').replaceAll(r'\[', '').replaceAll(r'\]', '').trim();
+      final tex = msg.content
+          .replaceAll(r'$$', '')
+          .replaceAll(r'\[', '')
+          .replaceAll(r'\]', '')
+          .trim();
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -786,16 +931,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             bottomLeft: Radius.circular(isMe ? 18 : 4),
             bottomRight: Radius.circular(isMe ? 4 : 18),
           ),
-          border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
+          border: isMe
+              ? null
+              : Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Math.tex(
           tex,
           textStyle: TextStyle(
             fontSize: 16,
-            color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+            color: isMe
+                ? Colors.white
+                : Theme.of(context).textTheme.bodyLarge?.color,
           ),
-          onErrorFallback: (err) => Text(msg.content,
-              style: TextStyle(fontSize: 13, color: isMe ? Colors.white : Colors.red)),
+          onErrorFallback: (err) => Text(
+            msg.content,
+            style: TextStyle(
+              fontSize: 13,
+              color: isMe ? Colors.white : Colors.red,
+            ),
+          ),
         ),
       );
     }
@@ -803,10 +957,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (msg.type == 'code') {
       return Container(
         padding: const EdgeInsets.all(12),
-        decoration:
-            BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
-        child: Text(msg.content,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Colors.white, height: 1.5)),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          msg.content,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            color: Colors.white,
+            height: 1.5,
+          ),
+        ),
       );
     }
 
@@ -823,12 +986,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
         border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Text(msg.content,
-          style: TextStyle(
-            fontSize: 15,
-            color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
-            height: 1.4,
-          )),
+      child: Text(
+        msg.content,
+        style: TextStyle(
+          fontSize: 15,
+          color: isMe
+              ? Colors.white
+              : Theme.of(context).textTheme.bodyLarge?.color,
+          height: 1.4,
+        ),
+      ),
     );
   }
 

@@ -722,7 +722,7 @@ result
                           ),
                         ),
                 ),
-                _buildBottomToolbar(l10n, isDarkMode),
+                _buildBottomToolbar(l10n),
               ],
             ),
           ),
@@ -1365,7 +1365,7 @@ result
     );
   }
 
-  Widget _buildBottomToolbar(AppLocalizations l10n, bool isDarkMode) {
+  Widget _buildBottomToolbar(AppLocalizations l10n) {
     final (words, minutes) = computeBlockStats(_blocks);
     return Container(
       color: Theme.of(context).cardColor,
@@ -1390,13 +1390,6 @@ result
                   ),
                 ],
               ),
-            ),
-            Divider(
-              height: 0.5,
-              thickness: 0.5,
-              color: isDarkMode
-                  ? Theme.of(context).dividerColor
-                  : const Color(0xFFEEEEEE),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),

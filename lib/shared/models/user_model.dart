@@ -21,6 +21,8 @@ class UserModel {
   // 当天 GET /auth/me 完全不返回这个字段，先按后端还没上线的其它字段
   // （gender/location/birthday/zodiac）同款套路加上，等后端加了字段直接生效
   final String? ipLocation;
+  // 兴趣标签，2026-07-06 后端上线（GET/PATCH /auth/me 都已经支持）
+  final List<String> tags;
 
   const UserModel({
     required this.id,
@@ -38,6 +40,7 @@ class UserModel {
     this.followerCount = 0,
     this.followingCount = 0,
     this.ipLocation,
+    this.tags = const [],
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -56,6 +59,8 @@ class UserModel {
     followerCount: (json['follower_count'] as num?)?.toInt() ?? 0,
     followingCount: (json['following_count'] as num?)?.toInt() ?? 0,
     ipLocation: json['ip_location'] as String?,
+    tags:
+        (json['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
   );
 
   Map<String, dynamic> toJson() => {
@@ -74,6 +79,7 @@ class UserModel {
     'follower_count': followerCount,
     'following_count': followingCount,
     'ip_location': ipLocation,
+    'tags': tags,
   };
 
   UserModel copyWith({
@@ -88,6 +94,7 @@ class UserModel {
     int? followerCount,
     int? followingCount,
     String? ipLocation,
+    List<String>? tags,
   }) => UserModel(
     id: id,
     username: username ?? this.username,
@@ -104,5 +111,6 @@ class UserModel {
     followerCount: followerCount ?? this.followerCount,
     followingCount: followingCount ?? this.followingCount,
     ipLocation: ipLocation ?? this.ipLocation,
+    tags: tags ?? this.tags,
   );
 }

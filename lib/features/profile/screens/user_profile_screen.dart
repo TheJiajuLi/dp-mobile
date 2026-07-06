@@ -22,7 +22,7 @@ import '../../column/models/column_model.dart';
 import '../../messages/models/conversation_model.dart';
 import '../../messages/providers/messages_provider.dart';
 import '../../notebook/services/notebook_service.dart';
-import '../../../shared/utils/topic_badge.dart';
+import '../../../shared/widgets/interest_tag.dart';
 import '../models/user_profile_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -46,13 +46,6 @@ const _coverPalette = [
   (bg: Color(0xFFFDF2F8), icon: Icons.code, fg: Color(0xFFDB2777)),
   (bg: Color(0xFFEFF6FF), icon: Icons.table_chart, fg: Color(0xFF2563EB)),
 ];
-
-// 兴趣领域 badge 配色规则，跟 CONTEXT.md 里的规则表一一对应（现在跟首页
-// Feed 卡片的话题角标共用同一份定义，见 shared/utils/topic_badge.dart，
-// 不再各自维护一份）。后端 User 目前没有专门的"兴趣领域"字段，这里从
-// 用户自己发布过的教程 tags 里统计出现频率最高的 3 个当作兴趣领域——
-// 是真实数据的再加工，不是编出来的
-(Color bg, Color fg) _badgeStyleFor(String tag) => topicBadgeStyleFor(tag);
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle
@@ -97,22 +90,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
   int get _totalViews => _tutorials.fold(0, (sum, t) => sum + t.views);
 
-  // 按出现频率取前 3 个 tag 当"兴趣领域"，同频的按 tag 本身排序，保证
-  // 结果稳定（不会因为 Map 遍历顺序不确定而每次刷新显示不同的 3 个）
-  List<String> _interestTags() {
-    final freq = <String, int>{};
-    for (final t in _tutorials) {
-      for (final tag in t.tags) {
-        freq[tag] = (freq[tag] ?? 0) + 1;
-      }
-    }
-    final sorted = freq.keys.toList()
-      ..sort((a, b) {
-        final byFreq = freq[b]!.compareTo(freq[a]!);
-        return byFreq != 0 ? byFreq : a.compareTo(b);
-      });
-    return sorted.take(3).toList();
-  }
+  // 2026-07-06 起改为用户在编辑资料页自己选的"兴趣标签"（最多3个，后端
+  // users.tags 字段），不再从发布过的教程 tags 里统计频率——那套自动推断
+  // 已经被编辑资料页里可以直接设置的显式字段取代
+  List<String> _interestTags() => _profile?.tags.take(3).toList() ?? [];
 
   // 头图右上角链接图标要展示的全部个人链接——_links（本地存储）+
   // website（后端字段）合并去重，保持原有顺序
@@ -185,6 +166,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         tutorialCount: 0,
         createdAt: (currentUser.createdAt ?? 0) * 1000,
         ipLocation: currentUser.ipLocation,
+        tags: currentUser.tags,
       );
       await _loadLocalPrefs(profile);
       if (!widget.showBackButton) {
@@ -1747,8 +1729,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         ],
                                       ),
                                     ),
-                                    // 兴趣领域 badge——从自己发布过的教程 tags 里
-                                    // 统计出现频率最高的 3 个，不是编出来的字段
+                                    // 兴趣标签——用户在编辑资料页自己选的（最多3
+                                    // 个），毛玻璃配色由 InterestTag 统一处理
                                     if (interestTags.isNotEmpty)
                                       Padding(
                                         padding: const EdgeInsets.fromLTRB(
@@ -1760,51 +1742,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         child: Wrap(
                                           spacing: 6,
                                           runSpacing: 6,
-                                          children: interestTags.map((tag) {
-                                            // 深色玻璃头图区不适合原来那套"浅底+
-                                            // 饱和字"配色（专给白色卡片背景设计
-                                            // 的）——同一份领域色，改成半透明彩色
-                                            // 背景+浅色版文字+同色细描边，跟封面
-                                            // 自然融合
-                                            final domainColor = _badgeStyleFor(
-                                              tag,
-                                            ).$2;
-                                            final lightColor =
-                                                Color.lerp(
-                                                  domainColor,
-                                                  Colors.white,
-                                                  0.4,
-                                                ) ??
-                                                domainColor;
-                                            return Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 9,
-                                                    vertical: 3,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: domainColor.withValues(
-                                                  alpha: 0.3,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(99),
-                                                border: Border.all(
-                                                  color: domainColor.withValues(
-                                                    alpha: 0.45,
-                                                  ),
-                                                  width: 0.5,
-                                                ),
-                                              ),
-                                              child: Text(
-                                                tag,
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: lightColor,
-                                                ),
-                                              ),
-                                            );
-                                          }).toList(),
+                                          children: interestTags
+                                              .map(
+                                                (tag) =>
+                                                    InterestTag(label: tag),
+                                              )
+                                              .toList(),
                                         ),
                                       ),
                                     const SizedBox(height: 16),

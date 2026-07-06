@@ -173,9 +173,16 @@ blocks 是 JSON 字符串：
   BackdropFilter blur+白色12%透明度背景）和底部用户信息块都是 Positioned
   绝对定位叠在封面上，互不影响
 - 无封面图时的占位渐变：#2A1F3D→#1A2A3D 深色渐变（不是米白系）
-- 头像+用户名一行 → 兴趣领域badge（半透明彩色底+浅色字，同一份领域配色
-  表只是换了透明度用法）→ bio单行 → 位置+星座+网站压成一行（性别、IP属地
-  这两项为了省空间已经从这里拿掉，不再单独占一行）→ 统计+按钮一行
+- 头像+用户名一行 → 兴趣标签（2026-07-06起：编辑资料页里用户自己选的最多3个
+  标签，`lib/core/constants/tag_colors.dart` + `InterestTag` widget 渲染，
+  跟发布/首页用的 `shared/utils/topic_badge.dart` 是两套独立配色表——
+  topic_badge.dart 服务白色卡片上的浅底实色badge，tag_colors.dart 专门服务
+  这里的深色毛玻璃场景（真·BackdropFilter模糊+半透明彩色底+浅色字+同色
+  描边），不是重复维护，视觉语境完全不同。不再是"从发布过的教程tags统计
+  频率最高3个"那套自动推断了，后端 users.tags 字段已上线（GET/PATCH
+  /auth/me、GET /auth/users/profile/:identifier 都支持）
+  → bio单行 → 位置+星座+网站压成一行（性别、IP属地这两项为了省空间已经从
+  这里拿掉，不再单独占一行）→ 统计+按钮一行
 - 统计行是内联文字（"3 文章"这种数字+小字标签紧挨着排成一行，横向可滚动
   防溢出），显示的是文章/获赞/粉丝/关注这种社交数据，不是tab计数；编辑
   资料(32px白底黑字)+分享(毛玻璃)/私信+关注 两个按钮跟统计同一行右侧
@@ -381,33 +388,33 @@ CSDN/博客园：太技术向，没有社区感，排版差
 - Lottie / Rive：局部动态效果（可选，后期）
 - Skia 渲染引擎：保证复杂渐变在 iOS/Android 一致
 
-### 颜色系统（深色主题）
-```dart
-// 背景层
-bgDeep:    Color(0xFF0A0A1A)
-bgMid:     Color(0xFF1A0E2E)
-bgLight:   Color(0xFF0D1A3A)
+  ### 颜色系统（深色主题）
+  ```dart
+  // 背景层
+  bgDeep:    Color(0xFF0A0A1A)
+  bgMid:     Color(0xFF1A0E2E)
+  bgLight:   Color(0xFF0D1A3A)
 
-// 毛玻璃
-glassLight: Color(0x1AFFFFFF)  // rgba(255,255,255,0.10)
-glassMid:   Color(0x14FFFFFF)  // rgba(255,255,255,0.08)
-glassBorder: Color(0x0FFFFFFF) // rgba(255,255,255,0.06)
+  // 毛玻璃
+  glassLight: Color(0x1AFFFFFF)  // rgba(255,255,255,0.10)
+  glassMid:   Color(0x14FFFFFF)  // rgba(255,255,255,0.08)
+  glassBorder: Color(0x0FFFFFFF) // rgba(255,255,255,0.06)
 
-// 主色
-primary:   Color(0xFF6366F1)
-primaryAlt: Color(0xFF8B5CF6)
+  // 主色
+  primary:   Color(0xFF6366F1)
+  primaryAlt: Color(0xFF8B5CF6)
 
-// 文字
-textPrimary:   Color(0xFFFFFFFF)
-textSecondary: Color(0xCCFFFFFF)  // 0.8
-textMuted:     Color(0x66FFFFFF)  // 0.4
+  // 文字
+  textPrimary:   Color(0xFFFFFFFF)
+  textSecondary: Color(0xCCFFFFFF)  // 0.8
+  textMuted:     Color(0x66FFFFFF)  // 0.4
 
-// 功能色
-danger: Color(0xFFFF6B6B)
-```
+  // 功能色
+  danger: Color(0xFFFF6B6B)
+  ```
 
-### 注意事项
-- `BackdropFilter` 在 iOS 上性能优秀，Android 需注意层数不要过多
-- 渐变光晕用 `DecoratedBox` + `BoxDecoration` 叠加，不要用 `ShaderMask`（性能差）
-- 深色模式下所有边框用 `rgba白色` 而非 `rgba黑色`
-- 九宫格内容区卡片用深色渐变而非白色，保持整体调性一致
+  ### 注意事项
+  - `BackdropFilter` 在 iOS 上性能优秀，Android 需注意层数不要过多
+  - 渐变光晕用 `DecoratedBox` + `BoxDecoration` 叠加，不要用 `ShaderMask`（性能差）
+  - 深色模式下所有边框用 `rgba白色` 而非 `rgba黑色`
+  - 九宫格内容区卡片用深色渐变而非白色，保持整体调性一致

@@ -20,6 +20,10 @@ class UserProfile {
   // profile/:identifier 不返回这个字段，先按 gender/location/zodiac
   // 同款套路加上，等后端上线直接生效
   final String? ipLocation;
+  // 兴趣标签——2026-07-06 后端上线，GET /auth/me、GET /auth/users/
+  // profile/:identifier 都已经返回这个字段，不是像上面几个字段那样的
+  // 过渡期占位
+  final List<String> tags;
 
   UserProfile({
     required this.id,
@@ -37,9 +41,10 @@ class UserProfile {
     required this.createdAt,
     this.isFollowing = false,
     this.ipLocation,
+    this.tags = const [],
   });
 
-  UserProfile copyWith({String? avatar}) => UserProfile(
+  UserProfile copyWith({String? avatar, List<String>? tags}) => UserProfile(
     id: id,
     username: username,
     handle: handle,
@@ -55,6 +60,7 @@ class UserProfile {
     createdAt: createdAt,
     isFollowing: isFollowing,
     ipLocation: ipLocation,
+    tags: tags ?? this.tags,
   );
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -73,5 +79,6 @@ class UserProfile {
     // 后端时间戳是秒级，×1000 转毫秒
     createdAt: ((j['created_at'] as num?) ?? 0).toInt() * 1000,
     ipLocation: j['ip_location']?.toString(),
+    tags: (j['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
   );
 }

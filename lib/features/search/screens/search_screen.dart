@@ -239,9 +239,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   Widget _buildSearchBar() {
     final l10n = AppLocalizations.of(context)!;
     return Container(
-      color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: const BoxDecoration(
+        color: Colors.white,
         border: Border(bottom: BorderSide(color: _border, width: 0.5)),
       ),
       child: Row(
