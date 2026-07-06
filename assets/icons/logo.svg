@@ -1,12 +1,12 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1024" height="1024" rx="230" fill="#6366F1"/>
+  <rect width="1024" height="1024" rx="230" fill="#EEF0FF"/>
   <text
     x="512"
-    y="720"
+    y="640"
     font-family="'PingFang SC','Noto Sans SC','Source Han Sans CN',sans-serif"
-    font-size="640"
+    font-size="380"
     font-weight="900"
-    fill="white"
+    fill="#6366F1"
     text-anchor="middle"
-    letter-spacing="-10">极</text>
+    letter-spacing="-8">极梦</text>
 </svg>
