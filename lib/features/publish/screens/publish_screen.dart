@@ -42,7 +42,11 @@ const _toolbarTypes = [
 const _seriesTagOptions = ['连载', '独立', '翻译', '深度', '快讯'];
 
 class PublishScreen extends ConsumerStatefulWidget {
-  const PublishScreen({super.key});
+  // 非空时是"编辑已有教程"——由创作者中心的作品管理页跳转进来（编辑已
+  // 发布/草稿内容），会先拉一遍这篇教程的完整数据回填进编辑器，保存时
+  // 走 PUT 更新原教程，不是再 POST 建一篇新的
+  final String? tutorialId;
+  const PublishScreen({super.key, this.tutorialId});
   @override
   ConsumerState<PublishScreen> createState() => _PublishScreenState();
 }
@@ -57,6 +61,12 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   bool _saving = false;
   bool _generatingSummary = false;
   String? _coverImageUrl;
+  // 编辑模式下拉取原教程数据期间显示 loading，拉完之前不能让用户看到/
+  // 误操作一个空白编辑器
+  bool _loadingExisting = false;
+  // 创建成功之后记下后端分配的 id，同一次编辑会话里再按"存草稿"就走
+  // PUT 更新这一篇，不会每按一次都 POST 出一篇新的重复草稿
+  String? _editingTutorialId;
   // 底部工具栏里"当前选中"的高亮态——没有真的去接每个 block 内部输入框
   // 的 focus 变化（链路太长），退而求其次：跟着"最近一次点了哪个类型的
   // 加内容按钮"走，默认高亮"文字"，跟刚打开发布页时只有一个文字 block
@@ -336,6 +346,41 @@ setTimeout(() => {
     // 不再默认塞一个空文字 block——一打开就是空白容易让人不知道从哪
     // 下手，改成"快速开始"引导区（_buildEmptyState），blocks 真的空的
     // 时候才显示，加了第一个 block 之后就跟正常编辑流程一样了
+    if (widget.tutorialId != null) {
+      _loadExisting(widget.tutorialId!);
+    }
+  }
+
+  Future<void> _loadExisting(String id) async {
+    setState(() => _loadingExisting = true);
+    final res = await ref.read(apiClientProvider).get('/auth/tutorials/$id');
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      final t = res.data as Map;
+      _titleCtrl.text = t['title']?.toString() ?? '';
+      _summaryCtrl.text = t['summary']?.toString() ?? '';
+      _coverImageUrl = (t['cover_image']?.toString().isNotEmpty ?? false)
+          ? t['cover_image'].toString()
+          : null;
+      _tags
+        ..clear()
+        ..addAll(
+          ((t['tags'] as List?) ?? []).map((e) => e.toString()),
+        );
+      _blocks
+        ..clear()
+        ..addAll(
+          ((t['blocks'] as List?) ?? []).map(
+            (b) => EditorBlock.fromJson(Map<String, dynamic>.from(b as Map)),
+          ),
+        );
+      _editingTutorialId = id;
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('加载失败：${res.message}')),
+      );
+    }
+    setState(() => _loadingExisting = false);
   }
 
   // Notebook 里用来把 SQL cell 包成 Python 通过 sqlite3 跑的同一个包装法——
@@ -592,44 +637,47 @@ result
       // jsonEncode(...) 得到的字符串会被后端静默丢弃——创建和读取接口
       // 拿到的都是 blocks: []，连一个最简单的 text block 都不例外
       final blocksJson = _blocks.map((b) => b.toJson()).toList();
+      final payload = {
+        'title': _titleCtrl.text.trim(),
+        'summary': _summaryCtrl.text.trim(),
+        'cover_image': _coverImageUrl ?? '',
+        'tags': _tags,
+        'blocks': blocksJson,
+        'status': status,
+        // subtitle/series_tag/issue_number 这几个字段后端目前没有
+        // 对应列（实测确认 2026-07-05），先按给的方案带上——不确定
+        // 后端会不会真的存下来、GET 回来时是否会带回，未经真实回环
+        // 验证，跟已经实测确认过的 blocks 必须传原始数组不是一回事。
+        // column_id 不在这里传——createTutorial 完全不读这个字段
+        // （实测确认，专栏系统上线是另一个commit，没有同步给创建
+        // 教程这个接口加上），得等教程创建成功拿到真实id后，走
+        // POST /auth/columns/:id/articles 另外补一次关联，见下面
+        'subtitle': _subtitle,
+        'series_tag': _seriesTag,
+        'issue_number': _issueNumber,
+      };
 
-      final res = await ref
-          .read(apiClientProvider)
-          .post(
-            '/auth/tutorials',
-            data: {
-              'title': _titleCtrl.text.trim(),
-              'summary': _summaryCtrl.text.trim(),
-              'cover_image': _coverImageUrl ?? '',
-              'tags': _tags,
-              'blocks': blocksJson,
-              'status': status,
-              // subtitle/series_tag/issue_number 这几个字段后端目前没有
-              // 对应列（实测确认 2026-07-05），先按给的方案带上——不确定
-              // 后端会不会真的存下来、GET 回来时是否会带回，未经真实回环
-              // 验证，跟已经实测确认过的 blocks 必须传原始数组不是一回事。
-              // column_id 不在这里传——createTutorial 完全不读这个字段
-              // （实测确认，专栏系统上线是另一个commit，没有同步给创建
-              // 教程这个接口加上），得等教程创建成功拿到真实id后，走
-              // POST /auth/columns/:id/articles 另外补一次关联，见下面
-              'subtitle': _subtitle,
-              'series_tag': _seriesTag,
-              'issue_number': _issueNumber,
-            },
-          );
+      // 编辑已有教程走 PUT 更新原记录；新建走 POST。updateTutorial 是
+      // "整份覆盖"语义（不传 blocks/tags 就会被清空成默认值），所以两条
+      // 路径都必须传完整 payload，不能只传改动的字段
+      final res = _editingTutorialId != null
+          ? await ref
+                .read(apiClientProvider)
+                .put('/auth/tutorials/$_editingTutorialId', data: payload)
+          : await ref.read(apiClientProvider).post('/auth/tutorials', data: payload);
 
       if (!mounted) return;
       if (res.success) {
-        if (_selectedColumnId != null) {
-          final newTutorialId = (res.data as Map?)?['id'] as String?;
-          if (newTutorialId != null) {
-            await ref
-                .read(apiClientProvider)
-                .post(
-                  '/auth/columns/$_selectedColumnId/articles',
-                  data: {'tutorialId': newTutorialId},
-                );
-          }
+        final savedId =
+            (res.data as Map?)?['id'] as String? ?? _editingTutorialId;
+        if (savedId != null) _editingTutorialId = savedId;
+        if (_selectedColumnId != null && savedId != null) {
+          await ref
+              .read(apiClientProvider)
+              .post(
+                '/auth/columns/$_selectedColumnId/articles',
+                data: {'tutorialId': savedId},
+              );
         }
         if (!mounted) return;
         if (status == 'published') {
@@ -665,6 +713,15 @@ result
     final membership =
         storageAsync.valueOrNull?['membership'] as String? ?? 'free';
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    if (_loadingExisting) {
+      return Scaffold(
+        backgroundColor: isDarkMode
+            ? Theme.of(context).scaffoldBackgroundColor
+            : _bg,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: isDarkMode

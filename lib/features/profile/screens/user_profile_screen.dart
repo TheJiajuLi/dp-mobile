@@ -2712,7 +2712,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       : null,
                   onTap: () {
                     Navigator.pop(ctx);
-                    _todo(l10n.creatorCenterComingSoon);
+                    context.push('/creator');
                   },
                 ),
                 _profileMenuItem(

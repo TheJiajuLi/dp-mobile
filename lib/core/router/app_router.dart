@@ -10,6 +10,10 @@ import '../../features/auth/screens/switch_account_screen.dart';
 import '../../features/community/screens/community_screen.dart';
 import '../../features/column/screens/column_detail_screen.dart';
 import '../../features/community/screens/tutorial_detail_screen.dart';
+import '../../features/creator/screens/aurora_screen.dart';
+import '../../features/creator/screens/columns_screen.dart';
+import '../../features/creator/screens/creator_center_screen.dart';
+import '../../features/creator/screens/works_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/messages/models/conversation_model.dart';
 import '../../features/messages/screens/chat_screen.dart';
@@ -47,6 +51,29 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/publish',
       builder: (context, state) => const PublishScreen(),
+    ),
+    GoRoute(
+      path: '/publish/:id',
+      builder: (context, state) =>
+          PublishScreen(tutorialId: state.pathParameters['id']),
+    ),
+    GoRoute(
+      path: '/creator',
+      builder: (context, state) => const CreatorCenterScreen(),
+    ),
+    GoRoute(
+      path: '/creator/works',
+      // 从创作者中心"草稿箱"行跳过来时带 extra:1，直接定位到草稿 tab
+      builder: (context, state) =>
+          WorksScreen(initialTab: state.extra as int? ?? 0),
+    ),
+    GoRoute(
+      path: '/creator/columns',
+      builder: (context, state) => const ColumnsScreen(),
+    ),
+    GoRoute(
+      path: '/creator/aurora',
+      builder: (context, state) => const AuroraScreen(),
     ),
     GoRoute(
       path: '/search',

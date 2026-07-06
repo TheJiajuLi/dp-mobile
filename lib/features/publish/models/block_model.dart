@@ -76,6 +76,32 @@ class EditorBlock {
     if (type == BlockType.link) ...{'linkTitle': linkTitle, 'linkUrl': linkUrl},
     if (type == BlockType.callout) 'variant': variant,
   };
+
+  // 编辑已发布/草稿内容时把后端返回的 block 数组读回可编辑的 EditorBlock
+  // 列表——跟 toJson 是一对反函数，字段名要对得上（heading 用 level 不是
+  // headingLevel，code 用 executable 不是 isExecutable，见 toJson 里的注释）
+  factory EditorBlock.fromJson(Map<String, dynamic> j) {
+    final type = BlockType.values.firstWhere(
+      (t) => t.name == j['type'],
+      orElse: () => BlockType.text,
+    );
+    return EditorBlock(
+      id: j['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      type: type,
+      content: j['content']?.toString() ?? '',
+      language: j['language']?.toString() ?? (type == BlockType.code ? 'python' : null),
+      headingLevel: (j['level'] as num?)?.toInt() ?? 2,
+      imageUrl: j['imageUrl']?.toString(),
+      caption: j['caption']?.toString(),
+      fileName: j['fileName']?.toString(),
+      fileSize: (j['fileSize'] as num?)?.toInt(),
+      fileType: j['fileType']?.toString(),
+      linkTitle: j['linkTitle']?.toString(),
+      linkUrl: j['linkUrl']?.toString(),
+      variant: j['variant']?.toString() ?? 'info',
+      isExecutable: j['executable'] as bool? ?? false,
+    );
+  }
 }
 
 // 发布页底部状态栏、预览抽屉都要一份"多少字/多少分钟"的粗略估算，抽成

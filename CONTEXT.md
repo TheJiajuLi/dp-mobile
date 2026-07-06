@@ -31,6 +31,48 @@ Slogan：极梦，为创造而生
 编程     → bg:#E6F0FF color:#2563EB
 时事     → bg:#F5F5F5 color:#555555
 
+## iOS HIG 交互设计原则（必读，组件/交互层面，区别于上面的配色规范）
+这些是从发布页、消息页、个人主页等模块的迭代里沉淀下来的交互层规则——上面
+「设计语言」管的是颜色/卡片这些静态视觉，这里管的是"东西怎么弹出来、怎么
+关掉、危险操作长什么样"这类交互层面，新写弹层/菜单/操作面板一律照此收敛，
+不要每个页面各发明一套：
+
+1. **原生风格浮层菜单（Context Menu）替代常驻图标行**：多个次要操作（复制/
+   移动/折叠/删除）不平铺成一排常驻图标，收进一个「...」触发的 `showMenu`
+   浮层——圆角14px、`PopupMenuDivider` 细分割线分组、图标在左文字在右、
+   破坏性操作（删除）用 `#EF4444` 标红且和其它项之间加分割线隔开、背景纯
+   白无强投影。只有高频操作（AI入口、拖拽手柄）才常驻，低频操作一律收进
+   菜单（参考：`block_card.dart` 的 `_showMoreMenu`）
+2. **模态操作用 Bottom Sheet，不用 Dialog**：`showModalBottomSheet` +
+   `backgroundColor: Colors.transparent` + 自己套白色 `Container`
+   （`borderRadius: vertical top 20`），标题上方留一条灰色小圆角拖拽条
+   （36×4，暗示可下滑关闭）。`AlertDialog` 只用于真正需要"确认/取消"
+   二选一阻断的场景（应用AI优化结果这种），不用来做菜单
+3. **Safe Area 自己管，不整体套一层**：自定义顶栏/底栏各自用
+   `SafeArea(top:false)` 或 `SafeArea(bottom:false)` 包住并铺满自己的
+   背景色，不在 Scaffold 外层统一留白——否则页面背景色和顶/底栏背景色
+   刀切不齐，会露出一圈灰色缝隙（chat_screen.dart/publish_screen.dart
+   都踩过，见"踩过的坑"#18）
+4. **毛玻璃（BackdropFilter blur）只用在刻意选定的深色语境**：个人主页
+   头图区、侧边栏、底部导航——不是全局默认，米白主题的普通页面（发布页/
+   设置页/教程详情页）不套毛玻璃
+5. **拖拽热区精确绑定到手柄图标**：用 `ReorderableDragStartListener`
+   只包裹一个 `drag_handle` 图标，不是让整行/整卡片可长按拖拽——不然会
+   跟卡片内部的文字输入框/按钮抢手势
+6. **一次性反馈用 SnackBar，不打断操作**：复制成功这类"知道一下就行"的
+   反馈用 1~2 秒的 SnackBar，不用 Dialog 硬打断；需要用户做选择的才用
+   Dialog/Bottom Sheet
+7. **图标统一用线性/outline 风格，不用 emoji**：贴近 SF Symbols 的观感，
+   之前把发布页/侧边栏里的 emoji 全部换成了 Material Icons 的 outlined
+   变体（"提高档次"）
+8. **渐进式披露（Progressive Disclosure）**：内容多/占地方的区块默认给
+   最少信息，需要时才展开——block 折叠功能是这条原则的具体实现，折叠态
+   只显示类型标签+"已折叠"提示+单行内容预览，且折叠只是编辑器内的临时
+   视觉状态，不写进数据模型/不随发布内容持久化
+9. **测试规范**：验证任何新交互，必须能在测试完成后用 `git diff` 证明
+   反复横跳的临时测试代码（splash 跳转/postFrameCallback 钩子）已经
+   完全撤回，零残留（见"踩过的坑"#18）
+
 ## 技术栈
 - Flutter + Dart（目标：iOS App Store + Android）
 - 状态管理：Riverpod（currentUserProvider 存登录用户）
@@ -151,13 +193,51 @@ blocks 是 JSON 字符串：
 
 ### 发布页（Block编辑器，视觉语言已深化）
 - 顶部：标题输入 + 草稿/发布按钮，SafeArea(bottom:false)+自己的白色背景，不留灰色安全区缝隙
-- 元信息卡：封面图缩成小方块塞进摘要卡片，加入专栏（bottom sheet选专栏，mock 2条数据，后端GET /auth/columns还是404）+ 标题植入（bottom sheet实时预览），两个功能2列并排放
+- 元信息卡：封面图缩成小方块塞进摘要卡片，加入专栏（bottom sheet选专栏，真实数据，GET /auth/columns/mine——2026-07-06 实测确认这个接口已经好了，不是之前记的404/mock，创作者中心的"我的专栏"页也是同一个接口）+ 标题植入（bottom sheet实时预览），两个功能2列并排放
+- 编辑已有内容（2026-07-06）：PublishScreen 现在支持传入 tutorialId 进入编辑模式（路由 /publish/:id）——initState 里 GET /auth/tutorials/:id 回填 title/summary/tags/cover/blocks（EditorBlock.fromJson，是 toJson 的反函数），保存时走 PUT 更新原记录而不是再 POST 一篇新的；同一次编辑会话里第一次保存成功后会记下后端返回的 id，后续再保存也走 PUT，不会重复创建
 - Block 列表：统一白色圆角卡片风格，代码块做成 macOS 风格（三个圆点header+语言下拉+运行按钮），编辑器和阅读态共用同一套语法高亮（HighlightingCodeController）
+- Block 头部操作（2026-07-06 收进「...」菜单）：上移/下移/复制/复制代码（仅代码块）/折叠/删除 不再常驻平铺图标，收进一个 iOS 原生风格的浮层菜单（圆角、细分割线、删除项标红），AI 入口和拖拽手柄因为用得最频繁仍然常驻。折叠是编辑器内的临时视觉状态，不写进 EditorBlock、不随发布内容持久化——重进编辑页永远是展开的，折叠态显示"已折叠"标签+单行内容预览
 - 拖拽排序：ReorderableListView + buildDefaultDragHandles:false，只有drag_handle图标本身可拖（用ReorderableDragStartListener包裹），不是长按任意位置
 - 底部横排工具栏，选中的block类型高亮
 - 抽屉式预览（不是全屏），预览抽屉作者行加了收藏/分享图标
 - 空白引导态：无block时显示"今天想写点什么？"问候语 + 6个快速开始按钮 + 轮播"今日灵感"卡片
 - Block 类型：文字/代码/LaTeX/图片/引用/视频(Pro)/音频(Pro)/链接
+
+### 创作者中心 + 极光创作者计划（2026-07-06）
+入口：个人主页侧边栏「创作者中心」，`lib/features/creator/` 下四个页面：
+- `creator_center_screen.dart`：整体跟随 ThemePreference（浅色白底/深色 `#0A0A1A`）。
+  顶部浏览量/获赞/新粉丝三格数据是真实累计值（GET /auth/tutorials
+  ?author=username&status=published 求和 + currentUserProvider.followerCount），
+  涨幅百分比（↑23%等）后端没有历史快照算不出真实环比，写死 mock，不要当真
+  数据看。作品管理/我的专栏两个快捷入口 + 常驻的 AuroraEntryCard（极光计划
+  入口卡，固定深色星空底，不跟随主题）+ 草稿箱行（点开直接跳作品管理的
+  草稿 tab，不是跳去空白发布页）
+- `aurora_screen.dart`：极光计划详情页，固定深色背景 `#0A0812`（不跟随
+  ThemePreference，跟个人主页头图区一样是刻意保留的局部深色例外）。除了
+  "我的申请进度"卡用真实数据，其余（加入权益/流量分成制度/结算规则/续期
+  条件/为什么选极梦/早期创作者）都是纯静态文案，没有对应的真实计算逻辑
+- `works_screen.dart`：作品管理，已发布/草稿/下架三个 tab，每个 tab 各自
+  查一次 `GET /auth/tutorials?author=username&status=X`（X=published/
+  draft/deleted）。**"下架"不是调 DELETE 硬删**——tutorials.status 是
+  MySQL ENUM('draft','published','deleted') 三个合法值，下架实际是 GET
+  完整教程内容后 PUT 回去把 status 改成 'deleted'，内容和评论/点赞都还在，
+  可以在"下架"tab里"恢复上架"（PUT 改回 published）；只有草稿的"删除"
+  和下架内容的"彻底删除"才是真正调 DELETE /auth/tutorials/:id（这两种
+  情况原本就没公开过或已经不公开，删掉没有社交层面的连带损失）。
+  updateTutorial 是整份覆盖语义，不传 blocks/tags 会被清空成默认值，所以
+  改 status 前必须先 GET 一次拿完整内容再原样传回去
+- `columns_screen.dart`：我的专栏，真实数据 `GET /auth/columns/mine`，
+  "新建专栏"真的调 `POST /auth/columns` 创建（不是占位 SnackBar）——这个
+  接口本来就在用（publish_screen 的加入专栏功能同一个接口），没有理由
+  在这里假装它不存在
+- 与最初给的任务描述有出入的地方（都是往更安全/更真实的方向改，不是
+  抄近路）：草稿箱本地存储实际上不存在，草稿是 POST /auth/tutorials 时
+  status='draft' 存在后端，不是 SharedPreferences；GET /auth/tutorials
+  的 author 参数实测已经在服务端正确过滤（2026-07-06 用一次性测试账号
+  curl 验证），不再是"传了也无效"的状态，但 Flutter 侧沿用了原有的
+  client-side 二次过滤当保险；WorksScreen 的"编辑"按钮需要 PublishScreen
+  真的支持编辑已有内容才有意义，为此把 PublishScreen 从"只能新建"扩展成
+  能编辑（见上面"发布页"一节的记录）
 
 ### Power Notebook
 - 首页：最近打开（左滑删除）+ 模板 + 新建底部弹窗
@@ -299,6 +379,15 @@ POST /auth/files/upload 返回的 file_type 不管传什么 contentType 上传�
 没有UI自动化点击手段时，临时改 splash_screen.dart 的 context.go(...) 目标路由来做可视化验证是可行的
 但改完测试后必须 git diff 确认改动只有那一行、且改回原值后 diff 为空，否则容易在来回改的过程中误删周边代码
 另外要注意 _restore() 里有两条成功跳转分支（首次登录成功 + 刷新token后登录成功），只改一条可能测不出效果——本机token若已过期会走第二条分支
+
+### 19. ListView/SliverList 会把直接子项的 cross axis 撑成 tight constraint
+垂直滚动的 ListView（包括其他基于 Sliver 的滚动容器）给每个直接子项的横向
+约束是 min==max==视口宽度，一个明确写了 `width: 36` 的 Container 放进去，
+自己的 width 会被这个 tight constraint 顶掉、被拉伸撑满全宽——不是 Container
+的 bug，是 BoxConstraints.constrain() 的正常行为。踩过一次（aurora_screen.dart
+的返回按钮被拉成了一条通栏），修法是给这个子项外面套一层 `Align`（或
+`Row`/`Center`），不要指望子项自己的固定 width 能在 ListView 直接子项这一层
+生效
 
 ## COS 存储
 bucket: dp-1317483118，region: ap-hongkong
