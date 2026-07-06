@@ -2604,14 +2604,19 @@ class _TutorialGridItem extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          tutorial.coverImage?.isNotEmpty == true
-              ? CachedNetworkImage(
-                  imageUrl: tutorial.coverImage!,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => fallbackBg,
-                  errorWidget: (context, url, error) => fallbackBg,
-                )
-              : fallbackBg,
+          // 缩略图纯装饰，标题/点赞/浏览量在下面 Positioned 里另有文字承载，
+          // 排除出语义树——跟头图/头像同一个坑，图片异步加载完成的 relayout
+          // 可能跟tab切换/滚动同一帧抢语义树更新
+          ExcludeSemantics(
+            child: tutorial.coverImage?.isNotEmpty == true
+                ? CachedNetworkImage(
+                    imageUrl: tutorial.coverImage!,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => fallbackBg,
+                    errorWidget: (context, url, error) => fallbackBg,
+                  )
+                : fallbackBg,
+          ),
 
           // 底部渐变信息
           Positioned(
@@ -2834,14 +2839,20 @@ class _ColumnCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    column.coverImage != null && column.coverImage!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: column.coverImage!,
-                            fit: BoxFit.cover,
-                            errorWidget: (context, url, error) =>
-                                _gradBg(gradient),
-                          )
-                        : _gradBg(gradient),
+                    // 缩略图纯装饰，专栏名/篇数在下面 Positioned 里另有文字
+                    // 承载，排除出语义树——跟头图/头像/教程缩略图同一个坑
+                    ExcludeSemantics(
+                      child:
+                          column.coverImage != null &&
+                              column.coverImage!.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: column.coverImage!,
+                              fit: BoxFit.cover,
+                              errorWidget: (context, url, error) =>
+                                  _gradBg(gradient),
+                            )
+                          : _gradBg(gradient),
+                    ),
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
