@@ -190,7 +190,11 @@ class ApiClient {
       final res = await dio.get(path, queryParameters: queryParameters);
       return ApiResponse.success(res.data, statusCode: res.statusCode);
     } on DioException catch (e) {
-      return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
+      return ApiResponse.error(
+        _message(e),
+        statusCode: e.response?.statusCode,
+        data: e.response?.data,
+      );
     }
   }
 
@@ -203,7 +207,11 @@ class ApiClient {
       final res = await dio.post(path, data: data, options: options);
       return ApiResponse.success(res.data, statusCode: res.statusCode);
     } on DioException catch (e) {
-      return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
+      return ApiResponse.error(
+        _message(e),
+        statusCode: e.response?.statusCode,
+        data: e.response?.data,
+      );
     }
   }
 
@@ -212,7 +220,11 @@ class ApiClient {
       final res = await dio.patch(path, data: data);
       return ApiResponse.success(res.data, statusCode: res.statusCode);
     } on DioException catch (e) {
-      return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
+      return ApiResponse.error(
+        _message(e),
+        statusCode: e.response?.statusCode,
+        data: e.response?.data,
+      );
     }
   }
 
@@ -221,7 +233,11 @@ class ApiClient {
       final res = await dio.put(path, data: data);
       return ApiResponse.success(res.data, statusCode: res.statusCode);
     } on DioException catch (e) {
-      return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
+      return ApiResponse.error(
+        _message(e),
+        statusCode: e.response?.statusCode,
+        data: e.response?.data,
+      );
     }
   }
 
@@ -230,7 +246,11 @@ class ApiClient {
       final res = await dio.delete(path, data: data);
       return ApiResponse.success(res.data, statusCode: res.statusCode);
     } on DioException catch (e) {
-      return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
+      return ApiResponse.error(
+        _message(e),
+        statusCode: e.response?.statusCode,
+        data: e.response?.data,
+      );
     }
   }
 
@@ -247,7 +267,11 @@ class ApiClient {
       );
       return ApiResponse.success(res.data, statusCode: res.statusCode);
     } on DioException catch (e) {
-      return ApiResponse.error(_message(e), statusCode: e.response?.statusCode);
+      return ApiResponse.error(
+        _message(e),
+        statusCode: e.response?.statusCode,
+        data: e.response?.data,
+      );
     }
   }
 

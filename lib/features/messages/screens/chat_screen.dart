@@ -85,19 +85,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   List<ChatMessage> _messages = [];
   bool _loading = true;
   bool _sendingImage = false;
-  // 纯客户端的启发式提示，不是真正的发送限制——只要求"我最后一条消息还
-  // 没被回复"，检测不到两人是否互相关注，对正常好友对话（对方只是还没
-  // 回消息）也会误判显示。实测确认后端 POST /auth/messages 目前完全
-  // 没有陌生人限制（连发 3 条都 200 成功），下面 _send() 里那段
-  // "识别限制错误改成弹窗" 的分支目前是死代码，等后端真的加上这个限制
-  // 才会触发
-  bool _strangerLimited = false;
+  // 2026-07-06 起后端真的加上了陌生人消息限制（互相关注视为好友，完全
+  // 不受限；非好友：对方从没回复过之前，我的第一条只能是文字，发过之后
+  // 要等对方回复才能再发），不再是纯客户端猜的启发式。_isMutualFriend
+  // 只在进入聊天时查一次 /auth/friends（不用每 5 秒轮询都查一遍，好友
+  // 关系变化不频繁），后面两个每次收完新消息都本地重算，不用再打接口
+  bool _isMutualFriend = false;
+  bool _isStrangerFirstMessage = false;
+  bool _strangerLimitReached = false;
   Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
+    _loadMessages().then((_) => _checkStrangerStatus());
     // 微信式已读：进入聊天页就把这个会话的未读清零，不等下一次轮询——
     // 后端已经会在下面 _loadMessages() 那个 GET messages 接口里把这个
     // 会话标成已读（实测确认过），这里不需要额外调 API，只是不想让本地
@@ -137,7 +138,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _messages = list;
         _loading = false;
       });
-      _checkStrangerLimit();
+      _updateStrangerFlags();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollCtrl.hasClients) {
           _scrollCtrl.animateTo(
@@ -152,28 +153,70 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  // 纯本地启发式：_messages 按时间正序排列（最新的在最后），"我最后一条
-  // 消息之后有没有对方的回复"只需要看本地已有数据就能判断，不需要额外
-  // 打接口
-  void _checkStrangerLimit() {
-    final currentUserId = ref.read(currentUserProvider)?.id ?? '';
-    if (_messages.isEmpty) return;
+  // 互相关注视为好友——跟后端 POST /auth/messages 判断限制用的同一个
+  // 定义（f1 join f2 双向 follows）。/auth/users/:id/follow-status 只能
+  // 查"我是否关注了对方"这一个方向，查不出"互相"，所以用 /auth/friends
+  // 这份好友名单本身来判断在不在里面，这才是跟后端口径一致的"互关"来源
+  Future<void> _checkStrangerStatus() async {
+    final otherId = widget.conversation?.otherUserId ?? '';
+    if (otherId.isEmpty) return;
 
-    final myLastMsg = _messages.lastWhere(
-      (m) => m.senderId == currentUserId,
-      orElse: () => _messages.first,
+    final res = await ref.read(apiClientProvider).get('/auth/friends');
+    if (!mounted) return;
+    final friends = (res.data?['friends'] as List?) ?? [];
+    _isMutualFriend = friends.any(
+      (f) => (f as Map)['id']?.toString() == otherId,
     );
-    if (myLastMsg.senderId != currentUserId) {
-      setState(() => _strangerLimited = false);
+    _updateStrangerFlags();
+  }
+
+  // 纯本地计算：_messages 按时间正序排列（最新的在最后），"对方有没有
+  // 回复过""我有没有发过"只需要看本地已有数据就能判断，不需要额外打
+  // 接口——每次收完新消息（5秒轮询一次）都会重算一遍
+  void _updateStrangerFlags() {
+    if (_isMutualFriend) {
+      setState(() {
+        _isStrangerFirstMessage = false;
+        _strangerLimitReached = false;
+      });
       return;
     }
 
-    final myLastIdx = _messages.indexOf(myLastMsg);
-    final hasReplyAfter = _messages
-        .sublist(myLastIdx + 1)
-        .any((m) => m.senderId != currentUserId);
+    final otherId = widget.conversation?.otherUserId ?? '';
+    final currentUserId = ref.read(currentUserProvider)?.id ?? '';
+    final otherReplied = _messages.any((m) => m.senderId == otherId);
+    final iSent = _messages.any((m) => m.senderId == currentUserId);
 
-    setState(() => _strangerLimited = !hasReplyAfter);
+    setState(() {
+      _isStrangerFirstMessage = !otherReplied && !iSent;
+      _strangerLimitReached = !otherReplied && iSent;
+    });
+  }
+
+  bool get _hasStrangerHint => _strangerLimitReached || _isStrangerFirstMessage;
+
+  // 陌生人提示不放在输入框上方常驻一条横栏，改成跟网易云一样，当成
+  // "第一条消息"的占位插进消息列表顶部——居中的小胶囊，不是通栏，视觉上
+  // 更像一条系统提示而不是一直杵在那里的警告条
+  Widget _buildStrangerHint() {
+    final isLimit = _strangerLimitReached;
+    final color = isLimit ? const Color(0xFFD97706) : Colors.grey;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isLimit ? const Color(0xFFFFF7E6) : const Color(0xFFF5F5F2),
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Text(
+            isLimit ? '对方尚未回复，回复后你们就可以自由聊天' : '你们还不是好友，可以先发一条文字消息',
+            style: TextStyle(fontSize: 11, color: color),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _send({
@@ -213,12 +256,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
     if (!res.success) {
       if (!mounted) return;
-      // 后端目前还没有陌生人消息限制（实测确认过，连发多条都直接 200
-      // 成功），这个分支先按后续可能加上的错误约定识别，暂时是死代码——
-      // 等后端真的加了限制、错误信息定下来，这里的匹配条件可能还要跟着调
-      if (res.data?['code'] == 'STRANGER_LIMIT' ||
-          (res.message?.contains('尚未回复') ?? false)) {
-        _showStrangerLimitDialog();
+      // 2026-07-06 起 ApiResponse.error 会把原始错误响应体透传进 data，
+      // 不用再靠匹配 message 文案这种脆弱办法识别错误类型了
+      final code = res.data?['code'];
+      if (code == 'STRANGER_LIMIT') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res.message ?? '对方尚未回复，回复后你们就可以自由聊天'),
+            backgroundColor: const Color(0xFFD97706),
+          ),
+        );
+        setState(() {
+          _isStrangerFirstMessage = false;
+          _strangerLimitReached = true;
+        });
+        return;
+      }
+      if (code == 'TEXT_ONLY_LIMIT') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('首次发送只能是文字消息'),
+            backgroundColor: Color(0xFFD97706),
+          ),
+        );
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -233,57 +293,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
     await _loadMessages();
-  }
-
-  void _showStrangerLimitDialog() {
-    final l10n = AppLocalizations.of(context)!;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.info_outline, color: _primary, size: 20),
-            const SizedBox(width: 8),
-            Text(l10n.messageLimitTitle),
-          ],
-        ),
-        content: Text(
-          l10n.messageLimitBody,
-          style: const TextStyle(fontSize: 14, height: 1.6),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.gotIt, style: const TextStyle(color: _primary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _goToOtherProfile();
-            },
-            child: Text(
-              l10n.followThisUser,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _goToOtherProfile() {
-    // Conversation 模型目前只有 otherUsername，没有 handle 字段
-    final identifier = widget.conversation?.otherUsername ?? '';
-    if (identifier.isNotEmpty) {
-      context.push('/users/$identifier');
-    }
   }
 
   Future<void> _sendImage() async {
@@ -660,16 +669,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
 
-            // 消息列表
+            // 消息列表——陌生人提示条不放在输入框上方（那样固定占一条横栏，
+            // 每次进来都要看一眼），改成跟网易云一样，当成"第一条消息"的
+            // 占位插在消息列表顶部，滚动上去才看得到，更不打扰
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.builder(
                       controller: _scrollCtrl,
                       padding: const EdgeInsets.all(12),
-                      itemCount: _messages.length,
-                      itemBuilder: (ctx, i) =>
-                          _buildBubble(_messages[i], currentUserId),
+                      itemCount: _messages.length + (_hasStrangerHint ? 1 : 0),
+                      itemBuilder: (ctx, i) {
+                        if (_hasStrangerHint && i == 0) {
+                          return _buildStrangerHint();
+                        }
+                        final msgIndex = _hasStrangerHint ? i - 1 : i;
+                        return _buildBubble(_messages[msgIndex], currentUserId);
+                      },
                     ),
             ),
 
@@ -699,59 +715,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).textTheme.bodySmall?.color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // 陌生人限制提示条——纯本地启发式（见 _checkStrangerLimit
-            // 注释），不代表后端真的会拒绝，只是提前给个软提示
-            if (_strangerLimited)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                color: const Color(0xFFFFF7E6),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.lock_outline,
-                      size: 14,
-                      color: Color(0xFFD97706),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        l10n.mutualFollowUnlimitedMessagesHint,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFD97706),
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _goToOtherProfile,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _primary,
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text(
-                          l10n.goFollow,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                       ),
                     ),
                   ],

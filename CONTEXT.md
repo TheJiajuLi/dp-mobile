@@ -9,7 +9,16 @@ Slogan：极梦，为创造而生
 主色调：#1A1A1A（近黑）+ #FAFAF8（米白底）
 
 ## 设计语言（必读）
-- 底色：#FAFAF8（米白，不是纯白）
+- 底色：`AppColors.bg`（`#F7F7FB`，app_theme.dart 里定义，浅色主题的
+  `scaffoldBackgroundColor`）——**2026-07-06 起全局统一成这一个值**。
+  之前 home_screen.dart 自己配了 `#FAFAF8`、个人主页 `_heroBg` 也是
+  `#FAFAF8`、`main_shell.dart` 底部导航栏又是纯白 `#FFFFFF`——三个
+  肉眼很难分辨但确实不同的浅灰白，页面内容区跟底部导航栏拼接的地方会
+  露出一条很淡但看得出来的接缝（深色主题因为统一读
+  `Theme.of(context).scaffoldBackgroundColor` 反而没这个问题）。以后
+  任何页面需要"整体背景色"，直接引用 `AppColors.bg`（或干脆不设置，让
+  `Theme.of(context).scaffoldBackgroundColor` 自然生效），不要自己再开
+  一个新的浅灰白色值
 - 主文字：#1A1A1A，次要：#999，辅助：#6366F1
 - 无阴影，无渐变，用 0.5px #F0F0F0 细线分区
 - 卡片：白色 #FFF，border-radius:14px，border:0.5px solid #F0F0F0
@@ -21,7 +30,15 @@ Slogan：极梦，为创造而生
   配色但改成半透明彩色底+浅色字。这个方向只用在个人主页头图区，是刻意
   的局部例外，不代表整个 app 转向深色/渐变/毛玻璃——其余页面（发布页、
   设置页、教程详情页等）继续遵守上面的米白/无渐变/无阴影规范，不要因为
-  看到这条例外就顺手把别的页面也套上玻璃拟态
+  看到这条例外就顺手把别的页面也套上玻璃拟态。**这条例外踩过一次坑**：
+  `InterestTag`（`shared/widgets/interest_tag.dart`）最初只实现了这套
+  毛玻璃配色（浅色字+半透明彩色底，靠 BackdropFilter 模糊深色背景才有
+  对比度），后来被复用到编辑资料页的兴趣标签选择器——那里是普通浅色
+  卡片/页面背景，同一套浅色字糊在浅色底上完全看不清。修复：给
+  `InterestTag` 加了个 `glass` 参数（默认 true，头图区例外场景保持不变），
+  `glass:false` 时改用 `topic_badge.dart` 那套"浅底实色字"配色（不是新写
+  一套，是复用已经验证过在浅色背景上可读的方案）；编辑资料页的三处调用
+  全部传 `glass:false`
 
 ### Badge 配色规则
 数据科学 → bg:#EEF0FF color:#6366F1
@@ -266,21 +283,54 @@ blocks 是 JSON 字符串：
 - 统计行是内联文字（"3 文章"这种数字+小字标签紧挨着排成一行，横向可滚动
   防溢出），显示的是文章/获赞/粉丝/关注这种社交数据，不是tab计数；编辑
   资料(32px白底黑字)+分享(毛玻璃)/私信+关注 两个按钮跟统计同一行右侧
-- Tab栏是独立的白底 SliverPersistentHeader(pinned:true, 42px高)，不是
+- Tab栏是独立的 SliverPersistentHeader(pinned:true, 42px高)，不是
   嵌进头图区的一部分：文章/专栏/Notebook/收藏/点赞五个（专栏在文章和
   Notebook中间），5个tab要用更紧凑的字号(12px)+labelPadding，不然
   "Notebook"这种比中文标签长的单词会被裁切显示不全
 - 文章/专栏等Tab：3列九宫格或列表（GridView.count 记得手动
   padding:EdgeInsets.zero，否则安全区自动padding撑出大缝隙）
-- 左上角汉堡 → 抽屉用 showGeneralDialog 强推到根Navigator（不是
-  Scaffold.drawer，那个盖不住MainShell的底部导航栏和状态栏安全区）
-- 侧边栏：header 渐变同步成头图区那套 #2A1F3D→#1A2A3D 深色玻璃拟态
-  （不再是原来偏亮的 #6366F1→#7C3AED），右上角加了个纯用径向渐变做的
-  柔光装饰点缀；会员卡加了一圈低透明度紫色描边呼应；菜单列表/底部三
-  按钮维持原来的浅色 Theme 背景，没有跟着一起变深色
+- **下半部（Tab栏+内容区）2026-07-06 起跟着 ThemePreference 走**：深色
+  主题用 `_profileDarkBg` `#0A0A1A` + 深色两色渐变兜底封面
+  （`_coverPaletteDark`，5组，教程没有封面图时用）+ 白色/紫色高亮 TabBar +
+  半透明白玻璃专栏卡；浅色主题保持原来那套——米白底、`_coverPaletteLight`
+  浅色纯色块+图标兜底封面、黑字 TabBar、白底专栏卡。踩过一次坑：第一版
+  直接照抄头图区"不跟随主题、永远深色"的例外规则，结果浅色主题下背景/
+  卡片全变黑但配色还是深色主题那套，反而是浅色主题下唯一一块看不清的
+  区域——头图区可以这样做是因为它本来就一直是深色玻璃拟态设计，没有对应
+  的浅色版本；下半部这里在这次改动前已经有成熟的浅色设计，不能直接套用
+  同一条"局部深色例外"规则，必须两套配色都做，跟着 isDark 切
+- **2026-07-06：整个侧边栏（抽屉）已删除**——`_openProfileDrawer`/
+  `_buildProfileDrawer`/`_profileMenuItem`/`_bottomActionButton` 全部拿掉，
+  左上角不再有汉堡按钮。原来挂在抽屉里的功能重新分配：
+  - 深色模式：不再是"点图标弹出浅色/深色/跟随系统三选一的 bottom
+    sheet"，改成点头图右上角的太阳/月亮图标直接切换明暗（`_toggleTheme`，
+    在当前 `Theme.of(context).brightness` 的相反值之间二选一，不经过
+    "跟随系统"）。图标本身跟着实际生效的明暗态换，不是跟着
+    ThemePreference 的取值
+  - 创作者中心、设置：分别做成头图右上角的图标（`Icons.article_outlined`
+    push `/creator`，`Icons.settings_outlined` push `/settings`），三个
+    图标（主题/创作者中心/设置）从左到右一排，只在自己主页显示
+  - 我的消息/我的收藏/浏览历史/我的Notebook/草稿箱：这几项没有指定新
+    入口，drawer删除后暂时没有专门的菜单能到达——我的消息本来就有底部
+    "消息"tab不受影响，草稿箱可以从创作者中心的作品管理走，我的收藏/
+    浏览历史本来就是"即将上线"的占位，我的Notebook暂时确实少了一个
+    入口，如果需要恢复得另外找地方放
+  - 切换账号、退出登录：移进"全部设置"页最底部，不带 `_SectionTitle`
+    （页面顶部已经用过一次"账号"当分组标题，这里再来一次会像重复分组）
+  - 会员卡：抽屉那张会员升级卡直接删掉，不算功能损失——"全部设置"里
+    本来就有对等的"我的会员"入口（会员中心分组），不是新增的
+  - 头图顶部这一排图标（返回/主题/创作者中心/设置/其他主页的链接图标）
+    统一去掉了原来的 BackdropFilter 毛玻璃圆角底，改成裸图标+黑色投影
+    保证在任意背景亮暗下都能看清，不再靠白色半透明底衬托
 - 状态栏图标用 AnnotatedRegion<SystemUiOverlayStyle>(value: .light) 强制
   白色，因为头图区总是深色；已知取舍：滚动很远头图完全滚出视口后状态栏
   区域会露出白色Tab栏背景，白图标短暂不好辨认，没做滚动监听动态切换
+
+### 设置主页（settings_screen.dart）
+账号/通用/会员中心/关于 四组之后，2026-07-06 起追加一组不带标题的
+切换账号+退出登录（原来在侧边栏底部，侧边栏整个删除后搬过来）——退出
+登录复用跟以前一样的确认弹窗+`authServiceProvider.logout()`+
+`context.go('/login')`，没有改逻辑，只是从 profile 页搬到了这里
 
 ### 设置 · 云端存储
 - 用量卡片（进度条+已用/总量/剩余）+ 4个可展开分类：Notebook/教程笔记/图片视频音频(media)/文档数据(docs)
@@ -295,13 +345,48 @@ blocks 是 JSON 字符串：
 - 星座：自研SVG icon（ZodiacIcon）+ 紫色文字，无背景
 
 ### 消息中心
-- 三Tab：通知/私信/群组
+- 三Tab：通知/私信/群组（群组目前是空白占位，注释写着"下个版本上线"）
 - 私信支持：文字/代码/LaTeX/教程卡片/图片
-- 目前 mock 数据，后端消息API待建
+- 通知/私信都是真实后端数据（不是 mock），群组还没有对应接口
+- **陌生人消息限制（2026-07-06 后端上线，chat_screen.dart 跟着实现）**：
+  互相关注视为好友，完全不受限；非好友规则——对方从没回复过之前，
+  我的第一条消息只能是文字类型，发过之后要等对方回复才能再发；对方
+  只要回复过一次（不论当时是否互关、后续有没有取关）就永久解锁，两人
+  可以自由互发任何类型，这条判断只认"消息历史里有没有对方发的消息"，
+  不认实时关注状态。后端 403 时带 `{message, code}`，`code` 是
+  `STRANGER_LIMIT`（对方尚未回复）或 `TEXT_ONLY_LIMIT`（首条只能文字）。
+  是否互关本身查不了"互相"这个方向（`/auth/users/:id/follow-status`
+  只返回 `isFollowing`，是单向的"我关注了没"），用 `/auth/friends`
+  好友名单（互相关注的人）本身来判断在不在里面，才是跟后端同一套口径。
+  提示条 UI 不是常驻在输入框上方的通栏，是插进消息列表顶部、居中的小
+  胶囊——跟输入框上方的横栏比更像一条系统提示，不是一直杵在那的警告；
+  且只在真的没有聊天记录时出现，一旦对方回复过（哪怕之后取关了）就再
+  也不出现
+- **ApiResponse.error 现在会透传原始错误响应体到 `data` 字段**
+  （`core/network/api_response.dart`/`api_client.dart`）——2026-07-06 之前
+  失败响应只保留一个拍平的 `message` 字符串，`code` 这种结构化字段全部
+  丢失，想按错误类型精确处理只能匹配 message 文案（换一个字就失配）。
+  现在 `res.data?['code']` 能可靠读到，陌生人限制这两个 code 就是靠这个
+  修复才能用，以后其它接口的结构化错误也一样能读
+- **好友列表**（`friend_list_screen.dart`，路由 `/friends`）：互相关注的
+  用户列表，GET /auth/friends。入口不是消息页里的一个tab（消息页已经有
+  通知/私信/群组三个tab，跟最初任务描述假设的"单一会话列表页"不一样），
+  是个人主页头图区新增的一个图标，卡在"主题切换"和"创作中心"两个图标
+  中间。点开一个好友进聊天：接口本身没直接返回 conversation id，复用
+  user_profile_screen.dart"发消息"按钮那套"先查 /auth/conversations
+  里有没有现成会话，没有就发一条默认招呼语创建一个"逻辑
 
 ## 共享组件
 lib/shared/widgets/
-- main_shell.dart — 底部导航（首页/发现/+/消息/我的）
+- main_shell.dart — 底部导航（首页/发现/+/消息/我的）。2026-07-06 起
+  跟着 `Theme.of(context).brightness` 走——之前整条背景/图标颜色都是
+  写死的浅色（白底+近黑图标），个人主页下半部改深色之后滚到底会露出
+  这条刺眼的白条。深色主题：背景 `#1C1C1E`（复用 app_theme.dart 深色
+  scaffoldBackgroundColor 那个值，不是另配一个）、无阴影、选中态白色/
+  未选中 `Colors.white38`、中间发布按钮换成品牌紫 `#6366F1`（近黑在
+  深色导航条上对比度太低）；浅色主题同一天又从纯白 `#FFFFFF` 改成
+  `AppColors.bg`（跟首页/发现页/消息页/个人主页统一，见上面"设计语言"
+  里背景色统一的说明，不是重复的改动）
 - zodiac_icon.dart — 十二星座SVG图标 + ZodiacPicker
 
 lib/shared/models/

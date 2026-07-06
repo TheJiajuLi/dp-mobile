@@ -16,7 +16,12 @@ import '../providers/home_feed_provider.dart';
 const _primary = Color(0xFF6366F1);
 const _ink = Color(0xFF1A1A1A);
 const _muted = Color(0xFF999999);
-const _bg = Color(0xFFFAFAF8);
+// 2026-07-06 起统一成 AppColors.bg（跟主题默认 scaffoldBackgroundColor
+// 同一个值）——之前这里自己配了个 #FAFAF8，跟发现页/消息页走
+// Theme.of(context).scaffoldBackgroundColor 拿到的 #F7F7FB 是两个肉眼
+// 很难分辨但确实不同的浅灰白，底部导航栏跟内容区拼接处会露出一条若隐
+// 若现的接缝，深色主题下反而因为直接复用同一个主题色没有这个问题
+const _bg = AppColors.bg;
 
 enum _EntryStatus { live, comingSoon, stayTuned }
 

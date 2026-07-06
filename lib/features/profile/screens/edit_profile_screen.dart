@@ -394,6 +394,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             (t) => InterestTag(
                               label: t,
                               removable: true,
+                              glass: false,
                               onRemove: () =>
                                   setSheetState(() => selected.remove(t)),
                             ),
@@ -445,6 +446,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           return InterestTag(
                             label: t,
                             selected: selected.contains(t),
+                            glass: false,
                             onTap: () => addTag(t),
                           );
                         }).toList(),
@@ -888,7 +890,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                     spacing: 6,
                                     runSpacing: 6,
                                     children: _tags
-                                        .map((t) => InterestTag(label: t))
+                                        .map(
+                                          (t) => InterestTag(
+                                            label: t,
+                                            glass: false,
+                                          ),
+                                        )
                                         .toList(),
                                   ),
                           ),

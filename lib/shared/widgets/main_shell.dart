@@ -20,19 +20,28 @@ class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // 底部导航条之前固定白底——大部分页面本来就是浅色主题，看不出问题，
+    // 但深色主题的页面（比如个人主页下半部）滚到底就会露出这一整条刺眼的
+    // 白色，2026-07-06 起跟着 Theme.of(context).brightness 走。浅色底同一天
+    // 又从纯白 #FFFFFF 改成 AppColors.bg（#F7F7FB，主题默认
+    // scaffoldBackgroundColor）——纯白跟首页/发现页/消息页/个人主页实际的
+    // 浅灰白背景不是同一个值，两者拼在一起会露出一条很淡但看得出来的接缝
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 16,
-              offset: Offset(0, -2),
-            ),
-          ],
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : AppColors.bg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: isDark
+              ? null
+              : const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 16,
+                    offset: Offset(0, -2),
+                  ),
+                ],
         ),
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -48,6 +57,7 @@ class MainShell extends StatelessWidget {
                     activeIcon: Icons.home,
                     label: l10n.navHome,
                     selected: navigationShell.currentIndex == 0,
+                    isDark: isDark,
                     onTap: () => _onTap(0),
                   ),
                   _NavItem(
@@ -55,9 +65,13 @@ class MainShell extends StatelessWidget {
                     activeIcon: Icons.explore,
                     label: l10n.navCommunity,
                     selected: navigationShell.currentIndex == 1,
+                    isDark: isDark,
                     onTap: () => _onTap(1),
                   ),
-                  _PublishButton(onTap: () => context.push('/publish')),
+                  _PublishButton(
+                    isDark: isDark,
+                    onTap: () => context.push('/publish'),
+                  ),
                   Consumer(
                     builder: (context, ref, _) {
                       final unread = ref.watch(unreadCountProvider);
@@ -67,6 +81,7 @@ class MainShell extends StatelessWidget {
                         label: l10n.messagesTitle,
                         selected: navigationShell.currentIndex == 2,
                         badgeCount: unread,
+                        isDark: isDark,
                         onTap: () => _onTap(2),
                       );
                     },
@@ -76,6 +91,7 @@ class MainShell extends StatelessWidget {
                     activeIcon: Icons.person,
                     label: l10n.navProfile,
                     selected: navigationShell.currentIndex == 3,
+                    isDark: isDark,
                     onTap: () => _onTap(3),
                   ),
                 ],
@@ -95,6 +111,7 @@ class _NavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final int badgeCount;
+  final bool isDark;
 
   const _NavItem({
     required this.icon,
@@ -102,12 +119,15 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    required this.isDark,
     this.badgeCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.textPrimary : AppColors.textMuted;
+    final color = isDark
+        ? (selected ? Colors.white : Colors.white38)
+        : (selected ? AppColors.textPrimary : AppColors.textMuted);
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
@@ -140,7 +160,8 @@ class _NavItem extends StatelessWidget {
 
 class _PublishButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _PublishButton({required this.onTap});
+  final bool isDark;
+  const _PublishButton({required this.onTap, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +171,9 @@ class _PublishButton extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: AppColors.textPrimary,
+          // 深色主题下导航条本身已经很暗，继续用近黑色块对比度太低，
+          // 换成品牌紫；浅色主题维持原来的近黑色不变
+          color: isDark ? const Color(0xFF6366F1) : AppColors.textPrimary,
           borderRadius: BorderRadius.circular(14),
         ),
         child: const Icon(Icons.add, color: Colors.white, size: 24),

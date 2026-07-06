@@ -17,6 +17,7 @@ import '../../features/creator/screens/works_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/messages/models/conversation_model.dart';
 import '../../features/messages/screens/chat_screen.dart';
+import '../../features/messages/screens/friend_list_screen.dart';
 import '../../features/messages/screens/messages_screen.dart';
 import '../../features/notebook/screens/notebook_editor_screen.dart';
 import '../../features/notebook/screens/notebook_home_screen.dart';
@@ -56,6 +57,10 @@ final appRouter = GoRouter(
       path: '/publish/:id',
       builder: (context, state) =>
           PublishScreen(tutorialId: state.pathParameters['id']),
+    ),
+    GoRoute(
+      path: '/friends',
+      builder: (context, state) => const FriendListScreen(),
     ),
     GoRoute(
       path: '/creator',

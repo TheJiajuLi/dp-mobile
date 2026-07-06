@@ -36,14 +36,16 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
   Future<void> _load() async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
-    final res = await ref.read(apiClientProvider).get(
-      '/auth/tutorials',
-      queryParameters: {
-        'author': user.username,
-        'status': 'published',
-        'limit': 50,
-      },
-    );
+    final res = await ref
+        .read(apiClientProvider)
+        .get(
+          '/auth/tutorials',
+          queryParameters: {
+            'author': user.username,
+            'status': 'published',
+            'limit': 50,
+          },
+        );
     if (!mounted) return;
     var likes = 0;
     var total = 0;
@@ -71,9 +73,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
       body: SafeArea(
         bottom: false,
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: _cyan),
-              )
+            ? const Center(child: CircularProgressIndicator(color: _cyan))
             : ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 children: [
@@ -122,18 +122,16 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
 
   Widget _hero() {
     return Stack(
+      // Stack 默认 alignment 是 topStart——非 Positioned 的 Column 子项
+      // 只会按自己最宽的子控件收缩宽度，然后贴在 Stack 左上角，Column 自己
+      // 的 crossAxisAlignment.center 只能让图标/标题这些在这个收缩后的
+      // 窄宽度内互相对齐，管不到整块内容相对全屏是不是居中——顶部两颗
+      // 装饰光斑靠 Positioned 精确定位，不受这个 alignment 影响
+      alignment: Alignment.topCenter,
       clipBehavior: Clip.none,
       children: [
-        Positioned(
-          left: -40,
-          top: -20,
-          child: _glow(_primary, 160),
-        ),
-        Positioned(
-          right: -30,
-          top: 20,
-          child: _glow(_cyan, 100),
-        ),
+        Positioned(left: -40, top: -20, child: _glow(_primary, 160)),
+        Positioned(right: -30, top: 20, child: _glow(_cyan, 100)),
         Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -406,10 +404,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
                   TextSpan(text: '分成池来源\n每月从会员订阅收入中拿出 '),
                   TextSpan(
                     text: '15–20%',
-                    style: TextStyle(
-                      color: _cyan,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(color: _cyan, fontWeight: FontWeight.w700),
                   ),
                   TextSpan(text: ' 作为创作者基金，每月固定时间结算，规则透明公开'),
                 ],
@@ -428,25 +423,17 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(
-                child: _weightTag('浏览量', '×1', const Color(0xFF6366F1)),
-              ),
+              Expanded(child: _weightTag('浏览量', '×1', const Color(0xFF6366F1))),
               const SizedBox(width: 8),
-              Expanded(
-                child: _weightTag('评论', '×2', const Color(0xFFEC4899)),
-              ),
+              Expanded(child: _weightTag('评论', '×2', const Color(0xFFEC4899))),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(
-                child: _weightTag('点赞', '×3', const Color(0xFF16A34A)),
-              ),
+              Expanded(child: _weightTag('点赞', '×3', const Color(0xFF16A34A))),
               const SizedBox(width: 8),
-              Expanded(
-                child: _weightTag('分享', '×4', const Color(0xFFEA580C)),
-              ),
+              Expanded(child: _weightTag('分享', '×4', const Color(0xFFEA580C))),
             ],
           ),
           const SizedBox(height: 8),
@@ -628,7 +615,10 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
                     ),
                     child: Text(
                       c,
-                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
                     ),
                   ),
                 )
@@ -664,12 +654,19 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle, size: 16, color: Color(0xFF16A34A)),
+                    const Icon(
+                      Icons.check_circle,
+                      size: 16,
+                      color: Color(0xFF16A34A),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         t,
-                        style: const TextStyle(fontSize: 13, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],

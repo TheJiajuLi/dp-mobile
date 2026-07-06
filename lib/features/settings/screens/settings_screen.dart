@@ -7,6 +7,7 @@ import '../../../core/font_size_provider.dart';
 import '../../../core/locale_provider.dart';
 import '../../../core/notification_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../auth/auth_service.dart';
 import '../providers/storage_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -236,6 +237,28 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ]),
 
+                  // 2026-07-06 起从侧边栏（已整个移除）挪过来——切换账号/
+                  // 退出登录单独成一组放最后，不加 _SectionTitle（页面顶部
+                  // 已经用过一次"账号"当分组标题了，这里再来一次会显得像
+                  // 重复分组；退出登录标红跟原来侧边栏的处理一致）
+                  const SizedBox(height: 12),
+                  _SettingsGroup([
+                    _SettingsRow(
+                      icon: Icons.swap_horizontal_circle_outlined,
+                      iconColor: const Color(0xFF6366F1),
+                      iconBg: const Color(0xFFEEF0FF),
+                      title: l10n.switchAccount,
+                      onTap: () => context.push('/switch-account'),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.logout,
+                      iconColor: const Color(0xFFDC2626),
+                      iconBg: const Color(0xFFFEE2E2),
+                      title: l10n.logout,
+                      onTap: () => _confirmLogout(context, ref, l10n),
+                    ),
+                  ]),
+
                   const SizedBox(height: 40),
                 ],
               ),
@@ -406,6 +429,39 @@ class SettingsScreen extends ConsumerWidget {
         SnackBar(content: Text(AppLocalizations.of(context)!.cacheCleared)),
       );
     }
+  }
+
+  Future<void> _confirmLogout(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(l10n.logout),
+        content: Text(l10n.confirmLogoutMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(
+              l10n.cancel,
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: Text(
+              l10n.exit,
+              style: const TextStyle(color: Color(0xFFDC2626)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await ref.read(authServiceProvider).logout();
+    if (context.mounted) context.go('/login');
   }
 }
 

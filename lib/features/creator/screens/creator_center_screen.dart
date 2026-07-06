@@ -74,7 +74,8 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
       final list = (publishedRes.data['tutorials'] as List? ?? [])
           .where((j) => (j as Map)['user_id'] == user.id)
           .toList();
-      publishedTotal = (publishedRes.data['total'] as num?)?.toInt() ?? list.length;
+      publishedTotal =
+          (publishedRes.data['total'] as num?)?.toInt() ?? list.length;
       for (final j in list) {
         views += ((j as Map)['views'] as num?)?.toInt() ?? 0;
         likes += (j['likes'] as num?)?.toInt() ?? 0;
@@ -246,18 +247,26 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF5F5F7),
+        // 浅色主题原来是纯灰色平面块，跟深色主题那层微透明玻璃质感差太多；
+        // 换成一层极淡的紫蓝渐变+同色系细描边，颜色语言跟深色版对齐但不
+        // 违反浅色主题"无阴影"的规范——用色彩层次代替阴影层次
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : null,
+        gradient: isDark
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFF5F3FF), Color(0xFFFAFAFF)],
+              ),
         borderRadius: BorderRadius.circular(16),
+        border: isDark
+            ? null
+            : Border.all(color: _primary.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _statCol(
-              isDark,
-              _formatCount(_totalViews),
-              '浏览量',
-              '23%',
-            ),
+            child: _statCol(isDark, _formatCount(_totalViews), '浏览量', '23%'),
           ),
           _statDivider(isDark),
           Expanded(
@@ -330,13 +339,25 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.white,
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : null,
+          // 浅色主题原来是纯白卡片+灰色细边，颜色信息只留在小小的图标方块
+          // 里，整张卡看起来很素；换成跟图标同色系的极淡渐变底+同色细边，
+          // 让"这张卡是什么领域"从图标扩散到整张卡，视觉分量才跟深色主题
+          // 那种半透明彩色玻璃卡对得上
+          gradient: isDark
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    iconBg.withValues(alpha: 0.1),
+                    iconBg.withValues(alpha: 0.02),
+                  ],
+                ),
           borderRadius: BorderRadius.circular(16),
           border: isDark
               ? null
-              : Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+              : Border.all(color: iconBg.withValues(alpha: 0.18), width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,7 +366,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: iconBg.withValues(alpha: isDark ? 0.25 : 0.12),
+                color: iconBg.withValues(alpha: isDark ? 0.25 : 0.16),
                 borderRadius: BorderRadius.circular(11),
               ),
               child: Icon(icon, color: iconBg, size: 20),
@@ -382,11 +403,18 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : null,
+          gradient: isDark
+              ? null
+              : const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFF5F3FF), Color(0xFFFAFAFF)],
+                ),
           borderRadius: BorderRadius.circular(16),
           border: isDark
               ? null
-              : Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+              : Border.all(color: _primary.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
@@ -396,13 +424,13 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
               decoration: BoxDecoration(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.08)
-                    : const Color(0xFFF5F5F7),
+                    : _primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(11),
               ),
               child: Icon(
                 Icons.edit_note,
                 size: 20,
-                color: isDark ? Colors.white70 : const Color(0xFF666666),
+                color: isDark ? Colors.white70 : _primary,
               ),
             ),
             const SizedBox(width: 12),
