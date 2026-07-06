@@ -95,6 +95,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _strangerLimitReached = false;
   Timer? _pollTimer;
 
+  // 点对方头像跳去 ta 主页时踩过一次 `!semantics.parentDataDirty` 断言
+  // 崩溃——根因是这个 5 秒一次的轮询定时器在页面被 push 出去的新路由盖住、
+  // 正在做转场动画期间照样触发，setState 重建消息列表（ListView.builder）
+  // 跟 Navigator 转场动画同一帧抢语义树更新，不是用户资料页那边
+  // Sliver/GridView 嵌套或 GlobalKey 的问题（挨个查过，那些都没问题）。
+  // mounted 只能判断"还在树上"，判断不了"当前是不是被盖住"，页面被 push
+  // 覆盖后依然是 mounted——真正要挡的是这种情况，所以额外查
+  // ModalRoute.isCurrent
+  bool get _isRouteActive => mounted && (ModalRoute.of(context)?.isCurrent ?? true);
+
   @override
   void initState() {
     super.initState();
@@ -126,14 +136,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         .read(apiClientProvider)
         .get('/auth/conversations/${widget.conversationId}/messages');
     if (!res.success || res.data == null) {
-      if (mounted) setState(() => _loading = false);
+      if (_isRouteActive) setState(() => _loading = false);
       return;
     }
     try {
       final list = (res.data['messages'] as List)
           .map((j) => ChatMessage.fromJson(j as Map<String, dynamic>))
           .toList();
-      if (!mounted) return;
+      // 5秒轮询期间这个页面完全可能已经被 push 出去的用户主页盖住了——
+      // 这时候还去重建消息列表会跟盖上来那个路由的转场动画抢语义树更新，
+      // 之前"点头像跳资料页"崩的 `!semantics.parentDataDirty` 断言就是
+      // 这么来的。被盖住时就不更新，等这个路由重新变成当前路由（用户
+      // 返回）下一次轮询自然会刷新
+      if (!_isRouteActive) return;
       setState(() {
         _messages = list;
         _loading = false;
@@ -149,7 +164,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (_isRouteActive) setState(() => _loading = false);
     }
   }
 
@@ -162,7 +177,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (otherId.isEmpty) return;
 
     final res = await ref.read(apiClientProvider).get('/auth/friends');
-    if (!mounted) return;
+    if (!_isRouteActive) return;
     final friends = (res.data?['friends'] as List?) ?? [];
     _isMutualFriend = friends.any(
       (f) => (f as Map)['id']?.toString() == otherId,
