@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/services/xmeng_image_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -899,18 +900,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
 
     try {
-      // 图像生成实测要 15-25 秒，Dio 默认 10 秒 receiveTimeout 会提前超时——
-      // 只给这一个请求单独放宽，不动全局默认值影响其他接口
-      final res = await ref
-          .read(apiClientProvider)
-          .post(
-            '/auth/xmeng/avatar',
-            data: {'description': description},
-            options: Options(
-              sendTimeout: const Duration(seconds: 30),
-              receiveTimeout: const Duration(seconds: 90),
-            ),
-          );
+      // 原来后端转发调 moyu.info 网络不稳定，改成 Flutter 直接调生成接口，
+      // 后端 /auth/xmeng/upload-image 只负责把临时图片转存到 COS
+      final urls = await ref
+          .read(xmengImageServiceProvider)
+          .generateAvatar(description: description);
 
       if (mounted && dialogShowing) {
         dialogShowing = false;
@@ -918,17 +912,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       }
       if (!mounted) return;
 
-      if (!res.success) {
+      if (urls.isEmpty) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(res.message ?? '生成失败')));
+        ).showSnackBar(const SnackBar(content: Text('生成失败')));
         return;
       }
-
-      final urls = List<String>.from(
-        (res.data as Map?)?['urls'] as List? ?? [],
-      );
-      if (urls.isEmpty) return;
 
       if (urls.length == 1) {
         _showSingleAvatarConfirm(urls.first);
