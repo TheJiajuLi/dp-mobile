@@ -110,11 +110,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: _showNotebookTab ? 5 : 4, vsync: this);
-    // 文章/专栏/Notebook/收藏/点赞这行本身现在就是tab切换器（不再有单独的
-    // TabBar），swipe切页也要让它跟着更新高亮态，不能只在点击时刷新
-    _tabCtrl.addListener(() {
-      if (mounted) setState(() {});
-    });
     _loadProfile();
     if (_showNotebookTab) _loadNotebooks();
   }
@@ -2858,7 +2853,10 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
     );
   }
 
+  // tabBar 每次父级 build() 都会 new 一个新实例，按引用比较 (!=) 永远为
+  // true——之前这行等于白写，父级任何一次 setState 都会连带把这个 pinned
+  // header 重新 build 一遍。只有 isDark 会真的影响这里画出来的东西
   @override
   bool shouldRebuild(covariant _ProfileTabBarDelegate oldDelegate) =>
-      oldDelegate.tabBar != tabBar || oldDelegate.isDark != isDark;
+      oldDelegate.isDark != isDark;
 }
