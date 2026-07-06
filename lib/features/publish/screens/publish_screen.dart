@@ -737,20 +737,22 @@ result
       ),
       body: Stack(
         children: [
-          // top/bottom 都不在这层留白——顶栏自己用 SafeArea(bottom:false)
-          // 包一层让白色背景铺进状态栏那圈安全区，底部工具栏也是同样自己
-          // 处理 home indicator 那圈安全区，不然这里统一留白会露出
-          // Scaffold 米白色的背景，跟顶栏/工具栏的纯白刀切一样不连贯
+          // top/bottom 都不在这层留白——顶栏/底部工具栏自己各用一层
+          // SafeArea 处理状态栏/home indicator 那圈安全区。顶栏、工具栏都
+          // 不再有自己的一块底色（透明，直接露出 Scaffold 背景），跟正文
+          // 是同一块背景——整屏只有元信息卡片和"今日灵感"这类卡片浮在上面
+          // 是有边框的"灵动岛"，不会再出现顶栏/工具栏跟正文颜色不一样、
+          // 拼出一道横向分割线的"拼接感"
           SafeArea(
             top: false,
             bottom: false,
             child: Column(
               children: [
-                _buildTopBar(l10n),
+                _buildTopBar(l10n, isDarkMode),
                 _buildMetaSection(l10n, isDarkMode),
                 Expanded(
                   child: _blocks.isEmpty
-                      ? _buildEmptyState(l10n)
+                      ? _buildEmptyState(l10n, isDarkMode)
                       : ReorderableListView.builder(
                           scrollController: _scrollCtrl,
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -780,7 +782,7 @@ result
                           ),
                         ),
                 ),
-                _buildBottomToolbar(l10n),
+                _buildBottomToolbar(l10n, isDarkMode),
               ],
             ),
           ),
@@ -827,9 +829,11 @@ result
     );
   }
 
-  Widget _buildTopBar(AppLocalizations l10n) {
+  Widget _buildTopBar(AppLocalizations l10n, bool isDarkMode) {
     return Container(
-      color: Theme.of(context).cardColor,
+      // 透明，不再单独铺一层卡片色——跟正文共享同一块 Scaffold 背景，
+      // 避免顶栏跟下面的内容之间出现一条颜色不一致的分割线
+      color: Colors.transparent,
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -895,7 +899,10 @@ result
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: _ink,
+                    // 深色模式下 _ink（#1A1A1A）跟 Scaffold 背景
+                    // （#1C1C1E）几乎是同一个颜色，纯黑底会把发布按钮
+                    // "吃掉"，改用主题色保证按钮在深色背景上仍然醒目
+                    color: isDarkMode ? _primary : _ink,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: _saving
@@ -1253,7 +1260,7 @@ result
   // 一个 block 都没有时的引导区——不是一片空白，而是问候语+快速开始+
   // 今日灵感，让用户一打开就知道从哪下手，不会有"不知道写什么"的
   // 空白焦虑。加了第一个 block 之后就自动切回正常的 block 列表
-  Widget _buildEmptyState(AppLocalizations l10n) {
+  Widget _buildEmptyState(AppLocalizations l10n, bool isDarkMode) {
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -1266,10 +1273,10 @@ result
               children: [
                 Text(
                   l10n.emptyStateGreetingTitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
-                    color: _ink,
+                    color: isDarkMode ? Colors.white : _ink,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -1369,9 +1376,17 @@ result
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFAFAF8),
+                // 卡片色跟随主题走，深色模式下不再是刺眼的米白色小方块
+                color: isDarkMode
+                    ? Theme.of(context).cardColor
+                    : const Color(0xFFFAFAF8),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+                border: Border.all(
+                  color: isDarkMode
+                      ? Theme.of(context).dividerColor
+                      : const Color(0xFFF0F0F0),
+                  width: 0.5,
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1397,9 +1412,11 @@ result
                         const SizedBox(height: 4),
                         Text(
                           _inspirations[_inspirationIndex],
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF555555),
+                            color: isDarkMode
+                                ? const Color(0xFFD1D1D6)
+                                : const Color(0xFF555555),
                             height: 1.5,
                           ),
                         ),
@@ -1423,10 +1440,11 @@ result
     );
   }
 
-  Widget _buildBottomToolbar(AppLocalizations l10n) {
+  Widget _buildBottomToolbar(AppLocalizations l10n, bool isDarkMode) {
     final (words, minutes) = computeBlockStats(_blocks);
     return Container(
-      color: Theme.of(context).cardColor,
+      // 跟顶栏一样透明，不再单独铺卡片色，工具栏跟正文视觉上是同一块背景
+      color: Colors.transparent,
       child: SafeArea(
         top: false,
         child: Column(
@@ -1443,6 +1461,7 @@ result
                       icon: blockTypeIcon(type),
                       tooltip: blockTypeLabel(l10n, type),
                       selected: _activeToolbarType == type,
+                      isDarkMode: isDarkMode,
                       onTap: () => _addBlock(type),
                     ),
                   ),
@@ -1453,7 +1472,12 @@ result
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Text(
                 l10n.wordBlocksReadTimeLabel(words, _blocks.length, minutes),
-                style: const TextStyle(fontSize: 11, color: Color(0xFFCCCCCC)),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDarkMode
+                      ? const Color(0xFF8E8E93)
+                      : const Color(0xFFCCCCCC),
+                ),
               ),
             ),
           ],
@@ -1466,8 +1490,12 @@ result
     required IconData icon,
     required String tooltip,
     required bool selected,
+    required bool isDarkMode,
     required VoidCallback onTap,
   }) {
+    final highlightBg = isDarkMode
+        ? const Color(0xFF3A3A3C)
+        : const Color(0xFFF0F0F0);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
       child: Tooltip(
@@ -1477,7 +1505,7 @@ result
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
-            highlightColor: const Color(0xFFF0F0F0),
+            highlightColor: highlightBg,
             splashColor: Colors.transparent,
             onTap: onTap,
             child: Container(
@@ -1485,10 +1513,16 @@ result
               height: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selected ? const Color(0xFFF0F0F0) : null,
+                color: selected ? highlightBg : null,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 20, color: const Color(0xFF555555)),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isDarkMode
+                    ? const Color(0xFFE5E5EA)
+                    : const Color(0xFF555555),
+              ),
             ),
           ),
         ),

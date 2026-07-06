@@ -765,6 +765,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     color: Colors.white,
                   ),
                   decoration: InputDecoration(
+                    filled: false,
                     border: InputBorder.none,
                     hintText: l10n.codeInputHint,
                     hintStyle: const TextStyle(color: Colors.grey),
