@@ -146,26 +146,34 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                     background: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _column!.coverImage != null &&
-                                _column!.coverImage!.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: _column!.coverImage!,
-                                fit: BoxFit.cover,
-                                errorWidget: (context, url, error) =>
-                                    Container(color: _primary),
-                              )
-                            : Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      _primary,
-                                      _primary.withValues(alpha: 0.7),
-                                    ],
+                        // 封面图纯装饰，排除出语义树——不然图片异步加载完成
+                        // 触发的 relayout 跟点作者头像 context.push 的转场
+                        // 动画抢语义树更新，会炸出 `!semantics.parentDataDirty`
+                        // 断言（tutorial_detail_screen.dart 同款封面图已经
+                        // 踩过这个坑）
+                        ExcludeSemantics(
+                          child:
+                              _column!.coverImage != null &&
+                                  _column!.coverImage!.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: _column!.coverImage!,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (context, url, error) =>
+                                      Container(color: _primary),
+                                )
+                              : Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        _primary,
+                                        _primary.withValues(alpha: 0.7),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
+                        ),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(

@@ -676,65 +676,72 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (coverImage?.isNotEmpty == true)
-                    CachedNetworkImage(
-                      imageUrl: coverImage!,
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) =>
-                          _CoverGradient(rule: topicRule),
-                    )
-                  else
-                    _CoverGradient(rule: topicRule),
-                  if (topicRule != null)
-                    Positioned(
-                      left: 16,
-                      top: 52,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          topicRule.label,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+              background: ExcludeSemantics(
+                // 封面图纯装饰、不承载信息（标题/作者那些才是），排除出语义树——
+                // 不然图片在 SliverAppBar 折叠动画期间加载完成触发的 relayout，
+                // 跟点头像 context.push 的转场动画抢语义树更新，就会炸出
+                // `!semantics.parentDataDirty` 断言（“详细教程页点作者头像
+                // 白屏”就是这个）
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (coverImage?.isNotEmpty == true)
+                      CachedNetworkImage(
+                        imageUrl: coverImage!,
+                        fit: BoxFit.cover,
+                        errorWidget: (context, url, error) =>
+                            _CoverGradient(rule: topicRule),
+                      )
+                    else
+                      _CoverGradient(rule: topicRule),
+                    if (topicRule != null)
+                      Positioned(
+                        left: 16,
+                        top: 52,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            topicRule.label,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  if (seriesTag != null && seriesTag.isNotEmpty)
-                    Positioned(
-                      right: 16,
-                      top: 52,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _primary,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          seriesTag,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                    if (seriesTag != null && seriesTag.isNotEmpty)
+                      Positioned(
+                        right: 16,
+                        top: 52,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _primary,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            seriesTag,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
