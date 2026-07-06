@@ -1361,23 +1361,31 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
+  // 头像图片本身排除出语义树——用户名在旁边另有文字承载，头像纯装饰；
+  // 这个页面刚好是"点头像跳转过来"的落地页，头像图片异步解码/加载完成
+  // 触发的 relayout 跟自己入场的转场动画抢语义树更新会炸断言，跟上面
+  // 封面图是同一个坑
   Widget _buildAvatar({double radius = 40}) {
     final p = _profile;
     if (p?.avatar != null && p!.avatar!.isNotEmpty) {
       if (p.avatar!.startsWith('data:image')) {
         final base64Data = p.avatar!.split(',').last;
         try {
-          return CircleAvatar(
-            radius: radius,
-            backgroundImage: MemoryImage(base64Decode(base64Data)),
+          return ExcludeSemantics(
+            child: CircleAvatar(
+              radius: radius,
+              backgroundImage: MemoryImage(base64Decode(base64Data)),
+            ),
           );
         } catch (_) {
           // 解码失败落到下面的首字母占位
         }
       } else {
-        return CircleAvatar(
-          radius: radius,
-          backgroundImage: CachedNetworkImageProvider(p.avatar!),
+        return ExcludeSemantics(
+          child: CircleAvatar(
+            radius: radius,
+            backgroundImage: CachedNetworkImageProvider(p.avatar!),
+          ),
         );
       }
     }
@@ -1508,42 +1516,53 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                     onTap: isSelfView && !_uploadingCover
                                         ? _pickAndUploadCover
                                         : null,
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        _coverImageUrl != null
-                                            ? CachedNetworkImage(
-                                                imageUrl: _coverImageUrl!,
-                                                fit: BoxFit.cover,
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        const _CoverGradient(),
-                                              )
-                                            : const _CoverGradient(),
-                                        const DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Color(0x00000000),
-                                                Color(0x40000000),
-                                                Color(0xB3000000),
-                                              ],
-                                              stops: [0.0, 0.32, 0.62],
-                                            ),
-                                          ),
-                                        ),
-                                        if (_uploadingCover)
-                                          Container(
-                                            color: Colors.black38,
-                                            child: const Center(
-                                              child: CircularProgressIndicator(
-                                                color: Colors.white,
+                                    // 封面图纯装饰（用户名/简介另有文字承载），排除
+                                    // 出语义树——这个页面正是"点头像 context.push
+                                    // 跳转过来"的落地页，封面图异步加载完成触发的
+                                    // relayout 跟自己入场的转场动画抢语义树更新，
+                                    // 就会炸出 `!semantics.parentDataDirty` 断言，
+                                    // tutorial_detail_screen.dart/
+                                    // column_detail_screen.dart 的同款封面图
+                                    // 已经踩过这个坑
+                                    child: ExcludeSemantics(
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          _coverImageUrl != null
+                                              ? CachedNetworkImage(
+                                                  imageUrl: _coverImageUrl!,
+                                                  fit: BoxFit.cover,
+                                                  errorWidget:
+                                                      (context, url, error) =>
+                                                          const _CoverGradient(),
+                                                )
+                                              : const _CoverGradient(),
+                                          const DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Color(0x00000000),
+                                                  Color(0x40000000),
+                                                  Color(0xB3000000),
+                                                ],
+                                                stops: [0.0, 0.32, 0.62],
                                               ),
                                             ),
                                           ),
-                                      ],
+                                          if (_uploadingCover)
+                                            Container(
+                                              color: Colors.black38,
+                                              child: const Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                    ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
