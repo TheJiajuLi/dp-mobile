@@ -666,6 +666,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get attachImage => '图片';
 
   @override
+  String get attachCamera => '拍照';
+
+  @override
+  String get attachFile => '文件';
+
+  @override
+  String get attachTemplate => '模板';
+
+  @override
+  String get attachMore => '更多';
+
+  @override
+  String get copyAction => '复制';
+
+  @override
+  String get copiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get today => '今天';
+
+  @override
+  String get yesterday => '昨天';
+
+  @override
+  String get viewProfileAction => '查看资料';
+
+  @override
   String get sendCode => '发送代码';
 
   @override

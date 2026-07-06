@@ -676,6 +676,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get attachImage => 'Image';
 
   @override
+  String get attachCamera => 'Camera';
+
+  @override
+  String get attachFile => 'File';
+
+  @override
+  String get attachTemplate => 'Template';
+
+  @override
+  String get attachMore => 'More';
+
+  @override
+  String get copyAction => 'Copy';
+
+  @override
+  String get copiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get today => 'Today';
+
+  @override
+  String get yesterday => 'Yesterday';
+
+  @override
+  String get viewProfileAction => 'View Profile';
+
+  @override
   String get sendCode => 'Send Code';
 
   @override

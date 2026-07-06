@@ -3,14 +3,18 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/storage_checker.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
@@ -18,6 +22,23 @@ import '../models/message_model.dart';
 import '../providers/messages_provider.dart';
 
 const _primary = Color(0xFF6366F1);
+
+// 消息列表按天分组后拼出来的时间线——日期分隔条跟消息本体混在同一个
+// 列表里渲染，用 sealed class 区分这一项到底是分隔条还是消息，比
+// itemBuilder 里临时判断"这条是不是新的一天"更清楚
+sealed class _TimelineItem {
+  const _TimelineItem();
+}
+
+class _DateSeparator extends _TimelineItem {
+  final DateTime day;
+  const _DateSeparator(this.day);
+}
+
+class _MessageItem extends _TimelineItem {
+  final ChatMessage message;
+  const _MessageItem(this.message);
+}
 
 String _initial(String? name) {
   if (name == null || name.isEmpty) return '?';
@@ -103,7 +124,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // mounted 只能判断"还在树上"，判断不了"当前是不是被盖住"，页面被 push
   // 覆盖后依然是 mounted——真正要挡的是这种情况，所以额外查
   // ModalRoute.isCurrent
-  bool get _isRouteActive => mounted && (ModalRoute.of(context)?.isCurrent ?? true);
+  bool get _isRouteActive =>
+      mounted && (ModalRoute.of(context)?.isCurrent ?? true);
 
   @override
   void initState() {
@@ -310,11 +332,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     await _loadMessages();
   }
 
-  Future<void> _sendImage() async {
+  Future<void> _sendImage({ImageSource source = ImageSource.gallery}) async {
     if (_sendingImage) return;
     final picker = ImagePicker();
     final file = await picker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
       maxWidth: 1920,
       maxHeight: 1920,
       imageQuality: 80,
@@ -377,6 +399,172 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  // 通用文件——复用图片走的同一个 /auth/files/upload（notebook 编辑页导入
+  // 数据文件也是这个接口），只是这次上传结果的用途是发一条 type='file'
+  // 的消息，metadata 里存文件名/字节数给气泡展示用
+  Future<void> _sendFile() async {
+    if (_sendingImage) return;
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty) return;
+    final picked = result.files.first;
+    final bytes = picked.bytes;
+    if (bytes == null || !mounted) return;
+
+    final ok = await StorageChecker.checkAndPrompt(
+      context,
+      ref,
+      estimatedBytes: bytes.length,
+    );
+    if (!ok) return;
+    if (!mounted) return;
+
+    setState(() => _sendingImage = true);
+    try {
+      final l10n = AppLocalizations.of(context)!;
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: picked.name),
+      });
+      final uploadRes = await ref
+          .read(apiClientProvider)
+          .post('/auth/files/upload', data: formData);
+      if (!uploadRes.success) {
+        throw Exception(uploadRes.message ?? l10n.uploadFailedRetry);
+      }
+      final fileUrl = (uploadRes.data as Map)['url'] as String?;
+      if (fileUrl == null) throw Exception(l10n.uploadFailedRetry);
+
+      await _send(
+        text: fileUrl,
+        type: 'file',
+        metadata: {'filename': picked.name, 'size': bytes.length},
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.sendImageFailedWithReason(
+                e.toString().replaceAll('Exception: ', ''),
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingImage = false);
+    }
+  }
+
+  // 分享教程——挑自己已发布的教程，接通 message_model.dart 注释里早就写了
+  // 但从来没真正用过的 type='tutorial'。标题/封面都是这一条真实教程的
+  // 数据，不是编的
+  Future<void> _showTutorialPicker() async {
+    final l10n = AppLocalizations.of(context)!;
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    final res = await ref
+        .read(apiClientProvider)
+        .get(
+          '/auth/tutorials',
+          queryParameters: {
+            'author': currentUser.username,
+            'status': 'published',
+          },
+        );
+    if (!mounted) return;
+    final tutorials = (res.success && res.data != null)
+        ? ((res.data['tutorials'] as List?) ?? [])
+              .map((j) => TutorialModel.fromJson(j as Map<String, dynamic>))
+              .where((t) => t.userId == currentUser.id)
+              .toList()
+        : <TutorialModel>[];
+
+    if (tutorials.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.noTutorialsPublished)));
+      return;
+    }
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                l10n.tutorial,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: tutorials.length,
+                itemBuilder: (ctx, i) {
+                  final t = tutorials[i];
+                  return ListTile(
+                    leading: t.coverImage?.isNotEmpty == true
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CachedNetworkImage(
+                              imageUrl: t.coverImage!,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: _primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.article_outlined,
+                              color: _primary,
+                            ),
+                          ),
+                    title: Text(
+                      t.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _send(
+                        text: t.id,
+                        type: 'tutorial',
+                        metadata: {'title': t.title, 'cover': t.coverImage},
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showImagePreview(BuildContext context, String url) {
     Navigator.push(
       context,
@@ -391,6 +579,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           body: Center(
             child: InteractiveViewer(child: CachedNetworkImage(imageUrl: url)),
           ),
+        ),
+      ),
+    );
+  }
+
+  // 头顶"..."菜单——参考截图里这个位置紧挨着语音/视频通话按钮，但那两个
+  // 按钮这次明确不加（没有实时通话能力）；真正能做的只有跳转对方主页，
+  // 是已经在用的真实路由，不是新功能
+  void _showChatMenu() {
+    final l10n = AppLocalizations.of(context)!;
+    final otherId = widget.conversation?.otherUserId ?? '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: Text(l10n.viewProfileAction),
+              onTap: () {
+                Navigator.pop(ctx);
+                if (otherId.isNotEmpty) context.push('/users/$otherId');
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -422,21 +642,57 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+                _attachBtn(Icons.image, l10n.attachImage, () {
+                  Navigator.pop(ctx);
+                  _sendImage();
+                }),
+                _attachBtn(Icons.camera_alt_outlined, l10n.attachCamera, () {
+                  Navigator.pop(ctx);
+                  _sendImage(source: ImageSource.camera);
+                }),
+                _attachBtn(
+                  Icons.insert_drive_file_outlined,
+                  l10n.attachFile,
+                  () {
+                    Navigator.pop(ctx);
+                    _sendFile();
+                  },
+                ),
                 _attachBtn(Icons.code, l10n.attachCode, () {
                   Navigator.pop(ctx);
                   _showCodeInput();
                 }),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
                 _attachBtn(Icons.functions, l10n.attachFormula, () {
                   Navigator.pop(ctx);
                   _showLatexInput();
                 }),
                 _attachBtn(Icons.article_outlined, l10n.tutorial, () {
                   Navigator.pop(ctx);
-                  // TODO: 选择教程分享
+                  _showTutorialPicker();
                 }),
-                _attachBtn(Icons.image, l10n.attachImage, () {
+                // 消息模板——参考截图有这个入口，但后端/前端都还没有"消息
+                // 模板"这个概念，点了给"即将上线"反馈，不是编一套假模板
+                _attachBtn(
+                  Icons.dashboard_customize_outlined,
+                  l10n.attachTemplate,
+                  () {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.comingSoonStayTuned)),
+                    );
+                  },
+                ),
+                _attachBtn(Icons.more_horiz, l10n.attachMore, () {
                   Navigator.pop(ctx);
-                  _sendImage();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.comingSoonStayTuned)),
+                  );
                 }),
               ],
             ),
@@ -447,76 +703,101 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  static const _codeLanguages = ['Python', 'JavaScript', 'SQL', 'Text'];
+
   void _showCodeInput() {
     final l10n = AppLocalizations.of(context)!;
     final codeCtrl = TextEditingController();
+    var selectedLanguage = _codeLanguages.first;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.sendCode,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: TextField(
-                controller: codeCtrl,
-                maxLines: 6,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.sendCode,
                 style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  color: Colors.white,
-                ),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: l10n.codeInputHint,
-                  hintStyle: const TextStyle(color: Colors.grey),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                children: _codeLanguages.map((lang) {
+                  final selected = lang == selectedLanguage;
+                  return ChoiceChip(
+                    label: Text(lang, style: const TextStyle(fontSize: 12)),
+                    selected: selected,
+                    onSelected: (_) =>
+                        setSheetState(() => selectedLanguage = lang),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C1E),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: TextField(
+                  controller: codeCtrl,
+                  maxLines: 6,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: l10n.codeInputHint,
+                    hintStyle: const TextStyle(color: Colors.grey),
                   ),
                 ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _send(text: codeCtrl.text.trim(), type: 'code');
-                },
-                child: Text(
-                  l10n.send,
-                  style: const TextStyle(color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _send(
+                      text: codeCtrl.text.trim(),
+                      type: 'code',
+                      metadata: {'language': selectedLanguage},
+                    );
+                  },
+                  child: Text(
+                    l10n.send,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -677,7 +958,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                         ),
                       ),
-                      const Icon(Icons.more_horiz, size: 22),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _showChatMenu,
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.more_horiz, size: 22),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -686,20 +974,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
             // 消息列表——陌生人提示条不放在输入框上方（那样固定占一条横栏，
             // 每次进来都要看一眼），改成跟网易云一样，当成"第一条消息"的
-            // 占位插在消息列表顶部，滚动上去才看得到，更不打扰
+            // 占位插在消息列表顶部，滚动上去才看得到，更不打扰。日期分隔条
+            // 混在消息中间，先按天分组拼成一份 timeline 再渲染，不是每个
+            // item 各自临时判断——分组结果每条消息只用算一次
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _messages.length + (_hasStrangerHint ? 1 : 0),
-                      itemBuilder: (ctx, i) {
-                        if (_hasStrangerHint && i == 0) {
-                          return _buildStrangerHint();
-                        }
-                        final msgIndex = _hasStrangerHint ? i - 1 : i;
-                        return _buildBubble(_messages[msgIndex], currentUserId);
+                  : Builder(
+                      builder: (ctx) {
+                        final timeline = _buildTimeline();
+                        final hintOffset = _hasStrangerHint ? 1 : 0;
+                        return ListView.builder(
+                          controller: _scrollCtrl,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: timeline.length + hintOffset,
+                          itemBuilder: (ctx, i) {
+                            if (_hasStrangerHint && i == 0) {
+                              return _buildStrangerHint();
+                            }
+                            final item = timeline[i - hintOffset];
+                            return switch (item) {
+                              _DateSeparator(:final day) => _buildDateSeparator(
+                                day,
+                              ),
+                              _MessageItem(:final message) => _buildBubble(
+                                message,
+                                currentUserId,
+                              ),
+                            };
+                          },
+                        );
                       },
                     ),
             ),
@@ -813,6 +1117,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  // _messages 本来就按时间正序排列（最新的在最后），这里只是按自然日
+  // 分组插分隔条，不改变消息本身的顺序
+  List<_TimelineItem> _buildTimeline() {
+    final items = <_TimelineItem>[];
+    DateTime? lastDay;
+    for (final msg in _messages) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(msg.createdAt);
+      final day = DateTime(dt.year, dt.month, dt.day);
+      if (lastDay == null || day != lastDay) {
+        items.add(_DateSeparator(day));
+        lastDay = day;
+      }
+      items.add(_MessageItem(msg));
+    }
+    return items;
+  }
+
+  Widget _buildDateSeparator(DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    String label;
+    if (day == today) {
+      label = AppLocalizations.of(context)!.today;
+    } else if (day == yesterday) {
+      label = AppLocalizations.of(context)!.yesterday;
+    } else {
+      const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+      label = '${day.month}月${day.day}日 星期${weekdays[day.weekday - 1]}';
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBubble(ChatMessage msg, String currentUserId) {
     final isMe = msg.senderId == currentUserId;
 
@@ -841,11 +1186,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                _buildBubbleContent(msg, isMe),
+                // 长按预留消息互动（点赞/表情回应）的手势位置——后端还没有
+                // 反应接口，先给"即将上线"反馈，不是编一套本地假状态
+                GestureDetector(
+                  onLongPress: () => ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        AppLocalizations.of(context)!.comingSoonStayTuned,
+                      ),
+                    ),
+                  ),
+                  child: _buildBubbleContent(msg, isMe),
+                ),
                 const SizedBox(height: 3),
-                Text(
-                  _formatTime(msg.createdAt),
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _formatTime(msg.createdAt),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    // 已读回执——is_read 是真实字段（打开会话时后端会把对方
+                    // 发来的消息标成已读），只在"我发的"这一侧显示，对方
+                    // 发给我的消息没必要标"我有没有读对方的"
+                    if (isMe) ...[
+                      const SizedBox(width: 3),
+                      Icon(
+                        msg.isRead ? Icons.done_all : Icons.done,
+                        size: 13,
+                        color: msg.isRead ? _primary : Colors.grey,
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -860,6 +1232,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Widget _buildBubbleContent(ChatMessage msg, bool isMe) {
+    final l10n = AppLocalizations.of(context)!;
     if (msg.type == 'image') {
       return GestureDetector(
         onTap: () => _showImagePreview(context, msg.content),
@@ -933,19 +1306,222 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     if (msg.type == 'code') {
+      final language = msg.metadata?['language'] as String? ?? 'text';
+      final lines = msg.content.split('\n');
+      final sizeLabel = _formatBytes(utf8.encode(msg.content).length);
       return Container(
-        padding: const EdgeInsets.all(12),
+        width: 240,
         decoration: BoxDecoration(
           color: const Color(0xFF1C1C1E),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Text(
-          msg.content,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 13,
-            color: Colors.white,
-            height: 1.5,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: _primary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.code_rounded,
+                      size: 15,
+                      color: _primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$language · $sizeLabel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _showCodeMessageMenu(msg.content),
+                    child: const Icon(
+                      Icons.more_horiz,
+                      size: 18,
+                      color: Colors.white54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Colors.white12),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < lines.length; i++)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            child: Text(
+                              '${i + 1}',
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                color: Colors.white30,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            lines[i],
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: Colors.white,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (msg.type == 'file') {
+      final filename = msg.metadata?['filename'] as String? ?? '文件';
+      final size = (msg.metadata?['size'] as num?)?.toInt() ?? 0;
+      return GestureDetector(
+        onTap: () => _openLink(msg.content),
+        child: Container(
+          width: 220,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isMe ? _primary : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: isMe
+                ? null
+                : Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: (isMe ? Colors.white : _primary).withValues(
+                    alpha: 0.18,
+                  ),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  Icons.insert_drive_file_outlined,
+                  size: 18,
+                  color: isMe ? Colors.white : _primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      filename,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isMe
+                            ? Colors.white
+                            : Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    Text(
+                      _formatBytes(size),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isMe ? Colors.white70 : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (msg.type == 'tutorial') {
+      final title = msg.metadata?['title'] as String? ?? l10n.tutorial;
+      final cover = msg.metadata?['cover'] as String?;
+      return GestureDetector(
+        onTap: () => context.push('/tutorial/${msg.content}'),
+        child: Container(
+          width: 220,
+          decoration: BoxDecoration(
+            color: isMe ? _primary : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: isMe
+                ? null
+                : Border.all(color: Theme.of(context).dividerColor),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (cover?.isNotEmpty == true)
+                CachedNetworkImage(
+                  imageUrl: cover!,
+                  height: 100,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.article_outlined,
+                      size: 14,
+                      color: isMe ? Colors.white70 : _primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isMe
+                              ? Colors.white
+                              : Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -984,5 +1560,50 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
     return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  void _showCodeMessageMenu(String code) {
+    final l10n = AppLocalizations.of(context)!;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: Text(l10n.copyAction),
+              onTap: () {
+                Navigator.pop(ctx);
+                Clipboard.setData(ClipboardData(text: code));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(l10n.copiedToClipboard)));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLink(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }

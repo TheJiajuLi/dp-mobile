@@ -516,16 +516,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildAppGrid(BuildContext context, AppLocalizations l10n) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 12),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: _appEntries.length,
+        // 之前 childAspectRatio: 0.95（接近正方形格子）留出的高度比图标+文字
+        // 实际需要的多出一大截，看起来大片空白——图标52+间距+文字撑死也就
+        // 76px高，格子宽度却有110+px，改成1.5让格子更扁、贴近内容实际高度
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
-          mainAxisSpacing: 14,
+          mainAxisSpacing: 4,
           crossAxisSpacing: 8,
-          childAspectRatio: 0.95,
+          childAspectRatio: 1.5,
         ),
         itemBuilder: (context, index) {
           final entry = _appEntries[index];
@@ -884,15 +887,15 @@ class _AppEntryCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: entry.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(entry.icon, color: entry.color, size: 24),
+                child: Icon(entry.icon, color: entry.color, size: 22),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 _appName(l10n, entry.id),
                 textAlign: TextAlign.center,

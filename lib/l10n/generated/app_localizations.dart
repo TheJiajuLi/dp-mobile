@@ -1340,6 +1340,60 @@ abstract class AppLocalizations {
   /// **'Image'**
   String get attachImage;
 
+  /// No description provided for @attachCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get attachCamera;
+
+  /// No description provided for @attachFile.
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get attachFile;
+
+  /// No description provided for @attachTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Template'**
+  String get attachTemplate;
+
+  /// No description provided for @attachMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get attachMore;
+
+  /// No description provided for @copyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copyAction;
+
+  /// No description provided for @copiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get copiedToClipboard;
+
+  /// No description provided for @today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get today;
+
+  /// No description provided for @yesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get yesterday;
+
+  /// No description provided for @viewProfileAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View Profile'**
+  String get viewProfileAction;
+
   /// No description provided for @sendCode.
   ///
   /// In en, this message translates to:
