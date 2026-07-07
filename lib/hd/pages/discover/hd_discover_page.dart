@@ -11,7 +11,11 @@ const _kTutorials = [
     'color': Color(0xFF0D0D1A),
     'icon': Icons.code,
     'iconColor': Color(0xFF818CF8),
-    'desc': '泊松分布描述单位时间内独立随机事件发生次数的离散概率分布，在排队论、保险精算、物理学等领域有广泛应用。',
+    'desc': '泊松分布描述单位时间内随机事件的发生次数。参数 λ 同时等于期望值和方差，这是其最重要的统计特性。',
+    'tags': ['Python', '数学', '数据分析'],
+    'date': '2026-07-07',
+    'code':
+        'from scipy import stats\nimport numpy as np\n# λ=3.5\nmu = 3.5\ndata = np.random.poisson(mu, 1000)',
   },
   {
     'id': '2',
@@ -23,6 +27,9 @@ const _kTutorials = [
     'icon': Icons.functions,
     'iconColor': Color(0xFFD97706),
     'desc': '微积分基本定理建立了积分与导数的深刻联系，是整个微积分学科的核心。',
+    'tags': ['数学', '微积分', '极限'],
+    'date': '2026-07-06',
+    'code': null,
   },
   {
     'id': '3',
@@ -34,6 +41,9 @@ const _kTutorials = [
     'icon': Icons.blur_circular,
     'iconColor': Color(0xFFA78BFA),
     'desc': '史瓦西半径定义了黑洞事件视界的大小，是广义相对论最重要的预测之一。',
+    'tags': ['天体物理', '相对论'],
+    'date': '2026-07-05',
+    'code': null,
   },
   {
     'id': '4',
@@ -45,6 +55,9 @@ const _kTutorials = [
     'icon': Icons.show_chart,
     'iconColor': Color(0xFF16A34A),
     'desc': '本季度GDP增速4.7%，CPI温和上涨，就业市场保持韧性，货币政策预期转向。',
+    'tags': ['经济', '宏观数据'],
+    'date': '2026-07-04',
+    'code': null,
   },
   {
     'id': '5',
@@ -56,6 +69,9 @@ const _kTutorials = [
     'icon': Icons.biotech,
     'iconColor': Color(0xFFDC2626),
     'desc': 'CRISPR-Cas9技术在基因治疗领域取得重大突破，多项临床试验进入关键阶段。',
+    'tags': ['生命科学', '基因编辑'],
+    'date': '2026-07-03',
+    'code': null,
   },
   {
     'id': '6',
@@ -67,6 +83,10 @@ const _kTutorials = [
     'icon': Icons.people_outline,
     'iconColor': Color(0xFF6366F1),
     'desc': 'RFM模型通过最近购买时间、购买频率、购买金额三个维度对客户进行精准分层。',
+    'tags': ['Python', '数据分析', '客户分层'],
+    'date': '2026-07-02',
+    'code':
+        'df[\'R_score\'] = pd.qcut(\n    df[\'recency\'], 5, labels=[5,4,3,2,1])',
   },
 ];
 
@@ -82,6 +102,7 @@ class HdDiscoverPage extends StatefulWidget {
 class _HdDiscoverPageState extends State<HdDiscoverPage> {
   Map<String, dynamic>? _selected = _kTutorials.first;
   String _domain = '全部';
+  final _following = <String>{};
 
   List<Map<String, dynamic>> get _filtered {
     if (_domain == '全部') return _kTutorials;
@@ -343,7 +364,7 @@ class _HdDiscoverPageState extends State<HdDiscoverPage> {
                           ),
                         ),
                         Text(
-                          '${t['domain']} · ${t['views']}浏览',
+                          '${t['date']} · ${t['views']}浏览',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF999999),
@@ -352,6 +373,8 @@ class _HdDiscoverPageState extends State<HdDiscoverPage> {
                       ],
                     ),
                     const Spacer(),
+                    _followButton(t['id'] as String),
+                    const SizedBox(width: 8),
                     // 阅读全文
                     GestureDetector(
                       onTap: () {},
@@ -386,6 +409,32 @@ class _HdDiscoverPageState extends State<HdDiscoverPage> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+
+                // 标签
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: (t['tags'] as List).cast<String>().map((tag) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        '#$tag',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF6366F1),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
                 const SizedBox(height: 16),
 
                 // 分割线
@@ -401,9 +450,96 @@ class _HdDiscoverPageState extends State<HdDiscoverPage> {
                     height: 1.8,
                   ),
                 ),
+
+                if (t['code'] != null) ...[
+                  const SizedBox(height: 16),
+                  _codeBlock(t['code'] as String),
+                ],
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _followButton(String id) {
+    final following = _following.contains(id);
+    return GestureDetector(
+      onTap: () => setState(() {
+        following ? _following.remove(id) : _following.add(id);
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: following ? const Color(0xFFF0F0F0) : const Color(0xFF6366F1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          following ? '已关注' : '关注',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: following ? const Color(0xFF666666) : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 纯视觉的静态代码块——手动上色几个关键 token 做近似高亮，不接真实
+  // 语法解析器/不可运行，跟沙盒其它地方一样只做 layout
+  Widget _codeBlock(String code) {
+    const keywordColor = Color(0xFFC792EA);
+    const commentColor = Color(0xFF6B7280);
+    const numberColor = Color(0xFFF78C6C);
+    const plainColor = Color(0xFFE2E8F0);
+    const keywords = ['from', 'import', 'as', 'df'];
+
+    final spans = <TextSpan>[];
+    for (final line in code.split('\n')) {
+      if (line.trim().startsWith('#')) {
+        spans.add(
+          TextSpan(
+            text: '$line\n',
+            style: const TextStyle(color: commentColor),
+          ),
+        );
+        continue;
+      }
+      for (final word in line.split(RegExp(r'(\s+)'))) {
+        if (word.isEmpty) continue;
+        final isKeyword = keywords.contains(word.trim());
+        final isNumber = RegExp(r'^\d+(\.\d+)?$').hasMatch(word.trim());
+        spans.add(
+          TextSpan(
+            text: word,
+            style: TextStyle(
+              color: isKeyword
+                  ? keywordColor
+                  : isNumber
+                  ? numberColor
+                  : plainColor,
+            ),
+          ),
+        );
+      }
+      spans.add(const TextSpan(text: '\n'));
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text.rich(
+        TextSpan(children: spans),
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12.5,
+          height: 1.6,
         ),
       ),
     );
