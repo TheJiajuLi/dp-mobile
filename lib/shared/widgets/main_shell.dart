@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/responsive.dart';
 import '../../features/messages/providers/messages_provider.dart';
 import '../../l10n/generated/app_localizations.dart';
 
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   const MainShell({super.key, required this.navigationShell});
@@ -18,7 +19,7 @@ class MainShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     // 底部导航条之前固定白底——大部分页面本来就是浅色主题，看不出问题，
     // 但深色主题的页面（比如个人主页下半部）滚到底就会露出这一整条刺眼的
@@ -27,6 +28,31 @@ class MainShell extends StatelessWidget {
     // scaffoldBackgroundColor）——纯白跟首页/发现页/消息页/个人主页实际的
     // 浅灰白背景不是同一个值，两者拼在一起会露出一条很淡但看得出来的接缝
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // iPad（宽度>=600）改成左侧竖排导航栏——iPhone 底部导航完全不动。这是
+    // 重新搭的精简版：4个真实目的地 + 发布，跟手机底部 Tab 完全对应，
+    // 不是之前那套被 git reset 弄丢的、后来越叠越复杂的版本；后续要加
+    // 分组/Notebook 入口等，等真的有对应页面了再加，避免又堆出一堆点了
+    // 没反应的占位项
+    if (Responsive.isTablet(context)) {
+      return Scaffold(
+        backgroundColor: isDark
+            ? Theme.of(context).scaffoldBackgroundColor
+            : const Color(0xFFF5F5F7),
+        body: Row(
+          children: [
+            _buildRail(context, ref, l10n, isDark),
+            VerticalDivider(
+              width: 0.5,
+              thickness: 0.5,
+              color: Theme.of(context).dividerColor,
+            ),
+            Expanded(child: navigationShell),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
@@ -93,6 +119,191 @@ class MainShell extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRail(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    bool isDark,
+  ) {
+    final unread = ref.watch(unreadCountProvider);
+    return Container(
+      width: 220,
+      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '极',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6366F1),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.appName,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(
+            height: 0.5,
+            thickness: 0.5,
+            color: Theme.of(context).dividerColor,
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              children: [
+                _railItem(
+                  context,
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home,
+                  label: l10n.navHome,
+                  isActive: navigationShell.currentIndex == 0,
+                  isDark: isDark,
+                  onTap: () => _onTap(0),
+                ),
+                _railItem(
+                  context,
+                  icon: Icons.explore_outlined,
+                  activeIcon: Icons.explore,
+                  label: l10n.navCommunity,
+                  isActive: navigationShell.currentIndex == 1,
+                  isDark: isDark,
+                  onTap: () => _onTap(1),
+                ),
+                _railItem(
+                  context,
+                  icon: Icons.chat_bubble_outline,
+                  activeIcon: Icons.chat_bubble,
+                  label: l10n.messagesTitle,
+                  isActive: navigationShell.currentIndex == 2,
+                  isDark: isDark,
+                  badgeCount: unread,
+                  onTap: () => _onTap(2),
+                ),
+                _railItem(
+                  context,
+                  icon: Icons.person_outline,
+                  activeIcon: Icons.person,
+                  label: l10n.navProfile,
+                  isActive: navigationShell.currentIndex == 3,
+                  isDark: isDark,
+                  onTap: () => _onTap(3),
+                ),
+                const SizedBox(height: 8),
+                Divider(
+                  height: 0.5,
+                  thickness: 0.5,
+                  color: Theme.of(context).dividerColor,
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => context.push('/publish'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF6366F1)
+                          : const Color(0xFF1A1A1A),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.add, color: Colors.white, size: 16),
+                        const SizedBox(width: 5),
+                        Text(
+                          l10n.publish,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _railItem(
+    BuildContext context, {
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required bool isActive,
+    required bool isDark,
+    required VoidCallback onTap,
+    int badgeCount = 0,
+  }) {
+    final activeColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final inactiveColor = isDark ? Colors.white38 : const Color(0xFF999999);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFF6366F1).withValues(alpha: isDark ? 0.2 : 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Badge(
+              isLabelVisible: badgeCount > 0,
+              label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
+              backgroundColor: Colors.red,
+              child: Icon(
+                isActive ? activeIcon : icon,
+                size: 19,
+                color: isActive ? activeColor : inactiveColor,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive ? activeColor : inactiveColor,
+              ),
+            ),
+          ],
         ),
       ),
     );
