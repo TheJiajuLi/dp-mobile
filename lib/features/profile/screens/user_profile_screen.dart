@@ -1447,6 +1447,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     required String displayUsername,
     required String? displayBio,
     required String? displayLocation,
+    required String? displayIpLocation,
     required String? displayOccupation,
     required String? displayGender,
     required ZodiacSign? displayZodiacSign,
@@ -1715,6 +1716,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               Icons.location_on_outlined,
                               displayLocation!,
                             ),
+                          if (displayIpLocation?.isNotEmpty ?? false)
+                            _infoChip(Icons.public, displayIpLocation!),
                           if (displayOccupation?.isNotEmpty ?? false)
                             _infoChip(Icons.work_outline, displayOccupation!),
                           if (displayZodiacSign != null)
@@ -2049,6 +2052,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     // GET /auth/users/profile/:identifier 还没有这个字段，查看别人主页
     // 时恒为 null，UI 已经按"null 就不显示"处理
     final displayOccupation = isSelfView ? currentUser?.occupation : null;
+    // IP属地——系统判定、不可编辑，跟上面用户自己填的所在地是两码事。
+    // 2026-07-06起本来从这一行拿掉过（为了省空间），现在放回来，位置在
+    // 所在地和职业之间：所在地是用户自己说的，IP属地是系统判定的，职业
+    // 紧接着星座——都跟同一份 GET /auth/me 数据源同款"后端没上线就是
+    // null，UI 已经按不显示处理"的套路
+    final displayIpLocation = isSelfView ? currentUser?.ipLocation : null;
     // 性别选了"保密"就当没填——不展示一个写着"保密"的标签，那样反而
     // 暴露了"这个人特意选择不说"，比干脆不出现这一项更奇怪
     final rawGender = isSelfView
@@ -2111,6 +2120,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         displayUsername: displayUsername,
                         displayBio: displayBio,
                         displayLocation: displayLocation,
+                        displayIpLocation: displayIpLocation,
                         displayOccupation: displayOccupation,
                         displayGender: displayGender,
                         displayZodiacSign: displayZodiacSign,

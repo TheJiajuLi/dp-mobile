@@ -168,8 +168,6 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                     followerTarget: auroraFollowerTarget,
                     onTap: () => context.push('/creator/aurora'),
                   ),
-                  const SizedBox(height: 16),
-                  _draftBoxRow(isDark),
                 ],
               ),
       ),
@@ -394,76 +392,4 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     );
   }
 
-  // 点开直接跳作品管理的草稿tab，而不是空手跳发布页——"草稿箱"这个入口
-  // 本身的意思就是"看我的草稿"，不是"新建一篇"，作品管理页正好已经有
-  // 一个草稿 tab，不用重复做一遍列表
-  Widget _draftBoxRow(bool isDark) {
-    return GestureDetector(
-      onTap: () => context.push('/creator/works', extra: 1),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : null,
-          gradient: isDark
-              ? null
-              : const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFF5F3FF), Color(0xFFFAFAFF)],
-                ),
-          borderRadius: BorderRadius.circular(16),
-          border: isDark
-              ? null
-              : Border.all(color: _primary.withValues(alpha: 0.1)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : _primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(
-                Icons.edit_note,
-                size: 20,
-                color: isDark ? Colors.white70 : _primary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '草稿箱',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  Text(
-                    '$_draftCount篇草稿等待完成',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.white54 : const Color(0xFF999999),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: isDark ? Colors.white38 : const Color(0xFFC7C7CC),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
