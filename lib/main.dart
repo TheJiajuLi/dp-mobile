@@ -18,6 +18,16 @@ import 'l10n/generated/app_localizations.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 临时诊断用：捕获完整 FlutterError（含 stack），排查
+  // semantics.parentDataDirty 断言崩溃时定位真正的调用链。排查完记得删掉
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('═══ FLUTTER ERROR ═══');
+    debugPrint(details.toString());
+    debugPrint(details.stack.toString());
+    debugPrint('═══════════════════');
+  };
+
   // /auth/refresh 认的是登录时后端下发的 dp_refresh HttpOnly cookie，必须
   // 落盘（PersistCookieJar）才能在 App 被系统整个杀掉重启后依然有效——
   // 只是"划走切到后台但进程没被杀"的话，内存态的 cookie 本来就不会丢
