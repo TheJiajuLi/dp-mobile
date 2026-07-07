@@ -112,6 +112,10 @@ class _HdDiscoverPageState extends State<HdDiscoverPage> {
   @override
   Widget build(BuildContext context) {
     return Row(
+      // Row 默认 crossAxisAlignment.center——右栏预览是可滚动内容，自身
+      // 高度只有内容那么高，不撑满的话就会被居中，跟左栏顶部对不齐、
+      // 上面空出一大截。改成 stretch 强制两栏都撑满整个可用高度
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 左栏：270px
         SizedBox(
