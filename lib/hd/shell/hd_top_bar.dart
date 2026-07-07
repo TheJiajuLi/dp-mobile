@@ -10,12 +10,8 @@ class HdTopBar extends StatelessWidget {
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
-        ),
-      ),
+      // 跟 HdShell 的灰色背景（0xFFF5F5F7）拼色，不再是浮在灰底上的白条
+      decoration: const BoxDecoration(color: Color(0xFFF5F5F7)),
       child: Row(
         children: [
           Text(
@@ -56,7 +52,7 @@ class HdTopBar extends StatelessWidget {
             width: 160,
             height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F2),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
             ),
