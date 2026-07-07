@@ -31,6 +31,13 @@ class UserModel {
   // （截至2026-07-07），先按 gender/occupation 这些字段同样的套路加上，
   // 恒为 false 不影响现有用户，等后端 ALTER TABLE 加了这一列直接生效
   final bool isFoundingCreator;
+  // 会员等级——实测确认（2026-07-08）GET /auth/me 的 SELECT 列表里已经有
+  // membership/membership_expires_at 这两列，不是"后端还没上线"的过渡态
+  // 字段，可以直接读。之前 VIP 徽章/Pro 权限判断都是绕道另外请求
+  // GET /auth/storage/usage 才能拿到 membership，现在能直接从
+  // currentUserProvider 读，不用再多打一次网络请求
+  final String? membership;
+  final int? membershipExpiresAt;
 
   const UserModel({
     required this.id,
@@ -51,6 +58,8 @@ class UserModel {
     this.tags = const [],
     this.occupation,
     this.isFoundingCreator = false,
+    this.membership,
+    this.membershipExpiresAt,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -75,6 +84,8 @@ class UserModel {
     isFoundingCreator:
         json['is_founding_creator'] == true ||
         json['is_founding_creator'] == 1,
+    membership: json['membership'] as String?,
+    membershipExpiresAt: (json['membership_expires_at'] as num?)?.toInt(),
   );
 
   Map<String, dynamic> toJson() => {
@@ -96,6 +107,8 @@ class UserModel {
     'tags': tags,
     'occupation': occupation,
     'is_founding_creator': isFoundingCreator,
+    'membership': membership,
+    'membership_expires_at': membershipExpiresAt,
   };
 
   UserModel copyWith({
@@ -112,6 +125,9 @@ class UserModel {
     String? ipLocation,
     List<String>? tags,
     String? occupation,
+    bool? isFoundingCreator,
+    String? membership,
+    int? membershipExpiresAt,
   }) => UserModel(
     id: id,
     username: username ?? this.username,
@@ -130,5 +146,12 @@ class UserModel {
     ipLocation: ipLocation ?? this.ipLocation,
     tags: tags ?? this.tags,
     occupation: occupation ?? this.occupation,
+    // 会员/元老标识之前 copyWith 完全没带这两个字段——不是没暴露覆写
+    // 参数，是连"原样保留"都没做，调用方每次 copyWith（换头像/改资料）
+    // 都会把这两个字段悄悄重置成默认值（isFoundingCreator=false、
+    // membership=null）。这是一个真实存在的 latent bug，现在补上
+    isFoundingCreator: isFoundingCreator ?? this.isFoundingCreator,
+    membership: membership ?? this.membership,
+    membershipExpiresAt: membershipExpiresAt ?? this.membershipExpiresAt,
   );
 }
