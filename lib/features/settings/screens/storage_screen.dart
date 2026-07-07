@@ -59,24 +59,14 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     return '${(bytes / 1024 / 1024).toStringAsFixed(0)}MB';
   }
 
-  // 实测确认：GET /auth/storage/usage 里 categories[key].files 的每一项
-  // 完全没有 id 字段（只有 filename/file_type/size_bytes/cos_key/
-  // created_at/platform），跟 GET /auth/files 那个裸数组不一样。但
-  // DELETE /auth/files/:id 只能按 id 删——cos_key 的格式固定是
-  // "users/{userId}/{fileId}-{原始文件名}"，{fileId} 正好是标准 UUID
-  // （36个字符，第37个字符是分隔用的'-'），从这里能可靠地反推出 id。
-  // 反推失败（cos_key 缺失或格式对不上）就不显示删除按钮，不冒险删错
-  static final _uuidPattern = RegExp(
-    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-  );
-
-  String? _extractFileId(String? cosKey) {
-    if (cosKey == null || cosKey.isEmpty) return null;
-    final lastSegment = cosKey.split('/').last;
-    if (lastSegment.length <= 37 || lastSegment[36] != '-') return null;
-    final candidate = lastSegment.substring(0, 36);
-    return _uuidPattern.hasMatch(candidate) ? candidate : null;
-  }
+  // 之前这里靠反推 cos_key 拼出 id（假设格式固定是
+  // "users/{userId}/{fileId}-{原始文件名}"），但小梦生成的封面/头像走的是
+  // xmeng.controller.ts 的 persistImages，cos_key 是
+  // "users/{userId}/{subdir}/{timestamp}-{i}.jpg"，根本不含 UUID——导致
+  // 这类文件永远反推不出 id，删除按钮不显示、"清空此分类"里它们也永远
+  // 进不了可删除列表。实测确认（2026-07-07）GET /auth/storage/usage 的
+  // SQL 本来就 SELECT 了 id 这一列，直接读 f['id'] 就行，不需要反推
+  String? _fileIdOf(dynamic f) => f['id'] as String?;
 
   // 实测确认：media/docs/notebooks 分类里 cos_key 是相对路径
   // ("users/{userId}/{fileId}-{文件名}")，但 tutorials 分类的 cos_key
@@ -207,7 +197,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     final name = f['filename'] as String? ?? l10n.unknownFile;
     final size = (f['size_bytes'] as num?)?.toInt() ?? 0;
     final platform = f['platform'] as String? ?? 'mobile';
-    final fileId = _extractFileId(f['cos_key'] as String?);
+    final fileId = _fileIdOf(f);
     final isTutorial = categoryKey == 'tutorials';
     final status = f['status'] as String?;
     final isAudio = !isTutorial && _mediaKindOf(name) == _MediaKind.audio;
@@ -459,7 +449,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     final l10n = AppLocalizations.of(context)!;
     // 只统计真的能删（反推得出 id）的文件，跟实际会执行的删除数量对得上
     final deletable = files
-        .map((f) => (f: f, id: _extractFileId(f['cos_key'] as String?)))
+        .map((f) => (f: f, id: _fileIdOf(f)))
         .where((e) => e.id != null)
         .toList();
     final totalSize = deletable.fold<int>(
@@ -667,14 +657,34 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
           ),
 
           Container(
-            color: Theme.of(context).cardColor,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: Theme.of(context).brightness == Brightness.dark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+            ),
+            clipBehavior: Clip.antiAlias,
             child: Column(
-              children: folderDefs.map((folder) {
+              children: folderDefs.asMap().entries.map((entry) {
+                final folderIndex = entry.key;
+                final folder = entry.value;
                 final key = folder['key'] as String;
                 final cat = categories[key] as Map? ?? {};
                 final files = cat['files'] as List? ?? [];
                 final bytes = (cat['totalBytes'] as num?)?.toInt() ?? 0;
                 final isExpanded = _expandedCategory == key;
+                // 最后一个分类折叠时不画底部分割线——不然圆角卡片最下面
+                // 会贴着一条紧挨圆角的线，跟 SettingsGroup/_PreviewCard
+                // 最后一项不画分割线是同一个道理
+                final isLast = folderIndex == folderDefs.length - 1;
 
                 return Column(
                   children: [
@@ -684,11 +694,13 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                       ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: Theme.of(context).dividerColor),
-                          ),
-                        ),
+                        decoration: (isLast && !isExpanded)
+                            ? null
+                            : BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(color: Theme.of(context).dividerColor),
+                                ),
+                              ),
                         child: Row(
                           children: [
                             Container(

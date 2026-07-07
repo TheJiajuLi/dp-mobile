@@ -23,7 +23,12 @@ class SettingsSectionTitle extends StatelessWidget {
 
 class SettingsGroup extends StatelessWidget {
   final List<Widget> children;
-  const SettingsGroup(this.children, {super.key});
+  // 组内行之间分割线的左缩进——带图标方块的行（SettingsRow）用 62 对齐
+  // 图标右侧的文字起始位置；纯文字行（比如隐私设置里的开关，没有图标
+  // 方块）用更小的缩进（跟内容左padding对齐），不然分割线会显得凭空
+  // 从空白处开始，不是真的"更克制"而是错位
+  final double dividerIndent;
+  const SettingsGroup(this.children, {super.key, this.dividerIndent = 62});
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -34,7 +39,7 @@ class SettingsGroup extends StatelessWidget {
           Divider(
             height: 0.5,
             thickness: 0.5,
-            indent: 62,
+            indent: dividerIndent,
             color: Theme.of(context).dividerColor,
           ),
         );

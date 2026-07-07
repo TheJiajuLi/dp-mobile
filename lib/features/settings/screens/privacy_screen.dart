@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
+import '../widgets/settings_row.dart';
 
 class PrivacyScreen extends ConsumerStatefulWidget {
   const PrivacyScreen({super.key});
@@ -74,9 +75,11 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // 顶栏+页面背景统一用 scaffoldBackgroundColor（不再是 cardColor），
-    // 组内四行开关不再套一层单独的色块容器，改靠 Divider 分隔——
-    // 跟 account_security_screen.dart 是同一个"避免色块拼接"的修法
+    // 顶栏+页面背景统一用 scaffoldBackgroundColor（不再是 cardColor）。
+    // 四行开关跟设置页 SettingsGroup 一样浮在页面背景上的圆角卡片——
+    // 分割线缩进跟着 SwitchListTile 默认的 16 内边距对齐，而不是
+    // SettingsRow 那种带图标方块的 62（这里没有图标，62 会显得分割线
+    // 凭空从空白处开始）
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.privacySettings),
@@ -88,60 +91,50 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
       body: ListView(
         children: [
           const SizedBox(height: 8),
-          SwitchListTile(
-            title: Text(l10n.publicProfile),
-            subtitle: Text(l10n.publicProfileSubtitle),
-            value: _publicProfile,
-            activeThumbColor: const Color(0xFF6366F1),
-            onChanged: (v) {
-              setState(() => _publicProfile = v);
-              _save('privacy_public_profile', v);
-            },
-          ),
-          Divider(
-            height: 0.5,
-            indent: 16,
-            color: Theme.of(context).dividerColor,
-          ),
-          SwitchListTile(
-            title: Text(l10n.publicFavorites),
-            subtitle: Text(l10n.publicFavoritesSubtitle),
-            value: _publicFavorites,
-            activeThumbColor: const Color(0xFF6366F1),
-            onChanged: (v) {
-              setState(() => _publicFavorites = v);
-              _save('privacy_public_favorites', v);
-            },
-          ),
-          Divider(
-            height: 0.5,
-            indent: 16,
-            color: Theme.of(context).dividerColor,
-          ),
-          SwitchListTile(
-            title: Text(l10n.allowComments),
-            subtitle: Text(l10n.allowCommentsSubtitle),
-            value: _allowComments,
-            activeThumbColor: const Color(0xFF6366F1),
-            onChanged: (v) {
-              setState(() => _allowComments = v);
-              _save('privacy_allow_comments', v);
-            },
-          ),
-          Divider(
-            height: 0.5,
-            indent: 16,
-            color: Theme.of(context).dividerColor,
-          ),
-          SwitchListTile(
-            title: Text(l10n.allowMessages),
-            subtitle: Text(l10n.allowMessagesSubtitle),
-            value: _allowMessages,
-            activeThumbColor: const Color(0xFF6366F1),
-            onChanged: (v) {
-              setState(() => _allowMessages = v);
-              _save('privacy_allow_messages', v);
-            },
+          SettingsGroup(
+            dividerIndent: 16,
+            [
+              SwitchListTile(
+                title: Text(l10n.publicProfile),
+                subtitle: Text(l10n.publicProfileSubtitle),
+                value: _publicProfile,
+                activeThumbColor: const Color(0xFF6366F1),
+                onChanged: (v) {
+                  setState(() => _publicProfile = v);
+                  _save('privacy_public_profile', v);
+                },
+              ),
+              SwitchListTile(
+                title: Text(l10n.publicFavorites),
+                subtitle: Text(l10n.publicFavoritesSubtitle),
+                value: _publicFavorites,
+                activeThumbColor: const Color(0xFF6366F1),
+                onChanged: (v) {
+                  setState(() => _publicFavorites = v);
+                  _save('privacy_public_favorites', v);
+                },
+              ),
+              SwitchListTile(
+                title: Text(l10n.allowComments),
+                subtitle: Text(l10n.allowCommentsSubtitle),
+                value: _allowComments,
+                activeThumbColor: const Color(0xFF6366F1),
+                onChanged: (v) {
+                  setState(() => _allowComments = v);
+                  _save('privacy_allow_comments', v);
+                },
+              ),
+              SwitchListTile(
+                title: Text(l10n.allowMessages),
+                subtitle: Text(l10n.allowMessagesSubtitle),
+                value: _allowMessages,
+                activeThumbColor: const Color(0xFF6366F1),
+                onChanged: (v) {
+                  setState(() => _allowMessages = v);
+                  _save('privacy_allow_messages', v);
+                },
+              ),
+            ],
           ),
         ],
       ),
