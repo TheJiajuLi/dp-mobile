@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,10 +83,6 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   // initialValue；只在"应用优化结果"时才 +1，正常打字不碰它，
   // 不会打断输入焦点/光标位置
   int _textRevision = 0;
-  // 折叠只是编辑器里的临时视觉状态（省滚动空间），不是内容属性，不写进
-  // EditorBlock/不随发布内容持久化——重新进编辑页永远是展开的
-  bool _collapsed = false;
-  Offset _lastTapPosition = Offset.zero;
   // 代码块专用——用能实时按 token 上色的 controller 替代默认的
   // TextFormField(initialValue: ...)，编辑态才能跟阅读态一样有语法高亮
   late final HighlightingCodeController _codeCtrl = HighlightingCodeController(
@@ -155,23 +150,6 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                     color: Color(0xFF999999),
                   ),
                 ),
-                if (_collapsed) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      '已折叠',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF999999)),
-                    ),
-                  ),
-                ],
                 const Spacer(),
                 if (_showsAiButton)
                   _polishing
@@ -197,14 +175,37 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                             ),
                           ),
                         ),
+                if (widget.onMoveUp != null)
+                  GestureDetector(
+                    onTap: widget.onMoveUp,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.arrow_upward,
+                        size: 16,
+                        color: Color(0xFFBBBBBB),
+                      ),
+                    ),
+                  ),
+                if (widget.onMoveDown != null)
+                  GestureDetector(
+                    onTap: widget.onMoveDown,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.arrow_downward,
+                        size: 16,
+                        color: Color(0xFFBBBBBB),
+                      ),
+                    ),
+                  ),
                 GestureDetector(
-                  onTapDown: (d) => _lastTapPosition = d.globalPosition,
-                  onTap: _showMoreMenu,
+                  onTap: widget.onDelete,
                   child: const Padding(
                     padding: EdgeInsets.all(4),
                     child: Icon(
-                      Icons.more_horiz,
-                      size: 18,
+                      Icons.close,
+                      size: 16,
                       color: Color(0xFFBBBBBB),
                     ),
                   ),
@@ -229,131 +230,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
-            child: _collapsed
-                ? Text(
-                    _collapsedPreviewText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF999999),
-                    ),
-                  )
-                : _buildContent(l10n),
+            child: _buildContent(l10n),
           ),
-        ],
-      ),
-    );
-  }
-
-  // 折叠态下不同 block 类型的"内容"含义不一样——文字类直接给正文，媒体类
-  // 给文件名/说明，不然图片/视频这些 content 字段本来就是空的或存的是
-  // URL，折叠后会显示一片空白或一长串链接，看不出这是哪个 block
-  String get _collapsedPreviewText {
-    switch (widget.block.type) {
-      case BlockType.image:
-        return (widget.block.caption?.isNotEmpty ?? false)
-            ? widget.block.caption!
-            : '图片';
-      case BlockType.video:
-        return widget.block.fileName ?? '视频';
-      case BlockType.audio:
-        return widget.block.fileName ?? '音频';
-      case BlockType.file:
-        return widget.block.fileName ?? '文件';
-      case BlockType.link:
-        return (widget.block.linkUrl?.isNotEmpty ?? false)
-            ? widget.block.linkUrl!
-            : widget.block.content;
-      default:
-        return widget.block.content.isNotEmpty ? widget.block.content : '（空）';
-    }
-  }
-
-  Future<void> _showMoreMenu() async {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final isCode = widget.block.type == BlockType.code;
-
-    final result = await showMenu<String>(
-      context: context,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      position: RelativeRect.fromRect(
-        Rect.fromPoints(_lastTapPosition, _lastTapPosition),
-        Offset.zero & overlay.size,
-      ),
-      items: [
-        _moreMenuItem('copy', Icons.copy_outlined, '复制'),
-        if (isCode) _moreMenuItem('copy_code', Icons.code, '复制代码'),
-        if (widget.onMoveUp != null)
-          _moreMenuItem('up', Icons.arrow_upward, '上移'),
-        if (widget.onMoveDown != null)
-          _moreMenuItem('down', Icons.arrow_downward, '下移'),
-        _moreMenuItem(
-          'collapse',
-          _collapsed ? Icons.unfold_more : Icons.unfold_less,
-          _collapsed ? '展开' : '折叠',
-        ),
-        const PopupMenuDivider(height: 1),
-        _moreMenuItem(
-          'delete',
-          Icons.delete_outline,
-          '删除',
-          color: const Color(0xFFEF4444),
-        ),
-      ],
-    );
-
-    if (result == null || !mounted) return;
-    switch (result) {
-      case 'copy':
-        Clipboard.setData(ClipboardData(text: widget.block.content));
-        _showCopiedToast();
-      case 'copy_code':
-        Clipboard.setData(
-          ClipboardData(
-            text:
-                '```${widget.block.language ?? ''}\n'
-                '${widget.block.content}\n```',
-          ),
-        );
-        _showCopiedToast();
-      case 'up':
-        widget.onMoveUp?.call();
-      case 'down':
-        widget.onMoveDown?.call();
-      case 'collapse':
-        setState(() => _collapsed = !_collapsed);
-      case 'delete':
-        widget.onDelete();
-    }
-  }
-
-  void _showCopiedToast() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('已复制到剪贴板'),
-        duration: Duration(seconds: 1, milliseconds: 200),
-      ),
-    );
-  }
-
-  PopupMenuItem<String> _moreMenuItem(
-    String value,
-    IconData icon,
-    String label, {
-    Color? color,
-  }) {
-    final c = color ?? const Color(0xFF1C1C1E);
-    return PopupMenuItem<String>(
-      value: value,
-      height: 42,
-      child: Row(
-        children: [
-          Icon(icon, size: 17, color: color ?? const Color(0xFF888888)),
-          const SizedBox(width: 10),
-          Text(label, style: TextStyle(fontSize: 14, color: c)),
         ],
       ),
     );

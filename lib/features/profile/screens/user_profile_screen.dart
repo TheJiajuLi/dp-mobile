@@ -1899,28 +1899,40 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 内容计数统计行——文章/专栏/文件/收藏/点赞/阅读，纯展示不可点
   // （截图里这行没有任何一项有"可点"的视觉提示，真正的切 tab 交给下面
   // 单独的白底 TabBar）。收藏数没有真实后端聚合数据（只有单条save/unsave
-  // 接口，没有"我收藏了多少篇"这个统计），显示"-"而不是编个假数字
+  // 接口，没有"我收藏了多少篇"这个统计），显示"-"而不是编个假数字。
+  // 关注/粉丝是真实数据（UserProfile.followingCount/followerCount），
+  // 点击跳转到 FollowListScreen，是这行里唯一两个真正"可点"的项
   Widget _buildStatsRow(AppLocalizations l10n) {
-    Widget stat(String value, String label) => Padding(
-      padding: const EdgeInsets.only(right: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+    Widget stat(String value, String label, {VoidCallback? onTap}) {
+      final content = Padding(
+        padding: const EdgeInsets.only(right: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 10, color: Colors.white60),
-          ),
-        ],
-      ),
-    );
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10, color: Colors.white60),
+            ),
+          ],
+        ),
+      );
+      if (onTap == null) return content;
+      return GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: content,
+      );
+    }
+
+    final userId = _profile?.id;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -1933,6 +1945,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           stat('-', l10n.tabBookmarksLabel),
           stat(_formatCount(_totalLikes), l10n.tabLikesLabel),
           stat(_formatCount(_totalViews), l10n.viewsCountLabel),
+          stat(
+            '${_profile?.followingCount ?? 0}',
+            l10n.followingCountLabel,
+            onTap: userId == null
+                ? null
+                : () => context.push('/users/$userId/following'),
+          ),
+          stat(
+            '${_profile?.followerCount ?? 0}',
+            l10n.followersCountLabel,
+            onTap: userId == null
+                ? null
+                : () => context.push('/users/$userId/followers'),
+          ),
         ],
       ),
     );

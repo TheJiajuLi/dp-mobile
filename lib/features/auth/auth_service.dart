@@ -187,14 +187,23 @@ class AuthService {
   // {message: '该邮箱已注册'}），拿 token 得走一遍完整的 /auth/login。
   // 抛具体异常而不是返回 bool——注册失败的原因（邮箱重复等）比登录失败
   // 更值得让用户看到具体文案，不能只给一句通用提示。
+  // inviteCode 是可选的邀请码——后端 register 接口会在事务里校验+消耗
+  // 名额并写 is_founding_creator，这里不用等注册成功再另外调一次接口
   Future<void> register({
     required String username,
     required String email,
     required String password,
+    String? inviteCode,
   }) async {
     final registerRes = await _api.post(
       '/auth/register',
-      data: {'username': username, 'email': email, 'password': password},
+      data: {
+        'username': username,
+        'email': email,
+        'password': password,
+        if (inviteCode != null && inviteCode.isNotEmpty)
+          'invite_code': inviteCode,
+      },
     );
     if (!registerRes.success) {
       throw Exception(registerRes.message ?? _currentL10n().registerFailedRetry);
