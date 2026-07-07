@@ -12,10 +12,26 @@ class SubscriptionScreen extends ConsumerStatefulWidget {
 
 class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   static const _primary = Color(0xFF6366F1);
-  static const _ink = Color(0xFF1A1A1A);
-  static const _bg = Color(0xFFFAFAF8);
-  static const _muted = Color(0xFF999999);
-  static const _border = Color(0xFFF0F0F0);
+
+  // 这一整屏之前不管明暗主题固定用一套浅色配色（白卡片/米白背景/近黑
+  // 文字），深色模式下完全不跟着 Theme 走，看起来像是拼进来的另一个 app。
+  // 这些 getter 统一走 Theme.of(context)，_solidFill 单独给"实心黑色
+  // 按钮/徽章"这类填色用——深色模式下纯黑跟 Scaffold 背景（#1C1C1E）
+  // 几乎同色会被"吃掉"，这类填色深色下改用品牌色，跟 publish_screen.dart
+  // 发布按钮是同一个坑、同一套修法
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _ink =>
+      Theme.of(context).textTheme.bodyLarge?.color ?? const Color(0xFF1A1A1A);
+  Color get _muted => _isDark ? Colors.white54 : const Color(0xFF999999);
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _cardBg => Theme.of(context).cardColor;
+  Color get _border => Theme.of(context).dividerColor;
+  Color get _solidFill => _isDark ? _primary : const Color(0xFF1A1A1A);
+  // 浅灰装饰底（周期切换滑轨/图标圆底/页脚说明块）
+  Color get _subtleBg =>
+      _isDark ? Theme.of(context).dividerColor : const Color(0xFFF5F5F2);
+  // "未包含"这一类淡灰图标/文字，深色下太浅会看不见
+  Color get _disabledGray => _isDark ? Colors.white24 : const Color(0xFFCCCCCC);
 
   bool _isYearly = true;
   String _currentPlan = 'free';
@@ -64,13 +80,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _cardBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 18, color: _ink),
+          icon: Icon(Icons.arrow_back_ios, size: 18, color: _ink),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
+        title: Text(
           '会员订阅',
           style: TextStyle(
             fontSize: 16,
@@ -112,7 +128,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border, width: 0.5),
       ),
@@ -122,20 +138,20 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F2),
+              color: _subtleBg,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.person_outline, size: 20, color: _muted),
+            child: Icon(Icons.person_outline, size: 20, color: _muted),
           ),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('当前套餐', style: TextStyle(fontSize: 11, color: _muted)),
+              Text('当前套餐', style: TextStyle(fontSize: 11, color: _muted)),
               const SizedBox(height: 2),
               Text(
                 planNames[_currentPlan] ?? '免费版',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                   color: _ink,
@@ -146,7 +162,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           const Spacer(),
           Text(
             planStorage[_currentPlan] ?? '200MB 存储',
-            style: const TextStyle(fontSize: 12, color: _muted),
+            style: TextStyle(fontSize: 12, color: _muted),
           ),
         ],
       ),
@@ -160,14 +176,14 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '选择周期',
             style: TextStyle(fontSize: 11, color: _muted, letterSpacing: .04),
           ),
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F2),
+              color: _subtleBg,
               borderRadius: BorderRadius.circular(10),
             ),
             padding: const EdgeInsets.all(3),
@@ -191,7 +207,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.transparent,
+            color: active ? _cardBg : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: active ? Border.all(color: _border, width: 0.5) : null,
           ),
@@ -214,7 +230,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: _ink,
+                    color: _solidFill,
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
@@ -319,10 +335,10 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _cardBg,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: featured ? _ink : _border,
+              color: featured ? _solidFill : _border,
               width: featured ? 1.5 : 0.5,
             ),
           ),
@@ -350,14 +366,14 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                         children: [
                           Text(
                             price,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
                               color: _ink,
                             ),
                           ),
                           if (planKey != 'free')
-                            const Text(
+                            Text(
                               '/月',
                               style: TextStyle(fontSize: 12, color: _muted),
                             ),
@@ -365,7 +381,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                       ),
                       Text(
                         priceSub,
-                        style: const TextStyle(fontSize: 11, color: _muted),
+                        style: TextStyle(fontSize: 11, color: _muted),
                       ),
                     ],
                   ),
@@ -374,11 +390,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               const SizedBox(height: 8),
               Text(
                 desc,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: _muted,
-                  height: 1.5,
-                ),
+                style: TextStyle(fontSize: 12, color: _muted, height: 1.5),
               ),
               const SizedBox(height: 12),
               // 功能列表
@@ -392,14 +404,14 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                         height: 16,
                         decoration: BoxDecoration(
                           color: f.$1
-                              ? (planKey == 'pro' ? _primary : _ink)
-                              : const Color(0xFFF5F5F2),
+                              ? (planKey == 'pro' ? _primary : _solidFill)
+                              : _subtleBg,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           f.$1 ? Icons.check : Icons.close,
                           size: 10,
-                          color: f.$1 ? Colors.white : const Color(0xFFCCCCCC),
+                          color: f.$1 ? Colors.white : _disabledGray,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -407,7 +419,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                         f.$2,
                         style: TextStyle(
                           fontSize: 13,
-                          color: f.$1 ? _ink : const Color(0xFFBBBBBB),
+                          color: f.$1 ? _ink : _disabledGray,
                         ),
                       ),
                     ],
@@ -430,9 +442,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             right: 16,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: const BoxDecoration(
-                color: _ink,
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: _solidFill,
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(6),
                   bottomRight: Radius.circular(6),
                 ),
@@ -469,7 +481,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             color: _muted,
             fontWeight: FontWeight.w500,
@@ -480,7 +492,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     return ElevatedButton(
       onPressed: () => _handleUpgrade(planKey),
       style: ElevatedButton.styleFrom(
-        backgroundColor: _ink,
+        backgroundColor: _solidFill,
         elevation: 0,
         padding: const EdgeInsets.symmetric(vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -502,9 +514,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: _cardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
         child: Column(
@@ -519,9 +531,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Icon(Icons.credit_card_outlined, size: 40, color: _muted),
+            Icon(Icons.credit_card_outlined, size: 40, color: _muted),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               '支付功能即将上线',
               style: TextStyle(
                 fontSize: 17,
@@ -530,7 +542,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '微信支付 / 支付宝即将接入\n敬请期待',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: _muted, height: 1.6),
@@ -541,7 +553,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(ctx),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _ink,
+                  backgroundColor: _solidFill,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(
@@ -570,7 +582,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '功能对比',
             style: TextStyle(
               fontSize: 15,
@@ -581,7 +593,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _cardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _border, width: 0.5),
             ),
@@ -595,9 +607,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               children: [
                 // 表头
                 TableRow(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: Color(0xFFF0F0F0), width: 0.5),
+                      bottom: BorderSide(color: _border, width: 0.5),
                     ),
                   ),
                   children: [
@@ -637,25 +649,21 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     ),
   );
 
-  TableRow _compareRow(
-    String label,
-    String v1,
-    String v2,
-    String v3,
-  ) => TableRow(
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: Color(0xFFF5F5F2), width: 0.5)),
-    ),
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(label, style: const TextStyle(fontSize: 12, color: _muted)),
-      ),
-      _tableCell(v1),
-      _tableCell(v2, accent: true),
-      _tableCell(v3),
-    ],
-  );
+  TableRow _compareRow(String label, String v1, String v2, String v3) =>
+      TableRow(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: _border, width: 0.5)),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(label, style: TextStyle(fontSize: 12, color: _muted)),
+          ),
+          _tableCell(v1),
+          _tableCell(v2, accent: true),
+          _tableCell(v3),
+        ],
+      );
 
   TableRow _compareBoolRow(
     String label,
@@ -667,14 +675,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     decoration: BoxDecoration(
       border: last
           ? null
-          : const Border(
-              bottom: BorderSide(color: Color(0xFFF5F5F2), width: 0.5),
-            ),
+          : Border(bottom: BorderSide(color: _border, width: 0.5)),
     ),
     children: [
       Padding(
         padding: const EdgeInsets.all(12),
-        child: Text(label, style: const TextStyle(fontSize: 12, color: _muted)),
+        child: Text(label, style: TextStyle(fontSize: 12, color: _muted)),
       ),
       _tableBool(v1),
       _tableBool(v2, accent: true),
@@ -700,7 +706,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     child: Icon(
       val ? Icons.check : Icons.remove,
       size: 16,
-      color: val ? (accent ? _primary : _ink) : const Color(0xFFDDDDDD),
+      color: val ? (accent ? _primary : _ink) : _disabledGray,
     ),
   );
 
@@ -718,7 +724,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '常见问题',
             style: TextStyle(
               fontSize: 15,
@@ -729,7 +735,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _cardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _border, width: 0.5),
             ),
@@ -758,12 +764,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F2),
+          color: _subtleBg,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           children: [
-            const Text(
+            Text(
               '订阅服务由极梦（Dreaming Polar）提供',
               style: TextStyle(fontSize: 12, color: _muted),
               textAlign: TextAlign.center,
@@ -779,10 +785,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     style: TextStyle(fontSize: 12, color: _primary),
                   ),
                 ),
-                const Text(
-                  '  ·  ',
-                  style: TextStyle(fontSize: 12, color: _muted),
-                ),
+                Text('  ·  ', style: TextStyle(fontSize: 12, color: _muted)),
                 GestureDetector(
                   onTap: () {},
                   child: const Text(
@@ -831,10 +834,10 @@ class _FaqItemState extends State<_FaqItem> {
                 Expanded(
                   child: Text(
                     widget.question,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF1A1A1A),
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                 ),
@@ -852,20 +855,22 @@ class _FaqItemState extends State<_FaqItem> {
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
             child: Text(
               widget.answer,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF999999),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white54
+                    : const Color(0xFF999999),
                 height: 1.6,
               ),
             ),
           ),
         if (!widget.isLast)
-          const Divider(
+          Divider(
             height: 0.5,
             thickness: 0.5,
             indent: 14,
             endIndent: 14,
-            color: Color(0xFFF0F0F0),
+            color: Theme.of(context).dividerColor,
           ),
       ],
     );

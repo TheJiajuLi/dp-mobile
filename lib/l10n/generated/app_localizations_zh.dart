@@ -15,6 +15,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appSlogan => '为创造而生';
 
   @override
+  String get slogan2 => '让内容，值得被发现';
+
+  @override
   String get emailLabel => '邮箱';
 
   @override
@@ -338,6 +341,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get locationHint => '城市或地区';
 
   @override
+  String get occupationLabel => '职业';
+
+  @override
+  String get occupationHint => '你的职业';
+
+  @override
   String get birthdayLabel => '生日';
 
   @override
@@ -510,7 +519,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tutorialStatusDraft => '草稿';
 
   @override
-  String get noNotebooksYet => '还没有 Notebook';
+  String get noNotebooksYet => '还没有文件';
 
   @override
   String get bookmarksComingSoon => '收藏功能即将上线';
@@ -1082,6 +1091,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get currentFreeVersion => '当前：免费版';
 
   @override
+  String get currentProVersion => '当前：Pro 会员';
+
+  @override
+  String get currentProMaxVersion => '当前：Pro Max 会员';
+
+  @override
+  String get manageMembershipAction => '管理';
+
+  @override
   String get upgradePro => '升级 Pro';
 
   @override
@@ -1554,6 +1572,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tabColumnsLabel => '专栏';
+
+  @override
+  String get tabFilesLabel => '文件';
 
   @override
   String get confirmAction => '确认';

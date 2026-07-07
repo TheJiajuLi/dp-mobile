@@ -110,6 +110,12 @@ abstract class AppLocalizations {
   /// **'Born to create'**
   String get appSlogan;
 
+  /// No description provided for @slogan2.
+  ///
+  /// In en, this message translates to:
+  /// **'Let great content be found'**
+  String get slogan2;
+
   /// No description provided for @emailLabel.
   ///
   /// In en, this message translates to:
@@ -716,6 +722,18 @@ abstract class AppLocalizations {
   /// **'City or region'**
   String get locationHint;
 
+  /// No description provided for @occupationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Occupation'**
+  String get occupationLabel;
+
+  /// No description provided for @occupationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your occupation'**
+  String get occupationHint;
+
   /// No description provided for @birthdayLabel.
   ///
   /// In en, this message translates to:
@@ -1055,7 +1073,7 @@ abstract class AppLocalizations {
   /// No description provided for @noNotebooksYet.
   ///
   /// In en, this message translates to:
-  /// **'No notebooks yet'**
+  /// **'No files yet'**
   String get noNotebooksYet;
 
   /// No description provided for @bookmarksComingSoon.
@@ -2114,6 +2132,24 @@ abstract class AppLocalizations {
   /// **'Current: Free'**
   String get currentFreeVersion;
 
+  /// No description provided for @currentProVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Current: Pro'**
+  String get currentProVersion;
+
+  /// No description provided for @currentProMaxVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Current: Pro Max'**
+  String get currentProMaxVersion;
+
+  /// No description provided for @manageMembershipAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get manageMembershipAction;
+
   /// No description provided for @upgradePro.
   ///
   /// In en, this message translates to:
@@ -2983,6 +3019,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Columns'**
   String get tabColumnsLabel;
+
+  /// No description provided for @tabFilesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Files'**
+  String get tabFilesLabel;
 
   /// No description provided for @confirmAction.
   ///

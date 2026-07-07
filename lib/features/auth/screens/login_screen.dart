@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -18,6 +20,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   bool _obscure = true;
   String? _error;
+  // 随机挑一条 slogan 并缓存——跟 splash_screen.dart 同一套道理，
+  // didChangeDependencies 会在语言/主题切换时重复调用，用可空字段 +
+  // ??= 才不会每次都重新随机
+  String? _slogan;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = AppLocalizations.of(context)!;
+    _slogan ??= Random().nextBool() ? l10n.appSlogan : l10n.slogan2;
+  }
 
   @override
   void dispose() {
@@ -39,7 +52,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (ok) {
       context.go('/home');
     } else {
-      setState(() => _error = AppLocalizations.of(context)!.loginErrorInvalidCredentials);
+      setState(
+        () =>
+            _error = AppLocalizations.of(context)!.loginErrorInvalidCredentials,
+      );
     }
   }
 
@@ -248,7 +264,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onPressed: () => context.push('/register'),
                   child: Text(
                     l10n.noAccountRegister,
-                    style: const TextStyle(color: AppColors.primary, fontSize: 14),
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),

@@ -2,12 +2,12 @@
   <g transform="translate(174,174) scale(0.66)">
     <text
       x="512"
-      y="720"
+      y="640"
       font-family="'PingFang SC','Noto Sans SC','Source Han Sans CN',sans-serif"
-      font-size="640"
+      font-size="380"
       font-weight="900"
       fill="white"
       text-anchor="middle"
-      letter-spacing="-10">极</text>
+      letter-spacing="-8">极梦</text>
   </g>
 </svg>

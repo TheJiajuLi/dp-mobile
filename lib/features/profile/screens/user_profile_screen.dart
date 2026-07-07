@@ -22,6 +22,7 @@ import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
 import '../../messages/models/conversation_model.dart';
 import '../../notebook/services/notebook_service.dart';
+import '../../settings/providers/storage_provider.dart';
 import '../../../shared/widgets/interest_tag.dart';
 import '../models/user_profile_model.dart';
 import '../widgets/tutorial_list_card.dart';
@@ -649,8 +650,13 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       // 水波纹就没有画布可画，Flutter 会打印"ListTile background color
       // or ink splashes may be invisible"警告。用 Material 包一层给
       // ListTile 一个真正带颜色的画布，而不是 Container
+      //
+      // 颜色用 scaffoldBackgroundColor 而不是 cardColor——底部导航栏
+      // （main_shell.dart）用的就是 scaffoldBackgroundColor 这一套
+      // （浅色 AppColors.bg / 深色 #1C1C1E），cardColor 在两个主题下都是
+      // 另一个更浅/更亮的色号，弹层跟导航栏会撞出一条不统一的接缝
       builder: (ctx) => Material(
-        color: Theme.of(ctx).cardColor,
+        color: Theme.of(ctx).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         clipBehavior: Clip.antiAlias,
         child: Padding(
@@ -759,9 +765,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           child: Column(
@@ -959,9 +965,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
         child: Column(
@@ -1050,9 +1056,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
         child: Column(
@@ -1452,6 +1458,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final links = _allLinks();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Stack(
+      // 默认 Clip.hardEdge 会把下面圆角"卡片沿"故意超出 Stack 底边的
+      // 2px 出血裁掉——那 2px 就是专门用来盖住跟下一个 sliver（pinned
+      // 的 TabBar）拼接处那条灰线的，不能被裁
+      clipBehavior: Clip.none,
       children: [
         // 封面图/渐变纯装饰，排除出语义树——跟 tutorial_detail_screen.dart/
         // column_detail_screen.dart 的封面图同一个坑：图片异步加载完成的
@@ -1513,6 +1523,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         () => context.pop(),
                       ),
                     const Spacer(),
+                    // VIP 标识不分自己/别人都显示——自己会员是真实数据
+                    // （storageUsageProvider），看别人主页时目前后端
+                    // GET /auth/users/profile/:identifier 还没把
+                    // membership 字段加进 SELECT 列表，_profile.membership
+                    // 会先恒为 'free'（灰色），等后端加了这一列直接生效
+                    _buildVipBadge(isSelfView: isSelfView),
                     if (isSelfView) ...[
                       _heroIconButton(
                         Theme.of(context).brightness == Brightness.dark
@@ -1800,10 +1816,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         // 上一个 sliver 的画面里——NestedScrollView 的普通 sliver 之间
         // 没有这种重叠机制（那是 SliverOverlapAbsorber 专门解决的问题，
         // 这里没用那套），所以完全不显示，圆角形同虚设
+        //
+        // bottom 故意给 -2 配 22px 高（顶部圆角位置不变，只是底边往下
+        // 多铺 2px）：这块纯色矩形跟紧接着的 pinned TabBar 背景理论上是
+        // 同一个颜色，但两块分属不同 sliver/RenderObject，各自独立走
+        // 反走样光栅化，紧贴边界处会露出一条极淡的灰线（RRect 反走样在
+        // 直边上也会画一点半透明像素，不是 TabBar 的 divider，dividerHeight
+        // 设成0也去不掉）。让色块本身多铺出 2px 盖过这条拼接线，比继续
+        // 在 TabBar 那边找原因更直接可靠
         Positioned(
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: -2,
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -1814,7 +1838,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 ),
               ),
               child: const SizedBox(
-                height: _kTabBarRadius,
+                height: _kTabBarRadius + 2,
                 width: double.infinity,
               ),
             ),
@@ -1862,7 +1886,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  // 内容计数统计行——文章/专栏/Notebook/收藏/点赞/阅读，纯展示不可点
+  // 内容计数统计行——文章/专栏/文件/收藏/点赞/阅读，纯展示不可点
   // （截图里这行没有任何一项有"可点"的视觉提示，真正的切 tab 交给下面
   // 单独的白底 TabBar）。收藏数没有真实后端聚合数据（只有单条save/unsave
   // 接口，没有"我收藏了多少篇"这个统计），显示"-"而不是编个假数字
@@ -1894,7 +1918,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         children: [
           stat('${_tutorials.length}', l10n.articlesCountLabel),
           stat('${_columns.length}', l10n.tabColumnsLabel),
-          if (_showNotebookTab) stat('${_notebooks.length}', 'Notebook'),
+          if (_showNotebookTab)
+            stat('${_notebooks.length}', l10n.tabFilesLabel),
           stat('-', l10n.tabBookmarksLabel),
           stat(_formatCount(_totalLikes), l10n.tabLikesLabel),
           stat(_formatCount(_totalViews), l10n.viewsCountLabel),
@@ -2054,9 +2079,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           unselectedLabelColor: isDarkMode
                               ? Colors.white54
                               : const Color(0xFFBBBBBB),
-                          // 5个tab（含Notebook这个英文单词）挤在一行，字号
-                          // 跟padding都要比4个tab时更紧凑，不然"Notebook"
-                          // 这种比中文标签长的单词会被裁掉显示不全
+                          // 5个tab挤在一行，字号跟padding都比4个tab时更紧凑
                           labelPadding: const EdgeInsets.symmetric(
                             horizontal: 4,
                           ),
@@ -2071,11 +2094,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           indicatorColor: isDarkMode ? _primary : _ink,
                           indicatorSize: TabBarIndicatorSize.label,
                           indicatorWeight: 2,
+                          // Material 3 的 TabBar 即使 dividerColor 设成透明，
+                          // 默认的 dividerHeight（1.0）还是会占位/画出那条
+                          // 灰线——两个都要设才能真正去掉，这是 Flutter 一个
+                          // 广为人知的坑
                           dividerColor: Colors.transparent,
+                          dividerHeight: 0,
                           tabs: [
                             Tab(text: l10n.articlesCountLabel),
                             Tab(text: l10n.tabColumnsLabel),
-                            if (_showNotebookTab) const Tab(text: 'Notebook'),
+                            if (_showNotebookTab) Tab(text: l10n.tabFilesLabel),
                             Tab(text: l10n.tabBookmarksLabel),
                             Tab(text: l10n.tabLikesLabel),
                           ],
@@ -2350,6 +2378,40 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
+  // VIP 徽章——会员是暖金色渐变字（有质感），非会员是暗淡的灰白字，
+  // 两种状态都真实反映 membership，不是随手编一个"看起来高级"的常亮效果。
+  // 自己查看自己主页点了跳会员管理页；查看别人主页时纯展示，不接一个
+  // "点了打开我自己订阅页"这种文不对题的跳转
+  Widget _buildVipBadge({required bool isSelfView}) {
+    final membership = isSelfView
+        ? (ref.watch(storageUsageProvider).valueOrNull?['membership']
+                  as String? ??
+              'free')
+        : _profile?.membership ?? 'free';
+    final isMember = membership == 'pro' || membership == 'pro_max';
+    const style = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w800,
+      fontStyle: FontStyle.italic,
+      letterSpacing: 2,
+      shadows: [Shadow(color: Colors.black45, blurRadius: 6)],
+    );
+    return GestureDetector(
+      onTap: isSelfView ? () => context.push('/settings/subscription') : null,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: isMember
+            ? ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFFFFE9A8), Color(0xFFE8A33D)],
+                ).createShader(bounds),
+                child: Text('VIP', style: style.copyWith(color: Colors.white)),
+              )
+            : Text('VIP', style: style.copyWith(color: Colors.white38)),
+      ),
+    );
+  }
+
   // 头图区里叠在背景上的圆形按钮（返回/汉堡）——半透明白底保证无论背景
   // 是浅色渐变占位还是用户传的任意亮度照片，深色图标都能看清
   // filled:false 给不需要白底圆圈衬托的场景用（比如链接图标）——直接裸
@@ -2455,12 +2517,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 // 愿景文案本身那句"极地——无尽的白与深邃的星空"：深靛紫到品牌
 // 靛蓝（#6366F1）过渡的极光渐变，叠一层稀疏的星点，靠固定随机种子生成、
 // 每次 build 位置都一样，不会一重绘就"星星在跳"
+// 深色模式保留极地星空（呼应品牌文案"无尽的白与深邃的星空"）；浅色模式
+// 换成晴天/海边基调——深邃的星空放在浅色页面上会显得脏，晴空蓝到暖白
+// 光晕再到海面蓝的渐变配一个柔和的"日光"光晕，跟深色版的星点是同一个
+// 设计语言（渐变+一个 CustomPaint 点缀层），只是主题不同
 class _CoverGradient extends StatelessWidget {
   const _CoverGradient();
 
   @override
   Widget build(BuildContext context) {
-    return const Stack(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Stack(
       fit: StackFit.expand,
       children: [
         DecoratedBox(
@@ -2468,12 +2535,25 @@ class _CoverGradient extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF120C24), Color(0xFF362D6B), Color(0xFF0D2436)],
-              stops: [0.0, 0.55, 1.0],
+              colors: isDark
+                  ? const [
+                      Color(0xFF120C24),
+                      Color(0xFF362D6B),
+                      Color(0xFF0D2436),
+                    ]
+                  : const [
+                      Color(0xFF7EC8E3),
+                      Color(0xFFFFF3D6),
+                      Color(0xFF3D8FB0),
+                    ],
+              stops: const [0.0, 0.55, 1.0],
             ),
           ),
         ),
-        CustomPaint(painter: _StarFieldPainter()),
+        if (isDark)
+          const CustomPaint(painter: _StarFieldPainter())
+        else
+          const CustomPaint(painter: _SunGlowPainter()),
       ],
     );
   }
@@ -2499,6 +2579,29 @@ class _StarFieldPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _StarFieldPainter oldDelegate) => false;
+}
+
+// 浅色模式的"日光"光晕——右上角一圈柔和白光，叠在晴空蓝渐变上，
+// 营造晴天/海边的暖意，固定位置，不需要随机
+class _SunGlowPainter extends CustomPainter {
+  const _SunGlowPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width * 0.78, size.height * 0.22);
+    final radius = size.width * 0.32;
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white.withValues(alpha: 0.55),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SunGlowPainter oldDelegate) => false;
 }
 
 // Notebook tab 列表项：文件名 + 语言 badge + cells 数量 + 时间
@@ -2785,17 +2888,18 @@ class _ColumnCard extends StatelessWidget {
   }
 }
 
-// 42px TabBar 包成 SliverPersistentHeader 需要的 delegate，背景色跟着
-// isDark 走——minExtent/maxExtent 都固定成 42，不用随内容变化
+// TabBar 包成 SliverPersistentHeader 需要的 delegate，背景色跟着
+// isDark 走——minExtent/maxExtent 固定成 38（原来 42 顶栏上方留白偏多，
+// 紧凑一点让整组 tab 更贴近上面圆角沿），不用随内容变化
 class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;
   final bool isDark;
   const _ProfileTabBarDelegate({required this.tabBar, required this.isDark});
 
   @override
-  double get minExtent => 42;
+  double get minExtent => 38;
   @override
-  double get maxExtent => 42;
+  double get maxExtent => 38;
 
   // 圆角"卡片沿"是头图区自己 Stack 里的一个装饰层（_buildProfileHeader
   // 末尾那个 Positioned），不是这里——这层 pinned header 只负责紧接着

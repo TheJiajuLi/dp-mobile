@@ -27,6 +27,12 @@ class UserProfile {
   // 认证徽章——后端目前没有这个字段，恒为 false，UI 已经按"false 就不显示"
   // 处理，等后端加上 is_verified 字段直接生效，不需要再改这里
   final bool isVerified;
+  // 会员等级——GET /auth/users/profile/:identifier 目前的 SELECT 列表里
+  // 没有这个字段（只有 GET /auth/storage/usage 会返回，且只针对当前登录
+  // 用户自己），所以查看"别人"的主页时这里恒为 'free'，VIP 徽章会先默认
+  // 显示成灰色，不是真的知道对方不是会员。等后端 SELECT 里加上
+  // membership 列，这里直接生效
+  final String membership;
 
   UserProfile({
     required this.id,
@@ -46,6 +52,7 @@ class UserProfile {
     this.ipLocation,
     this.tags = const [],
     this.isVerified = false,
+    this.membership = 'free',
   });
 
   UserProfile copyWith({String? avatar, List<String>? tags}) => UserProfile(
@@ -66,6 +73,7 @@ class UserProfile {
     ipLocation: ipLocation,
     tags: tags ?? this.tags,
     isVerified: isVerified,
+    membership: membership,
   );
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -86,5 +94,6 @@ class UserProfile {
     ipLocation: j['ip_location']?.toString(),
     tags: (j['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     isVerified: j['is_verified'] == true,
+    membership: j['membership']?.toString() ?? 'free',
   );
 }

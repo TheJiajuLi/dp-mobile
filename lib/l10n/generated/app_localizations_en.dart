@@ -15,6 +15,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appSlogan => 'Born to create';
 
   @override
+  String get slogan2 => 'Let great content be found';
+
+  @override
   String get emailLabel => 'Email';
 
   @override
@@ -344,6 +347,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get locationHint => 'City or region';
 
   @override
+  String get occupationLabel => 'Occupation';
+
+  @override
+  String get occupationHint => 'Your occupation';
+
+  @override
   String get birthdayLabel => 'Birthday';
 
   @override
@@ -518,7 +527,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tutorialStatusDraft => 'Draft';
 
   @override
-  String get noNotebooksYet => 'No notebooks yet';
+  String get noNotebooksYet => 'No files yet';
 
   @override
   String get bookmarksComingSoon => 'Bookmarks coming soon';
@@ -1103,6 +1112,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get currentFreeVersion => 'Current: Free';
 
   @override
+  String get currentProVersion => 'Current: Pro';
+
+  @override
+  String get currentProMaxVersion => 'Current: Pro Max';
+
+  @override
+  String get manageMembershipAction => 'Manage';
+
+  @override
   String get upgradePro => 'Upgrade to Pro';
 
   @override
@@ -1591,6 +1609,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tabColumnsLabel => 'Columns';
+
+  @override
+  String get tabFilesLabel => 'Files';
 
   @override
   String get confirmAction => 'Confirm';

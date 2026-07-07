@@ -44,7 +44,7 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           children: [
             Container(
-              color: Theme.of(context).cardColor,
+              color: Theme.of(context).scaffoldBackgroundColor,
               child: SafeArea(
                 bottom: false,
                 child: Padding(
@@ -56,13 +56,17 @@ class SettingsScreen extends ConsumerWidget {
                     children: [
                       GestureDetector(
                         onTap: () => context.pop(),
-                        child: const Icon(Icons.arrow_back_ios, size: 18),
+                        child: Icon(
+                          Icons.arrow_back_ios,
+                          size: 18,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         l10n.settingsTitle,
                         style: TextStyle(
-                          fontSize: 17,
+                          fontSize: 22,
                           fontWeight: FontWeight.w700,
                           color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
@@ -80,6 +84,7 @@ class SettingsScreen extends ConsumerWidget {
                 // （跟GridView那个坑是同一类问题，见CONTEXT.md踩坑#14）
                 padding: EdgeInsets.zero,
                 children: [
+                  const SizedBox(height: 8),
                   _SectionTitle(l10n.sectionAccount),
                   _SettingsGroup([
                     _SettingsRow(
@@ -178,36 +183,6 @@ class SettingsScreen extends ConsumerWidget {
                       iconBg: Theme.of(context).dividerColor,
                       title: l10n.clearCache,
                       onTap: () => _clearCache(context, ref),
-                    ),
-                  ]),
-
-                  _SectionTitle(l10n.sectionMembership),
-                  _SettingsGroup([
-                    _SettingsRow(
-                      icon: Icons.workspace_premium,
-                      iconColor: const Color(0xFFD97706),
-                      iconBg: const Color(0xFFFFF7E6),
-                      title: l10n.myMembership,
-                      subtitle: l10n.currentFreeVersion,
-                      trailing: l10n.upgradePro,
-                      trailingColor: const Color(0xFF6366F1),
-                      onTap: () => context.push('/settings/subscription'),
-                    ),
-                    _SettingsRow(
-                      icon: Icons.credit_card_outlined,
-                      iconColor: const Color(0xFF2563EB),
-                      iconBg: const Color(0xFFE6F1FB),
-                      title: l10n.paymentMethod,
-                      subtitle: l10n.paymentMethodSubtitle,
-                      onTap: () => context.push('/settings/payment'),
-                    ),
-                    _SettingsRow(
-                      icon: Icons.receipt_long_outlined,
-                      iconColor: const Color(0xFF16A34A),
-                      iconBg: const Color(0xFFE8F8F0),
-                      title: l10n.subscriptionManagement,
-                      subtitle: l10n.subscriptionManagementSubtitle,
-                      onTap: () => context.push('/settings/subscription'),
                     ),
                   ]),
 
@@ -555,14 +530,49 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
+// 一线产品的设置分组通常是浮在页面背景上的圆角卡片（左右留白+
+// 阴影/细边），不是过去那种贴边到底、组内每行都画一条分割线的表格式
+// 布局——分割线改成组内相邻行之间才画（Column+插入 Divider），最后一行
+// 不再带一条多余的线贴着卡片圆角
 class _SettingsGroup extends StatelessWidget {
   final List<Widget> children;
   const _SettingsGroup(this.children);
   @override
-  Widget build(BuildContext context) => Container(
-    color: Theme.of(context).cardColor,
-    child: Column(children: children),
-  );
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        rows.add(
+          Divider(
+            height: 0.5,
+            thickness: 0.5,
+            indent: 62,
+            color: Theme.of(context).dividerColor,
+          ),
+        );
+      }
+      rows.add(children[i]);
+    }
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: rows),
+    );
+  }
 }
 
 class _SettingsRow extends StatelessWidget {
@@ -572,7 +582,6 @@ class _SettingsRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final String? trailing;
-  final Color? trailingColor;
   final VoidCallback onTap;
 
   const _SettingsRow({
@@ -582,7 +591,6 @@ class _SettingsRow extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
-    this.trailingColor,
     required this.onTap,
   });
 
@@ -590,13 +598,9 @@ class _SettingsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: Theme.of(context).dividerColor),
-          ),
-        ),
         child: Row(
           children: [
             Container(
@@ -631,10 +635,7 @@ class _SettingsRow extends StatelessWidget {
             if (trailing != null)
               Text(
                 trailing!,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: trailingColor ?? Colors.grey,
-                ),
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, color: Colors.grey, size: 18),

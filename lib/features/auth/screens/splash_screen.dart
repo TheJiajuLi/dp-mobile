@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final AnimationController _animCtrl;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
+  // 随机选一条 slogan，选完缓存住——用可空字段 + ??= 才安全：late
+  // 非空字段在赋值前是"未初始化"状态，直接读取会抛
+  // LateInitializationError，??= 得先读一次当前值才能判断要不要赋值，
+  // 两者搭配必炸。didChangeDependencies 在主题/语言切换时会被再次调用，
+  // 不加这层缓存每次都会重新随机，两条 slogan 来回跳
+  String? _slogan;
 
   @override
   void initState() {
@@ -38,6 +45,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutBack));
     _animCtrl.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) => _restore());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = AppLocalizations.of(context)!;
+    _slogan ??= Random().nextBool() ? l10n.appSlogan : l10n.slogan2;
   }
 
   @override
@@ -102,7 +116,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  l10n.appSlogan,
+                  _slogan ?? l10n.appSlogan,
                   style: const TextStyle(
                     fontSize: 14,
                     color: Color(0xFF8B8FD4),

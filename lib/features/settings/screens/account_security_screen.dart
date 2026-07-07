@@ -14,9 +14,14 @@ class AccountSecurityScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
+      // 顶栏跟页面背景统一用 scaffoldBackgroundColor，不再用 cardColor——
+      // 之前顶栏+下面三行列表都套了一层 cardColor（浅色下是白），跟再往下
+      // 的 scaffoldBackgroundColor（浅灰）撞出一块"白色色块贴灰色背景"的
+      // 接缝。整页统一成一个背景色，组内三行改靠分割线区分，不再靠单独的
+      // 色块框出一张"卡片"
       appBar: AppBar(
         title: Text(l10n.accountSecurity),
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
       ),
@@ -24,28 +29,31 @@ class AccountSecurityScreen extends ConsumerWidget {
       body: ListView(
         children: [
           const SizedBox(height: 8),
-          Container(
-            color: Theme.of(context).cardColor,
-            child: Column(
-              children: [
-                _SecurityRow(
-                  title: l10n.changePassword,
-                  subtitle: l10n.changePasswordSubtitle,
-                  onTap: () => _showChangePassword(context, ref),
-                ),
-                _SecurityRow(
-                  title: l10n.loginHistory,
-                  subtitle: l10n.loginHistorySubtitle,
-                  onTap: () => context.push('/settings/security/history'),
-                ),
-                _SecurityRow(
-                  title: l10n.deleteAccount,
-                  subtitle: l10n.deleteAccountSubtitle,
-                  titleColor: const Color(0xFFDC2626),
-                  onTap: () => _showDeleteAccount(context, ref),
-                ),
-              ],
-            ),
+          _SecurityRow(
+            title: l10n.changePassword,
+            subtitle: l10n.changePasswordSubtitle,
+            onTap: () => _showChangePassword(context, ref),
+          ),
+          Divider(
+            height: 0.5,
+            indent: 16,
+            color: Theme.of(context).dividerColor,
+          ),
+          _SecurityRow(
+            title: l10n.loginHistory,
+            subtitle: l10n.loginHistorySubtitle,
+            onTap: () => context.push('/settings/security/history'),
+          ),
+          Divider(
+            height: 0.5,
+            indent: 16,
+            color: Theme.of(context).dividerColor,
+          ),
+          _SecurityRow(
+            title: l10n.deleteAccount,
+            subtitle: l10n.deleteAccountSubtitle,
+            titleColor: const Color(0xFFDC2626),
+            onTap: () => _showDeleteAccount(context, ref),
           ),
         ],
       ),
@@ -73,9 +81,9 @@ class AccountSecurityScreen extends ConsumerWidget {
               return;
             }
             if (newCtrl.text.length < 6) {
-              ScaffoldMessenger.of(
-                ctx,
-              ).showSnackBar(SnackBar(content: Text(l10n.registerErrorPasswordTooShort)));
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(content: Text(l10n.registerErrorPasswordTooShort)),
+              );
               return;
             }
             if (newCtrl.text != confirmCtrl.text) {
@@ -103,9 +111,9 @@ class AccountSecurityScreen extends ConsumerWidget {
             if (res.success) {
               Navigator.pop(ctx);
               if (context.mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(l10n.passwordChangeSuccess)));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.passwordChangeSuccess)),
+                );
               }
             } else if (res.statusCode == 404) {
               Navigator.pop(ctx);
@@ -124,7 +132,9 @@ class AccountSecurityScreen extends ConsumerWidget {
           return Container(
             decoration: BoxDecoration(
               color: Theme.of(ctx).cardColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             padding: EdgeInsets.fromLTRB(
               20,
@@ -146,7 +156,10 @@ class AccountSecurityScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 Text(
                   l10n.changePassword,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -220,14 +233,19 @@ class AccountSecurityScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
+            child: Text(
+              l10n.cancel,
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
               // 实测 /auth/account 目前是 404，后端还没做这个接口——真上线后
               // 这里会自动走真实的删除+登出流程，不用等接口就绪再改代码
-              final res = await ref.read(apiClientProvider).delete('/auth/account');
+              final res = await ref
+                  .read(apiClientProvider)
+                  .delete('/auth/account');
               if (res.success) {
                 final userId = ref.read(currentUserProvider)?.id;
                 await ref.read(authServiceProvider).logout();
@@ -237,7 +255,9 @@ class AccountSecurityScreen extends ConsumerWidget {
                 // 主题/字体/通知这些全局 App 设置也一起清掉
                 if (userId != null && userId.isNotEmpty) {
                   final prefs = await SharedPreferences.getInstance();
-                  final keys = prefs.getKeys().where((k) => k.startsWith('${userId}_'));
+                  final keys = prefs.getKeys().where(
+                    (k) => k.startsWith('${userId}_'),
+                  );
                   for (final key in keys.toList()) {
                     await prefs.remove(key);
                   }
@@ -254,12 +274,17 @@ class AccountSecurityScreen extends ConsumerWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    res.statusCode == 404 ? l10n.deleteAccountComingSoon : l10n.deleteFailedRetry,
+                    res.statusCode == 404
+                        ? l10n.deleteAccountComingSoon
+                        : l10n.deleteFailedRetry,
                   ),
                 ),
               );
             },
-            child: Text(l10n.confirmDeletion, style: const TextStyle(color: Color(0xFFDC2626))),
+            child: Text(
+              l10n.confirmDeletion,
+              style: const TextStyle(color: Color(0xFFDC2626)),
+            ),
           ),
         ],
       ),
@@ -284,9 +309,14 @@ class _SecurityRow extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     title: Text(
       title,
-      style: TextStyle(color: titleColor ?? Theme.of(context).textTheme.bodyLarge?.color),
+      style: TextStyle(
+        color: titleColor ?? Theme.of(context).textTheme.bodyLarge?.color,
+      ),
     ),
-    subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+    subtitle: Text(
+      subtitle,
+      style: const TextStyle(fontSize: 12, color: Colors.grey),
+    ),
     trailing: const Icon(Icons.chevron_right, color: Colors.grey),
     onTap: onTap,
   );
