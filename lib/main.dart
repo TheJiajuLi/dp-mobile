@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
@@ -40,14 +39,9 @@ Future<void> main() async {
   );
 
   // iPad 和 iPhone 是两个完全不同的 App（UI 层零共用），但账号体系/网络层
-  // 得是同一套——用最短边（而不是宽高）判断设备类型，横竖屏切换不会
-  // 抖动；同一个 ProviderScope + 同一份 apiClientProvider override，
-  // HdApp 目前还没接真实数据，但这份共享已经就绪，以后接的时候不用再
-  // 动 main.dart
-  final view = PlatformDispatcher.instance.views.first;
-  final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
-  final isTabletDevice = shortestSide >= 600;
-
+  // 得是同一套——同一个 ProviderScope + 同一份 apiClientProvider
+  // override，HdApp 目前还没接真实数据，但这份共享已经就绪，以后接的时候
+  // 不用再动 main.dart
   runApp(
     ProviderScope(
       overrides: [
@@ -55,9 +49,25 @@ Future<void> main() async {
           (ref) => ApiClient(ref, cookieJar: cookieJar),
         ),
       ],
-      child: isTabletDevice ? const HdApp() : const MyApp(),
+      child: const _RootApp(),
     ),
   );
+}
+
+// 设备判定挪到 build() 里用 View.of(context) 读，而不是在 main() 里用
+// PlatformDispatcher.instance.views.first 提前读——runApp 之前引擎不一定
+// 已经把真实的视图尺寸送达，main() 时机读到的可能是过期/占位值，尤其是
+// 通过 Xcode 直接跑（不是走 flutter run）的时候更容易踩到。放进 build()
+// 里保证是在真实 frame 构建时读，此时引擎早就把正确的 metrics 传过来了
+class _RootApp extends StatelessWidget {
+  const _RootApp();
+
+  @override
+  Widget build(BuildContext context) {
+    final view = View.of(context);
+    final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
+    return shortestSide >= 600 ? const HdApp() : const MyApp();
+  }
 }
 
 class MyApp extends ConsumerStatefulWidget {
