@@ -1124,6 +1124,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sectionAbout => '关于';
 
   @override
+  String get helpAndFeedback => '帮助与反馈';
+
+  @override
   String get aboutApp => '关于极梦';
 
   @override

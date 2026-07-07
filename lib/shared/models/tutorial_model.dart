@@ -12,6 +12,9 @@ class TutorialModel {
   final int likes;
   final int views;
   final int createdAt;
+  // 元老创作者标识——后端还没有这个字段，恒为 false，等后端在
+  // 教程列表接口的 SELECT 里加上 is_founding_creator 直接生效
+  final bool isFoundingCreator;
 
   const TutorialModel({
     required this.id,
@@ -25,6 +28,7 @@ class TutorialModel {
     required this.likes,
     required this.views,
     required this.createdAt,
+    this.isFoundingCreator = false,
   });
 
   factory TutorialModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +45,9 @@ class TutorialModel {
       views: _parseInt(json['views']),
       // 后端时间戳是秒级，DateTime 需要毫秒，所以 ×1000
       createdAt: _parseInt(json['created_at']) * 1000,
+      isFoundingCreator:
+          json['is_founding_creator'] == true ||
+          json['is_founding_creator'] == 1,
     );
   }
 

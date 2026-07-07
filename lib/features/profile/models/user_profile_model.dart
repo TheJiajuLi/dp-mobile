@@ -36,6 +36,9 @@ class UserProfile {
   // 职业——后端还没有这个字段，先跟 gender/location/zodiac 一样走
   // "本地存底，等后端上线直接生效"的过渡套路
   final String? occupation;
+  // 元老创作者标识——后端还没有这个字段，先跟 occupation 一样走
+  // "本地/恒为false，等后端上线直接生效"的过渡套路
+  final bool isFoundingCreator;
 
   UserProfile({
     required this.id,
@@ -57,6 +60,7 @@ class UserProfile {
     this.isVerified = false,
     this.membership = 'free',
     this.occupation,
+    this.isFoundingCreator = false,
   });
 
   UserProfile copyWith({String? avatar, List<String>? tags}) => UserProfile(
@@ -79,6 +83,7 @@ class UserProfile {
     isVerified: isVerified,
     membership: membership,
     occupation: occupation,
+    isFoundingCreator: isFoundingCreator,
   );
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -101,5 +106,7 @@ class UserProfile {
     isVerified: j['is_verified'] == true,
     membership: j['membership']?.toString() ?? 'free',
     occupation: j['occupation']?.toString(),
+    isFoundingCreator:
+        j['is_founding_creator'] == true || j['is_founding_creator'] == 1,
   );
 }

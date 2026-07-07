@@ -9,6 +9,7 @@ import '../../../core/notification_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 import '../providers/storage_provider.dart';
+import '../widgets/settings_row.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -85,9 +86,9 @@ class SettingsScreen extends ConsumerWidget {
                 padding: EdgeInsets.zero,
                 children: [
                   const SizedBox(height: 8),
-                  _SectionTitle(l10n.sectionAccount),
-                  _SettingsGroup([
-                    _SettingsRow(
+                  SettingsSectionTitle(l10n.sectionAccount),
+                  SettingsGroup([
+                    SettingsRow(
                       icon: Icons.shield_outlined,
                       iconColor: const Color(0xFF2563EB),
                       iconBg: const Color(0xFFE6F1FB),
@@ -95,7 +96,7 @@ class SettingsScreen extends ConsumerWidget {
                       subtitle: l10n.accountSecuritySubtitle,
                       onTap: () => context.push('/settings/security'),
                     ),
-                    _SettingsRow(
+                    SettingsRow(
                       icon: Icons.notifications_outlined,
                       iconColor: const Color(0xFF6366F1),
                       iconBg: const Color(0xFFEEF0FF),
@@ -106,7 +107,7 @@ class SettingsScreen extends ConsumerWidget {
                         builder: (_) => const _NotifSettingsSheet(),
                       ),
                     ),
-                    _SettingsRow(
+                    SettingsRow(
                       icon: Icons.lock_outlined,
                       iconColor: const Color(0xFF16A34A),
                       iconBg: const Color(0xFFE8F8F0),
@@ -116,9 +117,9 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ]),
 
-                  _SectionTitle(l10n.sectionGeneral),
-                  _SettingsGroup([
-                    _SettingsRow(
+                  SettingsSectionTitle(l10n.sectionGeneral),
+                  SettingsGroup([
+                    SettingsRow(
                       icon: Icons.text_fields,
                       iconColor: const Color(0xFF6366F1),
                       iconBg: const Color(0xFFEEF0FF),
@@ -128,7 +129,7 @@ class SettingsScreen extends ConsumerWidget {
                           l10n.fontSizeStandard,
                       onTap: () => _showFontPicker(context, ref),
                     ),
-                    _SettingsRow(
+                    SettingsRow(
                       icon: Icons.language,
                       iconColor: const Color(0xFF2563EB),
                       iconBg: const Color(0xFFE6F1FB),
@@ -146,7 +147,7 @@ class SettingsScreen extends ConsumerWidget {
                             final quota =
                                 (data['quota'] as num?)?.toInt() ??
                                 200 * 1024 * 1024;
-                            return _SettingsRow(
+                            return SettingsRow(
                               icon: Icons.cloud_outlined,
                               iconColor: const Color(0xFF16A34A),
                               iconBg: const Color(0xFFE8F8F0),
@@ -158,7 +159,7 @@ class SettingsScreen extends ConsumerWidget {
                               onTap: () => context.push('/settings/storage'),
                             );
                           },
-                          loading: () => _SettingsRow(
+                          loading: () => SettingsRow(
                             icon: Icons.cloud_outlined,
                             iconColor: const Color(0xFF16A34A),
                             iconBg: const Color(0xFFE8F8F0),
@@ -166,7 +167,7 @@ class SettingsScreen extends ConsumerWidget {
                             subtitle: l10n.loadingEllipsis,
                             onTap: () => context.push('/settings/storage'),
                           ),
-                          error: (_, __) => _SettingsRow(
+                          error: (_, __) => SettingsRow(
                             icon: Icons.cloud_outlined,
                             iconColor: const Color(0xFF16A34A),
                             iconBg: const Color(0xFFE8F8F0),
@@ -177,7 +178,7 @@ class SettingsScreen extends ConsumerWidget {
                         );
                       },
                     ),
-                    _SettingsRow(
+                    SettingsRow(
                       icon: Icons.delete_outline,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
@@ -186,9 +187,16 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ]),
 
-                  _SectionTitle(l10n.sectionAbout),
-                  _SettingsGroup([
-                    _SettingsRow(
+                  SettingsSectionTitle(l10n.sectionAbout),
+                  SettingsGroup([
+                    SettingsRow(
+                      icon: Icons.help_outline,
+                      iconColor: const Color(0xFF6366F1),
+                      iconBg: const Color(0xFFEEF0FF),
+                      title: l10n.helpAndFeedback,
+                      onTap: () => context.push('/settings/help'),
+                    ),
+                    SettingsRow(
                       icon: Icons.info_outline,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
@@ -196,14 +204,14 @@ class SettingsScreen extends ConsumerWidget {
                       subtitle: 'v1.0.0',
                       onTap: () => context.push('/settings/about'),
                     ),
-                    _SettingsRow(
+                    SettingsRow(
                       icon: Icons.description_outlined,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
                       title: l10n.userAgreement,
                       onTap: () => context.push('/settings/terms'),
                     ),
-                    _SettingsRow(
+                    SettingsRow(
                       icon: Icons.privacy_tip_outlined,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
@@ -213,19 +221,19 @@ class SettingsScreen extends ConsumerWidget {
                   ]),
 
                   // 2026-07-06 起从侧边栏（已整个移除）挪过来——切换账号/
-                  // 退出登录单独成一组放最后，不加 _SectionTitle（页面顶部
+                  // 退出登录单独成一组放最后，不加 SettingsSectionTitle（页面顶部
                   // 已经用过一次"账号"当分组标题了，这里再来一次会显得像
                   // 重复分组；退出登录标红跟原来侧边栏的处理一致）
                   const SizedBox(height: 12),
-                  _SettingsGroup([
-                    _SettingsRow(
+                  SettingsGroup([
+                    SettingsRow(
                       icon: Icons.swap_horizontal_circle_outlined,
                       iconColor: const Color(0xFF6366F1),
                       iconBg: const Color(0xFFEEF0FF),
                       title: l10n.switchAccount,
                       onTap: () => context.push('/switch-account'),
                     ),
-                    _SettingsRow(
+                    SettingsRow(
                       icon: Icons.logout,
                       iconColor: const Color(0xFFDC2626),
                       iconBg: const Color(0xFFFEE2E2),
@@ -512,136 +520,3 @@ class _NotifSettingsSheet extends ConsumerWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  const _SectionTitle(this.title);
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-    child: Text(
-      title.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        color: Colors.grey,
-        letterSpacing: 0.5,
-      ),
-    ),
-  );
-}
-
-// 一线产品的设置分组通常是浮在页面背景上的圆角卡片（左右留白+
-// 阴影/细边），不是过去那种贴边到底、组内每行都画一条分割线的表格式
-// 布局——分割线改成组内相邻行之间才画（Column+插入 Divider），最后一行
-// 不再带一条多余的线贴着卡片圆角
-class _SettingsGroup extends StatelessWidget {
-  final List<Widget> children;
-  const _SettingsGroup(this.children);
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final rows = <Widget>[];
-    for (var i = 0; i < children.length; i++) {
-      if (i > 0) {
-        rows.add(
-          Divider(
-            height: 0.5,
-            thickness: 0.5,
-            indent: 62,
-            color: Theme.of(context).dividerColor,
-          ),
-        );
-      }
-      rows.add(children[i]);
-    }
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: rows),
-    );
-  }
-}
-
-class _SettingsRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
-  final String title;
-  final String? subtitle;
-  final String? trailing;
-  final VoidCallback onTap;
-
-  const _SettingsRow({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Icon(icon, color: iconColor, size: 17),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                ],
-              ),
-            ),
-            if (trailing != null)
-              Text(
-                trailing!,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-}

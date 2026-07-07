@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../community_provider.dart';
@@ -284,9 +285,10 @@ class _TutorialCard extends StatelessWidget {
                         _AuthorAvatar(
                           avatar: tutorial.avatar,
                           username: tutorial.username,
+                          isFoundingCreator: tutorial.isFoundingCreator,
                         ),
                         const SizedBox(width: 6),
-                        Expanded(
+                        Flexible(
                           child: Text(
                             tutorial.username,
                             maxLines: 1,
@@ -299,6 +301,8 @@ class _TutorialCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (tutorial.isFoundingCreator)
+                          const FoundingBadgeSmall(),
                       ],
                     ),
                   ),
@@ -389,8 +393,13 @@ class _CoverPlaceholder extends StatelessWidget {
 class _AuthorAvatar extends StatelessWidget {
   final String? avatar;
   final String username;
+  final bool isFoundingCreator;
 
-  const _AuthorAvatar({required this.avatar, required this.username});
+  const _AuthorAvatar({
+    required this.avatar,
+    required this.username,
+    this.isFoundingCreator = false,
+  });
 
   Widget _letter() => CircleAvatar(
     radius: 8,
@@ -407,6 +416,14 @@ class _AuthorAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return FoundingAvatarRing(
+      isFoundingCreator: isFoundingCreator,
+      size: 16,
+      child: _content(context),
+    );
+  }
+
+  Widget _content(BuildContext context) {
     if (avatar == null || avatar!.isEmpty) return _letter();
 
     if (avatar!.startsWith('data:image')) {

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart';
@@ -29,6 +30,9 @@ class TutorialComment {
   final int createdAt;
   final int likes;
   final List<TutorialComment> replies;
+  // 元老创作者标识——后端还没有这个字段，恒为 false，等后端在
+  // 评论接口的 SELECT 里加上 is_founding_creator 直接生效
+  final bool isFoundingCreator;
 
   TutorialComment({
     required this.id,
@@ -40,6 +44,7 @@ class TutorialComment {
     required this.createdAt,
     this.likes = 0,
     this.replies = const [],
+    this.isFoundingCreator = false,
   });
 
   factory TutorialComment.fromJson(Map<String, dynamic> j) {
@@ -53,6 +58,8 @@ class TutorialComment {
       content: j['content'] as String? ?? '',
       createdAt: (j['created_at'] as num?)?.toInt() ?? 0,
       likes: (j['likes'] as num?)?.toInt() ?? 0,
+      isFoundingCreator:
+          j['is_founding_creator'] == true || j['is_founding_creator'] == 1,
       replies: repliesRaw
           .map(
             (r) =>
@@ -364,7 +371,16 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     String? avatar,
     String username, {
     double radius = 18,
+    bool isFoundingCreator = false,
   }) {
+    return FoundingAvatarRing(
+      isFoundingCreator: isFoundingCreator,
+      size: radius * 2,
+      child: _plainAvatar(avatar, username, radius: radius),
+    );
+  }
+
+  Widget _plainAvatar(String? avatar, String username, {double radius = 18}) {
     if (avatar != null && avatar.isNotEmpty) {
       if (avatar.startsWith('data:image')) {
         try {
@@ -422,6 +438,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               c.avatar,
               c.username,
               radius: isReply ? 14 : 18,
+              isFoundingCreator: c.isFoundingCreator,
             ),
           ),
           const SizedBox(width: 10),
@@ -438,6 +455,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (c.isFoundingCreator) const FoundingBadgeSmall(),
                     if (isAuthor) ...[
                       const SizedBox(width: 4),
                       Container(
@@ -610,6 +628,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final title = t['title'] as String? ?? '';
     final username = t['username'] as String? ?? '';
     final avatar = t['avatar'] as String?;
+    final authorIsFoundingCreator =
+        t['is_founding_creator'] == true || t['is_founding_creator'] == 1;
     final likes = (t['likes'] as num?)?.toInt() ?? 0;
     final coverImage = t['cover_image'] as String?;
     final createdAt = (t['created_at'] as num?)?.toInt() ?? 0;
@@ -792,18 +812,29 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                               : () => context.push('/users/$username'),
                           child: Row(
                             children: [
-                              _buildAuthorAvatar(avatar, username, radius: 18),
+                              _buildAuthorAvatar(
+                                avatar,
+                                username,
+                                radius: 18,
+                                isFoundingCreator: authorIsFoundingCreator,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      username,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          username,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        if (authorIsFoundingCreator)
+                                          const FoundingBadgeSmall(),
+                                      ],
                                     ),
                                     Text(
                                       '$dateStr · ${l10n.estimatedReadMinutes(_readMinutes())}',

@@ -2198,6 +2198,12 @@ abstract class AppLocalizations {
   /// **'About'**
   String get sectionAbout;
 
+  /// No description provided for @helpAndFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Help & Feedback'**
+  String get helpAndFeedback;
+
   /// No description provided for @aboutApp.
   ///
   /// In en, this message translates to:

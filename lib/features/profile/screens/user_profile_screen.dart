@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/founding_badge.dart';
 import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
@@ -200,6 +201,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         createdAt: (currentUser.createdAt ?? 0) * 1000,
         ipLocation: currentUser.ipLocation,
         tags: currentUser.tags,
+        isFoundingCreator: currentUser.isFoundingCreator,
       );
       await _loadLocalPrefs(profile);
       if (!widget.showBackButton) {
@@ -1523,12 +1525,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         () => context.pop(),
                       ),
                     const Spacer(),
-                    // VIP 标识不分自己/别人都显示——自己会员是真实数据
-                    // （storageUsageProvider），看别人主页时目前后端
-                    // GET /auth/users/profile/:identifier 还没把
-                    // membership 字段加进 SELECT 列表，_profile.membership
-                    // 会先恒为 'free'（灰色），等后端加了这一列直接生效
-                    _buildVipBadge(isSelfView: isSelfView),
                     if (isSelfView) ...[
                       _heroIconButton(
                         Theme.of(context).brightness == Brightness.dark
@@ -1563,14 +1559,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       clipBehavior: Clip.none,
                       alignment: Alignment.center,
                       children: [
-                        Container(
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.fromBorderSide(
-                              BorderSide(color: Colors.white, width: 2.5),
+                        FoundingAvatarRing(
+                          isFoundingCreator: _profile?.isFoundingCreator ?? false,
+                          size: 68,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.fromBorderSide(
+                                BorderSide(color: Colors.white, width: 2.5),
+                              ),
                             ),
+                            child: _buildAvatar(radius: 34),
                           ),
-                          child: _buildAvatar(radius: 34),
                         ),
                         if (_uploadingAvatar)
                           const CircleAvatar(
@@ -1580,6 +1580,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               color: Colors.white,
                             ),
                           ),
+                        // VIP 标识挪到头像右上角当角标——不分自己/别人都
+                        // 显示，自己会员是真实数据（storageUsageProvider），
+                        // 看别人主页时目前后端 GET
+                        // /auth/users/profile/:identifier 还没把 membership
+                        // 字段加进 SELECT 列表，_profile.membership 会先
+                        // 恒为 'free'（灰色角标），等后端加了这一列直接生效
+                        Positioned(
+                          right: -6,
+                          top: -4,
+                          child: _buildVipBadge(isSelfView: isSelfView),
+                        ),
                         if (isSelfView)
                           Positioned(
                             right: -4,
@@ -1644,6 +1655,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                   color: _primary,
                                 ),
                               ],
+                              if (_profile!.isFoundingCreator)
+                                const FoundingBadgeSmall(),
                             ],
                           ),
                           if (_profile!.handle != null) ...[
@@ -1662,6 +1675,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                     ),
                   ],
                 ),
+                if (_profile!.isFoundingCreator) ...[
+                  const SizedBox(height: 10),
+                  const FoundingBadgeLarge(),
+                ],
                 if (interestTags.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Wrap(
@@ -2458,25 +2475,30 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               'free')
         : _profile?.membership ?? 'free';
     final isMember = membership == 'pro' || membership == 'pro_max';
-    const style = TextStyle(
-      fontSize: 13,
-      fontWeight: FontWeight.w800,
-      fontStyle: FontStyle.italic,
-      letterSpacing: 2,
-      shadows: [Shadow(color: Colors.black45, blurRadius: 6)],
-    );
     return GestureDetector(
       onTap: isSelfView ? () => context.push('/settings/subscription') : null,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: isMember
-            ? ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          gradient: isMember
+              ? const LinearGradient(
                   colors: [Color(0xFFFFE9A8), Color(0xFFE8A33D)],
-                ).createShader(bounds),
-                child: Text('VIP', style: style.copyWith(color: Colors.white)),
-              )
-            : Text('VIP', style: style.copyWith(color: Colors.white38)),
+                )
+              : null,
+          color: isMember ? null : Colors.black45,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white, width: 1.5),
+        ),
+        child: Text(
+          'VIP',
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            fontStyle: FontStyle.italic,
+            letterSpacing: 1,
+            color: isMember ? const Color(0xFF7A4A00) : Colors.white70,
+          ),
+        ),
       ),
     );
   }

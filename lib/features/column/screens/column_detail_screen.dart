@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
+import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 import '../models/column_model.dart';
@@ -81,7 +82,16 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
     String? avatar,
     String username, {
     double radius = 19,
+    bool isFoundingCreator = false,
   }) {
+    return FoundingAvatarRing(
+      isFoundingCreator: isFoundingCreator,
+      size: radius * 2,
+      child: _plainAvatar(avatar, username, radius: radius),
+    );
+  }
+
+  Widget _plainAvatar(String? avatar, String username, {double radius = 19}) {
     if (avatar != null && avatar.isNotEmpty) {
       if (avatar.startsWith('data:image')) {
         try {
@@ -233,6 +243,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                               child: _buildAuthorAvatar(
                                 _column!.avatar,
                                 _column!.username ?? '',
+                                isFoundingCreator: _column!.isFoundingCreator,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -240,12 +251,18 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    _column!.username ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        _column!.username ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      if (_column!.isFoundingCreator)
+                                        const FoundingBadgeSmall(),
+                                    ],
                                   ),
                                   if (_column!.handle != null)
                                     Text(

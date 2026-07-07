@@ -1145,6 +1145,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionAbout => 'About';
 
   @override
+  String get helpAndFeedback => 'Help & Feedback';
+
+  @override
   String get aboutApp => 'About Dreaming Polar';
 
   @override

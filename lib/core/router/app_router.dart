@@ -29,6 +29,8 @@ import '../../features/profile/screens/user_profile_screen.dart';
 import '../../features/publish/screens/publish_screen.dart';
 import '../../features/search/screens/search_screen.dart';
 import '../../features/settings/screens/about_screen.dart';
+import '../../features/settings/screens/faq_list_screen.dart';
+import '../../features/settings/screens/help_feedback_screen.dart';
 import '../../features/settings/screens/account_security_screen.dart';
 import '../../features/settings/screens/login_history_screen.dart';
 import '../../features/settings/screens/payment_screen.dart';
@@ -143,6 +145,15 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/privacy-policy',
       builder: (context, state) => const PrivacyPolicyScreen(),
+    ),
+    GoRoute(
+      path: '/settings/help',
+      builder: (context, state) => const HelpFeedbackScreen(),
+    ),
+    GoRoute(
+      path: '/settings/faq',
+      builder: (context, state) =>
+          FaqListScreen(initialQuery: state.extra as String?),
     ),
     GoRoute(
       path: '/messages/chat/:conversationId',

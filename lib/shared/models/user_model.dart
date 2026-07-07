@@ -27,6 +27,10 @@ class UserModel {
   // 上线前一样），PATCH /auth/me 现在会静默丢弃，先靠本地 SharedPreferences
   // 存底，等后端加了字段直接生效
   final String? occupation;
+  // 元老创作者——早期加入且持续产出的创作者标识，后端还没有这个字段
+  // （截至2026-07-07），先按 gender/occupation 这些字段同样的套路加上，
+  // 恒为 false 不影响现有用户，等后端 ALTER TABLE 加了这一列直接生效
+  final bool isFoundingCreator;
 
   const UserModel({
     required this.id,
@@ -46,6 +50,7 @@ class UserModel {
     this.ipLocation,
     this.tags = const [],
     this.occupation,
+    this.isFoundingCreator = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -67,6 +72,9 @@ class UserModel {
     tags:
         (json['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     occupation: json['occupation'] as String?,
+    isFoundingCreator:
+        json['is_founding_creator'] == true ||
+        json['is_founding_creator'] == 1,
   );
 
   Map<String, dynamic> toJson() => {
@@ -87,6 +95,7 @@ class UserModel {
     'ip_location': ipLocation,
     'tags': tags,
     'occupation': occupation,
+    'is_founding_creator': isFoundingCreator,
   };
 
   UserModel copyWith({

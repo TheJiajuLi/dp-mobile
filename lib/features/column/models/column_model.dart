@@ -18,6 +18,9 @@ class ColumnModel {
   final String? avatar;
   final String? handle;
   final int createdAt;
+  // 元老创作者标识——后端还没有这个字段，恒为 false，等后端在
+  // 专栏接口的 SELECT 里加上 is_founding_creator 直接生效
+  final bool isFoundingCreator;
 
   const ColumnModel({
     required this.id,
@@ -34,6 +37,7 @@ class ColumnModel {
     this.avatar,
     this.handle,
     required this.createdAt,
+    this.isFoundingCreator = false,
   });
 
   factory ColumnModel.fromJson(Map<String, dynamic> j) => ColumnModel(
@@ -51,5 +55,7 @@ class ColumnModel {
     avatar: j['avatar'] as String?,
     handle: j['handle'] as String?,
     createdAt: (j['created_at'] as num?)?.toInt() ?? 0,
+    isFoundingCreator:
+        j['is_founding_creator'] == true || j['is_founding_creator'] == 1,
   );
 }
