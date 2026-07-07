@@ -507,13 +507,26 @@ class _HdDiscoverPageState extends State<HdDiscoverPage> {
         );
         continue;
       }
-      for (final word in line.split(RegExp(r'(\s+)'))) {
-        if (word.isEmpty) continue;
-        final isKeyword = keywords.contains(word.trim());
-        final isNumber = RegExp(r'^\d+(\.\d+)?$').hasMatch(word.trim());
+      // Dart 的 String.split(RegExp) 即使正则带捕获组也不会把分隔符本身
+      // 保留在结果里（跟 JS 不一样）——之前用 split 切词直接把空格全部
+      // 丢了，代码块里所有 token 连成一片。改用 allMatches 把"一段非空白"
+      // 和"一段空白"都当成独立 match 保留下来，空白部分原样输出、不上色
+      for (final match in RegExp(r'\S+|\s+').allMatches(line)) {
+        final token = match[0]!;
+        if (token.trim().isEmpty) {
+          spans.add(
+            TextSpan(
+              text: token,
+              style: const TextStyle(color: plainColor),
+            ),
+          );
+          continue;
+        }
+        final isKeyword = keywords.contains(token);
+        final isNumber = RegExp(r'^\d+(\.\d+)?$').hasMatch(token);
         spans.add(
           TextSpan(
-            text: word,
+            text: token,
             style: TextStyle(
               color: isKeyword
                   ? keywordColor
