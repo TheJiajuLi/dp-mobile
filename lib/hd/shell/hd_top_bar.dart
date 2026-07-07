@@ -10,8 +10,15 @@ class HdTopBar extends StatelessWidget {
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      // 跟 HdShell 的灰色背景（0xFFF5F5F7）拼色，不再是浮在灰底上的白条
-      decoration: const BoxDecoration(color: Color(0xFFF5F5F7)),
+      // 跟 HdShell 的灰色背景（0xFFF5F5F7）拼色，不再是浮在灰底上的白条；
+      // 底部保留一条跟侧边栏分割线同色同粗细的灰线，贴着顶栏自己的宽度走，
+      // 天然从侧边栏右侧一路铺到屏幕最右边，不需要另外量宽度
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5F5F7),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+        ),
+      ),
       child: Row(
         children: [
           Text(
