@@ -1112,11 +1112,21 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          _running ? Icons.hourglass_empty : Icons.play_arrow,
-                          size: 13,
-                          color: Colors.white,
-                        ),
+                        if (_running)
+                          const SizedBox(
+                            width: 11,
+                            height: 11,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        else
+                          const Icon(
+                            Icons.play_arrow,
+                            size: 13,
+                            color: Colors.white,
+                          ),
                         const SizedBox(width: 3),
                         Text(
                           _running ? l10n.runningLabel : l10n.runAction,
@@ -1173,22 +1183,26 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     if (content == null) {
       return Container(height: 0.5, color: const Color(0xFF1E293B));
     }
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxHeight: 300),
-      color: const Color(0xFF111111),
-      // html 输出自己就是一个内部可滚动的 WebView，外面不能再套一层
-      // SingleChildScrollView——两层滚动区域叠在一起，手势会被内层
-      // WebView 吃掉，外层永远收不到
-      child: widget.block.outputType == 'html'
-          ? SizedBox(
-              height: 200,
-              child: _renderOutput(content, widget.block.outputType),
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(10),
-              child: _renderOutput(content, widget.block.outputType),
-            ),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        key: ValueKey('${widget.block.id}-$content'),
+        width: double.infinity,
+        constraints: const BoxConstraints(maxHeight: 300),
+        color: const Color(0xFF111111),
+        // html 输出自己就是一个内部可滚动的 WebView，外面不能再套一层
+        // SingleChildScrollView——两层滚动区域叠在一起，手势会被内层
+        // WebView 吃掉，外层永远收不到
+        child: widget.block.outputType == 'html'
+            ? SizedBox(
+                height: 200,
+                child: _renderOutput(content, widget.block.outputType),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(10),
+                child: _renderOutput(content, widget.block.outputType),
+              ),
+      ),
     );
   }
 

@@ -2648,6 +2648,12 @@ abstract class AppLocalizations {
   /// **'Part of column'**
   String get partOfColumnLabel;
 
+  /// No description provided for @untitledColumnLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled column'**
+  String get untitledColumnLabel;
+
   /// No description provided for @noCommentsYetPrompt.
   ///
   /// In en, this message translates to:

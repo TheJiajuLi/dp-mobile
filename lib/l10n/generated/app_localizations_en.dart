@@ -1406,6 +1406,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get partOfColumnLabel => 'Part of column';
 
   @override
+  String get untitledColumnLabel => 'Untitled column';
+
+  @override
   String get noCommentsYetPrompt =>
       'No comments yet — be the first to say something';
 

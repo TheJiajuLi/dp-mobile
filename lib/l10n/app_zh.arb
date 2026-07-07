@@ -425,6 +425,7 @@
   "viewAllCommentsAction": "查看全部",
   "estimatedReadMinutes": "预计阅读 {minutes} 分钟",
   "partOfColumnLabel": "所属专栏",
+  "untitledColumnLabel": "未命名专栏",
   "noCommentsYetPrompt": "还没有评论，来说点什么吧",
   "writeCommentHint": "写下你的评论...",
   "replyAction": "回复",

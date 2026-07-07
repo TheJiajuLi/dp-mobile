@@ -1374,6 +1374,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get partOfColumnLabel => '所属专栏';
 
   @override
+  String get untitledColumnLabel => '未命名专栏';
+
+  @override
   String get noCommentsYetPrompt => '还没有评论，来说点什么吧';
 
   @override

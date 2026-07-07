@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/profile_refresh_signal.dart';
 import '../../column/models/column_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -84,6 +85,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
               if (res.success) {
+                notifyProfileShouldRefresh(ref);
                 _load();
               } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(

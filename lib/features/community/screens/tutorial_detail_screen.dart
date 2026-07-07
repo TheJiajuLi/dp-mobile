@@ -1093,7 +1093,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   style: const TextStyle(fontSize: 11, color: _primary),
                 ),
                 Text(
-                  _tutorial?['column_name'] as String? ?? columnId,
+                  _tutorial?['column_name'] as String? ?? l10n.untitledColumnLabel,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,

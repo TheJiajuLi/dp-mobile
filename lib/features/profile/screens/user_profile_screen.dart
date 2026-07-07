@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -12,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/profile_refresh_signal.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -154,6 +156,15 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             .toList();
       });
     }
+  }
+
+  // 下拉刷新统一入口——_loadProfile 内部已经会连带重新拉教程和专栏
+  // （见下面 isOwnProfile/别人主页两条分支末尾），这里不用再重复调用
+  Future<void> _onRefresh() async {
+    await Future.wait([
+      _loadProfile(),
+      if (_showNotebookTab) _loadNotebooks(),
+    ]);
   }
 
   Future<void> _loadProfile() async {
@@ -892,21 +903,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: _primary),
-            SizedBox(height: 16),
-            Text('小梦正在生成头像...', style: TextStyle(fontSize: 14)),
-            SizedBox(height: 4),
-            Text(
-              '通常需要15-25秒',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) => const _AiGeneratingAvatarDialog(),
     );
 
     try {
@@ -1966,6 +1963,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final currentUser = ref.watch(currentUserProvider);
+    // 发布教程/新建专栏后个人主页要跟着更新（"我的" tab 是常驻实例，
+    // 见下面注释，不会自己重新加载）——发布页/专栏管理页操作成功时
+    // 会 bump 这个信号，这里监听到变化就重新拉一次
+    ref.listen<int>(profileRefreshSignalProvider, (prev, next) {
+      if (!widget.showBackButton && prev != next && !_loading) {
+        _onRefresh();
+      }
+    });
     // "我的" tab 是 IndexedStack 里的常驻实例，不会随便重新 initState。
     // 正常情况下账号切换会整个走一遍 /splash 让整个底部导航 shell 重新
     // 搭建，这个实例本身也会被销毁重建；这里额外加一层保险——万一哪次
@@ -2132,82 +2137,101 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       // SliverPadding，这里是嵌套在 NestedScrollView+
                       // TabBarView 里的子滚动视图，顶部已经有头图+Tab栏挡着，
                       // 只是想要普通的四周留白
-                      _tutorials.isEmpty
-                          ? Center(
-                              key: const PageStorageKey(
-                                'profile-tab-tutorials-empty',
-                              ),
-                              child: Text(
-                                l10n.noTutorialsPublished,
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            )
-                          : ListView.builder(
-                              key: const PageStorageKey(
-                                'profile-tab-tutorials',
-                              ),
-                              padding: const EdgeInsets.all(12),
-                              itemCount: _tutorials.length,
-                              itemBuilder: (ctx, i) {
-                                final t = _tutorials[i];
-                                return TutorialListCard(
-                                  tutorial: t,
-                                  onTap: () =>
-                                      context.push('/tutorial/${t.id}'),
-                                  onMoreTap: () =>
-                                      _todo(l10n.comingSoonStayTuned),
-                                );
-                              },
-                            ),
-                      _buildColumnsTab(l10n, isSelfView),
-                      if (_showNotebookTab)
-                        _notebooks.isEmpty
-                            ? Center(
+                      RefreshIndicator(
+                        color: _primary,
+                        onRefresh: _onRefresh,
+                        child: _tutorials.isEmpty
+                            ? _refreshableCenter(
                                 key: const PageStorageKey(
-                                  'profile-tab-notebooks-empty',
+                                  'profile-tab-tutorials-empty',
                                 ),
                                 child: Text(
-                                  l10n.noNotebooksYet,
+                                  l10n.noTutorialsPublished,
                                   style: const TextStyle(color: Colors.grey),
                                 ),
                               )
-                            // Notebook 这个 tab 按规范是列表式（文件名+语言badge+
-                            // cells数量+时间），不是跟文章/收藏/点赞一样的九宫格
-                            : ListView.separated(
+                            : ListView.builder(
                                 key: const PageStorageKey(
-                                  'profile-tab-notebooks',
+                                  'profile-tab-tutorials',
                                 ),
-                                padding: EdgeInsets.zero,
-                                itemCount: _notebooks.length,
-                                separatorBuilder: (_, _) => Divider(
-                                  height: 1,
-                                  color: isDarkMode
-                                      ? Colors.white12
-                                      : const Color(0xFFF0F0F0),
-                                ),
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(12),
+                                itemCount: _tutorials.length,
                                 itemBuilder: (ctx, i) {
-                                  final nb = _notebooks[i];
-                                  return _NotebookListItem(
-                                    notebook: nb,
+                                  final t = _tutorials[i];
+                                  return TutorialListCard(
+                                    tutorial: t,
                                     onTap: () =>
-                                        context.push('/notebook/${nb['id']}'),
+                                        context.push('/tutorial/${t.id}'),
+                                    onMoreTap: () =>
+                                        _todo(l10n.comingSoonStayTuned),
                                   );
                                 },
                               ),
+                      ),
+                      _buildColumnsTab(l10n, isSelfView),
+                      if (_showNotebookTab)
+                        RefreshIndicator(
+                          color: _primary,
+                          onRefresh: _onRefresh,
+                          child: _notebooks.isEmpty
+                              ? _refreshableCenter(
+                                  key: const PageStorageKey(
+                                    'profile-tab-notebooks-empty',
+                                  ),
+                                  child: Text(
+                                    l10n.noNotebooksYet,
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
+                                )
+                              // Notebook 这个 tab 按规范是列表式（文件名+语言badge+
+                              // cells数量+时间），不是跟文章/收藏/点赞一样的九宫格
+                              : ListView.separated(
+                                  key: const PageStorageKey(
+                                    'profile-tab-notebooks',
+                                  ),
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  padding: EdgeInsets.zero,
+                                  itemCount: _notebooks.length,
+                                  separatorBuilder: (_, _) => Divider(
+                                    height: 1,
+                                    color: isDarkMode
+                                        ? Colors.white12
+                                        : const Color(0xFFF0F0F0),
+                                  ),
+                                  itemBuilder: (ctx, i) {
+                                    final nb = _notebooks[i];
+                                    return _NotebookListItem(
+                                      notebook: nb,
+                                      onTap: () => context.push(
+                                        '/notebook/${nb['id']}',
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
                       // 收藏（占位）
-                      Center(
-                        key: const PageStorageKey('profile-tab-bookmarks'),
-                        child: Text(
-                          l10n.bookmarksComingSoon,
-                          style: const TextStyle(color: Colors.grey),
+                      RefreshIndicator(
+                        color: _primary,
+                        onRefresh: _onRefresh,
+                        child: _refreshableCenter(
+                          key: const PageStorageKey('profile-tab-bookmarks'),
+                          child: Text(
+                            l10n.bookmarksComingSoon,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
                         ),
                       ),
                       // 点赞（占位）
-                      Center(
-                        key: const PageStorageKey('profile-tab-likes'),
-                        child: Text(
-                          l10n.likesListComingSoon,
-                          style: const TextStyle(color: Colors.grey),
+                      RefreshIndicator(
+                        color: _primary,
+                        onRefresh: _onRefresh,
+                        child: _refreshableCenter(
+                          key: const PageStorageKey('profile-tab-likes'),
+                          child: Text(
+                            l10n.likesListComingSoon,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
                         ),
                       ),
                     ],
@@ -2222,18 +2246,26 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 的最后一项右边不再留间距
   Widget _buildColumnsTab(AppLocalizations l10n, bool isSelfView) {
     if (_columns.isEmpty && !isSelfView) {
-      return Center(
-        key: const PageStorageKey('profile-tab-columns-empty'),
-        child: Text(
-          l10n.noColumnsCreatedYetPrompt,
-          style: const TextStyle(color: Colors.grey),
+      return RefreshIndicator(
+        color: _primary,
+        onRefresh: _onRefresh,
+        child: _refreshableCenter(
+          key: const PageStorageKey('profile-tab-columns-empty'),
+          child: Text(
+            l10n.noColumnsCreatedYetPrompt,
+            style: const TextStyle(color: Colors.grey),
+          ),
         ),
       );
     }
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final placeholderColor = isDark ? Colors.white54 : const Color(0xFFC7C7CC);
-    return ListView.builder(
+    return RefreshIndicator(
+      color: _primary,
+      onRefresh: _onRefresh,
+      child: ListView.builder(
       key: const PageStorageKey('profile-tab-columns'),
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(12),
       itemCount: _columns.length + (isSelfView ? 1 : 0),
       itemBuilder: (ctx, i) {
@@ -2273,6 +2305,23 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           onTap: () => context.push('/columns/${col.id}'),
         );
       },
+      ),
+    );
+  }
+
+  // 收藏/点赞等占位 Tab 也要能下拉刷新——RefreshIndicator 得包一个真正
+  // 可滚动的 Scrollable 才能识别下拉手势，光一个 Center 不够，所以套一层
+  // 带 AlwaysScrollableScrollPhysics 的 ListView
+  Widget _refreshableCenter({required Key key, required Widget child}) {
+    return ListView(
+      key: key,
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 80),
+          child: Center(child: child),
+        ),
+      ],
     );
   }
 
@@ -2622,6 +2671,80 @@ class _SunGlowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SunGlowPainter oldDelegate) => false;
+}
+
+// AI头像生成等待弹窗——带计时+轮换提示语，跟 publish_screen.dart 的
+// _AiGeneratingDialog 是同一套设计，只是文案换成头像场景，不共用一个
+// widget 是因为两边弹窗的调用方各自处理自己的 dialogShowing 防重复pop，
+// 抽成公共组件反而要多传一层回调，不值当
+class _AiGeneratingAvatarDialog extends StatefulWidget {
+  const _AiGeneratingAvatarDialog();
+
+  @override
+  State<_AiGeneratingAvatarDialog> createState() =>
+      _AiGeneratingAvatarDialogState();
+}
+
+class _AiGeneratingAvatarDialogState extends State<_AiGeneratingAvatarDialog> {
+  int _seconds = 0;
+  Timer? _timer;
+
+  static const _tips = [
+    '小梦正在理解你的描述...',
+    '正在构思头像风格...',
+    '头像生成中，请稍候...',
+    '即将完成，再等一下...',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _seconds++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String get _tip {
+    if (_seconds < 5) return _tips[0];
+    if (_seconds < 15) return _tips[1];
+    if (_seconds < 35) return _tips[2];
+    return _tips[3];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(color: _primary),
+          const SizedBox(height: 20),
+          Text(
+            _tip,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '已等待 $_seconds 秒',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '头像生成通常需要 15-25 秒',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // Notebook tab 列表项：文件名 + 语言 badge + cells 数量 + 时间

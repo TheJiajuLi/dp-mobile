@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/profile_refresh_signal.dart';
 import '../../../core/services/xmeng_image_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/premium_button.dart';
@@ -682,6 +683,7 @@ result
               );
         }
         if (!mounted) return;
+        notifyProfileShouldRefresh(ref);
         if (status == 'published') {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1870,6 +1872,7 @@ result
                   );
               if (!ctx.mounted) return;
               if (res.success) {
+                notifyProfileShouldRefresh(ref);
                 Navigator.pop(ctx, (res.data as Map?)?['id'] as String?);
               } else {
                 Navigator.pop(ctx);
@@ -2393,21 +2396,7 @@ result
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Color(0xFF6366F1)),
-            SizedBox(height: 16),
-            Text('小梦正在生成封面...', style: TextStyle(fontSize: 14)),
-            SizedBox(height: 4),
-            Text(
-              '通常需要10-20秒',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
+      builder: (ctx) => const _AiGeneratingDialog(),
     );
 
     try {
@@ -2585,6 +2574,77 @@ result
     _summaryCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+}
+
+// AI封面生成等待弹窗——带计时+轮换提示语，让用户知道是在正常等待而不是
+// 卡死。纯展示，不碰 _aiGenerateCover 里那套 dialogShowing 防重复pop逻辑
+class _AiGeneratingDialog extends StatefulWidget {
+  const _AiGeneratingDialog();
+
+  @override
+  State<_AiGeneratingDialog> createState() => _AiGeneratingDialogState();
+}
+
+class _AiGeneratingDialogState extends State<_AiGeneratingDialog> {
+  int _seconds = 0;
+  Timer? _timer;
+
+  static const _tips = [
+    '小梦正在理解你的标题...',
+    '正在构思视觉风格...',
+    '图像生成中，请稍候...',
+    '即将完成，再等一下...',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _seconds++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String get _tip {
+    if (_seconds < 5) return _tips[0];
+    if (_seconds < 15) return _tips[1];
+    if (_seconds < 35) return _tips[2];
+    return _tips[3];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(color: Color(0xFF6366F1)),
+          const SizedBox(height: 20),
+          Text(
+            _tip,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '已等待 $_seconds 秒',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '封面生成通常需要 20-60 秒',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
   }
 }
 

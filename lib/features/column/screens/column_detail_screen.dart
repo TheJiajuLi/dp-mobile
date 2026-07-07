@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/profile_refresh_signal.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 import '../models/column_model.dart';
@@ -48,6 +49,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
     if (!mounted) return;
     if (res.success && res.data != null) {
       final data = res.data as Map;
+      debugPrint('[column] ${data['column']}');
       setState(() {
         _column = ColumnModel.fromJson(
           Map<String, dynamic>.from(data['column'] as Map),
@@ -596,6 +598,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                       if (!ctx.mounted) return;
                       Navigator.pop(ctx);
                       if (res.success) {
+                        notifyProfileShouldRefresh(ref);
                         await _load();
                       } else if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -770,6 +773,7 @@ class _AddArticleSheetState extends ConsumerState<_AddArticleSheet> {
           data: {'tutorialId': tutorialId},
         );
     if (res.success) {
+      notifyProfileShouldRefresh(ref);
       widget.onAdded();
     } else if (mounted) {
       final l10n = AppLocalizations.of(context)!;
