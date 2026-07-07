@@ -254,210 +254,205 @@ class _HdDiscoverPageState extends State<HdDiscoverPage> {
 
   Widget _buildPreview(Map<String, dynamic> t) {
     return SingleChildScrollView(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 封面
-                Container(
-                  height: 180,
-                  decoration: BoxDecoration(
-                    color: t['color'] as Color,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Stack(
-                    children: [
-                      // 底部渐变
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.6),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      // 标题
-                      Positioned(
-                        left: 18,
-                        right: 18,
-                        bottom: 16,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              t['title'] as String,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                height: 1.3,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                              child: Text(
-                                t['domain'] as String,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 封面
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: t['color'] as Color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Stack(
+                children: [
+                  // 底部渐变
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.6),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 作者行
-                Row(
-                  children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF6366F1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          (t['author'] as String)[0],
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Column(
+                  ),
+                  // 标题
+                  Positioned(
+                    left: 18,
+                    right: 18,
+                    bottom: 16,
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          t['author'] as String,
+                          t['title'] as String,
                           style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF1A1A1A),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            height: 1.3,
                           ),
                         ),
-                        Text(
-                          '${t['date']} · ${t['views']}浏览',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF999999),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            t['domain'] as String,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    _followButton(t['id'] as String),
-                    const SizedBox(width: 8),
-                    // 阅读全文
-                    GestureDetector(
-                      onTap: () {},
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          children: [
-                            Text(
-                              '阅读全文',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              size: 10,
-                              color: Colors.white,
-                            ),
-                          ],
-                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 作者行
+            Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF6366F1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      (t['author'] as String)[0],
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t['author'] as String,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    Text(
+                      '${t['date']} · ${t['views']}浏览',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF999999),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-
-                // 标签
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: (t['tags'] as List).cast<String>().map((tag) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '#$tag',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6366F1),
+                const Spacer(),
+                _followButton(t['id'] as String),
+                const SizedBox(width: 8),
+                // 阅读全文
+                GestureDetector(
+                  onTap: () {},
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A1A),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Text(
+                          '阅读全文',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-
-                // 分割线
-                const Divider(color: Color(0xFFF0F0F0), height: 1),
-                const SizedBox(height: 14),
-
-                // 简介
-                Text(
-                  t['desc'] as String,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF555555),
-                    height: 1.8,
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-
-                if (t['code'] != null) ...[
-                  const SizedBox(height: 16),
-                  _codeBlock(t['code'] as String),
-                ],
               ],
             ),
-          ),
+            const SizedBox(height: 14),
+
+            // 标签
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: (t['tags'] as List).cast<String>().map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF6366F1),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // 分割线
+            const Divider(color: Color(0xFFF0F0F0), height: 1),
+            const SizedBox(height: 14),
+
+            // 简介
+            Text(
+              t['desc'] as String,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF555555),
+                height: 1.8,
+              ),
+            ),
+
+            if (t['code'] != null) ...[
+              const SizedBox(height: 16),
+              _codeBlock(t['code'] as String),
+            ],
+          ],
         ),
       ),
     );
