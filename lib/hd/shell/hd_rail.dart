@@ -81,36 +81,13 @@ class HdRail extends ConsumerWidget {
                   color: Color(0xFFE5E5EA),
                 ),
                 const SizedBox(height: 4),
-                // 发布按钮
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const Placeholder()),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add, color: Colors.white, size: 16),
-                          SizedBox(width: 5),
-                          Text(
-                            '发布内容',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // 发布——暂时没有对应的 HdPage，先空着 onTap，接真实发布流程
+                // 时再补
+                _navItem(
+                  icon: Icons.add_circle_outline,
+                  activeIcon: Icons.add_circle,
+                  label: '发布',
+                  onTap: () {},
                 ),
                 const SizedBox(height: 4),
                 const Divider(
@@ -187,15 +164,20 @@ class HdRail extends ConsumerWidget {
     );
   }
 
+  // page 传了就是真实的 goBranch 式导航项，选中态跟 currentPage 联动；
+  // 不传 page（比如发布，暂时没有对应的 HdPage）就必须传 onTap 自己接管
+  // 点击行为，永远不显示选中态
   Widget _navItem({
-    required HdPage page,
+    HdPage? page,
     required IconData icon,
     required IconData activeIcon,
     required String label,
+    VoidCallback? onTap,
   }) {
-    final isActive = currentPage == page;
+    assert(page != null || onTap != null);
+    final isActive = page != null && currentPage == page;
     return GestureDetector(
-      onTap: () => onNavTap(page),
+      onTap: onTap ?? () => onNavTap(page!),
       child: Container(
         margin: const EdgeInsets.only(bottom: 2),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
