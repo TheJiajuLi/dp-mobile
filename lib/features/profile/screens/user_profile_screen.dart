@@ -26,7 +26,6 @@ import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
 import '../../messages/models/conversation_model.dart';
 import '../../notebook/services/notebook_service.dart';
-import '../../settings/providers/storage_provider.dart';
 import '../../../shared/widgets/interest_tag.dart';
 import '../models/user_profile_model.dart';
 import '../widgets/tutorial_list_card.dart';
@@ -1579,8 +1578,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             ),
                           ),
                         // VIP 标识挪到头像右上角当角标——不分自己/别人都
-                        // 显示，自己会员是真实数据（storageUsageProvider），
-                        // 看别人主页时目前后端 GET
+                        // 显示，自己会员是真实数据（currentUserProvider，
+                        // GET /auth/me 直接返回），看别人主页时目前后端 GET
                         // /auth/users/profile/:identifier 还没把 membership
                         // 字段加进 SELECT 列表，_profile.membership 会先
                         // 恒为 'free'（灰色角标），等后端加了这一列直接生效
@@ -2551,24 +2550,34 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 两种状态都真实反映 membership，不是随手编一个"看起来高级"的常亮效果。
   // 自己查看自己主页点了跳会员管理页；查看别人主页时纯展示，不接一个
   // "点了打开我自己订阅页"这种文不对题的跳转
+  // 会员等级对应的徽章底色——之前 pro/pro_max 共用同一套暖金色渐变，
+  // 区分不出两档差异；改成三色阶梯（灰/蓝/紫），紫色跟全局主色一致，
+  // 一眼能认出是最高档。实测确认（2026-07-08）GET /auth/me 本来就直接
+  // 返回 membership，自己查看自己主页不用再绕道 storageUsageProvider
+  // 多打一次 /auth/storage/usage
+  Color _membershipColor(String? membership) {
+    switch (membership) {
+      case 'pro_max':
+        return _primary;
+      case 'pro':
+        return const Color(0xFF0EA5E9);
+      default:
+        return const Color(0xFFAAAAAA);
+    }
+  }
+
   Widget _buildVipBadge({required bool isSelfView}) {
     final membership = isSelfView
-        ? (ref.watch(storageUsageProvider).valueOrNull?['membership']
-                  as String? ??
-              'free')
-        : _profile?.membership ?? 'free';
+        ? ref.watch(currentUserProvider)?.membership
+        : _profile?.membership;
     final isMember = membership == 'pro' || membership == 'pro_max';
+    final color = _membershipColor(membership);
     return GestureDetector(
       onTap: isSelfView ? () => context.push('/settings/subscription') : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          gradient: isMember
-              ? const LinearGradient(
-                  colors: [Color(0xFFFFE9A8), Color(0xFFE8A33D)],
-                )
-              : null,
-          color: isMember ? null : Colors.black45,
+          color: isMember ? color : Colors.black45,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.white, width: 1.5),
         ),
@@ -2579,7 +2588,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             fontWeight: FontWeight.w800,
             fontStyle: FontStyle.italic,
             letterSpacing: 1,
-            color: isMember ? const Color(0xFF7A4A00) : Colors.white70,
+            color: isMember ? Colors.white : Colors.white70,
           ),
         ),
       ),
