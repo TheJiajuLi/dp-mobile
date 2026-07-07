@@ -759,6 +759,104 @@ class AppLocalizationsEn extends AppLocalizations {
       'Following each other makes you friends — friends can message without limits';
 
   @override
+  String get recentNotificationsTitle => 'Recent notifications';
+
+  @override
+  String get viewAllAction => 'View all';
+
+  @override
+  String get viewMoreAction => 'View more';
+
+  @override
+  String get notifFilterAll => 'All';
+
+  @override
+  String get notifFilterComments => 'Comments';
+
+  @override
+  String get notifFilterLikes => 'Likes';
+
+  @override
+  String get notifFilterFollows => 'Follows';
+
+  @override
+  String get notifFilterMentions => '@Mentions';
+
+  @override
+  String get notifFilterAi => 'AI';
+
+  @override
+  String get notifFilterComingSoonMessage =>
+      'This notification category is coming soon';
+
+  @override
+  String get friendsQuickLabel => 'Friends';
+
+  @override
+  String friendsCountLabel(int count) {
+    return '$count friends';
+  }
+
+  @override
+  String get searchConversationsHint => 'Search contacts or messages';
+
+  @override
+  String get pinnedChipLabel => 'Pinned';
+
+  @override
+  String get onlineChipLabel => 'Online';
+
+  @override
+  String get pinnedConversationsComingSoon =>
+      'Pinned conversations are coming soon';
+
+  @override
+  String get onlineStatusComingSoon => 'Online status is coming soon';
+
+  @override
+  String get tabRecommended => 'Suggested';
+
+  @override
+  String get recommendedUsersComingSoon => 'Suggested friends are coming soon';
+
+  @override
+  String get notYetFollowedBackTitle =>
+      'Follows you — you haven\'t followed back';
+
+  @override
+  String get followBackAction => 'Follow back';
+
+  @override
+  String allFriendsCountLabel(int count) {
+    return 'All friends ($count)';
+  }
+
+  @override
+  String get unfollowAction => 'Unfollow';
+
+  @override
+  String unfollowConfirmMessage(String username) {
+    return 'Unfollow $username?';
+  }
+
+  @override
+  String get noFriendsYetTitle => 'No friends yet';
+
+  @override
+  String get noFriendsYetSubtitle =>
+      'You\'ll become friends once you follow each other';
+
+  @override
+  String newNotificationsCountLabel(int count) {
+    return '$count new notifications';
+  }
+
+  @override
+  String unreadCountLabel(int count) {
+    return '$count unread';
+  }
+
+  @override
   String get defaultUserName => 'User';
 
   @override

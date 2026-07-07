@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/xmeng_image_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/premium_button.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../column/models/column_model.dart';
 import '../../settings/providers/storage_provider.dart';
@@ -365,9 +366,7 @@ setTimeout(() => {
           : null;
       _tags
         ..clear()
-        ..addAll(
-          ((t['tags'] as List?) ?? []).map((e) => e.toString()),
-        );
+        ..addAll(((t['tags'] as List?) ?? []).map((e) => e.toString()));
       _blocks
         ..clear()
         ..addAll(
@@ -377,9 +376,9 @@ setTimeout(() => {
         );
       _editingTutorialId = id;
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('加载失败：${res.message}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('加载失败：${res.message}')));
     }
     setState(() => _loadingExisting = false);
   }
@@ -665,7 +664,9 @@ result
           ? await ref
                 .read(apiClientProvider)
                 .put('/auth/tutorials/$_editingTutorialId', data: payload)
-          : await ref.read(apiClientProvider).post('/auth/tutorials', data: payload);
+          : await ref
+                .read(apiClientProvider)
+                .post('/auth/tutorials', data: payload);
 
       if (!mounted) return;
       if (res.success) {
@@ -891,20 +892,23 @@ result
                   ),
                 ),
               ),
-              GestureDetector(
+              PressableScale(
                 onTap: _saving ? null : _publish,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 7,
                   ),
-                  decoration: BoxDecoration(
-                    // 深色模式下 _ink（#1A1A1A）跟 Scaffold 背景
-                    // （#1C1C1E）几乎是同一个颜色，纯黑底会把发布按钮
-                    // "吃掉"，改用主题色保证按钮在深色背景上仍然醒目
-                    color: isDarkMode ? _primary : _ink,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  // 深色模式下 _ink（#1A1A1A）跟 Scaffold 背景（#1C1C1E）
+                  // 几乎是同一个颜色，纯黑底会把发布按钮"吃掉"；改用带
+                  // 渐变/高光/投影的主题色胶囊按钮，浅色模式沿用原来的
+                  // 纯黑扁平按钮（跟参考截图一致，不是紫色，不用这套）
+                  decoration: isDarkMode
+                      ? premiumPillDecoration(radius: 10, muted: _saving)
+                      : BoxDecoration(
+                          color: _ink,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                   child: _saving
                       ? const SizedBox(
                           width: 14,
@@ -1039,7 +1043,7 @@ result
                               ),
                             )
                           else if (_summaryCtrl.text.isEmpty)
-                            GestureDetector(
+                            PressableScale(
                               onTap: _aiGenerateSummary,
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
@@ -1048,10 +1052,7 @@ result
                                     horizontal: 8,
                                     vertical: 3,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: _primary,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
+                                  decoration: premiumPillDecoration(radius: 7),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [

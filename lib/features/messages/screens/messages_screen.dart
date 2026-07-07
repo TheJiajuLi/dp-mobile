@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,57 +10,14 @@ import '../../profile/models/user_profile_model.dart';
 import '../models/conversation_model.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
+import '../utils/message_avatar.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = kMessagesPrimary;
 
-String _initial(String? name) {
-  if (name == null || name.isEmpty) return '?';
-  return name.substring(0, 1).toUpperCase();
-}
-
-// 跟全项目其它头像渲染的地方保持一致：data:image 是旧的 base64 头像，
-// 否则是 COS 图片 URL
-Widget _buildAvatar(String? avatar, String username, {double radius = 24}) {
-  if (avatar != null && avatar.isNotEmpty) {
-    if (avatar.startsWith('data:image')) {
-      try {
-        return CircleAvatar(
-          radius: radius,
-          backgroundImage: MemoryImage(base64Decode(avatar.split(',').last)),
-        );
-      } catch (_) {
-        // 解码失败落到下面的首字母占位
-      }
-    } else {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: CachedNetworkImageProvider(avatar),
-      );
-    }
-  }
-  return CircleAvatar(
-    radius: radius,
-    backgroundColor: _primary,
-    child: Text(
-      _initial(username),
-      style: TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.w700,
-        fontSize: radius * 0.67,
-      ),
-    ),
-  );
-}
-
-// 相对时间格式化——通知/私信tab共用
-String timeAgo(AppLocalizations l10n, int tsMs) {
-  final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(tsMs));
-  if (diff.inMinutes < 1) return l10n.timeJustNow;
-  if (diff.inMinutes < 60) return l10n.timeMinutesAgo(diff.inMinutes);
-  if (diff.inHours < 24) return l10n.timeHoursAgo(diff.inHours);
-  if (diff.inDays < 30) return l10n.timeDaysAgo(diff.inDays);
-  return l10n.timeMonthsAgo(diff.inDays ~/ 30);
-}
+// 通知过滤跟 notifications_screen.dart 用的是同一套口径（评论/点赞/关注
+// 真实存在，@提及/AI 后端完全没有对应类型），这里只用来决定"最近通知"
+// 预览区显示哪几条，不是一个独立页面，选中态不需要跨页面保留
+enum _PreviewFilter { all, comment, like, follow, mention, ai }
 
 class MessagesScreen extends ConsumerStatefulWidget {
   const MessagesScreen({super.key});
@@ -70,46 +25,44 @@ class MessagesScreen extends ConsumerStatefulWidget {
   ConsumerState<MessagesScreen> createState() => _MessagesScreenState();
 }
 
-class _MessagesScreenState extends ConsumerState<MessagesScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabCtrl;
+class _MessagesScreenState extends ConsumerState<MessagesScreen> {
   Timer? _pollTimer;
+  _PreviewFilter _filter = _PreviewFilter.all;
+  int? _friendsCount;
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
-    // 微信式已读：切到通知 tab（index=0）就立即标记已读，不等轮询
-    _tabCtrl.addListener(() {
-      if (_tabCtrl.index == 0 && !_tabCtrl.indexIsChanging) {
-        _markAllRead();
-      }
-    });
-    // TabController 默认 initialIndex 就是 0，进这个页面本来就停在通知
-    // tab 是最常见的场景，也要在这里标记已读——但必须等 _loadData() 里的
-    // notificationsProvider.fetch() 先把通知列表拉回来，_markAllRead()
-    // 才能正确判断"有没有未读"从而决定要不要调标记已读接口。如果不等，
-    // 这里读到的还是空列表，既不会调 API（服务端那边其实还是未读），
-    // 又会把 unreadCountProvider 先清零、马上又被 _loadData() 拉到的
-    // 真实未读数覆盖回去，变成"红点一闪又出现"
-    _loadData().then((_) {
-      if (mounted && _tabCtrl.index == 0) _markAllRead();
-    });
-    // 每 30 秒轮询一次
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadData());
+    _loadData();
+    _loadFriendsCount();
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadData(),
+    );
   }
 
   Future<void> _loadData() async {
     await ref.read(notificationsProvider.notifier).fetch();
     await ref.read(conversationsProvider.notifier).fetch();
-    final res = await ref.read(apiClientProvider).get('/auth/notifications/unread-count');
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/notifications/unread-count');
     if (res.success && res.data != null && mounted) {
       ref.read(unreadCountProvider.notifier).state =
           (res.data['unread'] as num?)?.toInt() ?? 0;
     }
   }
 
-  // 本地立即清零，不等 API/下一次轮询——有未读才真的调一次标记已读接口
+  Future<void> _loadFriendsCount() async {
+    final res = await ref.read(apiClientProvider).get('/auth/friends');
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      setState(
+        () => _friendsCount = ((res.data['friends'] as List?) ?? []).length,
+      );
+    }
+  }
+
   Future<void> _markAllRead() async {
     ref.read(unreadCountProvider.notifier).state = 0;
     final notifs = ref.read(notificationsProvider);
@@ -120,9 +73,33 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
 
   @override
   void dispose() {
-    _tabCtrl.dispose();
     _pollTimer?.cancel();
     super.dispose();
+  }
+
+  List<AppNotification> _filteredPreview(List<AppNotification> all) {
+    switch (_filter) {
+      case _PreviewFilter.all:
+        return all;
+      case _PreviewFilter.comment:
+        return all.where((n) => n.type == 'comment').toList();
+      case _PreviewFilter.like:
+        return all.where((n) => n.type == 'like').toList();
+      case _PreviewFilter.follow:
+        return all.where((n) => n.type == 'follow').toList();
+      case _PreviewFilter.mention:
+      case _PreviewFilter.ai:
+        return const [];
+    }
+  }
+
+  bool get _isComingSoonFilter =>
+      _filter == _PreviewFilter.mention || _filter == _PreviewFilter.ai;
+
+  void _comingSoon(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -131,79 +108,277 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     final notifications = ref.watch(notificationsProvider);
     final conversations = ref.watch(conversationsProvider);
     final unread = ref.watch(unreadCountProvider);
+    final dmUnread = conversations.fold<int>(0, (s, c) => s + c.unreadCount);
+    final previewNotifs = _isComingSoonFilter
+        ? const <AppNotification>[]
+        : _filteredPreview(notifications).take(4).toList();
+    final previewConvs = conversations.take(3).toList();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: Column(
+        child: ListView(
           children: [
-            // 顶部栏
-            Container(
-              color: Theme.of(context).cardColor,
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Column(
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Text(l10n.messagesTitle,
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-                      const Spacer(),
-                      if (unread > 0)
-                        GestureDetector(
-                          onTap: _markAllRead,
-                          child: Text(l10n.markAllRead,
-                              style: const TextStyle(fontSize: 14, color: _primary)),
-                        ),
-                      const SizedBox(width: 12),
-                      const Icon(Icons.search, size: 22),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: _showAddMenu,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFEEF0FF), borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.add, color: _primary, size: 20),
-                        ),
+                  Text(
+                    l10n.messagesTitle,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (unread > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
                       ),
-                    ],
+                    ),
+                  ],
+                  const Spacer(),
+                  if (unread > 0)
+                    GestureDetector(
+                      onTap: _markAllRead,
+                      child: Text(
+                        l10n.markAllRead,
+                        style: const TextStyle(fontSize: 14, color: _primary),
+                      ),
+                    ),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () => context.push('/messages/conversations'),
+                    child: const Icon(Icons.search, size: 22),
                   ),
-                  const SizedBox(height: 12),
-                  TabBar(
-                    controller: _tabCtrl,
-                    labelColor: _primary,
-                    unselectedLabelColor: Colors.grey,
-                    labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                    unselectedLabelStyle:
-                        const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                    indicatorColor: _primary,
-                    indicatorWeight: 2,
-                    tabs: [
-                      Tab(child: _tabLabel(l10n.tabNotifications, unread)),
-                      Tab(
-                          child: _tabLabel(l10n.tabDirectMessages,
-                              conversations.fold<int>(0, (s, c) => s + c.unreadCount))),
-                      Tab(text: l10n.tabGroups),
-                    ],
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: _showAddMenu,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF0FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.add, color: _primary, size: 20),
+                    ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 14),
 
-            // 内容
-            Expanded(
-              child: TabBarView(
-                controller: _tabCtrl,
+            // 通知类型过滤——只决定下面"最近通知"预览显示哪几条，
+            // @提及/AI 后端没有对应类型，选中后走"即将上线"提示
+            SizedBox(
+              height: 32,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  _NotifTab(notifications: notifications),
-                  _DmTab(conversations: conversations),
-                  const _GroupTab(),
+                  _filterChip(l10n.notifFilterAll, _PreviewFilter.all),
+                  _filterChip(l10n.notifFilterComments, _PreviewFilter.comment),
+                  _filterChip(l10n.notifFilterLikes, _PreviewFilter.like),
+                  _filterChip(l10n.notifFilterFollows, _PreviewFilter.follow),
+                  _filterChip(l10n.notifFilterMentions, _PreviewFilter.mention),
+                  _filterChip(l10n.notifFilterAi, _PreviewFilter.ai),
                 ],
               ),
             ),
+            const SizedBox(height: 14),
+
+            // 快捷入口——通知/私信数字都是真实未读数；好友是真实好友总数
+            // （没有"在线"这个概念）；群组功能本身还没做，不编一个未读数
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _quickTile(
+                      icon: Icons.notifications,
+                      iconColor: Colors.red,
+                      iconBg: const Color(0xFFFEE2E2),
+                      label: l10n.tabNotifications,
+                      subtitle: unread > 0
+                          ? l10n.newNotificationsCountLabel(unread)
+                          : l10n.noNotificationsYet,
+                      onTap: () => context.push('/messages/notifications'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _quickTile(
+                      icon: Icons.chat_bubble,
+                      iconColor: _primary,
+                      iconBg: const Color(0xFFEEF0FF),
+                      label: l10n.tabDirectMessages,
+                      subtitle: dmUnread > 0
+                          ? l10n.unreadCountLabel(dmUnread)
+                          : l10n.noDirectMessagesYet,
+                      onTap: () => context.push('/messages/conversations'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _quickTile(
+                      icon: Icons.people,
+                      iconColor: const Color(0xFF16A34A),
+                      iconBg: const Color(0xFFE8F8F0),
+                      label: l10n.friendsQuickLabel,
+                      subtitle: _friendsCount == null
+                          ? '···'
+                          : l10n.friendsCountLabel(_friendsCount!),
+                      onTap: () => context.push('/friends'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _quickTile(
+                      icon: Icons.groups,
+                      iconColor: const Color(0xFFD97706),
+                      iconBg: const Color(0xFFFFF7E6),
+                      label: l10n.tabGroups,
+                      subtitle: l10n.comingSoonStayTuned,
+                      onTap: () => _comingSoon(l10n.createGroupComingSoon),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            if (_isComingSoonFilter)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _ComingSoonInline(
+                  message: l10n.notifFilterComingSoonMessage,
+                ),
+              )
+            else if (previewNotifs.isNotEmpty) ...[
+              _SectionHeader(
+                title: l10n.recentNotificationsTitle,
+                actionLabel: l10n.viewAllAction,
+                onAction: () => context.push('/messages/notifications'),
+              ),
+              ...previewNotifs.map(
+                (n) => _NotifPreviewTile(
+                  notification: n,
+                  onTap: (n.fromUsername?.isNotEmpty ?? false)
+                      ? () => context.push('/users/${n.fromUsername}')
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            if (previewConvs.isNotEmpty) ...[
+              _SectionHeader(
+                title: l10n.tabDirectMessages,
+                actionLabel: l10n.viewMoreAction,
+                onAction: () => context.push('/messages/conversations'),
+              ),
+              ...previewConvs.map(
+                (c) => _ConvPreviewTile(
+                  conversation: c,
+                  onTap: () => context.push('/messages/chat/${c.id}', extra: c),
+                ),
+              ),
+            ],
+
+            if (previewNotifs.isEmpty &&
+                previewConvs.isEmpty &&
+                !_isComingSoonFilter)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 60),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.mark_email_read_outlined,
+                      size: 56,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.noNotificationsYet,
+                      style: const TextStyle(color: Colors.grey, fontSize: 15),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, _PreviewFilter value) {
+    final selected = _filter == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _filter = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? _primary : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: selected
+                ? null
+                : Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: selected
+                  ? Colors.white
+                  : Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _quickTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
+          ),
+        ],
       ),
     );
   }
@@ -225,8 +400,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             Container(
               width: 36,
               height: 4,
-              decoration:
-                  BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             const SizedBox(height: 20),
             _menuItem(
@@ -249,8 +426,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               const Color(0xFFE8F8F0),
               () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text(l10n.createGroupComingSoon)));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.createGroupComingSoon)),
+                );
               },
             ),
             const SizedBox(height: 12),
@@ -262,8 +440,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               const Color(0xFFFFF7E6),
               () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text(l10n.createForumComingSoon)));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.createForumComingSoon)),
+                );
               },
             ),
             const SizedBox(height: 20),
@@ -294,15 +473,27 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(width: 14),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
             const Spacer(),
@@ -325,8 +516,6 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
-          // 用户习惯性会把 @ 也打进去（毕竟提示文案和别处显示都带 @），
-          // 但后端 handle 字段本身不含 @，原样传过去只会一直查不到人
           Future<void> doSearch(String query) async {
             final q = query.trim().replaceAll('@', '');
             if (q.isEmpty) {
@@ -339,8 +528,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                 .get('/auth/users/search', queryParameters: {'handle': q});
             final list = res.success && res.data != null
                 ? ((res.data['users'] as List?) ?? [])
-                    .map((j) => UserProfile.fromJson(j as Map<String, dynamic>))
-                    .toList()
+                      .map(
+                        (j) => UserProfile.fromJson(j as Map<String, dynamic>),
+                      )
+                      .toList()
                 : <UserProfile>[];
             setSheet(() {
               results = list;
@@ -352,19 +543,34 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             height: MediaQuery.of(ctx).size.height * 0.85,
             decoration: BoxDecoration(
               color: Theme.of(ctx).cardColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
-            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
             child: Column(
               children: [
                 Container(
                   width: 36,
                   height: 4,
-                  decoration:
-                      BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
                 const SizedBox(height: 16),
-                Text(l10n.addFriend, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                Text(
+                  l10n.addFriend,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: ctrl,
@@ -375,14 +581,14 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                     filled: true,
                     fillColor: Colors.grey[100],
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                     suffixIcon: TextButton(
                       onPressed: () => doSearch(ctrl.text),
                       child: Text(l10n.search),
                     ),
                   ),
-                  // 边输边搜——不用等用户点搜索按钮或按回车。少于2个字符先不发
-                  // 请求，避免每敲一个字母就打一次接口
                   onChanged: (v) {
                     if (v.trim().replaceAll('@', '').length < 2) {
                       setSheet(() => results = []);
@@ -423,32 +629,57 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                   Expanded(
                     child: results.isEmpty
                         ? Center(
-                            child: Text(l10n.searchUserPlaceholder, style: const TextStyle(color: Colors.grey)))
+                            child: Text(
+                              l10n.searchUserPlaceholder,
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          )
                         : ListView.builder(
                             itemCount: results.length,
                             itemBuilder: (ctx, i) {
                               final u = results[i];
                               return ListTile(
-                                leading: _buildAvatar(u.avatar, u.username),
-                                title:
-                                    Text(u.username, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                leading: buildMessageAvatar(
+                                  u.avatar,
+                                  u.username,
+                                ),
+                                title: Text(
+                                  u.username,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 subtitle: u.handle != null
-                                    ? Text('@${u.handle}', style: const TextStyle(color: Colors.grey))
+                                    ? Text(
+                                        '@${u.handle}',
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                      )
                                     : null,
                                 trailing: ElevatedButton(
                                   onPressed: () {
                                     Navigator.pop(ctx);
-                                    // handle 更精准（唯一且不会变），username 只是兜底——
-                                    // 两者路由都认，但优先用 handle 避免同名撞车
-                                    context.push('/users/${u.handle ?? u.username}');
+                                    context.push(
+                                      '/users/${u.handle ?? u.username}',
+                                    );
                                   },
                                   style: ElevatedButton.styleFrom(
-                                      backgroundColor: _primary,
-                                      shape:
-                                          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12)),
-                                  child: Text(l10n.view,
-                                      style: const TextStyle(color: Colors.white, fontSize: 13)),
+                                    backgroundColor: _primary,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    l10n.view,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                 ),
                               );
                             },
@@ -461,35 +692,74 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
       ),
     );
   }
+}
 
-  Widget _tabLabel(String text, int count) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 英文文案（"Direct Messages"之类）比中文长很多，不换成 Flexible+
-        // ellipsis 的话，非可滚动 TabBar 三等分宽度下会直接溢出
-        Flexible(
-          child: Text(text, overflow: TextOverflow.ellipsis, maxLines: 1),
-        ),
-        if (count > 0) ...[
-          const SizedBox(width: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-            decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(99)),
-            child: Text('$count',
-                style: const TextStyle(
-                    fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700)),
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String actionLabel;
+  final VoidCallback onAction;
+  const _SectionHeader({
+    required this.title,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: onAction,
+            child: Text(
+              '$actionLabel >',
+              style: const TextStyle(fontSize: 12, color: _primary),
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
 
-// 通知 tab
-class _NotifTab extends StatelessWidget {
-  final List<AppNotification> notifications;
-  const _NotifTab({required this.notifications});
+class _ComingSoonInline extends StatelessWidget {
+  final String message;
+  const _ComingSoonInline({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.hourglass_top_outlined, color: _primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontSize: 13, color: _primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotifPreviewTile extends StatelessWidget {
+  final AppNotification notification;
+  final VoidCallback? onTap;
+  const _NotifPreviewTile({required this.notification, this.onTap});
 
   Color _typeColor(String type) {
     switch (type) {
@@ -520,178 +790,109 @@ class _NotifTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    if (notifications.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.notifications_none, size: 56, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text(l10n.noNotificationsYet, style: const TextStyle(color: Colors.grey, fontSize: 15)),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: notifications.length,
-      itemBuilder: (ctx, i) {
-        final n = notifications[i];
-        return Container(
-          color: n.isRead ? Colors.transparent : _primary.withValues(alpha: 0.04),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            leading: GestureDetector(
-              onTap: (n.fromUsername?.isNotEmpty ?? false)
-                  ? () => context.push('/users/${n.fromUsername}')
-                  : null,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _buildAvatar(n.fromAvatar, n.fromUsername ?? l10n.systemNotificationInitial, radius: 22),
-                  Positioned(
-                    bottom: -2,
-                    right: -2,
-                    child: Container(
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                          color: _typeColor(n.type),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5)),
-                      child: Icon(_typeIcon(n.type), size: 10, color: Colors.white),
-                    ),
-                  ),
-                ],
+    final n = notification;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      onTap: onTap,
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          buildMessageAvatar(
+            n.fromAvatar,
+            n.fromUsername ?? l10n.systemNotificationInitial,
+            radius: 20,
+          ),
+          Positioned(
+            bottom: -2,
+            right: -2,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: _typeColor(n.type),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Icon(_typeIcon(n.type), size: 9, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+      title: Text(
+        n.content ?? n.title ?? '',
+        style: const TextStyle(fontSize: 13),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        messageTimeAgo(l10n, n.createdAt),
+        style: const TextStyle(fontSize: 11, color: Colors.grey),
+      ),
+      trailing: n.isRead
+          ? null
+          : Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: _primary,
+                shape: BoxShape.circle,
               ),
             ),
-            title: Text(
-              n.content ?? n.title ?? '',
-              style: TextStyle(
-                  fontSize: 14, fontWeight: n.isRead ? FontWeight.w400 : FontWeight.w500),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle:
-                Text(timeAgo(l10n, n.createdAt), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            trailing: n.tutorialId != null
-                ? Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                        color: _primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.article_outlined, color: _primary, size: 20),
-                  )
-                : n.isRead
-                    ? null
-                    : Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle)),
-          ),
-        );
-      },
     );
   }
 }
 
-// 私信 tab
-class _DmTab extends ConsumerWidget {
-  final List<Conversation> conversations;
-  const _DmTab({required this.conversations});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    if (conversations.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.chat_bubble_outline, size: 56, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text(l10n.noDirectMessagesYet, style: const TextStyle(color: Colors.grey, fontSize: 15)),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () => context.go('/community'),
-              child: Text(l10n.goMeetNewFriends, style: const TextStyle(color: _primary, fontSize: 14)),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      itemCount: conversations.length,
-      separatorBuilder: (_, __) => const Divider(height: 0.5, indent: 76),
-      itemBuilder: (ctx, i) {
-        final conv = conversations[i];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          onTap: () => context.push('/messages/chat/${conv.id}', extra: conv),
-          leading: _buildAvatar(conv.otherAvatar, conv.otherUsername),
-          title: Row(
-            children: [
-              Text(conv.otherUsername,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-              const Spacer(),
-              Text(
-                  conv.lastMessageAt == null
-                      ? ''
-                      : timeAgo(l10n, conv.lastMessageAt!),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
-          subtitle: Row(
-            children: [
-              Expanded(
-                child: Text(conv.lastMessage ?? '',
-                    style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ),
-              if (conv.unreadCount > 0)
-                Container(
-                  margin: const EdgeInsets.only(left: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration:
-                      BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(99)),
-                  child: Text('${conv.unreadCount}',
-                      style: const TextStyle(
-                          fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700)),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// 群组 tab（占位——讨论群/技术交流论坛下个版本上线）
-class _GroupTab extends StatelessWidget {
-  const _GroupTab();
+class _ConvPreviewTile extends StatelessWidget {
+  final Conversation conversation;
+  final VoidCallback onTap;
+  const _ConvPreviewTile({required this.conversation, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Center(
-      child: Column(
+    final conv = conversation;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      onTap: onTap,
+      leading: buildMessageAvatar(conv.otherAvatar, conv.otherUsername),
+      title: Text(
+        conv.otherUsername,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
+      subtitle: Text(
+        conv.lastMessage ?? '',
+        style: const TextStyle(fontSize: 12, color: Colors.grey),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration:
-                BoxDecoration(color: const Color(0xFFEEF0FF), borderRadius: BorderRadius.circular(20)),
-            child: const Icon(Icons.group, size: 40, color: _primary),
+          Text(
+            conv.lastMessageAt == null
+                ? ''
+                : messageTimeAgo(l10n, conv.lastMessageAt!),
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
-          const SizedBox(height: 16),
-          Text(l10n.groupFeature, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text(l10n.comingSoonStayTuned, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+          if (conv.unreadCount > 0) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                '${conv.unreadCount}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

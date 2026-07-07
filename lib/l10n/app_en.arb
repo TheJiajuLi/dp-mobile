@@ -351,6 +351,69 @@
     }
   },
   "mutualFollowBecomeFriendsHint": "Following each other makes you friends — friends can message without limits",
+  "recentNotificationsTitle": "Recent notifications",
+  "viewAllAction": "View all",
+  "viewMoreAction": "View more",
+  "notifFilterAll": "All",
+  "notifFilterComments": "Comments",
+  "notifFilterLikes": "Likes",
+  "notifFilterFollows": "Follows",
+  "notifFilterMentions": "@Mentions",
+  "notifFilterAi": "AI",
+  "notifFilterComingSoonMessage": "This notification category is coming soon",
+  "friendsQuickLabel": "Friends",
+  "friendsCountLabel": "{count} friends",
+  "@friendsCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchConversationsHint": "Search contacts or messages",
+  "pinnedChipLabel": "Pinned",
+  "onlineChipLabel": "Online",
+  "pinnedConversationsComingSoon": "Pinned conversations are coming soon",
+  "onlineStatusComingSoon": "Online status is coming soon",
+  "tabRecommended": "Suggested",
+  "recommendedUsersComingSoon": "Suggested friends are coming soon",
+  "notYetFollowedBackTitle": "Follows you — you haven't followed back",
+  "followBackAction": "Follow back",
+  "allFriendsCountLabel": "All friends ({count})",
+  "@allFriendsCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unfollowAction": "Unfollow",
+  "unfollowConfirmMessage": "Unfollow {username}?",
+  "@unfollowConfirmMessage": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "noFriendsYetTitle": "No friends yet",
+  "noFriendsYetSubtitle": "You'll become friends once you follow each other",
+  "newNotificationsCountLabel": "{count} new notifications",
+  "@newNotificationsCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unreadCountLabel": "{count} unread",
+  "@unreadCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "defaultUserName": "User",
   "back": "Back",
   "appNotebookTitle": "Dreaming Polar Notebook",

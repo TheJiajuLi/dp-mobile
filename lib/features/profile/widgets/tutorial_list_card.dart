@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/topic_badge.dart';
-import '../../messages/screens/messages_screen.dart' show timeAgo;
+import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
 
 // 主页"文章"tab 列表卡片——缩略图在左，标题/摘要/时间在右，仿截图参考
 // 设计，替代原来的九宫格瀑布流展示
@@ -126,7 +126,7 @@ class TutorialListCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        timeAgo(l10n, tutorial.createdAt),
+                        messageTimeAgo(l10n, tutorial.createdAt),
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark ? Colors.white38 : Colors.grey[500],

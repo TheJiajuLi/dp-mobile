@@ -1490,6 +1490,174 @@ abstract class AppLocalizations {
   /// **'Following each other makes you friends — friends can message without limits'**
   String get mutualFollowBecomeFriendsHint;
 
+  /// No description provided for @recentNotificationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent notifications'**
+  String get recentNotificationsTitle;
+
+  /// No description provided for @viewAllAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View all'**
+  String get viewAllAction;
+
+  /// No description provided for @viewMoreAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View more'**
+  String get viewMoreAction;
+
+  /// No description provided for @notifFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get notifFilterAll;
+
+  /// No description provided for @notifFilterComments.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get notifFilterComments;
+
+  /// No description provided for @notifFilterLikes.
+  ///
+  /// In en, this message translates to:
+  /// **'Likes'**
+  String get notifFilterLikes;
+
+  /// No description provided for @notifFilterFollows.
+  ///
+  /// In en, this message translates to:
+  /// **'Follows'**
+  String get notifFilterFollows;
+
+  /// No description provided for @notifFilterMentions.
+  ///
+  /// In en, this message translates to:
+  /// **'@Mentions'**
+  String get notifFilterMentions;
+
+  /// No description provided for @notifFilterAi.
+  ///
+  /// In en, this message translates to:
+  /// **'AI'**
+  String get notifFilterAi;
+
+  /// No description provided for @notifFilterComingSoonMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This notification category is coming soon'**
+  String get notifFilterComingSoonMessage;
+
+  /// No description provided for @friendsQuickLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get friendsQuickLabel;
+
+  /// No description provided for @friendsCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} friends'**
+  String friendsCountLabel(int count);
+
+  /// No description provided for @searchConversationsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search contacts or messages'**
+  String get searchConversationsHint;
+
+  /// No description provided for @pinnedChipLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned'**
+  String get pinnedChipLabel;
+
+  /// No description provided for @onlineChipLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get onlineChipLabel;
+
+  /// No description provided for @pinnedConversationsComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned conversations are coming soon'**
+  String get pinnedConversationsComingSoon;
+
+  /// No description provided for @onlineStatusComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Online status is coming soon'**
+  String get onlineStatusComingSoon;
+
+  /// No description provided for @tabRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested'**
+  String get tabRecommended;
+
+  /// No description provided for @recommendedUsersComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested friends are coming soon'**
+  String get recommendedUsersComingSoon;
+
+  /// No description provided for @notYetFollowedBackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Follows you — you haven\'t followed back'**
+  String get notYetFollowedBackTitle;
+
+  /// No description provided for @followBackAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow back'**
+  String get followBackAction;
+
+  /// No description provided for @allFriendsCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'All friends ({count})'**
+  String allFriendsCountLabel(int count);
+
+  /// No description provided for @unfollowAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfollow'**
+  String get unfollowAction;
+
+  /// No description provided for @unfollowConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfollow {username}?'**
+  String unfollowConfirmMessage(String username);
+
+  /// No description provided for @noFriendsYetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No friends yet'**
+  String get noFriendsYetTitle;
+
+  /// No description provided for @noFriendsYetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll become friends once you follow each other'**
+  String get noFriendsYetSubtitle;
+
+  /// No description provided for @newNotificationsCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} new notifications'**
+  String newNotificationsCountLabel(int count);
+
+  /// No description provided for @unreadCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} unread'**
+  String unreadCountLabel(int count);
+
   /// No description provided for @defaultUserName.
   ///
   /// In en, this message translates to:

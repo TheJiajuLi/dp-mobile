@@ -10,7 +10,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
-import '../../messages/screens/messages_screen.dart' show timeAgo;
+import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
 import '../../notebook/services/notebook_service.dart';
 import '../providers/home_feed_provider.dart';
 
@@ -607,7 +607,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${l10n.notebookCellsCount(cellCount)} · ${timeAgo(l10n, updatedAt * 1000)}',
+                        '${l10n.notebookCellsCount(cellCount)} · ${messageTimeAgo(l10n, updatedAt * 1000)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1124,7 +1124,7 @@ class _HeroCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        timeAgo(
+                        messageTimeAgo(
                           AppLocalizations.of(context)!,
                           tutorial.createdAt,
                         ),

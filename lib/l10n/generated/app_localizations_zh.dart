@@ -746,6 +746,100 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mutualFollowBecomeFriendsHint => '互相关注即成为好友，好友之间可以无限制发消息';
 
   @override
+  String get recentNotificationsTitle => '最近通知';
+
+  @override
+  String get viewAllAction => '查看全部';
+
+  @override
+  String get viewMoreAction => '查看更多';
+
+  @override
+  String get notifFilterAll => '全部';
+
+  @override
+  String get notifFilterComments => '评论';
+
+  @override
+  String get notifFilterLikes => '点赞';
+
+  @override
+  String get notifFilterFollows => '关注';
+
+  @override
+  String get notifFilterMentions => '@提及';
+
+  @override
+  String get notifFilterAi => 'AI';
+
+  @override
+  String get notifFilterComingSoonMessage => '该分类的通知即将上线';
+
+  @override
+  String get friendsQuickLabel => '好友';
+
+  @override
+  String friendsCountLabel(int count) {
+    return '$count 位好友';
+  }
+
+  @override
+  String get searchConversationsHint => '搜索联系人或消息';
+
+  @override
+  String get pinnedChipLabel => '置顶';
+
+  @override
+  String get onlineChipLabel => '在线';
+
+  @override
+  String get pinnedConversationsComingSoon => '置顶会话即将上线';
+
+  @override
+  String get onlineStatusComingSoon => '在线状态即将上线';
+
+  @override
+  String get tabRecommended => '推荐';
+
+  @override
+  String get recommendedUsersComingSoon => '好友推荐即将上线';
+
+  @override
+  String get notYetFollowedBackTitle => '关注了你、你还没回关';
+
+  @override
+  String get followBackAction => '回关';
+
+  @override
+  String allFriendsCountLabel(int count) {
+    return '全部好友（$count）';
+  }
+
+  @override
+  String get unfollowAction => '取消关注';
+
+  @override
+  String unfollowConfirmMessage(String username) {
+    return '确定不再关注 $username 吗？';
+  }
+
+  @override
+  String get noFriendsYetTitle => '还没有好友';
+
+  @override
+  String get noFriendsYetSubtitle => '互相关注后成为好友';
+
+  @override
+  String newNotificationsCountLabel(int count) {
+    return '$count 条新通知';
+  }
+
+  @override
+  String unreadCountLabel(int count) {
+    return '$count 条未读';
+  }
+
+  @override
   String get defaultUserName => '用户';
 
   @override

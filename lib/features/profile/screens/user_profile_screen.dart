@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
@@ -1806,7 +1807,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           child: IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: isDarkMode ? _profileDarkBg : Colors.white,
+                color: isDarkMode ? _profileDarkBg : _heroBg,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(_kTabBarRadius),
                   topRight: Radius.circular(_kTabBarRadius),
@@ -2447,23 +2448,57 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 // 很接近的浅紫色，让头图"嵌合"进背景里，而不是像旧版那样一块很跳的深紫
 // 色块。不写死高度：这层背景铺在 Stack 里的 Positioned.fill 下面，会跟着
 // 前景内容（头像/用户名/简介/统计卡）自然撑开的高度一起拉伸
+// 没有真实封面图时的默认底——头像/用户名这一圈无论 App 是浅色还是深色
+// 主题都固定叠白字白描边（见本文件里关于崩溃修复/暗色适配的说明，这块
+// 区域本来就设计成"独立于 App 主题、始终够暗"），之前是一块很平的两色
+// 斜向渐变，看起来更像"占位色块"而不是产品自己的视觉。改成呼应品牌
+// 愿景文案本身那句"极地——无尽的白与深邃的星空"：深靛紫到品牌
+// 靛蓝（#6366F1）过渡的极光渐变，叠一层稀疏的星点，靠固定随机种子生成、
+// 每次 build 位置都一样，不会一重绘就"星星在跳"
 class _CoverGradient extends StatelessWidget {
   const _CoverGradient();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2A1F3D), Color(0xFF1A2A3D)],
+    return const Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF120C24), Color(0xFF362D6B), Color(0xFF0D2436)],
+              stops: [0.0, 0.55, 1.0],
+            ),
+          ),
         ),
-      ),
+        CustomPaint(painter: _StarFieldPainter()),
+      ],
     );
   }
+}
+
+class _StarFieldPainter extends CustomPainter {
+  const _StarFieldPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rnd = math.Random(7);
+    final paint = Paint();
+    for (var i = 0; i < 60; i++) {
+      final dx = rnd.nextDouble() * size.width;
+      final dy = rnd.nextDouble() * size.height;
+      final radius = 0.4 + rnd.nextDouble() * 1.0;
+      paint.color = Colors.white.withValues(
+        alpha: 0.12 + rnd.nextDouble() * 0.3,
+      );
+      canvas.drawCircle(Offset(dx, dy), radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StarFieldPainter oldDelegate) => false;
 }
 
 // Notebook tab 列表项：文件名 + 语言 badge + cells 数量 + 时间
@@ -2776,7 +2811,7 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return DecoratedBox(
-      decoration: BoxDecoration(color: isDark ? _profileDarkBg : Colors.white),
+      decoration: BoxDecoration(color: isDark ? _profileDarkBg : _heroBg),
       child: tabBar,
     );
   }

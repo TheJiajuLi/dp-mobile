@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/code_highlight.dart';
+import '../../../shared/utils/premium_button.dart';
 import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
@@ -270,17 +271,14 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   }
 
   Future<void> _showMoreMenu() async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final isCode = widget.block.type == BlockType.code;
 
     final result = await showMenu<String>(
       context: context,
       color: Colors.white,
       surfaceTintColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       position: RelativeRect.fromRect(
         Rect.fromPoints(_lastTapPosition, _lastTapPosition),
         Offset.zero & overlay.size,
@@ -315,7 +313,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       case 'copy_code':
         Clipboard.setData(
           ClipboardData(
-            text: '```${widget.block.language ?? ''}\n'
+            text:
+                '```${widget.block.language ?? ''}\n'
                 '${widget.block.content}\n```',
           ),
         );
@@ -1045,123 +1044,127 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     },
   );
 
+  // 外面套一层 ClipRRect 统一裁出四角圆角——header/body/output 内部各自
+  // 保持矩形不用再各管一次"只圆某几个角"，没有输出内容时底部也不会再
+  // 露出一条直角硬边（之前那条 0.5px 分隔线本身是矩形，紧贴在只做了
+  // topLeft/topRight 圆角的 body 下面，视觉上整个代码块的下半截是方的）
   Widget _buildCodeBlock(AppLocalizations l10n) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A1A1A),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(14),
-              topRight: Radius.circular(14),
-            ),
-          ),
-          child: Row(
-            children: [
-              // macOS 窗口三色点装饰，跟阅读态/预览态的代码块保持一致
-              const _MacDot(color: Color(0xFFFF5F56)),
-              const SizedBox(width: 6),
-              const _MacDot(color: Color(0xFFFFBD2E)),
-              const SizedBox(width: 6),
-              const _MacDot(color: Color(0xFF27C93F)),
-              const SizedBox(width: 10),
-              DropdownButton<String>(
-                value: widget.block.language ?? 'python',
-                dropdownColor: const Color(0xFF1A1A1A),
-                style: const TextStyle(fontSize: 12, color: Color(0xFFE5E7EB)),
-                underline: const SizedBox(),
-                isDense: true,
-                items: _codeLanguages
-                    .map(
-                      (l) => DropdownMenuItem(
-                        value: l,
-                        child: Text(
-                          l,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFFE5E7EB),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            color: const Color(0xFF1A1A1A),
+            child: Row(
+              children: [
+                // macOS 窗口三色点装饰，跟阅读态/预览态的代码块保持一致
+                const _MacDot(color: Color(0xFFFF5F56)),
+                const SizedBox(width: 6),
+                const _MacDot(color: Color(0xFFFFBD2E)),
+                const SizedBox(width: 6),
+                const _MacDot(color: Color(0xFF27C93F)),
+                const SizedBox(width: 10),
+                DropdownButton<String>(
+                  value: widget.block.language ?? 'python',
+                  dropdownColor: const Color(0xFF1A1A1A),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFE5E7EB),
+                  ),
+                  underline: const SizedBox(),
+                  isDense: true,
+                  items: _codeLanguages
+                      .map(
+                        (l) => DropdownMenuItem(
+                          value: l,
+                          child: Text(
+                            l,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFE5E7EB),
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() {
-                    widget.block.language = v;
-                    _codeCtrl.language = v;
-                  });
-                },
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: _running ? null : _runCode,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _running ? Colors.grey : _primary,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _running ? Icons.hourglass_empty : Icons.play_arrow,
-                        size: 13,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        _running ? l10n.runningLabel : l10n.runAction,
-                        style: const TextStyle(
-                          fontSize: 11,
+                      )
+                      .toList(),
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() {
+                      widget.block.language = v;
+                      _codeCtrl.language = v;
+                    });
+                  },
+                ),
+                const Spacer(),
+                PressableScale(
+                  onTap: _running ? null : _runCode,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: premiumPillDecoration(
+                      radius: 7,
+                      muted: _running,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _running ? Icons.hourglass_empty : Icons.play_arrow,
+                          size: 13,
                           color: Colors.white,
-                          fontWeight: FontWeight.w500,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 3),
+                        Text(
+                          _running ? l10n.runningLabel : l10n.runAction,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Container(
-          color: const Color(0xFF1A1A1A),
-          padding: const EdgeInsets.all(10),
-          child: TextFormField(
-            controller: _codeCtrl,
-            decoration: InputDecoration(
-              filled: false,
-              hintText: l10n.codeBlockHint,
-              hintStyle: const TextStyle(
-                color: Color(0xFF64748B),
+          Container(
+            color: const Color(0xFF1A1A1A),
+            padding: const EdgeInsets.all(10),
+            child: TextFormField(
+              controller: _codeCtrl,
+              decoration: InputDecoration(
+                filled: false,
+                hintText: l10n.codeBlockHint,
+                hintStyle: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontFamily: 'monospace',
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: const TextStyle(
                 fontFamily: 'monospace',
+                fontSize: 12,
+                color: Color(0xFFA8B4C8),
+                height: 1.6,
               ),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
+              maxLines: null,
+              onChanged: (v) {
+                widget.block.content = v;
+                widget.onChanged();
+              },
             ),
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: Color(0xFFA8B4C8),
-              height: 1.6,
-            ),
-            maxLines: null,
-            onChanged: (v) {
-              widget.block.content = v;
-              widget.onChanged();
-            },
           ),
-        ),
-        _buildOutput(),
-      ],
+          _buildOutput(),
+        ],
+      ),
     );
   }
 
@@ -1173,13 +1176,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(maxHeight: 300),
-      decoration: const BoxDecoration(
-        color: Color(0xFF111111),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(14),
-          bottomRight: Radius.circular(14),
-        ),
-      ),
+      color: const Color(0xFF111111),
       // html 输出自己就是一个内部可滚动的 WebView，外面不能再套一层
       // SingleChildScrollView——两层滚动区域叠在一起，手势会被内层
       // WebView 吃掉，外层永远收不到
@@ -1313,26 +1310,28 @@ th{background:#1e293b;color:#94a3b8}
   // 不一致"是同一个问题，这里跟着 Theme.of(context).brightness 走
   Widget _buildLatexBlock(AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF332701) : const Color(0xFFFFFBEB);
-    final border = isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A);
-    final mathColor = isDark
-        ? const Color(0xFFFCD34D)
-        : const Color(0xFF78350F);
-    final hintColor = isDark
-        ? const Color(0xFFB45309)
-        : const Color(0xFFFCD34D);
-    final inputHintColor = isDark
-        ? const Color(0xFF92702B)
-        : const Color(0xFFC7C7CC);
-    final inputTextColor = isDark ? const Color(0xFFD1B37A) : Colors.grey;
+    // 之前整块铺满高饱和度琥珀色（暗色下是一块烧焦棕），跟卡片本身的
+    // 中性灰底"箱中箱"式打架，一线产品的公式块通常是"中性底 + 一点点
+    // 识别色"而不是整块上色——琥珀色只留一圈很淡的描边/底色，公式本身
+    // 用跟正文一致的颜色渲染，可读性和质感都更好
+    const accent = Color(0xFFD97706);
+    final bg = Color.alphaBlend(
+      accent.withValues(alpha: isDark ? 0.07 : 0.05),
+      isDark ? Theme.of(context).cardColor : Colors.white,
+    );
+    final border = accent.withValues(alpha: isDark ? 0.32 : 0.28);
+    final mathColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final hintColor = isDark ? Colors.white38 : Colors.black38;
+    final inputHintColor = isDark ? Colors.white24 : const Color(0xFFC7C7CC);
+    final inputTextColor = isDark ? Colors.white54 : Colors.grey;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border, width: 0.8),
       ),
       child: Column(
         children: [
@@ -1393,7 +1392,7 @@ th{background:#1e293b;color:#94a3b8}
                   fontSize: 12,
                   height: 1.6,
                   color: widget.block.outputType == 'info'
-                      ? inputHintColor
+                      ? hintColor
                       : (isDark ? Colors.white70 : const Color(0xFF444444)),
                 ),
               ),
@@ -1442,33 +1441,72 @@ th{background:#1e293b;color:#94a3b8}
         ],
       );
     }
+    // 之前不管明暗主题固定一块浅灰色方块，深色卡片里像是插错了一张白色
+    // 便签纸；改成主题感知的虚线"上传区"——虚线边框是这类空态在一线
+    // 产品里（Notion/Linear 等）的通用语言，一眼就能认出"这里可以点击/
+    // 拖拽上传"，图标也换成跟品牌色一致的圆形色块，不再是孤零零一个灰图标
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final zoneBg = isDark
+        ? Theme.of(context).cardColor
+        : const Color(0xFFFAFAFA);
+    final dashColor = isDark ? Colors.white24 : const Color(0xFFD1D1D6);
+    final iconChipBg = isDark
+        ? _primary.withValues(alpha: 0.18)
+        : const Color(0xFFEEF0FF);
+    final hintColor = isDark ? Colors.white54 : const Color(0xFF999999);
+    final subHintColor = isDark ? Colors.white30 : const Color(0xFFC7C7CC);
+
     return GestureDetector(
       onTap: _pickImage,
-      child: Container(
-        height: 140,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F8F8),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.photo_camera_outlined,
-              color: Color(0xFFC7C7CC),
-              size: 28,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              l10n.tapToUploadLabel,
-              style: const TextStyle(fontSize: 13, color: Color(0xFFC7C7CC)),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              l10n.imageSizeHint,
-              style: const TextStyle(fontSize: 10, color: Color(0xFFE5E5EA)),
-            ),
-          ],
+      child: CustomPaint(
+        painter: _DashedRRectPainter(color: dashColor, radius: 12),
+        child: Container(
+          height: 140,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: zoneBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: iconChipBg,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.add_photo_alternate_outlined,
+                  color: _primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                l10n.tapToUploadLabel,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: hintColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  l10n.imageSizeHint,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1.5,
+                    color: subHintColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2063,4 +2101,43 @@ class _MacDot extends StatelessWidget {
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
+}
+
+// Flutter 没有内置的虚线边框，图片 block 空态的"上传区"虚线描边靠这个
+// 手写 CustomPainter：沿圆角矩形的路径按固定长度切成一段段短划线画
+class _DashedRRectPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+  const _DashedRRectPainter({required this.color, required this.radius});
+
+  static const _dashWidth = 5.0;
+  static const _dashGap = 4.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    final path = Path()..addRRect(rrect);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + _dashWidth;
+        canvas.drawPath(
+          metric.extractPath(distance, next.clamp(0, metric.length)),
+          paint,
+        );
+        distance = next + _dashGap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
 }

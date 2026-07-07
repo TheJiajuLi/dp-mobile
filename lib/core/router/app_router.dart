@@ -17,8 +17,10 @@ import '../../features/creator/screens/works_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/messages/models/conversation_model.dart';
 import '../../features/messages/screens/chat_screen.dart';
+import '../../features/messages/screens/conversation_list_screen.dart';
 import '../../features/messages/screens/friend_list_screen.dart';
 import '../../features/messages/screens/messages_screen.dart';
+import '../../features/messages/screens/notifications_screen.dart';
 import '../../features/notebook/screens/notebook_editor_screen.dart';
 import '../../features/notebook/screens/notebook_home_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
@@ -138,6 +140,14 @@ final appRouter = GoRouter(
         conversationId: state.pathParameters['conversationId']!,
         conversation: state.extra as Conversation?,
       ),
+    ),
+    GoRoute(
+      path: '/messages/notifications',
+      builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/messages/conversations',
+      builder: (context, state) => const ConversationListScreen(),
     ),
     GoRoute(
       path: '/tutorial/:id',

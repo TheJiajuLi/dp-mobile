@@ -10,7 +10,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart';
 import '../../auth/auth_service.dart';
-import '../../messages/screens/messages_screen.dart' show timeAgo;
+import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
 
 const _primary = Color(0xFF6366F1);
 
@@ -471,7 +471,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     ],
                     const Spacer(),
                     Text(
-                      timeAgo(l10n, c.createdAt * 1000),
+                      messageTimeAgo(l10n, c.createdAt * 1000),
                       style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ],
