@@ -13,7 +13,6 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme_provider.dart';
 import 'features/auth/auth_service.dart';
-import 'hd/hd_app.dart';
 import 'l10n/generated/app_localizations.dart';
 
 Future<void> main() async {
@@ -38,10 +37,9 @@ Future<void> main() async {
     storage: FileStorage('${docsDir.path}/.cookies/'),
   );
 
-  // iPad 和 iPhone 是两个完全不同的 App（UI 层零共用），但账号体系/网络层
-  // 得是同一套——同一个 ProviderScope + 同一份 apiClientProvider
-  // override，HdApp 目前还没接真实数据，但这份共享已经就绪，以后接的时候
-  // 不用再动 main.dart
+  // Runner 这个 target 只跑 iPhone 版——iPad 版是完全独立的 RunnerHD
+  // target（入口是 lib/hd/main_hd.dart），两边互不相关，main.dart 不需要
+  // 做任何设备检测/分支
   runApp(
     ProviderScope(
       overrides: [
@@ -49,25 +47,9 @@ Future<void> main() async {
           (ref) => ApiClient(ref, cookieJar: cookieJar),
         ),
       ],
-      child: const _RootApp(),
+      child: const MyApp(),
     ),
   );
-}
-
-// 设备判定挪到 build() 里用 View.of(context) 读，而不是在 main() 里用
-// PlatformDispatcher.instance.views.first 提前读——runApp 之前引擎不一定
-// 已经把真实的视图尺寸送达，main() 时机读到的可能是过期/占位值，尤其是
-// 通过 Xcode 直接跑（不是走 flutter run）的时候更容易踩到。放进 build()
-// 里保证是在真实 frame 构建时读，此时引擎早就把正确的 metrics 传过来了
-class _RootApp extends StatelessWidget {
-  const _RootApp();
-
-  @override
-  Widget build(BuildContext context) {
-    final view = View.of(context);
-    final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
-    return shortestSide >= 600 ? const HdApp() : const MyApp();
-  }
 }
 
 class MyApp extends ConsumerStatefulWidget {
