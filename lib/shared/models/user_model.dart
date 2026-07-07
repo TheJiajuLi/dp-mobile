@@ -23,6 +23,10 @@ class UserModel {
   final String? ipLocation;
   // 兴趣标签，2026-07-06 后端上线（GET/PATCH /auth/me 都已经支持）
   final List<String> tags;
+  // 职业——后端还没有这个字段（跟 gender/location/birthday/zodiac 当初
+  // 上线前一样），PATCH /auth/me 现在会静默丢弃，先靠本地 SharedPreferences
+  // 存底，等后端加了字段直接生效
+  final String? occupation;
 
   const UserModel({
     required this.id,
@@ -41,6 +45,7 @@ class UserModel {
     this.followingCount = 0,
     this.ipLocation,
     this.tags = const [],
+    this.occupation,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -61,6 +66,7 @@ class UserModel {
     ipLocation: json['ip_location'] as String?,
     tags:
         (json['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+    occupation: json['occupation'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -80,6 +86,7 @@ class UserModel {
     'following_count': followingCount,
     'ip_location': ipLocation,
     'tags': tags,
+    'occupation': occupation,
   };
 
   UserModel copyWith({
@@ -95,6 +102,7 @@ class UserModel {
     int? followingCount,
     String? ipLocation,
     List<String>? tags,
+    String? occupation,
   }) => UserModel(
     id: id,
     username: username ?? this.username,
@@ -112,5 +120,6 @@ class UserModel {
     followingCount: followingCount ?? this.followingCount,
     ipLocation: ipLocation ?? this.ipLocation,
     tags: tags ?? this.tags,
+    occupation: occupation ?? this.occupation,
   );
 }

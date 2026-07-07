@@ -34,6 +34,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _handleCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
+  final _occupationCtrl = TextEditingController();
   final _linkCtrls = <TextEditingController>[];
 
   String? _handle;
@@ -78,6 +79,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _selectedGender = _user?.gender;
     _locationCtrl.text = _user?.location ?? '';
     _tags = List.of(_user?.tags ?? []);
+
+    // 职业后端还没有这个字段，_user.occupation 会先恒为 null——退回读
+    // 本地存底（保存时会双写：PATCH 给后端 + 本地缓存一份）
+    _occupationCtrl.text =
+        _user?.occupation ?? prefs.getString('${userId}_occupation') ?? '';
 
     // 生日/星座优先读后端字段；后端还没这两个字段之前，退回读本地
     // legacy key（上一版编辑资料页存的），保存成功一次后就迁移过去了
@@ -168,6 +174,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               'birthday': birthdayStr,
               'zodiac': _zodiacSign?.name,
               'tags': _tags,
+              'occupation': _occupationCtrl.text.trim(),
             },
           );
       if (!res.success) {
@@ -178,6 +185,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       // 就不再需要，清掉避免以后跟后端数据打架
       await prefs.remove('${userId}_birthday');
       await prefs.remove('${userId}_zodiac');
+      // occupation 后端还没接，PATCH 里带上是为了后端一旦支持就直接生效，
+      // 但现在还得靠本地存底才能读回来，不能跟着上面两行一起 remove
+      await prefs.setString(
+        '${userId}_occupation',
+        _occupationCtrl.text.trim(),
+      );
 
       // handle 改名是独立接口，且有30天频率限制——失败不应该回滚上面
       // 已经保存成功的昵称/简介，只用 SnackBar 单独提示
@@ -224,6 +237,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       ?.map((e) => e.toString())
                       .toList() ??
                   _tags,
+              // 后端还没接这个字段，resUser 里不会有——直接用刚提交的本地值
+              occupation: _occupationCtrl.text.trim(),
             )
           : base.copyWith(
               username: username,
@@ -234,6 +249,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               birthday: birthdayStr,
               zodiac: _zodiacSign?.name,
               tags: _tags,
+              occupation: _occupationCtrl.text.trim(),
             );
       ref.read(authServiceProvider).updateCurrentUser(updated);
 
@@ -632,6 +648,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _handleCtrl.dispose();
     _bioCtrl.dispose();
     _locationCtrl.dispose();
+    _occupationCtrl.dispose();
     for (final c in _linkCtrls) {
       c.dispose();
     }
@@ -829,6 +846,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             l10n.locationLabel,
                             _locationCtrl,
                             l10n.locationHint,
+                          ),
+                          _textFieldRow(
+                            l10n.occupationLabel,
+                            _occupationCtrl,
+                            l10n.occupationHint,
                           ),
                           _formRow(
                             label: l10n.birthdayLabel,

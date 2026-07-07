@@ -171,7 +171,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                     radius: 22,
                                   ),
                                   Positioned(
-                                    bottom: -2,
+                                    top: -2,
                                     right: -2,
                                     child: Container(
                                       width: 18,

@@ -33,6 +33,9 @@ class UserProfile {
   // 显示成灰色，不是真的知道对方不是会员。等后端 SELECT 里加上
   // membership 列，这里直接生效
   final String membership;
+  // 职业——后端还没有这个字段，先跟 gender/location/zodiac 一样走
+  // "本地存底，等后端上线直接生效"的过渡套路
+  final String? occupation;
 
   UserProfile({
     required this.id,
@@ -53,6 +56,7 @@ class UserProfile {
     this.tags = const [],
     this.isVerified = false,
     this.membership = 'free',
+    this.occupation,
   });
 
   UserProfile copyWith({String? avatar, List<String>? tags}) => UserProfile(
@@ -74,6 +78,7 @@ class UserProfile {
     tags: tags ?? this.tags,
     isVerified: isVerified,
     membership: membership,
+    occupation: occupation,
   );
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -95,5 +100,6 @@ class UserProfile {
     tags: (j['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     isVerified: j['is_verified'] == true,
     membership: j['membership']?.toString() ?? 'free',
+    occupation: j['occupation']?.toString(),
   );
 }

@@ -32,9 +32,11 @@ import '../../features/settings/screens/about_screen.dart';
 import '../../features/settings/screens/account_security_screen.dart';
 import '../../features/settings/screens/login_history_screen.dart';
 import '../../features/settings/screens/payment_screen.dart';
+import '../../features/settings/screens/privacy_policy_screen.dart';
 import '../../features/settings/screens/privacy_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/settings/screens/storage_screen.dart';
+import '../../features/settings/screens/terms_of_service_screen.dart';
 import '../../features/settings/screens/subscription_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
@@ -133,6 +135,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/about',
       builder: (context, state) => const AboutScreen(),
+    ),
+    GoRoute(
+      path: '/settings/terms',
+      builder: (context, state) => const TermsOfServiceScreen(),
+    ),
+    GoRoute(
+      path: '/settings/privacy-policy',
+      builder: (context, state) => const PrivacyPolicyScreen(),
     ),
     GoRoute(
       path: '/messages/chat/:conversationId',

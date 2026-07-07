@@ -265,13 +265,17 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                 actionLabel: l10n.viewAllAction,
                 onAction: () => context.push('/messages/notifications'),
               ),
-              ...previewNotifs.map(
-                (n) => _NotifPreviewTile(
-                  notification: n,
-                  onTap: (n.fromUsername?.isNotEmpty ?? false)
-                      ? () => context.push('/users/${n.fromUsername}')
-                      : null,
-                ),
+              _PreviewCard(
+                children: previewNotifs
+                    .map(
+                      (n) => _NotifPreviewTile(
+                        notification: n,
+                        onTap: (n.fromUsername?.isNotEmpty ?? false)
+                            ? () => context.push('/users/${n.fromUsername}')
+                            : null,
+                      ),
+                    )
+                    .toList(),
               ),
               const SizedBox(height: 12),
             ],
@@ -282,11 +286,16 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                 actionLabel: l10n.viewMoreAction,
                 onAction: () => context.push('/messages/conversations'),
               ),
-              ...previewConvs.map(
-                (c) => _ConvPreviewTile(
-                  conversation: c,
-                  onTap: () => context.push('/messages/chat/${c.id}', extra: c),
-                ),
+              _PreviewCard(
+                children: previewConvs
+                    .map(
+                      (c) => _ConvPreviewTile(
+                        conversation: c,
+                        onTap: () =>
+                            context.push('/messages/chat/${c.id}', extra: c),
+                      ),
+                    )
+                    .toList(),
               ),
             ],
 
@@ -728,6 +737,50 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+// "最近通知"/"私信"预览区之前是贴边到底的表格式列表（跟设置页改之前
+// 那个"白色块贴灰色背景"是同一类问题）——现在改成跟设置页 _SettingsGroup
+// 一样的浮动圆角卡片：左右留白+细阴影，组内用分割线区分，不再贴边
+class _PreviewCard extends StatelessWidget {
+  final List<Widget> children;
+  const _PreviewCard({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        rows.add(
+          Divider(
+            height: 0.5,
+            indent: 68,
+            color: Theme.of(context).dividerColor,
+          ),
+        );
+      }
+      rows.add(children[i]);
+    }
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: rows),
+    );
+  }
+}
+
 class _ComingSoonInline extends StatelessWidget {
   final String message;
   const _ComingSoonInline({required this.message});
@@ -803,7 +856,7 @@ class _NotifPreviewTile extends StatelessWidget {
             radius: 20,
           ),
           Positioned(
-            bottom: -2,
+            top: -2,
             right: -2,
             child: Container(
               width: 16,

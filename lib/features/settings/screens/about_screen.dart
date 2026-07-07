@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -38,18 +39,31 @@ class AboutScreen extends StatelessWidget {
                     color: const Color(0xFF6366F1),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 40),
+                  child: const Icon(
+                    Icons.auto_awesome,
+                    color: Colors.white,
+                    size: 40,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   l10n.appName,
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 4),
-                Text(l10n.appSlogan, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                Text(
+                  l10n.appSlogan,
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEEF0FF),
                     borderRadius: BorderRadius.circular(99),
@@ -75,14 +89,20 @@ class AboutScreen extends StatelessWidget {
               children: [
                 ListTile(
                   title: Text(l10n.versionNumber),
-                  trailing: const Text('v1.0.0', style: TextStyle(color: Colors.grey)),
+                  trailing: const Text(
+                    'v1.0.0',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ),
                 const Divider(height: 0.5, indent: 16),
                 ListTile(
                   title: Text(l10n.devTeam),
                   trailing: const Text(
                     'Dreaming Polar',
-                    style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      color: Color(0xFF6366F1),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 const Divider(height: 0.5, indent: 16),
@@ -98,13 +118,13 @@ class AboutScreen extends StatelessWidget {
                 ListTile(
                   title: Text(l10n.userAgreement),
                   trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                  onTap: () => _open('https://dreamingpolar.com/terms'),
+                  onTap: () => context.push('/settings/terms'),
                 ),
                 const Divider(height: 0.5, indent: 16),
                 ListTile(
                   title: Text(l10n.privacyPolicy),
                   trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                  onTap: () => _open('https://dreamingpolar.com/privacy'),
+                  onTap: () => context.push('/settings/privacy-policy'),
                 ),
               ],
             ),
@@ -114,7 +134,11 @@ class AboutScreen extends StatelessWidget {
             child: Text(
               l10n.copyrightFooter,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Colors.grey, height: 1.6),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                height: 1.6,
+              ),
             ),
           ),
           const SizedBox(height: 40),

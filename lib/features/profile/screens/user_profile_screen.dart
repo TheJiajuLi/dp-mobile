@@ -17,6 +17,7 @@ import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/avatar_upload.dart';
+import '../../../shared/utils/gender_label.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
@@ -1451,6 +1452,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     required String displayUsername,
     required String? displayBio,
     required String? displayLocation,
+    required String? displayOccupation,
+    required String? displayGender,
     required ZodiacSign? displayZodiacSign,
     required List<String> interestTags,
     required double topPad,
@@ -1695,25 +1698,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (displayLocation?.isNotEmpty ?? false)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.location_on_outlined,
-                                  size: 12,
-                                  color: Colors.white70,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  displayLocation!,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
+                          if (displayGender?.isNotEmpty ?? false)
+                            _infoChip(
+                              genderIconFor(displayGender!),
+                              genderDisplayLabel(l10n, displayGender),
                             ),
+                          if (displayLocation?.isNotEmpty ?? false)
+                            _infoChip(
+                              Icons.location_on_outlined,
+                              displayLocation!,
+                            ),
+                          if (displayOccupation?.isNotEmpty ?? false)
+                            _infoChip(Icons.work_outline, displayOccupation!),
                           if (displayZodiacSign != null)
                             Row(
                               mainAxisSize: MainAxisSize.min,
@@ -2006,6 +2002,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     final displayLocation = isSelfView
         ? (currentUser?.location ?? _profile?.location)
         : _profile?.location;
+    // 职业目前只有 currentUserProvider（本地存底）有值，_profile 走的
+    // GET /auth/users/profile/:identifier 还没有这个字段，查看别人主页
+    // 时恒为 null，UI 已经按"null 就不显示"处理
+    final displayOccupation = isSelfView ? currentUser?.occupation : null;
+    // 性别选了"保密"就当没填——不展示一个写着"保密"的标签，那样反而
+    // 暴露了"这个人特意选择不说"，比干脆不出现这一项更奇怪
+    final rawGender = isSelfView
+        ? (currentUser?.gender ?? _profile?.gender)
+        : _profile?.gender;
+    final displayGender = (rawGender == null || rawGender == '保密')
+        ? null
+        : rawGender;
     final displayZodiacName = isSelfView
         ? (currentUser?.zodiac ?? _zodiac)
         : _zodiac;
@@ -2060,6 +2068,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         displayUsername: displayUsername,
                         displayBio: displayBio,
                         displayLocation: displayLocation,
+                        displayOccupation: displayOccupation,
+                        displayGender: displayGender,
                         displayZodiacSign: displayZodiacSign,
                         interestTags: interestTags,
                         topPad: topPad,
@@ -2377,6 +2387,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       ),
     );
   }
+
+  // 头图信息行的小图标+文字组合——性别/地区/职业公用同一个样式
+  Widget _infoChip(IconData icon, String text) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 12, color: Colors.white70),
+      const SizedBox(width: 3),
+      Text(text, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+    ],
+  );
 
   // VIP 徽章——会员是暖金色渐变字（有质感），非会员是暗淡的灰白字，
   // 两种状态都真实反映 membership，不是随手编一个"看起来高级"的常亮效果。
@@ -2889,17 +2909,17 @@ class _ColumnCard extends StatelessWidget {
 }
 
 // TabBar 包成 SliverPersistentHeader 需要的 delegate，背景色跟着
-// isDark 走——minExtent/maxExtent 固定成 38（原来 42 顶栏上方留白偏多，
-// 紧凑一点让整组 tab 更贴近上面圆角沿），不用随内容变化
+// isDark 走——minExtent/maxExtent 再收紧到 34（42→38→34），让整组 tab
+// 尽量贴近上面圆角沿，不用随内容变化
 class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;
   final bool isDark;
   const _ProfileTabBarDelegate({required this.tabBar, required this.isDark});
 
   @override
-  double get minExtent => 38;
+  double get minExtent => 34;
   @override
-  double get maxExtent => 38;
+  double get maxExtent => 34;
 
   // 圆角"卡片沿"是头图区自己 Stack 里的一个装饰层（_buildProfileHeader
   // 末尾那个 Positioned），不是这里——这层 pinned header 只负责紧接着

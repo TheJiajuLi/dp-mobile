@@ -201,14 +201,14 @@ class SettingsScreen extends ConsumerWidget {
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
                       title: l10n.userAgreement,
-                      onTap: () => context.push('/settings/about'),
+                      onTap: () => context.push('/settings/terms'),
                     ),
                     _SettingsRow(
                       icon: Icons.privacy_tip_outlined,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,
                       title: l10n.privacyPolicy,
-                      onTap: () => context.push('/settings/about'),
+                      onTap: () => context.push('/settings/privacy-policy'),
                     ),
                   ]),
 

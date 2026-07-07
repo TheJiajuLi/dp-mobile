@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../auth/auth_service.dart';
+import '../../messages/utils/message_avatar.dart';
 import '../providers/storage_provider.dart';
+
+typedef _Feature = (IconData icon, String title, String subtitle);
+typedef _Section = (String title, List<_Feature>);
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
@@ -10,15 +15,15 @@ class SubscriptionScreen extends ConsumerStatefulWidget {
   ConsumerState<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
+enum _Plan { pro, proMax, aurora }
+
 class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   static const _primary = Color(0xFF6366F1);
+  // Pro Max 的品牌辅色——跟 Pro 的靛紫区分开，参考图里 Pro Max 全程用
+  // 一个偏洋红的紫色（按钮/图标/边框），不是简单复用 _primary
+  static const _proMaxAccent = Color(0xFF9B5DE5);
+  static const _green = Color(0xFF16A34A);
 
-  // 这一整屏之前不管明暗主题固定用一套浅色配色（白卡片/米白背景/近黑
-  // 文字），深色模式下完全不跟着 Theme 走，看起来像是拼进来的另一个 app。
-  // 这些 getter 统一走 Theme.of(context)，_solidFill 单独给"实心黑色
-  // 按钮/徽章"这类填色用——深色模式下纯黑跟 Scaffold 背景（#1C1C1E）
-  // 几乎同色会被"吃掉"，这类填色深色下改用品牌色，跟 publish_screen.dart
-  // 发布按钮是同一个坑、同一套修法
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   Color get _ink =>
       Theme.of(context).textTheme.bodyLarge?.color ?? const Color(0xFF1A1A1A);
@@ -27,21 +32,82 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   Color get _cardBg => Theme.of(context).cardColor;
   Color get _border => Theme.of(context).dividerColor;
   Color get _solidFill => _isDark ? _primary : const Color(0xFF1A1A1A);
-  // 浅灰装饰底（周期切换滑轨/图标圆底/页脚说明块）
   Color get _subtleBg =>
       _isDark ? Theme.of(context).dividerColor : const Color(0xFFF5F5F2);
-  // "未包含"这一类淡灰图标/文字，深色下太浅会看不见
-  Color get _disabledGray => _isDark ? Colors.white24 : const Color(0xFFCCCCCC);
 
-  bool _isYearly = true;
+  _Plan _tab = _Plan.pro;
   String _currentPlan = 'free';
   bool _loading = true;
 
-  // 价格配置
-  static const _prices = {
-    'pro': {'monthly': 58, 'yearly': 39, 'yearlyTotal': 468},
-    'promax': {'monthly': 148, 'yearly': 99, 'yearlyTotal': 1188},
-  };
+  static const _proSections = <_Section>[
+    (
+      '创作增强',
+      [
+        (Icons.storage_outlined, '云端存储 200MB → 5GB', '音视频/高清图全部能传'),
+        (Icons.audiotrack_outlined, '附加音频块', '发布内容可附带音频文件'),
+        (Icons.attach_file, '文件附件（PDF/数据集）', '读者需 Pro 才能下载'),
+      ],
+    ),
+    (
+      'Notebook 阅读权限',
+      [(Icons.play_circle_outline, '阅读他人笔记时可运行代码', '免费读者只能看代码，不能交互运行')],
+    ),
+    (
+      '聊天增强',
+      [
+        (Icons.code, '聊天发送代码片段', 'Code Block 支持'),
+        (Icons.functions, '聊天发送 LaTeX 公式', '数学表达无障碍'),
+        (Icons.videocam_outlined, '聊天发送音频/视频文件', '媒体文件私信支持'),
+      ],
+    ),
+    (
+      '小梦 AI',
+      [
+        (Icons.auto_awesome, '小梦 AI 摘要生成', '一键生成文章摘要'),
+        (Icons.image_outlined, '小梦 AI 封面生成', '每日 20 次'),
+        (Icons.face_retouching_natural, '小梦 AI 头像生成', '定制专属头像'),
+      ],
+    ),
+    (
+      '身份与体验',
+      [
+        (Icons.verified_outlined, '专属 Pro 角标', '评论区+主页显示'),
+        (Icons.text_fields, '评论专属字体', '区别于普通用户视觉风格'),
+        (Icons.ios_share, '内容一键导出 PDF', '任意教程/笔记打印导出'),
+      ],
+    ),
+  ];
+
+  static const _proMaxExclusive = <_Feature>[
+    (Icons.storage_outlined, '云端存储 5GB → 20GB', '海量文件无压力'),
+    (Icons.auto_awesome, 'AI 生成次数无限', '不再有每日限制'),
+    (Icons.videocam_outlined, '视频大小上限 100MB', '高清视频随意传'),
+    (Icons.rocket_launch_outlined, '早期新功能优先体验', '第一个用到好东西'),
+  ];
+
+  // 极光创作者计划的门槛/权益/续期条件都是真实数字——跟战略计划书里
+  // 「种子用户策略」/「用户旅程设计」一致，不是随手编的占位值
+  static const _auroraRequirements = <_Feature>[
+    (Icons.description_outlined, '已发布笔记', '≥ 10 篇'),
+    (Icons.favorite_border, '累计获赞/收藏', '≥ 100'),
+    (Icons.people_outline, '粉丝数', '≥ 50 人'),
+  ];
+
+  static const _auroraBenefits = <_Feature>[
+    (Icons.workspace_premium_outlined, '免费获得 Pro 所有权益', '价值 ¥39/月，不花一分钱'),
+    (Icons.attach_money, '流量分成资格', '内容浏览直接转化收益，质量加权'),
+    (Icons.shield_outlined, '金色「创作者」专属标识', '主页 + 评论区全部显示'),
+    (Icons.rocket_launch_outlined, '新功能优先体验', '平台内测资格，第一个用到好东西'),
+  ];
+
+  static const _auroraRenewal = <String>[
+    '发布笔记 ≥ 2 篇',
+    '点赞他人 ≥ 20 次',
+    '发表评论 ≥ 5 条',
+    '回复评论 ≥ 5 条',
+    '新增粉丝 ≥ 5 人',
+    '获赞收藏 ≥ 20',
+  ];
 
   @override
   void initState() {
@@ -61,71 +127,79 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     }
   }
 
-  String _priceLabel(String plan) {
-    final p = _prices[plan]!;
-    final amount = _isYearly ? p['yearly'] : p['monthly'];
-    return '¥$amount';
-  }
-
-  String _priceSubLabel(String plan) {
-    final p = _prices[plan]!;
-    if (_isYearly) {
-      return '按年付 ¥${p['yearlyTotal']}';
-    }
-    return '按月付款';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _cardBg,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, size: 18, color: _ink),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          '会员订阅',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: _ink,
-          ),
-        ),
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(height: 0.5, color: _border),
-        ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: _primary))
+            : Column(
+                children: [
+                  _buildTopBar(),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                      children: [
+                        _buildCurrentPlanCard(),
+                        const SizedBox(height: 16),
+                        _buildTabSwitch(),
+                        const SizedBox(height: 16),
+                        switch (_tab) {
+                          _Plan.pro => _buildProTab(),
+                          _Plan.proMax => _buildProMaxTab(),
+                          _Plan.aurora => _buildAuroraTab(),
+                        },
+                      ],
+                    ),
+                  ),
+                ],
+              ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: _primary))
-          : ListView(
-              padding: const EdgeInsets.only(bottom: 40),
-              children: [
-                _buildCurrentPlan(),
-                _buildPeriodToggle(),
-                _buildPlans(),
-                _buildCompareTable(),
-                _buildFaq(),
-                _buildFooter(),
-              ],
-            ),
     );
   }
 
-  // 当前套餐
-  Widget _buildCurrentPlan() {
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => context.pop(),
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _cardBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.arrow_back_ios_new, size: 15, color: _ink),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '会员中心',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: _ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 34),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentPlanCard() {
     final planNames = {'free': '免费版', 'pro': 'Pro 会员', 'pro_max': 'Pro Max 会员'};
-    final planStorage = {
-      'free': '200MB 存储',
-      'pro': '5GB 存储',
-      'pro_max': '20GB 存储',
-    };
+    final planStorage = {'free': '200 MB', 'pro': '5 GB', 'pro_max': '20 GB'};
+    // 之前是一个通用人形图标占位——这里其实拿得到真实登录用户，直接用
+    // 真头像，跟应用其它地方（消息/好友列表）同一套渲染规则
+    final user = ref.watch(currentUserProvider);
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _cardBg,
@@ -134,382 +208,629 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _subtleBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(Icons.person_outline, size: 20, color: _muted),
-          ),
+          user == null
+              ? Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _subtleBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.person_outline, size: 20, color: _muted),
+                )
+              : buildMessageAvatar(user.avatar, user.username, radius: 20),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('当前套餐', style: TextStyle(fontSize: 11, color: _muted)),
+              Text('当前方案', style: TextStyle(fontSize: 11, color: _muted)),
               const SizedBox(height: 2),
               Text(
                 planNames[_currentPlan] ?? '免费版',
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                   color: _ink,
                 ),
               ),
             ],
           ),
           const Spacer(),
-          Text(
-            planStorage[_currentPlan] ?? '200MB 存储',
-            style: TextStyle(fontSize: 12, color: _muted),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('存储空间', style: TextStyle(fontSize: 11, color: _muted)),
+              const SizedBox(height: 2),
+              Text(
+                planStorage[_currentPlan] ?? '200 MB',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // 周期切换
-  Widget _buildPeriodToggle() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildTabSwitch() {
+    return Container(
+      decoration: BoxDecoration(
+        color: _subtleBg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
         children: [
-          Text(
-            '选择周期',
-            style: TextStyle(fontSize: 11, color: _muted, letterSpacing: .04),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: _subtleBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            padding: const EdgeInsets.all(3),
-            child: Row(
-              children: [
-                _periodBtn('按月', false),
-                _periodBtn('按年', true, badge: '省33%'),
-              ],
-            ),
-          ),
+          _tabBtn('Pro', _Plan.pro, _primary),
+          _tabBtn('Pro Max', _Plan.proMax, _proMaxAccent),
+          _tabBtn('极光计划', _Plan.aurora, _primary),
         ],
       ),
     );
   }
 
-  Widget _periodBtn(String label, bool isYearly, {String? badge}) {
-    final active = _isYearly == isYearly;
+  Widget _tabBtn(String label, _Plan plan, Color accent) {
+    final active = _tab == plan;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _isYearly = isYearly),
+        onTap: () => setState(() => _tab = plan),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: active ? _cardBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: active ? Border.all(color: _border, width: 0.5) : null,
+            color: active ? (_isDark ? accent : _cardBg) : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                  color: active ? _ink : _muted,
-                ),
-              ),
-              if (badge != null) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _solidFill,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    badge,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ],
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+              color: active ? (_isDark ? Colors.white : _ink) : _muted,
+            ),
           ),
         ),
       ),
     );
   }
 
-  // 三个套餐卡片
-  Widget _buildPlans() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
+  Widget _planHeaderCard({
+    required String name,
+    required Color accent,
+    required String price,
+    String? annualNote,
+    required String ctaLabel,
+    required bool isCurrent,
+    required VoidCallback onCta,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withValues(alpha: 0.4), width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildPlanCard(
-            planKey: 'free',
-            name: '免费版',
-            price: '¥0',
-            priceSub: '永久免费',
-            desc: '适合轻度使用，探索极梦基础功能',
-            features: const [
-              (true, '发布教程和笔记'),
-              (true, '200MB 云端存储'),
-              (true, 'Notebook 基础运行'),
-              (false, '小梦 AI 生成功能'),
-              (false, '文件 / 音频 / 视频块'),
-            ],
-            ctaLabel: _currentPlan == 'free' ? '当前套餐' : '降级到免费',
-            ctaStyle: 'outline',
-            featured: false,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      price,
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: _ink,
+                      ),
+                    ),
+                    Text(' /月', style: TextStyle(fontSize: 13, color: _muted)),
+                  ],
+                ),
+                if (annualNote != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    annualNote,
+                    style: TextStyle(fontSize: 11, color: _muted),
+                  ),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          _buildPlanCard(
-            planKey: 'pro',
-            name: 'Pro',
-            price: _priceLabel('pro'),
-            priceSub: _priceSubLabel('pro'),
-            desc: '为认真创作的你，解锁全部核心能力',
-            features: const [
-              (true, '5GB 云端存储'),
-              (true, '小梦 AI 每日 20 次生成'),
-              (true, '文件 / 音频块（≤5MB）'),
-              (true, '视频块（≤50MB）'),
-              (true, 'AI 封面 / 头像生成'),
-            ],
-            ctaLabel: _currentPlan == 'pro' ? '当前套餐' : '升级到 Pro',
-            ctaStyle: _currentPlan == 'pro' ? 'outline' : 'black',
-            featured: true,
-            popularBadge: '最受欢迎',
-          ),
-          const SizedBox(height: 10),
-          _buildPlanCard(
-            planKey: 'pro_max',
-            name: 'Pro Max',
-            price: _priceLabel('promax'),
-            priceSub: _priceSubLabel('promax'),
-            desc: '创作者、研究者、重度用户的终极选择',
-            features: const [
-              (true, '20GB 云端存储'),
-              (true, '小梦 AI 无限次生成'),
-              (true, '视频块（≤100MB）'),
-              (true, '优先客服支持'),
-              (true, '早期新功能抢先体验'),
-            ],
-            ctaLabel: _currentPlan == 'pro_max' ? '当前套餐' : '升级到 Pro Max',
-            ctaStyle: _currentPlan == 'pro_max' ? 'outline' : 'black',
-            featured: false,
-          ),
+          _headerCta(ctaLabel, accent, isCurrent, onCta),
         ],
       ),
     );
   }
 
-  Widget _buildPlanCard({
-    required String planKey,
-    required String name,
-    required String price,
-    required String priceSub,
-    required String desc,
-    required List<(bool, String)> features,
-    required String ctaLabel,
-    required String ctaStyle,
-    bool featured = false,
-    String? popularBadge,
-  }) {
-    final isCurrent = _currentPlan == planKey;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _cardBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: featured ? _solidFill : _border,
-              width: featured ? 1.5 : 0.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 名称+价格
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: planKey == 'pro' ? _primary : _ink,
-                    ),
-                  ),
-                  const Spacer(),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            price,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: _ink,
-                            ),
-                          ),
-                          if (planKey != 'free')
-                            Text(
-                              '/月',
-                              style: TextStyle(fontSize: 12, color: _muted),
-                            ),
-                        ],
-                      ),
-                      Text(
-                        priceSub,
-                        style: TextStyle(fontSize: 11, color: _muted),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                desc,
-                style: TextStyle(fontSize: 12, color: _muted, height: 1.5),
-              ),
-              const SizedBox(height: 12),
-              // 功能列表
-              ...features.map(
-                (f) => Padding(
-                  padding: const EdgeInsets.only(bottom: 7),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: f.$1
-                              ? (planKey == 'pro' ? _primary : _solidFill)
-                              : _subtleBg,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          f.$1 ? Icons.check : Icons.close,
-                          size: 10,
-                          color: f.$1 ? Colors.white : _disabledGray,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        f.$2,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: f.$1 ? _ink : _disabledGray,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              // CTA按钮
-              SizedBox(
-                width: double.infinity,
-                child: _buildCtaButton(ctaLabel, ctaStyle, isCurrent, planKey),
-              ),
-            ],
-          ),
-        ),
-        // 最受欢迎badge
-        if (popularBadge != null)
-          Positioned(
-            top: -1,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: _solidFill,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(6),
-                  bottomRight: Radius.circular(6),
-                ),
-              ),
-              child: Text(
-                popularBadge,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildCtaButton(
+  Widget _headerCta(
     String label,
-    String style,
+    Color accent,
     bool isCurrent,
-    String planKey,
+    VoidCallback onCta,
   ) {
-    if (style == 'outline' || isCurrent) {
+    if (isCurrent) {
       return OutlinedButton(
         onPressed: null,
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0xFFD0D0D0)),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          side: BorderSide(color: _border),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: _muted,
-            fontWeight: FontWeight.w500,
+        child: Text('当前套餐', style: TextStyle(fontSize: 13, color: _muted)),
+      );
+    }
+    return GestureDetector(
+      onTap: onCta,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: _isDark ? accent : _solidFill,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Text(
+              '7天免费试用',
+              style: TextStyle(fontSize: 9, color: Colors.white70),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title, {Color? color}) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
+    child: Text(
+      title,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: color ?? _muted,
+      ),
+    ),
+  );
+
+  Widget _featureCard(
+    List<_Feature> features, {
+    Color? bg,
+    Color? border,
+    Color? titleColor,
+    Color? subtitleColor,
+    Color? iconBg,
+    Color? iconColor,
+    Color? checkColor,
+    Color? dividerColor,
+  }) {
+    final rows = <Widget>[];
+    for (var i = 0; i < features.length; i++) {
+      if (i > 0) {
+        rows.add(Divider(height: 0.5, color: dividerColor ?? _border));
+      }
+      final f = features[i];
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: iconBg ?? _subtleBg,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(f.$1, size: 17, color: iconColor ?? _muted),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      f.$2,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: titleColor ?? _ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      f.$3,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subtitleColor ?? _muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.check, size: 20, color: checkColor ?? _green),
+            ],
           ),
         ),
       );
     }
-    return ElevatedButton(
-      onPressed: () => _handleUpgrade(planKey),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _solidFill,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: bg ?? _cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border ?? _border, width: 0.5),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Colors.white,
-          fontWeight: FontWeight.w500,
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _buildProTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _planHeaderCard(
+          name: '极梦 PRO',
+          accent: _primary,
+          price: '¥39',
+          annualNote: '按年付享 8 折 · ¥374/年',
+          ctaLabel: '立即订阅',
+          isCurrent: _currentPlan == 'pro',
+          onCta: () => _handleUpgrade('pro'),
         ),
+        const SizedBox(height: 18),
+        for (final section in _proSections) ...[
+          _sectionTitle(section.$1),
+          _featureCard(section.$2),
+          const SizedBox(height: 16),
+        ],
+        _sectionTitle('存储空间对比'),
+        _buildStorageCompare(),
+      ],
+    );
+  }
+
+  Widget _buildProMaxTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _planHeaderCard(
+          name: '极梦 PRO MAX',
+          accent: _proMaxAccent,
+          price: '¥69',
+          ctaLabel: '立即订阅',
+          isCurrent: _currentPlan == 'pro_max',
+          onCta: () => _handleUpgrade('pro_max'),
+        ),
+        const SizedBox(height: 18),
+        // "专属升级"这块无论明暗主题都固定用深色卡片——顶级套餐的
+        // "尊贵感"是设计上刻意的，不需要跟随主题反色
+        _sectionTitle('Pro Max 专属升级', color: Colors.white54),
+        _featureCard(
+          _proMaxExclusive,
+          bg: const Color(0xFF16131F),
+          border: _proMaxAccent.withValues(alpha: 0.35),
+          titleColor: Colors.white,
+          subtitleColor: Colors.white54,
+          iconBg: _proMaxAccent.withValues(alpha: 0.18),
+          iconColor: _proMaxAccent,
+          checkColor: _proMaxAccent,
+          dividerColor: Colors.white12,
+        ),
+        const SizedBox(height: 16),
+        _sectionTitle('包含全部 Pro 权益'),
+        for (final section in _proSections) ...[
+          _featureCard(section.$2),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildAuroraTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 极光计划的入口卡无论明暗主题都固定用深靛紫渐变——呼应个人主页
+        // 默认封面的极地星空基调，是这个计划自己的品牌色，不跟主题走
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF241D52), Color(0xFF3A2E7A)],
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '极光创作者计划',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'AURORA CREATOR PROGRAM',
+                          style: TextStyle(
+                            fontSize: 9,
+                            letterSpacing: 0.5,
+                            color: Colors.white60,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: const Text(
+                      '免费获得',
+                      style: TextStyle(fontSize: 11, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                '满足条件后系统自动通过，免费获得 Pro 全部权益 + 流量分成资格',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white70,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        _sectionTitle('申请条件（同时满足）'),
+        _requirementCard(_auroraRequirements),
+        const SizedBox(height: 16),
+        _sectionTitle('极光专属权益'),
+        _featureCardNoCheck(_auroraBenefits),
+        const SizedBox(height: 16),
+        _sectionTitle('每月续期（满足任意 3 项）'),
+        _renewalGrid(),
+      ],
+    );
+  }
+
+  Widget _requirementCard(List<_Feature> items) {
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i++) {
+      if (i > 0) rows.add(Divider(height: 0.5, color: _border));
+      final f = items[i];
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              Icon(f.$1, size: 18, color: _primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(f.$2, style: TextStyle(fontSize: 14, color: _ink)),
+              ),
+              Text(
+                f.$3,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border, width: 0.5),
+      ),
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _featureCardNoCheck(List<_Feature> items) {
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i++) {
+      if (i > 0) rows.add(Divider(height: 0.5, color: _border));
+      final f = items[i];
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: _subtleBg,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(f.$1, size: 17, color: _primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      f.$2,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(f.$3, style: TextStyle(fontSize: 12, color: _muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border, width: 0.5),
+      ),
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _renewalGrid() {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 2.6,
+      children: _auroraRenewal
+          .map(
+            (t) => Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _subtleBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(t, style: TextStyle(fontSize: 12, color: _ink)),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildStorageCompare() {
+    final rows = <(String, String, double, Color)>[
+      ('免费版', '200 MB', 0.08, _muted),
+      ('Pro', '5 GB', 0.28, _primary),
+      ('Pro Max', '20 GB', 1.0, _solidFill),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border, width: 0.5),
+      ),
+      child: Column(
+        children: rows
+            .map(
+              (r) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          r.$1,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: r.$4,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          r.$2,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: _ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                        value: r.$3,
+                        minHeight: 6,
+                        backgroundColor: _subtleBg,
+                        valueColor: AlwaysStoppedAnimation(r.$4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+            .toList(),
       ),
     );
   }
 
   void _handleUpgrade(String planKey) {
-    // 支付功能即将上线
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -572,307 +893,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  // 功能对比表
-  Widget _buildCompareTable() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '功能对比',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: _ink,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: _cardBg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border, width: 0.5),
-            ),
-            child: Table(
-              columnWidths: const {
-                0: FlexColumnWidth(2.2),
-                1: FlexColumnWidth(1),
-                2: FlexColumnWidth(1),
-                3: FlexColumnWidth(1),
-              },
-              children: [
-                // 表头
-                TableRow(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: _border, width: 0.5),
-                    ),
-                  ),
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text('', style: TextStyle(fontSize: 11)),
-                    ),
-                    _tableHeader('免费'),
-                    _tableHeader('Pro', accent: true),
-                    _tableHeader('Max'),
-                  ],
-                ),
-                // 数据行
-                _compareRow('云端存储', '200MB', '5GB', '20GB'),
-                _compareRow('AI生成', '-', '20次/天', '无限'),
-                _compareRow('视频块', '-', '50MB', '100MB'),
-                _compareBoolRow('音频块', false, true, true, last: false),
-                _compareBoolRow('优先客服', false, false, true, last: true),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tableHeader(String text, {bool accent = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: Text(
-      text,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: accent ? _primary : _muted,
-      ),
-    ),
-  );
-
-  TableRow _compareRow(String label, String v1, String v2, String v3) =>
-      TableRow(
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: _border, width: 0.5)),
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(label, style: TextStyle(fontSize: 12, color: _muted)),
-          ),
-          _tableCell(v1),
-          _tableCell(v2, accent: true),
-          _tableCell(v3),
-        ],
-      );
-
-  TableRow _compareBoolRow(
-    String label,
-    bool v1,
-    bool v2,
-    bool v3, {
-    bool last = false,
-  }) => TableRow(
-    decoration: BoxDecoration(
-      border: last
-          ? null
-          : Border(bottom: BorderSide(color: _border, width: 0.5)),
-    ),
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(label, style: TextStyle(fontSize: 12, color: _muted)),
-      ),
-      _tableBool(v1),
-      _tableBool(v2, accent: true),
-      _tableBool(v3),
-    ],
-  );
-
-  Widget _tableCell(String val, {bool accent = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Text(
-      val,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: accent ? _primary : _ink,
-      ),
-    ),
-  );
-
-  Widget _tableBool(bool val, {bool accent = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Icon(
-      val ? Icons.check : Icons.remove,
-      size: 16,
-      color: val ? (accent ? _primary : _ink) : _disabledGray,
-    ),
-  );
-
-  // FAQ
-  Widget _buildFaq() {
-    final faqs = [
-      ('随时可以取消吗？', '可以。订阅期间取消，到期前仍可使用会员功能，到期后自动降级为免费版，已有数据不会丢失。'),
-      ('按年和按月有什么区别？', '按年付款相当于打67折，一次支付全年费用。按月更灵活，但总价偏高。'),
-      ('超出存储配额怎么办？', '超出后无法继续上传新文件，但已有内容不受影响。可前往「云端存储」删除文件，或升级套餐扩大配额。'),
-      ('支持哪些支付方式？', '即将支持微信支付、支付宝。目前处于内测阶段，敬请期待。'),
-    ];
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '常见问题',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: _ink,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: _cardBg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border, width: 0.5),
-            ),
-            child: Column(
-              children: faqs
-                  .asMap()
-                  .entries
-                  .map(
-                    (e) => _FaqItem(
-                      question: e.value.$1,
-                      answer: e.value.$2,
-                      isLast: e.key == faqs.length - 1,
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _subtleBg,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            Text(
-              '订阅服务由极梦（Dreaming Polar）提供',
-              style: TextStyle(fontSize: 12, color: _muted),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () {},
-                  child: const Text(
-                    '服务条款',
-                    style: TextStyle(fontSize: 12, color: _primary),
-                  ),
-                ),
-                Text('  ·  ', style: TextStyle(fontSize: 12, color: _muted)),
-                GestureDetector(
-                  onTap: () {},
-                  child: const Text(
-                    '隐私政策',
-                    style: TextStyle(fontSize: 12, color: _primary),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// FAQ展开收起组件
-class _FaqItem extends StatefulWidget {
-  final String question;
-  final String answer;
-  final bool isLast;
-
-  const _FaqItem({
-    required this.question,
-    required this.answer,
-    required this.isLast,
-  });
-
-  @override
-  State<_FaqItem> createState() => _FaqItemState();
-}
-
-class _FaqItemState extends State<_FaqItem> {
-  bool _open = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: () => setState(() => _open = !_open),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.question,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                ),
-                Icon(
-                  _open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  size: 18,
-                  color: Colors.grey,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_open)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            child: Text(
-              widget.answer,
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white54
-                    : const Color(0xFF999999),
-                height: 1.6,
-              ),
-            ),
-          ),
-        if (!widget.isLast)
-          Divider(
-            height: 0.5,
-            thickness: 0.5,
-            indent: 14,
-            endIndent: 14,
-            color: Theme.of(context).dividerColor,
-          ),
-      ],
     );
   }
 }
