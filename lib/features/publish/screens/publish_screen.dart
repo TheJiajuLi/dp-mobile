@@ -11,11 +11,13 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
 import '../../../core/services/xmeng_image_service.dart';
+import '../../../core/utils/membership_utils.dart';
+import '../../../core/widgets/pro_gate.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/premium_button.dart';
 import '../../../shared/utils/topic_badge.dart';
+import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
-import '../../settings/providers/storage_provider.dart';
 import '../models/block_model.dart';
 import '../widgets/block_card.dart';
 import '../widgets/block_picker_sheet.dart';
@@ -710,12 +712,11 @@ result
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // membership 只有 GET /auth/storage/usage 会返回（currentUserProvider
-    // 的 UserModel 上没有这个字段）——用 ref.watch 而不是 read，会员状态
-    // 变化时（比如刚升级完）文件/音频/视频 block 的解锁状态能跟着更新
-    final storageAsync = ref.watch(storageUsageProvider);
-    final membership =
-        storageAsync.valueOrNull?['membership'] as String? ?? 'free';
+    // 实测确认（2026-07-08）GET /auth/me 本来就直接返回 membership，
+    // 不用再绕道 GET /auth/storage/usage。用 ref.watch 而不是 read，
+    // 会员状态变化时（比如刚升级完）文件/音频/视频 block 的解锁状态、
+    // 小梦AI入口能跟着更新
+    final membership = ref.watch(currentUserProvider)?.membership ?? 'free';
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     if (_loadingExisting) {
@@ -1045,34 +1046,40 @@ result
                               ),
                             )
                           else if (_summaryCtrl.text.isEmpty)
-                            PressableScale(
-                              onTap: _aiGenerateSummary,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: premiumPillDecoration(radius: 7),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.auto_awesome,
-                                        size: 10,
-                                        color: Colors.white,
-                                      ),
-                                      SizedBox(width: 3),
-                                      Text(
-                                        '小梦生成',
-                                        style: TextStyle(
-                                          fontSize: 10,
+                            ProGate(
+                              check: MembershipUtils.canUseXmeng,
+                              featureName: '小梦 AI',
+                              child: PressableScale(
+                                onTap: _aiGenerateSummary,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: premiumPillDecoration(
+                                      radius: 7,
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.auto_awesome,
+                                          size: 10,
                                           color: Colors.white,
-                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ),
-                                    ],
+                                        SizedBox(width: 3),
+                                        Text(
+                                          '小梦生成',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1360,12 +1367,16 @@ result
                       bg: const Color(0xFFE8F8F0),
                       onTap: () => _addBlock(BlockType.image),
                     ),
-                    _QuickStartBtn(
-                      icon: Icons.auto_awesome_outlined,
-                      label: l10n.quickStartAria,
-                      color: const Color(0xFFD97706),
-                      bg: const Color(0xFFFFF7E6),
-                      onTap: _askXmeng,
+                    ProGate(
+                      check: MembershipUtils.canUseXmeng,
+                      featureName: '小梦 AI',
+                      child: _QuickStartBtn(
+                        icon: Icons.auto_awesome_outlined,
+                        label: l10n.quickStartAria,
+                        color: const Color(0xFFD97706),
+                        bg: const Color(0xFFFFF7E6),
+                        onTap: _askXmeng,
+                      ),
                     ),
                   ],
                 ),
@@ -1459,15 +1470,26 @@ result
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 children: [
-                  ..._toolbarTypes.map(
-                    (type) => _toolbarButton(
+                  ..._toolbarTypes.map((type) {
+                    final button = _toolbarButton(
                       icon: blockTypeIcon(type),
                       tooltip: blockTypeLabel(l10n, type),
                       selected: _activeToolbarType == type,
                       isDarkMode: isDarkMode,
                       onTap: () => _addBlock(type),
-                    ),
-                  ),
+                    );
+                    // 音频/视频 Block 是 Pro 权益（跟会员页
+                    // subscription_screen.dart 列出的权益一致），文字/
+                    // 代码/公式/引用/图片/链接这些免费档本来就能用，不用包
+                    if (type == BlockType.audio || type == BlockType.video) {
+                      return ProGate(
+                        check: MembershipUtils.canPublishMedia,
+                        featureName: '音视频发布',
+                        child: button,
+                      );
+                    }
+                    return button;
+                  }),
                 ],
               ),
             ),
@@ -2351,30 +2373,34 @@ result
                 _pickCoverImage();
               },
             ),
-            ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF0FF),
-                  borderRadius: BorderRadius.circular(10),
+            ProGate(
+              check: MembershipUtils.canUseXmeng,
+              featureName: '小梦 AI',
+              child: ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF0FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_outlined,
+                    size: 18,
+                    color: _primary,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.auto_awesome_outlined,
-                  size: 18,
-                  color: _primary,
+                title: const Text('小梦帮我生成封面'),
+                subtitle: const Text(
+                  '根据标题和标签自动生成',
+                  style: TextStyle(fontSize: 11),
                 ),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _aiGenerateCover();
+                },
               ),
-              title: const Text('小梦帮我生成封面'),
-              subtitle: const Text(
-                '根据标题和标签自动生成',
-                style: TextStyle(fontSize: 11),
-              ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-              onTap: () {
-                Navigator.pop(ctx);
-                _aiGenerateCover();
-              },
             ),
           ],
         ),
@@ -2537,28 +2563,32 @@ result
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _aiGenerateCover();
-                },
-                icon: const Icon(
-                  Icons.refresh,
-                  size: 16,
-                  color: Color(0xFF6366F1),
-                ),
-                label: const Text(
-                  '重新生成',
-                  style: TextStyle(color: Color(0xFF6366F1)),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF6366F1)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            ProGate(
+              check: MembershipUtils.canUseXmeng,
+              featureName: '小梦 AI',
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _aiGenerateCover();
+                  },
+                  icon: const Icon(
+                    Icons.refresh,
+                    size: 16,
+                    color: Color(0xFF6366F1),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  label: const Text(
+                    '重新生成',
+                    style: TextStyle(color: Color(0xFF6366F1)),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF6366F1)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
             ),

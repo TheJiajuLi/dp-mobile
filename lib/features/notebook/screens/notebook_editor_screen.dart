@@ -9,6 +9,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/membership_utils.dart';
+import '../../../core/widgets/pro_gate.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../models/notebook_model.dart';
@@ -641,12 +643,18 @@ result
       case 'julia':
         _setOutput(
           cell,
-          AppLocalizations.of(context)!.langSupportComingSoon(cell.type.toUpperCase()),
+          AppLocalizations.of(
+            context,
+          )!.langSupportComingSoon(cell.type.toUpperCase()),
           'info',
         );
         break;
       default:
-        _setOutput(cell, AppLocalizations.of(context)!.unsupportedCellType, 'info');
+        _setOutput(
+          cell,
+          AppLocalizations.of(context)!.unsupportedCellType,
+          'info',
+        );
     }
     _scheduleSave();
   }
@@ -676,12 +684,16 @@ result
     // 预扫描 input() 调用，运行前一次性弹框收集，不做运行时阻塞
     // （Pyodide 跑在 WebView 主线程，Atomics.wait 那套同步阻塞方案在这里用不了）
     final inputCount = _countInputCalls(cell.code);
-    debugPrint('[Notebook] cell ${cell.id} inputCount=$inputCount code="${cell.code}"');
+    debugPrint(
+      '[Notebook] cell ${cell.id} inputCount=$inputCount code="${cell.code}"',
+    );
     var userInputs = <String>[];
     if (inputCount > 0) {
       debugPrint('[Notebook] calling _collectInputs...');
       final inputs = await _collectInputs(cell.code, inputCount);
-      debugPrint('[Notebook] _collectInputs returned: $inputs (mounted=$mounted)');
+      debugPrint(
+        '[Notebook] _collectInputs returned: $inputs (mounted=$mounted)',
+      );
       if (!mounted || inputs == null) return; // 用户取消
       userInputs = inputs;
     }
@@ -761,7 +773,9 @@ finally:
 
       final raw = await completer.future.timeout(
         const Duration(seconds: 30),
-        onTimeout: () => jsonEncode([{'type': 'error', 'content': execTimeoutMsg}]),
+        onTimeout: () => jsonEncode([
+          {'type': 'error', 'content': execTimeoutMsg},
+        ]),
       );
 
       debugPrint('[Notebook] raw output: $raw');
@@ -793,7 +807,11 @@ finally:
         foundType = type;
         break;
       }
-      _setOutput(cell, foundOutput ?? l10n.runCompleteNoOutputChecked, foundType ?? 'text');
+      _setOutput(
+        cell,
+        foundOutput ?? l10n.runCompleteNoOutputChecked,
+        foundType ?? 'text',
+      );
     } catch (e) {
       _setOutput(cell, l10n.runErrorWithReason('$e'), 'error');
     } finally {
@@ -874,7 +892,10 @@ finally:
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
+            child: Text(
+              l10n.cancel,
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -941,9 +962,17 @@ finally:
       }
       final map = jsonDecode(result.toString()) as Map;
       if (map['ok'] == true) {
-        _setOutput(cell, (map['output'] as String?) ?? l10n.runCompleteNoOutput, 'text');
+        _setOutput(
+          cell,
+          (map['output'] as String?) ?? l10n.runCompleteNoOutput,
+          'text',
+        );
       } else {
-        _setOutput(cell, map['error']?.toString() ?? l10n.unknownError, 'error');
+        _setOutput(
+          cell,
+          map['error']?.toString() ?? l10n.unknownError,
+          'error',
+        );
       }
     } catch (e) {
       _setOutput(cell, e.toString(), 'error');
@@ -1014,7 +1043,10 @@ finally:
                 });
                 _scheduleSave();
               },
-              child: Text(l10n.import, style: const TextStyle(color: Colors.white)),
+              child: Text(
+                l10n.import,
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -1176,7 +1208,10 @@ finally:
                             ),
                             Text(
                               l10n.back,
-                              style: const TextStyle(fontSize: 13, color: _primary),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: _primary,
+                              ),
                             ),
                           ],
                         ),
@@ -1193,34 +1228,38 @@ finally:
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: _runAll,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _primary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.play_arrow,
-                                color: Colors.white,
-                                size: 15,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                l10n.runAll,
-                                style: const TextStyle(
-                                  fontSize: 12,
+                      ProGate(
+                        check: MembershipUtils.canRunNotebook,
+                        featureName: 'Notebook 运行',
+                        child: GestureDetector(
+                          onTap: _runAll,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.play_arrow,
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                                  size: 15,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  l10n.runAll,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1458,7 +1497,9 @@ finally:
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: Theme.of(context).textTheme.bodyLarge?.color,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyLarge?.color,
                             ),
                           ),
                         ),
@@ -1487,26 +1528,31 @@ finally:
                   ),
                 ),
                 const Spacer(),
-                // 运行按钮
-                GestureDetector(
-                  onTap: isRunning
-                      ? null
-                      : () {
-                          final code = ctrl.text;
-                          cell.code = code;
-                          _runCell(cell);
-                        },
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: _primary,
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow,
-                      color: Colors.white,
-                      size: 17,
+                // 运行按钮——Notebook 运行代码是 Pro 权益（跟会员页
+                // subscription_screen.dart 列出的权益一致）
+                ProGate(
+                  check: MembershipUtils.canRunNotebook,
+                  featureName: 'Notebook 运行',
+                  child: GestureDetector(
+                    onTap: isRunning
+                        ? null
+                        : () {
+                            final code = ctrl.text;
+                            cell.code = code;
+                            _runCell(cell);
+                          },
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: _primary,
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 17,
+                      ),
                     ),
                   ),
                 ),
@@ -1553,7 +1599,9 @@ finally:
                       'r': AppLocalizations.of(context)!.rCodeHint,
                       'julia': AppLocalizations.of(context)!.juliaCodeHint,
                       'latex': AppLocalizations.of(context)!.latexFormulaHint,
-                      'markdown': AppLocalizations.of(context)!.markdownTextHint,
+                      'markdown': AppLocalizations.of(
+                        context,
+                      )!.markdownTextHint,
                       'html': AppLocalizations.of(context)!.htmlContentHint,
                     }[cell.type] ??
                     AppLocalizations.of(context)!.genericCodeHint,
@@ -1577,7 +1625,9 @@ finally:
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(12),
                 ),
-                border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+                border: Border(
+                  top: BorderSide(color: Theme.of(context).dividerColor),
+                ),
               ),
               child: _buildOutput(output, outputType),
             ),
@@ -1814,7 +1864,8 @@ class _CodeEditorPageState extends State<_CodeEditorPage> {
                     _timedOut = false;
                   });
                   ctrl.evaluateJavascript(
-                    source: 'window.setLanguage(${jsonEncode(widget.language)})',
+                    source:
+                        'window.setLanguage(${jsonEncode(widget.language)})',
                   );
                   ctrl.evaluateJavascript(
                     source: 'window.setCode(${jsonEncode(widget.initialCode)})',
