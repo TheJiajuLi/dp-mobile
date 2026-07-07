@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme_provider.dart';
 import 'features/auth/auth_service.dart';
+import 'hd/hd_app.dart';
 import 'l10n/generated/app_localizations.dart';
 
 Future<void> main() async {
@@ -37,6 +39,15 @@ Future<void> main() async {
     storage: FileStorage('${docsDir.path}/.cookies/'),
   );
 
+  // iPad 和 iPhone 是两个完全不同的 App（UI 层零共用），但账号体系/网络层
+  // 得是同一套——用最短边（而不是宽高）判断设备类型，横竖屏切换不会
+  // 抖动；同一个 ProviderScope + 同一份 apiClientProvider override，
+  // HdApp 目前还没接真实数据，但这份共享已经就绪，以后接的时候不用再
+  // 动 main.dart
+  final view = PlatformDispatcher.instance.views.first;
+  final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
+  final isTabletDevice = shortestSide >= 600;
+
   runApp(
     ProviderScope(
       overrides: [
@@ -44,7 +55,7 @@ Future<void> main() async {
           (ref) => ApiClient(ref, cookieJar: cookieJar),
         ),
       ],
-      child: const MyApp(),
+      child: isTabletDevice ? const HdApp() : const MyApp(),
     ),
   );
 }
