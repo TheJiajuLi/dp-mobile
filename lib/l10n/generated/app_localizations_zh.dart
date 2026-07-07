@@ -18,6 +18,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get slogan2 => '让内容，值得被发现';
 
   @override
+  String get slogan3 => '让创作更有力量';
+
+  @override
   String get emailLabel => '邮箱';
 
   @override

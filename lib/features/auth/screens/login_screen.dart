@@ -29,7 +29,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final l10n = AppLocalizations.of(context)!;
-    _slogan ??= Random().nextBool() ? l10n.appSlogan : l10n.slogan2;
+    _slogan ??=
+        [l10n.appSlogan, l10n.slogan2, l10n.slogan3][Random().nextInt(3)];
   }
 
   @override
@@ -108,7 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      l10n.appSlogan,
+                      _slogan ?? l10n.appSlogan,
                       style: const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF8B8FD4),

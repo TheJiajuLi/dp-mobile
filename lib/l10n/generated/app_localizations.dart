@@ -116,6 +116,12 @@ abstract class AppLocalizations {
   /// **'Let great content be found'**
   String get slogan2;
 
+  /// No description provided for @slogan3.
+  ///
+  /// In en, this message translates to:
+  /// **'Creation, empowered'**
+  String get slogan3;
+
   /// No description provided for @emailLabel.
   ///
   /// In en, this message translates to:

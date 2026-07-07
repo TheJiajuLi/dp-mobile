@@ -1,5 +1,8 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
@@ -42,6 +45,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   // 邀请码校验失败时的提示——服务端给什么文案就显示什么（"邀请码无效
   // 或已过期"这类），不猜测/改写
   String? _codeError;
+  // 随机挑一条 slogan 并缓存——跟 login_screen.dart/splash_screen.dart
+  // 同一套道理，didChangeDependencies 在语言/主题切换时会被重复调用，
+  // 用可空字段 + ??= 才不会每次都重新随机
+  String? _slogan;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = AppLocalizations.of(context)!;
+    _slogan ??=
+        [l10n.appSlogan, l10n.slogan2, l10n.slogan3][Random().nextInt(3)];
+  }
 
   @override
   void dispose() {
@@ -231,17 +246,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _iconBox(
-            child: const Icon(Icons.bolt, color: _primary, size: 32),
+          SvgPicture.asset(
+            'assets/images/app_icon.svg',
+            width: 72,
+            height: 72,
           ),
           const SizedBox(height: 16),
           Text(
-            l10n.appName,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            l10n.appSlogan,
+            _slogan ?? l10n.appSlogan,
             style: TextStyle(fontSize: 14, color: Colors.grey[500]),
           ),
           const SizedBox(height: 28),

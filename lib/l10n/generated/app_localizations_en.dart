@@ -18,6 +18,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slogan2 => 'Let great content be found';
 
   @override
+  String get slogan3 => 'Creation, empowered';
+
+  @override
   String get emailLabel => 'Email';
 
   @override
