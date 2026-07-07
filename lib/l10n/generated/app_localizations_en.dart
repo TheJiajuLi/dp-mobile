@@ -542,6 +542,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get articlesCountLabel => 'Articles';
 
   @override
+  String articlesCountHeader(int count) {
+    return '$count articles';
+  }
+
+  @override
+  String columnsCountHeader(int count) {
+    return '$count columns';
+  }
+
+  @override
   String get viewsCountLabel => 'Reads';
 
   @override

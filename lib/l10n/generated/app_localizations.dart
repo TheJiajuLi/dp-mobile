@@ -1100,6 +1100,18 @@ abstract class AppLocalizations {
   /// **'Articles'**
   String get articlesCountLabel;
 
+  /// No description provided for @articlesCountHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} articles'**
+  String articlesCountHeader(int count);
+
+  /// No description provided for @columnsCountHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} columns'**
+  String columnsCountHeader(int count);
+
   /// No description provided for @viewsCountLabel.
   ///
   /// In en, this message translates to:

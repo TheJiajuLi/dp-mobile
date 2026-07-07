@@ -167,6 +167,8 @@
   "bookmarksComingSoon": "收藏功能即将上线",
   "likesListComingSoon": "点赞列表即将上线",
   "articlesCountLabel": "文章",
+  "articlesCountHeader": "{count} 篇文章",
+  "columnsCountHeader": "{count} 个专栏",
   "viewsCountLabel": "阅读",
   "creationStreakDays": "连续创作 {days} 天",
   "creationStreakSubtitle": "继续加油，创作之路永不止步！",

@@ -534,6 +534,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get articlesCountLabel => '文章';
 
   @override
+  String articlesCountHeader(int count) {
+    return '$count 篇文章';
+  }
+
+  @override
+  String columnsCountHeader(int count) {
+    return '$count 个专栏';
+  }
+
+  @override
   String get viewsCountLabel => '阅读';
 
   @override

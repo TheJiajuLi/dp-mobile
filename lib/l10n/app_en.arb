@@ -244,6 +244,22 @@
   "bookmarksComingSoon": "Bookmarks coming soon",
   "likesListComingSoon": "Likes list coming soon",
   "articlesCountLabel": "Articles",
+  "articlesCountHeader": "{count} articles",
+  "@articlesCountHeader": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "columnsCountHeader": "{count} columns",
+  "@columnsCountHeader": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "viewsCountLabel": "Reads",
   "creationStreakDays": "{days}-day creation streak",
   "creationStreakSubtitle": "Keep it up, your creative journey never stops!",

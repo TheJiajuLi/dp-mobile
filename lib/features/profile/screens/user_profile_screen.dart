@@ -162,10 +162,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 下拉刷新统一入口——_loadProfile 内部已经会连带重新拉教程和专栏
   // （见下面 isOwnProfile/别人主页两条分支末尾），这里不用再重复调用
   Future<void> _onRefresh() async {
-    await Future.wait([
-      _loadProfile(),
-      if (_showNotebookTab) _loadNotebooks(),
-    ]);
+    await Future.wait([_loadProfile(), if (_showNotebookTab) _loadNotebooks()]);
   }
 
   Future<void> _loadProfile() async {
@@ -1560,7 +1557,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       alignment: Alignment.center,
                       children: [
                         FoundingAvatarRing(
-                          isFoundingCreator: _profile?.isFoundingCreator ?? false,
+                          isFoundingCreator:
+                              _profile?.isFoundingCreator ?? false,
                           size: 68,
                           child: Container(
                             decoration: const BoxDecoration(
@@ -1675,10 +1673,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                     ),
                   ],
                 ),
-                if (_profile!.isFoundingCreator) ...[
-                  const SizedBox(height: 10),
-                  const FoundingBadgeLarge(),
-                ],
                 if (interestTags.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Wrap(
@@ -1934,14 +1928,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
     final userId = _profile?.id;
 
+    // 文章/专栏/文件这几个数量本来就是下面 Tab 切换后能直接看到的东西，
+    // 跟这一行其它"要点进去才知道"的统计（点赞/阅读/关注/粉丝）放在一起
+    // 纯属重复计数、白占一行横向滚动的空间——挪到各自 Tab 内容顶部用
+    // 不带 pill 底色的纯文字展示（效仿知乎"创作"页签下方的计数写法），
+    // 只在切到那个 Tab 时才看得到，减少头图区一上来就是一整排数字的
+    // 视觉噪音
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          stat('${_tutorials.length}', l10n.articlesCountLabel),
-          stat('${_columns.length}', l10n.tabColumnsLabel),
-          if (_showNotebookTab)
-            stat('${_notebooks.length}', l10n.tabFilesLabel),
           stat('-', l10n.tabBookmarksLabel),
           stat(_formatCount(_totalLikes), l10n.tabLikesLabel),
           stat(_formatCount(_totalViews), l10n.viewsCountLabel),
@@ -2183,75 +2179,99 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                       RefreshIndicator(
                         color: _primary,
                         onRefresh: _onRefresh,
-                        child: _tutorials.isEmpty
-                            ? _refreshableCenter(
-                                key: const PageStorageKey(
-                                  'profile-tab-tutorials-empty',
-                                ),
-                                child: Text(
-                                  l10n.noTutorialsPublished,
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
-                              )
-                            : ListView.builder(
-                                key: const PageStorageKey(
-                                  'profile-tab-tutorials',
-                                ),
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.all(12),
-                                itemCount: _tutorials.length,
-                                itemBuilder: (ctx, i) {
-                                  final t = _tutorials[i];
-                                  return TutorialListCard(
-                                    tutorial: t,
-                                    onTap: () =>
-                                        context.push('/tutorial/${t.id}'),
-                                    onMoreTap: () =>
-                                        _todo(l10n.comingSoonStayTuned),
-                                  );
-                                },
-                              ),
+                        child: Column(
+                          children: [
+                            _tabCountHeader(
+                              l10n.articlesCountHeader(_tutorials.length),
+                            ),
+                            Expanded(
+                              child: _tutorials.isEmpty
+                                  ? _refreshableCenter(
+                                      key: const PageStorageKey(
+                                        'profile-tab-tutorials-empty',
+                                      ),
+                                      child: Text(
+                                        l10n.noTutorialsPublished,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      key: const PageStorageKey(
+                                        'profile-tab-tutorials',
+                                      ),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      padding: const EdgeInsets.all(12),
+                                      itemCount: _tutorials.length,
+                                      itemBuilder: (ctx, i) {
+                                        final t = _tutorials[i];
+                                        return TutorialListCard(
+                                          tutorial: t,
+                                          onTap: () =>
+                                              context.push('/tutorial/${t.id}'),
+                                          onMoreTap: () =>
+                                              _todo(l10n.comingSoonStayTuned),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        ),
                       ),
                       _buildColumnsTab(l10n, isSelfView),
                       if (_showNotebookTab)
                         RefreshIndicator(
                           color: _primary,
                           onRefresh: _onRefresh,
-                          child: _notebooks.isEmpty
-                              ? _refreshableCenter(
-                                  key: const PageStorageKey(
-                                    'profile-tab-notebooks-empty',
-                                  ),
-                                  child: Text(
-                                    l10n.noNotebooksYet,
-                                    style: const TextStyle(color: Colors.grey),
-                                  ),
-                                )
-                              // Notebook 这个 tab 按规范是列表式（文件名+语言badge+
-                              // cells数量+时间），不是跟文章/收藏/点赞一样的九宫格
-                              : ListView.separated(
-                                  key: const PageStorageKey(
-                                    'profile-tab-notebooks',
-                                  ),
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  padding: EdgeInsets.zero,
-                                  itemCount: _notebooks.length,
-                                  separatorBuilder: (_, _) => Divider(
-                                    height: 1,
-                                    color: isDarkMode
-                                        ? Colors.white12
-                                        : const Color(0xFFF0F0F0),
-                                  ),
-                                  itemBuilder: (ctx, i) {
-                                    final nb = _notebooks[i];
-                                    return _NotebookListItem(
-                                      notebook: nb,
-                                      onTap: () => context.push(
-                                        '/notebook/${nb['id']}',
+                          child: Column(
+                            children: [
+                              _tabCountHeader(
+                                l10n.filesCountLabel(_notebooks.length),
+                              ),
+                              Expanded(
+                                child: _notebooks.isEmpty
+                                    ? _refreshableCenter(
+                                        key: const PageStorageKey(
+                                          'profile-tab-notebooks-empty',
+                                        ),
+                                        child: Text(
+                                          l10n.noNotebooksYet,
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      )
+                                    // Notebook 这个 tab 按规范是列表式（文件名+语言badge+
+                                    // cells数量+时间），不是跟文章/收藏/点赞一样的九宫格
+                                    : ListView.separated(
+                                        key: const PageStorageKey(
+                                          'profile-tab-notebooks',
+                                        ),
+                                        physics:
+                                            const AlwaysScrollableScrollPhysics(),
+                                        padding: EdgeInsets.zero,
+                                        itemCount: _notebooks.length,
+                                        separatorBuilder: (_, _) => Divider(
+                                          height: 1,
+                                          color: isDarkMode
+                                              ? Colors.white12
+                                              : const Color(0xFFF0F0F0),
+                                        ),
+                                        itemBuilder: (ctx, i) {
+                                          final nb = _notebooks[i];
+                                          return _NotebookListItem(
+                                            notebook: nb,
+                                            onTap: () => context.push(
+                                              '/notebook/${nb['id']}',
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    );
-                                  },
-                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       // 收藏（占位）
                       RefreshIndicator(
@@ -2292,12 +2312,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       return RefreshIndicator(
         color: _primary,
         onRefresh: _onRefresh,
-        child: _refreshableCenter(
-          key: const PageStorageKey('profile-tab-columns-empty'),
-          child: Text(
-            l10n.noColumnsCreatedYetPrompt,
-            style: const TextStyle(color: Colors.grey),
-          ),
+        child: Column(
+          children: [
+            _tabCountHeader(l10n.columnsCountHeader(_columns.length)),
+            Expanded(
+              child: _refreshableCenter(
+                key: const PageStorageKey('profile-tab-columns-empty'),
+                child: Text(
+                  l10n.noColumnsCreatedYetPrompt,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -2306,48 +2333,60 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     return RefreshIndicator(
       color: _primary,
       onRefresh: _onRefresh,
-      child: ListView.builder(
-      key: const PageStorageKey('profile-tab-columns'),
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(12),
-      itemCount: _columns.length + (isSelfView ? 1 : 0),
-      itemBuilder: (ctx, i) {
-        if (isSelfView && i == _columns.length) {
-          return GestureDetector(
-            onTap: _showCreateColumnSheet,
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isDark ? Colors.white24 : const Color(0xFFD1D1D6),
-                  width: 1.5,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.add_circle_outline,
-                    color: placeholderColor,
-                    size: 28,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    l10n.createColumnAction,
-                    style: TextStyle(fontSize: 13, color: placeholderColor),
-                  ),
-                ],
-              ),
+      child: Column(
+        children: [
+          _tabCountHeader(l10n.columnsCountHeader(_columns.length)),
+          Expanded(
+            child: ListView.builder(
+              key: const PageStorageKey('profile-tab-columns'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(12),
+              itemCount: _columns.length + (isSelfView ? 1 : 0),
+              itemBuilder: (ctx, i) {
+                if (isSelfView && i == _columns.length) {
+                  return GestureDetector(
+                    onTap: _showCreateColumnSheet,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white24
+                              : const Color(0xFFD1D1D6),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline,
+                            color: placeholderColor,
+                            size: 28,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.createColumnAction,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: placeholderColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                final col = _columns[i];
+                return _ColumnCard(
+                  column: col,
+                  onTap: () => context.push('/columns/${col.id}'),
+                );
+              },
             ),
-          );
-        }
-        final col = _columns[i];
-        return _ColumnCard(
-          column: col,
-          onTap: () => context.push('/columns/${col.id}'),
-        );
-      },
+          ),
+        ],
       ),
     );
   }
@@ -2365,6 +2404,24 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           child: Center(child: child),
         ),
       ],
+    );
+  }
+
+  // 文章/专栏/文件这几个数量之前挤在头图区那一整排统计里，跟"效仿知乎"
+  // 的要求一样改成不带 pill 底色的纯文字，内嵌在各自 Tab 内容最上面——
+  // 自己/别人主页都会显示（这几个数字本来就是公开信息，隐私设置目前
+  // 还没有覆盖到"是否隐藏内容数量"这一项）
+  Widget _tabCountHeader(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 2),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: isDark ? Colors.white38 : Colors.grey[500],
+        ),
+      ),
     );
   }
 
@@ -2913,9 +2970,12 @@ class _ColumnCard extends StatelessWidget {
     [Color(0xFFDC2626), Color(0xFFF87171)],
   ];
 
+  // 之前是大banner封面+左上角深色圆角标签叠"收录内容·N篇"的样式——
+  // 改成跟 tutorial_list_card.dart 一样效仿知乎"创作"页签的列表行：左边
+  // 一个小缩略图，右边标题/简介/纯文字元信息，篇数不再单独用一个 pill
+  // 底色的标签浮在封面上，并入下面这一排跟浏览/点赞同样朴素的文字里
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ci = column.name.isNotEmpty
         ? column.name.codeUnitAt(0) % _gradients.length
@@ -2926,109 +2986,74 @@ class _ColumnCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDark ? Colors.white24 : const Color(0xFFE5E5EA),
+            color: isDark ? Colors.white12 : const Color(0xFFF0F0F0),
             width: 0.5,
           ),
         ),
-        child: Column(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(13),
-                topRight: Radius.circular(13),
-              ),
+              borderRadius: BorderRadius.circular(8),
               child: SizedBox(
-                height: 110,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // 缩略图纯装饰，专栏名/篇数在下面 Positioned 里另有文字
-                    // 承载，排除出语义树——跟头图/头像同一个坑
-                    ExcludeSemantics(
-                      child:
-                          column.coverImage != null &&
-                              column.coverImage!.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: column.coverImage!,
-                              fit: BoxFit.cover,
-                              errorWidget: (context, url, error) =>
-                                  _gradBg(gradient),
-                            )
-                          : _gradBg(gradient),
-                    ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Colors.black54],
+                width: 70,
+                height: 66,
+                child:
+                    column.coverImage != null && column.coverImage!.isNotEmpty
+                    ? ExcludeSemantics(
+                        child: CachedNetworkImage(
+                          imageUrl: column.coverImage!,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, url, error) =>
+                              _gradBg(gradient),
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 10,
-                      left: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          l10n.columnContentCountLabel(column.articleCount),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 10,
-                      left: 12,
-                      right: 12,
-                      child: Text(
-                        column.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                      )
+                    : _gradBg(gradient),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(12),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (column.description?.isNotEmpty == true)
+                  Text(
+                    column.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  if (column.description?.isNotEmpty == true) ...[
+                    const SizedBox(height: 2),
                     Text(
                       column.description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark
                             ? Colors.white54
                             : const Color(0xFF8E8E93),
-                        height: 1.5,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  const SizedBox(height: 8),
+                  ],
+                  const SizedBox(height: 6),
                   Row(
                     children: [
+                      _stat(
+                        isDark,
+                        Icons.collections_bookmark_outlined,
+                        '${column.articleCount}',
+                      ),
+                      const SizedBox(width: 12),
                       _stat(
                         isDark,
                         Icons.remove_red_eye_outlined,
