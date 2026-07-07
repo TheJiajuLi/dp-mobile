@@ -1,10 +1,16 @@
+import 'dart:convert';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive.dart';
+import '../../core/widgets/founding_badge.dart';
+import '../../features/auth/auth_service.dart';
 import '../../features/messages/providers/messages_provider.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../models/user_model.dart';
 
 class MainShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -124,6 +130,9 @@ class MainShell extends ConsumerWidget {
     );
   }
 
+  // 只带图标的窄栏——发现/消息 用 goBranch，Notebook/发布/设置是真实
+  // push 路由，收藏还没有真实页面（跟 settings_screen.dart 里的处理一样，
+  // 先占位跳个人主页，等 /saved 真的做出来了改这一个 onTap 就行）
   Widget _buildRail(
     BuildContext context,
     WidgetRef ref,
@@ -131,176 +140,113 @@ class MainShell extends ConsumerWidget {
     bool isDark,
   ) {
     final unread = ref.watch(unreadCountProvider);
-    return Container(
-      width: 220,
-      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '极',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF6366F1),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.appName,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Divider(
-            height: 0.5,
-            thickness: 0.5,
-            color: Theme.of(context).dividerColor,
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              children: [
-                _railItem(
-                  context,
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: l10n.navHome,
-                  isActive: navigationShell.currentIndex == 0,
-                  isDark: isDark,
-                  onTap: () => _onTap(0),
-                ),
-                _railItem(
-                  context,
-                  icon: Icons.explore_outlined,
-                  activeIcon: Icons.explore,
-                  label: l10n.navCommunity,
-                  isActive: navigationShell.currentIndex == 1,
-                  isDark: isDark,
-                  onTap: () => _onTap(1),
-                ),
-                _railItem(
-                  context,
-                  icon: Icons.chat_bubble_outline,
-                  activeIcon: Icons.chat_bubble,
-                  label: l10n.messagesTitle,
-                  isActive: navigationShell.currentIndex == 2,
-                  isDark: isDark,
-                  badgeCount: unread,
-                  onTap: () => _onTap(2),
-                ),
-                _railItem(
-                  context,
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: l10n.navProfile,
-                  isActive: navigationShell.currentIndex == 3,
-                  isDark: isDark,
-                  onTap: () => _onTap(3),
-                ),
-                const SizedBox(height: 8),
-                Divider(
-                  height: 0.5,
-                  thickness: 0.5,
-                  color: Theme.of(context).dividerColor,
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => context.push('/publish'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF6366F1)
-                          : const Color(0xFF1A1A1A),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.add, color: Colors.white, size: 16),
-                        const SizedBox(width: 5),
-                        Text(
-                          l10n.publish,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    final user = ref.watch(currentUserProvider);
+    final currentPath = GoRouterState.of(context).uri.path;
 
-  Widget _railItem(
-    BuildContext context, {
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required bool isActive,
-    required bool isDark,
-    required VoidCallback onTap,
-    int badgeCount = 0,
-  }) {
-    final activeColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final inactiveColor = isDark ? Colors.white38 : const Color(0xFF999999);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF6366F1).withValues(alpha: isDark ? 0.2 : 0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
+    return Container(
+      width: 76,
+      color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      child: SafeArea(
+        child: Column(
           children: [
-            Badge(
-              isLabelVisible: badgeCount > 0,
-              label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
-              backgroundColor: Colors.red,
-              child: Icon(
-                isActive ? activeIcon : icon,
-                size: 19,
-                color: isActive ? activeColor : inactiveColor,
+            const SizedBox(height: 14),
+            GestureDetector(
+              onTap: () => _onTap(0),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Center(
+                  child: Text(
+                    '极',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF6366F1),
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? activeColor : inactiveColor,
+            const SizedBox(height: 14),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: [
+                  _railIcon(
+                    tooltip: l10n.navCommunity,
+                    icon: Icons.explore_outlined,
+                    activeIcon: Icons.explore,
+                    isActive: navigationShell.currentIndex == 1,
+                    isDark: isDark,
+                    onTap: () => _onTap(1),
+                  ),
+                  const SizedBox(height: 6),
+                  _railIcon(
+                    tooltip: 'Notebook',
+                    icon: Icons.menu_book_outlined,
+                    activeIcon: Icons.menu_book,
+                    isActive: currentPath.startsWith('/notebook'),
+                    isDark: isDark,
+                    onTap: () => context.push('/notebook'),
+                  ),
+                  const SizedBox(height: 6),
+                  _railIcon(
+                    tooltip: l10n.messagesTitle,
+                    icon: Icons.chat_bubble_outline,
+                    activeIcon: Icons.chat_bubble,
+                    isActive: navigationShell.currentIndex == 2,
+                    isDark: isDark,
+                    showDot: unread > 0,
+                    onTap: () => _onTap(2),
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(
+                    height: 0.5,
+                    thickness: 0.5,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                  const SizedBox(height: 10),
+                  _railIcon(
+                    tooltip: l10n.publish,
+                    icon: Icons.edit_outlined,
+                    activeIcon: Icons.edit,
+                    isActive: false,
+                    isDark: isDark,
+                    onTap: () => context.push('/publish'),
+                  ),
+                  const SizedBox(height: 6),
+                  _railIcon(
+                    tooltip: l10n.tabBookmarksLabel,
+                    icon: Icons.bookmark_border,
+                    activeIcon: Icons.bookmark,
+                    isActive: false,
+                    isDark: isDark,
+                    onTap: () => context.push('/profile'),
+                  ),
+                  const SizedBox(height: 6),
+                  _railIcon(
+                    tooltip: l10n.settingsTitle,
+                    icon: Icons.settings_outlined,
+                    activeIcon: Icons.settings,
+                    isActive: currentPath.startsWith('/settings'),
+                    isDark: isDark,
+                    onTap: () => context.push('/settings'),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Tooltip(
+                message: user?.username ?? '',
+                child: GestureDetector(
+                  onTap: () => _onTap(3),
+                  child: _railAvatar(user),
+                ),
               ),
             ),
           ],
@@ -308,6 +254,106 @@ class MainShell extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _railIcon({
+    required String tooltip,
+    required IconData icon,
+    required IconData activeIcon,
+    required bool isActive,
+    required bool isDark,
+    required VoidCallback onTap,
+    bool showDot = false,
+  }) {
+    final inactiveColor = isDark ? Colors.white38 : const Color(0xFF999999);
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: isActive
+                ? (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: isActive
+                ? Border.all(color: const Color(0xFFE5E5EA), width: 0.5)
+                : null,
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                isActive ? activeIcon : icon,
+                size: 20,
+                color: isActive
+                    ? (isDark ? Colors.white : const Color(0xFF1A1A1A))
+                    : inactiveColor,
+              ),
+              if (showDot)
+                Positioned(
+                  top: 9,
+                  right: 10,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF3B82F6),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 头像格式跟全项目其它渲染头像的地方保持一致：data:image 是旧的
+  // base64 头像，否则是 COS 图片 URL——元老创作者外面套一圈已有的
+  // FoundingAvatarRing
+  Widget _railAvatar(UserModel? user) {
+    final avatar = user?.avatar;
+    Widget circle;
+    if (avatar != null && avatar.isNotEmpty) {
+      if (avatar.startsWith('data:image')) {
+        try {
+          circle = CircleAvatar(
+            radius: 15,
+            backgroundImage: MemoryImage(base64Decode(avatar.split(',').last)),
+          );
+        } catch (_) {
+          circle = _railAvatarFallback(user);
+        }
+      } else {
+        circle = CircleAvatar(
+          radius: 15,
+          backgroundColor: const Color(0xFF6366F1),
+          backgroundImage: CachedNetworkImageProvider(avatar),
+        );
+      }
+    } else {
+      circle = _railAvatarFallback(user);
+    }
+    return FoundingAvatarRing(
+      isFoundingCreator: user?.isFoundingCreator == true,
+      size: 30,
+      child: circle,
+    );
+  }
+
+  Widget _railAvatarFallback(UserModel? user) => CircleAvatar(
+    radius: 15,
+    backgroundColor: const Color(0xFF6366F1),
+    child: Text(
+      (user?.username.isNotEmpty ?? false)
+          ? user!.username.substring(0, 1).toUpperCase()
+          : '?',
+      style: const TextStyle(fontSize: 12, color: Colors.white),
+    ),
+  );
 }
 
 class _NavItem extends StatelessWidget {
