@@ -79,21 +79,15 @@ class MainShell extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _NavItem(
-                    icon: Icons.home_outlined,
-                    activeIcon: Icons.home,
-                    label: l10n.navHome,
-                    selected: navigationShell.currentIndex == 0,
-                    isDark: isDark,
-                    onTap: () => _onTap(0),
-                  ),
+                  // 首页跟发现合并成一个页面（发现的板块搬到首页顶部），
+                  // 这个tab的图标/文案换成原来发现tab的，不再单独占一个tab
                   _NavItem(
                     icon: Icons.explore_outlined,
                     activeIcon: Icons.explore,
                     label: l10n.navCommunity,
-                    selected: navigationShell.currentIndex == 1,
+                    selected: navigationShell.currentIndex == 0,
                     isDark: isDark,
-                    onTap: () => _onTap(1),
+                    onTap: () => _onTap(0),
                   ),
                   _PublishButton(
                     isDark: isDark,
@@ -106,10 +100,10 @@ class MainShell extends ConsumerWidget {
                         icon: Icons.chat_bubble_outline,
                         activeIcon: Icons.chat_bubble,
                         label: l10n.messagesTitle,
-                        selected: navigationShell.currentIndex == 2,
+                        selected: navigationShell.currentIndex == 1,
                         badgeCount: unread,
                         isDark: isDark,
-                        onTap: () => _onTap(2),
+                        onTap: () => _onTap(1),
                       );
                     },
                   ),
@@ -117,9 +111,9 @@ class MainShell extends ConsumerWidget {
                     icon: Icons.person_outline,
                     activeIcon: Icons.person,
                     label: l10n.navProfile,
-                    selected: navigationShell.currentIndex == 3,
+                    selected: navigationShell.currentIndex == 2,
                     isDark: isDark,
-                    onTap: () => _onTap(3),
+                    onTap: () => _onTap(2),
                   ),
                 ],
               ),
@@ -176,15 +170,8 @@ class MainShell extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: [
-                  _railIcon(
-                    tooltip: l10n.navCommunity,
-                    icon: Icons.explore_outlined,
-                    activeIcon: Icons.explore,
-                    isActive: navigationShell.currentIndex == 1,
-                    isDark: isDark,
-                    onTap: () => _onTap(1),
-                  ),
-                  const SizedBox(height: 6),
+                  // 首页/发现合并了，顶部"极"logo按钮点了就是_onTap(0)，
+                  // 这里不需要再单独放一个发现图标
                   _railIcon(
                     tooltip: 'Notebook',
                     icon: Icons.menu_book_outlined,
@@ -198,10 +185,10 @@ class MainShell extends ConsumerWidget {
                     tooltip: l10n.messagesTitle,
                     icon: Icons.chat_bubble_outline,
                     activeIcon: Icons.chat_bubble,
-                    isActive: navigationShell.currentIndex == 2,
+                    isActive: navigationShell.currentIndex == 1,
                     isDark: isDark,
                     showDot: unread > 0,
-                    onTap: () => _onTap(2),
+                    onTap: () => _onTap(1),
                   ),
                   const SizedBox(height: 10),
                   Divider(
@@ -244,7 +231,7 @@ class MainShell extends ConsumerWidget {
               child: Tooltip(
                 message: user?.username ?? '',
                 child: GestureDetector(
-                  onTap: () => _onTap(3),
+                  onTap: () => _onTap(2),
                   child: _railAvatar(user),
                 ),
               ),

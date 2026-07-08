@@ -693,7 +693,8 @@ result
               backgroundColor: const Color(0xFF16A34A),
             ),
           );
-          context.go('/community');
+          // 发现页不再是独立Tab，内容合并进了首页，发布成功后跳回首页
+          context.go('/home');
         } else {
           ScaffoldMessenger.of(
             context,

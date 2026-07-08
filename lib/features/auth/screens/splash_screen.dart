@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,8 +30,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final Animation<double> _textFade;
   late final Animation<Offset> _textSlide;
 
-  Timer? _sloganTimer;
-  int _sloganIndex = 0;
+  // 每次加载只随机选一条，不轮播——用可空字段 + didChangeDependencies
+  // 里 ??= 赋值，保证语言/主题切换重建时不会重新随机
+  String? _slogan;
 
   @override
   void initState() {
@@ -68,15 +70,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     _entranceCtrl.forward();
 
-    _startSloganCycle();
     _navigateAfterReady();
   }
 
-  void _startSloganCycle() {
-    _sloganTimer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
-      if (!mounted) return;
-      setState(() => _sloganIndex = (_sloganIndex + 1) % 3);
-    });
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l10n = AppLocalizations.of(context)!;
+    _slogan ??=
+        [l10n.appSlogan, l10n.slogan2, l10n.slogan3][Random().nextInt(3)];
   }
 
   Future<void> _navigateAfterReady() async {
@@ -110,7 +112,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void dispose() {
     _entranceCtrl.dispose();
-    _sloganTimer?.cancel();
     super.dispose();
   }
 
@@ -127,7 +128,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final versionColor = isDark
         ? const Color(0x33FFFFFF)
         : const Color(0xFFCCCCCC);
-    final slogans = [l10n.appSlogan, l10n.slogan2, l10n.slogan3];
 
     return Scaffold(
       backgroundColor: bg,
@@ -175,13 +175,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           ),
                         ),
                         const SizedBox(height: 14),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          child: Text(
-                            slogans[_sloganIndex],
-                            key: ValueKey(_sloganIndex),
-                            style: TextStyle(fontSize: 13, color: sloganColor),
-                          ),
+                        Text(
+                          _slogan ?? l10n.appSlogan,
+                          style: TextStyle(fontSize: 13, color: sloganColor),
                         ),
                       ],
                     ),

@@ -5,14 +5,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
+import '../../community/community_provider.dart';
 import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
 import '../../notebook/services/notebook_service.dart';
 import '../providers/home_feed_provider.dart';
+
+// 发现页那套 tag（跟首页自己的分类 homeFeedCategories 是两套不同的
+// 词表）——热门话题横滑胶囊、推荐关注卡片都靠它筛 communityProvider
+// 的数据，跟发现页原来用的是同一份
+const _discoverTags = [
+  'Python',
+  '数据分析',
+  '机器学习',
+  '可视化',
+  'LaTeX',
+  '统计学',
+  '数学建模',
+];
+
+String _discoverTagLabel(AppLocalizations l10n, String tag) => switch (tag) {
+  '数据分析' => l10n.tagDataAnalysis,
+  '机器学习' => l10n.tagMachineLearning,
+  '可视化' => l10n.tagVisualization,
+  '统计学' => l10n.tagStatistics,
+  '数学建模' => l10n.tagMathModeling,
+  _ => tag,
+};
 
 const _primary = Color(0xFF6366F1);
 const _ink = Color(0xFF1A1A1A);
@@ -23,90 +48,6 @@ const _muted = Color(0xFF999999);
 // 很难分辨但确实不同的浅灰白，底部导航栏跟内容区拼接处会露出一条若隐
 // 若现的接缝，深色主题下反而因为直接复用同一个主题色没有这个问题
 const _bg = AppColors.bg;
-
-enum _EntryStatus { live, comingSoon, stayTuned }
-
-String _statusLabel(AppLocalizations l10n, _EntryStatus status) =>
-    switch (status) {
-      _EntryStatus.live => l10n.statusLive,
-      _EntryStatus.comingSoon => l10n.statusComingSoon,
-      _EntryStatus.stayTuned => l10n.statusStayTuned,
-    };
-
-enum _AppId { notebook, aria, grid, visualization, mathModeling, more }
-
-String _appName(AppLocalizations l10n, _AppId id) => switch (id) {
-  _AppId.notebook => 'Power Notebook',
-  _AppId.aria => l10n.appAriaAssistant,
-  _AppId.grid => l10n.appDataGrid,
-  _AppId.visualization => l10n.appVisualizationFactory,
-  _AppId.mathModeling => l10n.appMathModeling,
-  _AppId.more => l10n.appMoreComingSoon,
-};
-
-class _AppEntry {
-  final _AppId id;
-  final IconData icon;
-  final Color color;
-  final _EntryStatus status;
-  final String? route;
-  final bool usePush;
-
-  const _AppEntry({
-    required this.id,
-    required this.icon,
-    required this.color,
-    required this.status,
-    this.route,
-    this.usePush = false,
-  });
-}
-
-// 这套 app 入口宫格是首页原有的功能入口（Notebook/ARIA 等），这次重设计
-// 首页视觉语言时保留在首页——ARIA 目前只有这一个入口，直接拿掉的话这个
-// 功能在全App里就再也点不进去了。后续计划挪到"社区"页，这次先不动
-const _appEntries = <_AppEntry>[
-  _AppEntry(
-    id: _AppId.notebook,
-    icon: Icons.code,
-    color: Color(0xFF6366F1),
-    status: _EntryStatus.live,
-    route: '/notebook',
-    usePush: true,
-  ),
-  _AppEntry(
-    id: _AppId.aria,
-    icon: Icons.auto_awesome,
-    color: Color(0xFF16A34A),
-    status: _EntryStatus.live,
-    route: '/aria',
-    usePush: true,
-  ),
-  _AppEntry(
-    id: _AppId.grid,
-    icon: Icons.grid_on,
-    color: Color(0xFF2563EB),
-    status: _EntryStatus.comingSoon,
-  ),
-  _AppEntry(
-    id: _AppId.visualization,
-    icon: Icons.bar_chart,
-    color: Color(0xFFD97706),
-    status: _EntryStatus.comingSoon,
-  ),
-  _AppEntry(
-    id: _AppId.mathModeling,
-    icon: Icons.functions,
-    color: Color(0xFFC026D3),
-    status: _EntryStatus.comingSoon,
-  ),
-  _AppEntry(
-    id: _AppId.more,
-    icon: Icons.more_horiz,
-    color: Color(0xFF8E8E93),
-    status: _EntryStatus.stayTuned,
-  ),
-];
 
 // Feed 里三种卡片怎么混排，不需要用户自己选、也不需要后端打标记，纯前端
 // 按下标规则自动分配：
@@ -182,6 +123,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<TutorialModel>? _shuffleSeed;
   String? _shuffleCategory;
 
+  // 发现页搬过来的顶部板块用的状态——PageController/关注按钮的乐观本地
+  // 状态，跟发现页原来那份是同一套逻辑
+  final _heroCtrl = PageController(viewportFraction: 0.88);
+  int _heroPage = 0;
+  final Set<String> _followingIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -193,7 +140,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
+    _heroCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleFollow(String? userId) async {
+    if (userId == null || userId.isEmpty) return;
+    final api = ref.read(apiClientProvider);
+    final following = _followingIds.contains(userId);
+    final res = following
+        ? await api.delete('/auth/users/$userId/follow')
+        : await api.post('/auth/users/$userId/follow');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() {
+        following ? _followingIds.remove(userId) : _followingIds.add(userId);
+      });
+    } else {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
+      );
+    }
   }
 
   Future<void> _loadRecentNotebooks() async {
@@ -206,22 +174,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_scrollCtrl.position.pixels >=
         _scrollCtrl.position.maxScrollExtent - 200) {
       ref.read(homeFeedProvider.notifier).loadMore();
-    }
-  }
-
-  void _onEntryTap(BuildContext context, _AppEntry entry) {
-    if (entry.route != null) {
-      if (entry.usePush) {
-        context.push(entry.route!);
-      } else {
-        context.go(entry.route!);
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)!.comingSoonStayTuned),
-        ),
-      );
     }
   }
 
@@ -254,6 +206,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(homeFeedProvider);
+    final discoverState = ref.watch(communityProvider);
     final rows = _buildRows(_displayTutorials(state));
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -272,7 +225,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: RefreshIndicator(
                 color: _primary,
                 onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
-                child: _buildBody(context, l10n, state, rows, isDarkMode),
+                child: _buildBody(
+                  context,
+                  l10n,
+                  state,
+                  discoverState,
+                  rows,
+                  isDarkMode,
+                ),
               ),
             ),
           ],
@@ -423,6 +383,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BuildContext context,
     AppLocalizations l10n,
     HomeFeedState state,
+    CommunityState discoverState,
     List<_FeedRow> rows,
     bool isDarkMode,
   ) {
@@ -450,11 +411,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
-    // 前面几段固定区块（入口宫格/继续创作/热门话题/推荐文章标题）先拼成
-    // 一个 widget 列表，后面 Feed 卡片行接着往下排——比手动算好几段偏移量
-    // 简单可靠，加/减一段不用重新核对下标
+    // 前面几段固定区块（原发现页板块/继续创作/热门话题/推荐文章标题）先
+    // 拼成一个 widget 列表，后面 Feed 卡片行接着往下排——比手动算好几段
+    // 偏移量简单可靠，加/减一段不用重新核对下标
     final prefixWidgets = <Widget>[
-      _buildAppGrid(context, l10n),
+      ..._buildDiscoverSections(context, l10n, discoverState),
       if (_recentNotebooks.isNotEmpty) ...[
         _buildContinueCreating(context, l10n, isDarkMode),
         const SizedBox(height: 20),
@@ -514,29 +475,438 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildAppGrid(BuildContext context, AppLocalizations l10n) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: _appEntries.length,
-        // 之前 childAspectRatio: 0.95（接近正方形格子）留出的高度比图标+文字
-        // 实际需要的多出一大截，看起来大片空白——图标52+间距+文字撑死也就
-        // 76px高，格子宽度却有110+px，改成1.5让格子更扁、贴近内容实际高度
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 4,
-          crossAxisSpacing: 8,
-          childAspectRatio: 1.5,
+  // 原发现页顶部板块（大卡轮播/热门话题/推荐关注/今日热度榜）搬到首页
+  // 顶部——数据源还是 communityProvider，跟首页自己的 homeFeedProvider
+  // 完全独立，各自请求各自的。搜索栏（首页头部已经有）和分类tab（首页
+  // 自己的分类跟这套tag是两个词表，两条tab摞一起会很怪）不搬，只搬
+  // 这四段
+  List<Widget> _buildDiscoverSections(
+    BuildContext context,
+    AppLocalizations l10n,
+    CommunityState discoverState,
+  ) {
+    final list = discoverState.filtered;
+    final heroList = list.take(5).toList();
+    final rankList = ([...list]..sort((a, b) => b.views.compareTo(a.views)))
+        .take(5)
+        .toList();
+    final seenAuthors = <String>{};
+    final suggestedAuthors = <TutorialModel>[];
+    for (final t in discoverState.tutorials) {
+      if (t.username.isEmpty || !seenAuthors.add(t.username)) continue;
+      suggestedAuthors.add(t);
+      if (suggestedAuthors.length >= 8) break;
+    }
+
+    return [
+      if (heroList.isNotEmpty) ...[
+        _discoverHeroCarousel(heroList),
+        const SizedBox(height: 16),
+      ],
+      _discoverHotTopics(context, l10n),
+      const SizedBox(height: 8),
+      if (suggestedAuthors.isNotEmpty) ...[
+        const _SectionHeader(title: '推荐关注'),
+        const SizedBox(height: 10),
+        _discoverSuggestedFollow(context, suggestedAuthors),
+        const SizedBox(height: 8),
+      ],
+      if (rankList.isNotEmpty) ...[
+        const _SectionHeader(title: '为你推荐'),
+        const SizedBox(height: 10),
+        _discoverNewsRanking(context, rankList),
+        const SizedBox(height: 20),
+      ],
+    ];
+  }
+
+  Widget _discoverHeroCarousel(List<TutorialModel> heroList) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 208,
+          child: PageView.builder(
+            controller: _heroCtrl,
+            itemCount: heroList.length,
+            onPageChanged: (i) => setState(() => _heroPage = i),
+            // 外层 ListView 本身已经统一带 16px 左右边距——这里只补卡片
+            // 之间的间隙，不能再对称地左右各留 6px，不然首卡左边会变成
+            // 16+6=22px，比右边露出来的下一张卡片间隙明显宽一截
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(
+                right: index == heroList.length - 1 ? 0 : 10,
+              ),
+              child: _discoverHeroCard(context, heroList[index]),
+            ),
+          ),
         ),
+        if (heroList.length > 1) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              heroList.length,
+              (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: _heroPage == i ? 16 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _heroPage == i
+                      ? _primary
+                      : Theme.of(context).dividerColor,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _discoverHeroCard(BuildContext context, TutorialModel t) {
+    final rule = matchedTopicRuleFor(t.tags);
+    return GestureDetector(
+      onTap: () => _openTutorial(context, t),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (t.coverImage?.isNotEmpty == true)
+              CachedNetworkImage(
+                imageUrl: t.coverImage!,
+                fit: BoxFit.cover,
+                errorWidget: (context, url, error) =>
+                    _discoverHeroGradientBg(rule),
+              )
+            else
+              _discoverHeroGradientBg(rule),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.35, 1],
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.68),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 14,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (rule != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        rule.label,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Text(
+                    t.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      height: 1.28,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _AuthorAvatar(
+                        avatar: t.avatar,
+                        username: t.username,
+                        isFoundingCreator: t.isFoundingCreator,
+                        radius: 9,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          t.username,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.favorite,
+                        size: 13,
+                        color: Colors.white70,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${t.likes}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _discoverHeroGradientBg(TopicBadgeRule? rule) {
+    final base = rule?.fg ?? _primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [base.withValues(alpha: 0.9), base.withValues(alpha: 0.55)],
+        ),
+      ),
+    );
+  }
+
+  Widget _discoverHotTopics(BuildContext context, AppLocalizations l10n) {
+    return SizedBox(
+      height: 34,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _discoverTags.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final entry = _appEntries[index];
-          return _AppEntryCard(
-            entry: entry,
-            onTap: () => _onEntryTap(context, entry),
+          final tag = _discoverTags[index];
+          return GestureDetector(
+            onTap: () => ref.read(communityProvider.notifier).setTag(tag),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(17),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor,
+                  width: 0.5,
+                ),
+              ),
+              child: Text(
+                '# ${_discoverTagLabel(l10n, tag)}',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
+              ),
+            ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _discoverSuggestedFollow(
+    BuildContext context,
+    List<TutorialModel> authors,
+  ) {
+    return SizedBox(
+      height: 156,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: authors.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final t = authors[index];
+          final following = _followingIds.contains(t.userId);
+          final category = topicCategoryLabelFor(t.tags);
+          return Container(
+            width: 130,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(context).dividerColor,
+                width: 0.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: t.username.isEmpty
+                      ? null
+                      : () => context.push('/users/${t.username}'),
+                  child: _AuthorAvatar(
+                    avatar: t.avatar,
+                    username: t.username,
+                    isFoundingCreator: t.isFoundingCreator,
+                    radius: 20,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  t.username,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (category != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  height: 27,
+                  child: OutlinedButton(
+                    onPressed: () => _toggleFollow(t.userId),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      backgroundColor: following ? null : _primary,
+                      side: BorderSide(
+                        color: following
+                            ? Theme.of(context).dividerColor
+                            : _primary,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    child: Text(
+                      following ? '已关注' : '关注',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: following
+                            ? Theme.of(context).textTheme.bodySmall?.color
+                            : Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _discoverNewsRanking(
+    BuildContext context,
+    List<TutorialModel> rankList,
+  ) {
+    const rankColors = [
+      Color(0xFFF43F5E),
+      Color(0xFFF59E0B),
+      Color(0xFF10B981),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.local_fire_department,
+                size: 17,
+                color: Color(0xFFF59E0B),
+              ),
+              SizedBox(width: 6),
+              Text(
+                '今日热度榜',
+                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...List.generate(rankList.length, (index) {
+            final t = rankList[index];
+            return GestureDetector(
+              onTap: () => _openTutorial(context, t),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: index < 3
+                              ? rankColors[index]
+                              : Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        t.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${t.views}',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -857,60 +1227,6 @@ class _Avatar extends StatelessWidget {
               ),
             )
           : null,
-    );
-  }
-}
-
-// 工具入口宫格——一线产品那种更宽松、更"确信"的视觉语言：大一号的浅色
-// 圆角图标块 + 图标本身也更大，不再靠一个圆点去标"上没上线"（一排排
-// 圆点反而显得没自信/像半成品），未上线的入口整体调低透明度就够直观，
-// 具体状态文案还是靠长按 Tooltip
-class _AppEntryCard extends StatelessWidget {
-  final _AppEntry entry;
-  final VoidCallback onTap;
-
-  const _AppEntryCard({required this.entry, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final live = entry.status == _EntryStatus.live;
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      onTap: onTap,
-      child: Tooltip(
-        message:
-            '${_appName(l10n, entry.id)} · ${_statusLabel(l10n, entry.status)}',
-        child: Opacity(
-          opacity: live ? 1 : 0.55,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: entry.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(entry.icon, color: entry.color, size: 22),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _appName(l10n, entry.id),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1449,10 +1765,12 @@ class _AuthorAvatar extends StatelessWidget {
   final String? avatar;
   final String username;
   final double radius;
+  final bool isFoundingCreator;
   const _AuthorAvatar({
     required this.avatar,
     required this.username,
     this.radius = 9,
+    this.isFoundingCreator = false,
   });
 
   Widget _letter() => CircleAvatar(
@@ -1470,6 +1788,14 @@ class _AuthorAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return FoundingAvatarRing(
+      isFoundingCreator: isFoundingCreator,
+      size: radius * 2,
+      child: _content(context),
+    );
+  }
+
+  Widget _content(BuildContext context) {
     if (avatar == null || avatar!.isEmpty) return _letter();
 
     if (avatar!.startsWith('data:image')) {

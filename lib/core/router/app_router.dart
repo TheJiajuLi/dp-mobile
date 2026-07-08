@@ -55,6 +55,13 @@ final appRouter = GoRouter(
       path: '/switch-account',
       builder: (context, state) => const SwitchAccountScreen(),
     ),
+    // 发现页不再是底部Tab（内容已经搬到首页顶部），但页面本身留着——
+    // 挪出 shell 之外，作为可以直接 push 到的独立路由，之后要挪作他用
+    // 再改
+    GoRoute(
+      path: '/community',
+      builder: (context, state) => const CommunityScreen(),
+    ),
     GoRoute(
       path: '/publish',
       builder: (context, state) => const PublishScreen(),
@@ -208,14 +215,6 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/home',
               builder: (context, state) => const HomeScreen(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/community',
-              builder: (context, state) => const CommunityScreen(),
             ),
           ],
         ),
