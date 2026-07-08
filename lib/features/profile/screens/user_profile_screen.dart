@@ -1097,37 +1097,46 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 14),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 1,
+            // 生成的头像数量不固定，多了就该在网格内部往下滚，而不是让整个
+            // sheet 跟着无限拉长（甚至顶到状态栏）——所以这里用 maxHeight
+            // 卡住网格区域的高度，GridView 保留正常的滚动手势
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.5,
               ),
-              itemCount: urls.length,
-              itemBuilder: (ctx, i) => GestureDetector(
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await _setAvatarFromUrl(urls[i]);
-                },
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    urls[i],
-                    fit: BoxFit.cover,
-                    loadingBuilder: (ctx, child, progress) => progress == null
-                        ? child
-                        : Container(
-                            color: Colors.grey[100],
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: _primary,
+              child: GridView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 1,
+                ),
+                itemCount: urls.length,
+                itemBuilder: (ctx, i) => GestureDetector(
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _setAvatarFromUrl(urls[i]);
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      urls[i],
+                      fit: BoxFit.cover,
+                      loadingBuilder: (ctx, child, progress) =>
+                          progress == null
+                          ? child
+                          : Container(
+                              color: Colors.grey[100],
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: _primary,
+                                ),
                               ),
                             ),
-                          ),
+                    ),
                   ),
                 ),
               ),
