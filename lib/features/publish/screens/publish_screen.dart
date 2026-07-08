@@ -63,7 +63,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   final _scrollCtrl = ScrollController();
 
   final List<EditorBlock> _blocks = [];
-  final List<String> _tags = ['Python', '数据分析'];
+  final List<String> _tags = [];
   bool _saving = false;
   bool _generatingSummary = false;
   String? _coverImageUrl;
@@ -1107,27 +1107,40 @@ result
                   runSpacing: 6,
                   children: [
                     ..._tags.map(
-                      (tag) => GestureDetector(
-                        onLongPress: () => setState(() => _tags.remove(tag)),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).dividerColor,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '#$tag',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(
-                                context,
-                              ).textTheme.bodyLarge?.color,
-                              fontWeight: FontWeight.w500,
+                      (tag) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? _primary.withValues(alpha: 0.15)
+                              : const Color(0xFFEEF0FF),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(color: _primary, width: 0.5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '#$tag',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _primary,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () => setState(() => _tags.remove(tag)),
+                              behavior: HitTestBehavior.opaque,
+                              child: const Icon(
+                                Icons.close,
+                                size: 14,
+                                color: _primary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

@@ -66,11 +66,6 @@ class _JisuoScreenState extends State<JisuoScreen> {
             color: Colors.grey[500],
             onPressed: () => _placeholderSnack('搜索历史即将上线'),
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, size: 20),
-            color: Colors.grey[500],
-            onPressed: () => context.push('/settings'),
-          ),
         ],
       ),
     );

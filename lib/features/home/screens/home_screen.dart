@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -112,7 +113,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   final _scrollCtrl = ScrollController();
   // "继续创作"用的是本地最近 Notebook 列表（NotebookService.getRecentList，
   // 跟个人主页 Notebook tab 同一份数据源），不是编个假的完成度百分比——
@@ -129,11 +131,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _heroPage = 0;
   final Set<String> _followingIds = {};
 
+  // 首页+发现合并之后这一页同时喂两个数据源（homeFeedProvider/
+  // communityProvider），定时和回前台刷新都要两个一起刷，不然会出现
+  // 顶部发现板块是新的、下面首页feed是半小时前旧数据这种不一致
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollCtrl.addListener(_onScroll);
     _loadRecentNotebooks();
+    _refreshTimer = Timer.periodic(
+      const Duration(minutes: 30),
+      (_) => _refreshAll(),
+    );
+  }
+
+  void _refreshAll() {
+    ref.read(homeFeedProvider.notifier).refresh();
+    ref.read(communityProvider.notifier).refresh();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshAll();
+    }
   }
 
   @override
@@ -141,6 +165,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     _heroCtrl.dispose();
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
