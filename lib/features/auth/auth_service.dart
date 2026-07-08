@@ -42,7 +42,6 @@ class AuthService {
       );
       if (!res.success || res.data == null) return false;
       final token = res.data['accessToken'] as String;
-      final username = res.data['username'] as String;
       final location = res.data['location'] as String? ?? '未知位置';
 
       // 直接传 token，不依赖拦截器（此时 userId 未知，拦截器也找不到 token）
@@ -50,21 +49,49 @@ class AuthService {
       if (!meRes.success || meRes.data == null) return false;
       final user = UserModel.fromJson(meRes.data);
 
-      // 数据隔离：所有 key 带 userId 前缀，防止账号串数据
-      await _storage.write(key: AppConstants.keyCurrentUserId, value: user.id);
-      await _storage.write(key: AppConstants.keyToken(user.id), value: token);
-      await _storage.write(
-        key: AppConstants.keyUsername(user.id),
-        value: username,
-      );
-
-      _ref.read(currentUserProvider.notifier).state = user;
+      await _persistSession(user, token);
       unawaited(_recordLogin(user.id, location));
-      unawaited(_rememberAccount(user));
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  // Google/GitHub OAuth 回调（见 main.dart 的 deep link 监听）只给
+  // accessToken，userId/username 都靠这里重新拉一次 /auth/me 拿权威数据，
+  // 跟密码登录走同一条路径，不能只拿回调 query 里那几个字段拼一个残缺
+  // 的 UserModel。
+  //
+  // 已知限制：后端 /auth/oauth/*/callback 重定向时带的 refreshToken
+  // 目前客户端用不上——/auth/refresh 只认 dp_refresh 这个 HttpOnly
+  // cookie，不接受请求体里传的 refresh token；而这次 OAuth 流程是外部
+  // 浏览器发起的，cookie 落在 Safari 那边，不会进到 App 自己的
+  // CookieJar。所以 OAuth 登录当前只能撑到这个 accessToken 过期
+  // （15分钟）——到期后 tryAutoLogin/silentRefresh 都会失败，用户需要
+  // 重新走一次登录。要修需要后端加一个接受客户端 refreshToken 的
+  // /auth/refresh 变体，这是后端范围的事，先如实标注这个限制
+  Future<bool> completeOAuthLogin(String accessToken) async {
+    try {
+      final meRes = await _api.getWithToken('/auth/me', token: accessToken);
+      if (!meRes.success || meRes.data == null) return false;
+      final user = UserModel.fromJson(meRes.data);
+      await _persistSession(user, accessToken);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 数据隔离：所有 key 带 userId 前缀，防止账号串数据
+  Future<void> _persistSession(UserModel user, String token) async {
+    await _storage.write(key: AppConstants.keyCurrentUserId, value: user.id);
+    await _storage.write(key: AppConstants.keyToken(user.id), value: token);
+    await _storage.write(
+      key: AppConstants.keyUsername(user.id),
+      value: user.username,
+    );
+    _ref.read(currentUserProvider.notifier).state = user;
+    unawaited(_rememberAccount(user));
   }
 
   // "切换账号"列表页要展示的最近登录账号（设备级别，最多3个，最近的排前面）

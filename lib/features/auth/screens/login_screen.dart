@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/jimeng_logo.dart';
@@ -22,10 +24,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscure = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkOAuthError());
+  }
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _pwdCtrl.dispose();
     super.dispose();
+  }
+
+  // main.dart 的 deep link 处理器在 OAuth 失败时会带着 oauth_error 跳回
+  // 这个页面——用 query 参数而不是直接弹 SnackBar，是因为发起弹窗那一刻
+  // （MyApp 顶层）拿不到一个保证挂在 Scaffold 下面的 context
+  void _checkOAuthError() {
+    if (!mounted) return;
+    final error = GoRouterState.of(context).uri.queryParameters['oauth_error'];
+    if (error == null) return;
+    _placeholderSnack(switch (error) {
+      'google_failed' => 'Google 登录失败，请重试',
+      'github_failed' => 'GitHub 登录失败，请重试',
+      _ => '登录失败，请重试',
+    });
+  }
+
+  Future<void> _loginWithGoogle() => _launchOAuth('google');
+  Future<void> _loginWithGithub() => _launchOAuth('github');
+
+  Future<void> _launchOAuth(String provider) async {
+    final url = Uri.parse('${AppConstants.baseUrl}/auth/oauth/$provider');
+    final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) _placeholderSnack('无法打开登录页面');
   }
 
   Future<void> _handleLogin() async {
@@ -287,11 +318,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: SizedBox(
             height: 48,
             child: OutlinedButton.icon(
-              onPressed: () => _placeholderSnack('第三方登录即将上线'),
+              onPressed: _loginWithGoogle,
               style: style,
-              icon: Icon(Icons.code, size: 18, color: textColor),
+              icon: Icon(Icons.g_mobiledata, size: 24, color: textColor),
               label: Text(
-                'GitHub',
+                'Google',
                 style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
@@ -301,12 +332,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Expanded(
           child: SizedBox(
             height: 48,
-            child: OutlinedButton(
-              onPressed: () => _placeholderSnack('第三方登录即将上线'),
+            child: OutlinedButton.icon(
+              onPressed: _loginWithGithub,
               style: style,
-              child: Text(
-                'X',
-                style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w700),
+              icon: Icon(Icons.code, size: 18, color: textColor),
+              label: Text(
+                'GitHub',
+                style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
           ),

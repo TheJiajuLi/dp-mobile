@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -60,16 +61,48 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+  final _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _linkSub = _appLinks.uriLinkStream.listen(_handleDeepLink);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _linkSub?.cancel();
     super.dispose();
+  }
+
+  // 后端 Google/GitHub OAuth 回调统一走 jimeng://auth/callback 这个
+  // scheme（见 dreamingpolar_user_auth_backend 的 oauth.ts），成功带
+  // accessToken，失败带 error——跟密码登录一样，userId/username 不直接
+  // 信回调参数，交给 AuthService.completeOAuthLogin 重新拉一次 /auth/me
+  void _handleDeepLink(Uri uri) {
+    if (uri.scheme != 'jimeng' || uri.host != 'auth') return;
+
+    final error = uri.queryParameters['error'];
+    if (error != null) {
+      appRouter.go('/login?oauth_error=$error');
+      return;
+    }
+
+    final accessToken = uri.queryParameters['accessToken'];
+    if (accessToken == null) return;
+    unawaited(_completeOAuth(accessToken));
+  }
+
+  Future<void> _completeOAuth(String accessToken) async {
+    final ok = await ref.read(authServiceProvider).completeOAuthLogin(accessToken);
+    if (ok) {
+      appRouter.go('/home');
+    } else {
+      appRouter.go('/login?oauth_error=server_error');
+    }
   }
 
   @override

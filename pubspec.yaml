@@ -45,6 +45,7 @@ dependencies:
   json_annotation: ^4.9.0
   image_picker: ^1.2.3
   url_launcher: ^6.3.2
+  app_links: ^7.2.0
   cookie_jar: ^4.0.9
   dio_cookie_manager: ^3.4.0
   path_provider: ^2.1.6
