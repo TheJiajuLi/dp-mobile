@@ -89,6 +89,16 @@ class MainShell extends ConsumerWidget {
                     isDark: isDark,
                     onTap: () => _onTap(0),
                   ),
+                  // 极索——替代原来发现tab的位置，小梦AI入口+应用宫格+
+                  // 社区精选
+                  _NavItem(
+                    iconBuilder: (selected) =>
+                        _JisuoIcon(selected: selected),
+                    label: '极索',
+                    selected: navigationShell.currentIndex == 1,
+                    isDark: isDark,
+                    onTap: () => _onTap(1),
+                  ),
                   _PublishButton(
                     isDark: isDark,
                     onTap: () => context.push('/publish'),
@@ -100,10 +110,10 @@ class MainShell extends ConsumerWidget {
                         icon: Icons.chat_bubble_outline,
                         activeIcon: Icons.chat_bubble,
                         label: l10n.messagesTitle,
-                        selected: navigationShell.currentIndex == 1,
+                        selected: navigationShell.currentIndex == 2,
                         badgeCount: unread,
                         isDark: isDark,
-                        onTap: () => _onTap(1),
+                        onTap: () => _onTap(2),
                       );
                     },
                   ),
@@ -111,9 +121,9 @@ class MainShell extends ConsumerWidget {
                     icon: Icons.person_outline,
                     activeIcon: Icons.person,
                     label: l10n.navProfile,
-                    selected: navigationShell.currentIndex == 2,
+                    selected: navigationShell.currentIndex == 3,
                     isDark: isDark,
-                    onTap: () => _onTap(2),
+                    onTap: () => _onTap(3),
                   ),
                 ],
               ),
@@ -173,6 +183,15 @@ class MainShell extends ConsumerWidget {
                   // 首页/发现合并了，顶部"极"logo按钮点了就是_onTap(0)，
                   // 这里不需要再单独放一个发现图标
                   _railIcon(
+                    tooltip: '极索',
+                    icon: Icons.travel_explore_outlined,
+                    activeIcon: Icons.travel_explore,
+                    isActive: navigationShell.currentIndex == 1,
+                    isDark: isDark,
+                    onTap: () => _onTap(1),
+                  ),
+                  const SizedBox(height: 6),
+                  _railIcon(
                     tooltip: 'Notebook',
                     icon: Icons.menu_book_outlined,
                     activeIcon: Icons.menu_book,
@@ -185,10 +204,10 @@ class MainShell extends ConsumerWidget {
                     tooltip: l10n.messagesTitle,
                     icon: Icons.chat_bubble_outline,
                     activeIcon: Icons.chat_bubble,
-                    isActive: navigationShell.currentIndex == 1,
+                    isActive: navigationShell.currentIndex == 2,
                     isDark: isDark,
                     showDot: unread > 0,
-                    onTap: () => _onTap(1),
+                    onTap: () => _onTap(2),
                   ),
                   const SizedBox(height: 10),
                   Divider(
@@ -231,7 +250,7 @@ class MainShell extends ConsumerWidget {
               child: Tooltip(
                 message: user?.username ?? '',
                 child: GestureDetector(
-                  onTap: () => _onTap(2),
+                  onTap: () => _onTap(3),
                   child: _railAvatar(user),
                 ),
               ),
@@ -344,8 +363,11 @@ class MainShell extends ConsumerWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
+  final IconData? icon;
+  final IconData? activeIcon;
+  // 极索tab用CustomPainter画的极光+放大镜图标，不是IconData——给个可选
+  // 的widget构造器覆盖默认的Icon()，其它tab不传就还是走IconData那条路
+  final Widget Function(bool selected)? iconBuilder;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -353,8 +375,9 @@ class _NavItem extends StatelessWidget {
   final bool isDark;
 
   const _NavItem({
-    required this.icon,
-    required this.activeIcon,
+    this.icon,
+    this.activeIcon,
+    this.iconBuilder,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -379,7 +402,13 @@ class _NavItem extends StatelessWidget {
               isLabelVisible: badgeCount > 0,
               label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
               backgroundColor: Colors.red,
-              child: Icon(selected ? activeIcon : icon, color: color, size: 24),
+              child: iconBuilder != null
+                  ? iconBuilder!(selected)
+                  : Icon(
+                      selected ? activeIcon : icon,
+                      color: color,
+                      size: 24,
+                    ),
             ),
             const SizedBox(height: 2),
             Text(
@@ -419,4 +448,87 @@ class _PublishButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// 极索tab的图标——极光弧线+放大镜，跟JimengLogo的弧线画法是同一套
+// 配色语义，CustomPainter画，不用图片资源
+class _JisuoIcon extends StatelessWidget {
+  final bool selected;
+  const _JisuoIcon({required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(24, 22),
+      painter: _JisuoIconPainter(selected: selected),
+    );
+  }
+}
+
+class _JisuoIconPainter extends CustomPainter {
+  final bool selected;
+  const _JisuoIconPainter({required this.selected});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final colors = selected
+        ? [
+            const Color(0xFF6366F1).withValues(alpha: 0.5),
+            const Color(0xFF818CF8).withValues(alpha: 0.8),
+            const Color(0xFF4ADE80),
+          ]
+        : [
+            Colors.grey.withValues(alpha: 0.4),
+            Colors.grey.withValues(alpha: 0.6),
+            Colors.grey.withValues(alpha: 0.8),
+          ];
+
+    final offsets = [0.0, 0.08, 0.16];
+    for (var i = 0; i < 3; i++) {
+      final paint = Paint()
+        ..color = colors[i]
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      final path = Path();
+      final y = size.height * (0.65 + offsets[i]);
+      path.moveTo(0, y);
+      path.quadraticBezierTo(
+        size.width * 0.5,
+        size.height * (0.05 + offsets[i] * 0.5),
+        size.width,
+        y,
+      );
+      canvas.drawPath(path, paint);
+    }
+
+    final mgPaint = Paint()
+      ..color = selected ? const Color(0xFF6366F1) : Colors.grey
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawCircle(
+      Offset(size.width * 0.65, size.height * 0.38),
+      size.width * 0.18,
+      mgPaint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.78, size.height * 0.5),
+      Offset(size.width * 0.92, size.height * 0.64),
+      mgPaint,
+    );
+
+    if (selected) {
+      canvas.drawCircle(
+        Offset(size.width * 0.65, size.height * 0.38),
+        size.width * 0.07,
+        Paint()..color = const Color(0xFF4ADE80),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_JisuoIconPainter oldDelegate) =>
+      oldDelegate.selected != selected;
 }

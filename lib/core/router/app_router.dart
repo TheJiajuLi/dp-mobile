@@ -15,6 +15,7 @@ import '../../features/creator/screens/columns_screen.dart';
 import '../../features/creator/screens/creator_center_screen.dart';
 import '../../features/creator/screens/works_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/jisuo/screens/jisuo_screen.dart';
 import '../../features/messages/models/conversation_model.dart';
 import '../../features/messages/screens/chat_screen.dart';
 import '../../features/messages/screens/conversation_list_screen.dart';
@@ -215,6 +216,14 @@ final appRouter = GoRouter(
             GoRoute(
               path: '/home',
               builder: (context, state) => const HomeScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/jisuo',
+              builder: (context, state) => const JisuoScreen(),
             ),
           ],
         ),
