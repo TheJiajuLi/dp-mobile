@@ -30,24 +30,33 @@ class TutorialListCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isDark ? Colors.white12 : const Color(0xFFF0F0F0),
             width: 0.5,
           ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               child: SizedBox(
-                width: 78,
-                height: 66,
+                width: 92,
+                height: 76,
                 child: tutorial.coverImage?.isNotEmpty == true
                     ? ExcludeSemantics(
                         child: CachedNetworkImage(
@@ -61,7 +70,7 @@ class TutorialListCard extends StatelessWidget {
                     : Container(color: badgeStyle?.$1 ?? Colors.grey[200]),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,17 +80,17 @@ class TutorialListCard extends StatelessWidget {
                       if (category != null && badgeStyle != null)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
+                            horizontal: 8,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: badgeStyle.$1,
-                            borderRadius: BorderRadius.circular(5),
+                            borderRadius: BorderRadius.circular(99),
                           ),
                           child: Text(
                             category,
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.w700,
                               color: badgeStyle.$2,
                             ),
@@ -99,64 +108,66 @@ class TutorialListCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     tutorial.title,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 15.5,
                       fontWeight: FontWeight.w700,
+                      height: 1.3,
                       color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                     ),
                   ),
                   if (tutorial.summary?.isNotEmpty == true) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       tutorial.summary!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 12.5,
+                        height: 1.4,
                         color: isDark ? Colors.white54 : Colors.grey[600],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Text(
                         messageTimeAgo(l10n, tutorial.createdAt),
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.5,
                           color: isDark ? Colors.white38 : Colors.grey[500],
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      _statDot(isDark),
                       Icon(
                         Icons.remove_red_eye_outlined,
-                        size: 12,
+                        size: 13,
                         color: isDark ? Colors.white38 : Colors.grey[500],
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 3),
                       Text(
                         '${tutorial.views}',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.5,
                           color: isDark ? Colors.white38 : Colors.grey[500],
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      _statDot(isDark),
                       Icon(
                         Icons.favorite_outline,
-                        size: 12,
+                        size: 13,
                         color: isDark ? Colors.white38 : Colors.grey[500],
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 3),
                       Text(
                         '${tutorial.likes}',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.5,
                           color: isDark ? Colors.white38 : Colors.grey[500],
                         ),
                       ),
@@ -170,4 +181,16 @@ class TutorialListCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _statDot(bool isDark) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: Container(
+      width: 2.5,
+      height: 2.5,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white24 : Colors.grey[400],
+        shape: BoxShape.circle,
+      ),
+    ),
+  );
 }
