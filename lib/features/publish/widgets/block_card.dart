@@ -264,6 +264,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
 
   Widget _buildTextBlock(AppLocalizations l10n) => TextFormField(
     key: ValueKey('text_${widget.block.id}_$_textRevision'),
+    focusNode: widget.block.focusNode,
     initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
     decoration: InputDecoration(
       filled: false,
@@ -897,6 +898,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
 
   Widget _buildHeadingBlock(AppLocalizations l10n) => TextFormField(
     key: ValueKey('heading_${widget.block.id}_$_textRevision'),
+    focusNode: widget.block.focusNode,
     initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
     decoration: InputDecoration(
       filled: false,
@@ -1928,6 +1930,7 @@ th{background:#1e293b;color:#94a3b8}
       ),
       child: TextFormField(
         key: ValueKey('callout_${widget.block.id}_$_textRevision'),
+        focusNode: widget.block.focusNode,
         initialValue: widget.block.content.isNotEmpty
             ? widget.block.content
             : null,

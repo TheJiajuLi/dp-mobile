@@ -28,13 +28,14 @@ const _ink = Color(0xFF1A1A1A);
 const _bg = Color(0xFFFAFAF8);
 const _muted = Color(0xFF999999);
 
-// 底部横排工具栏按这 8 种类型显示快捷图标，跟 CONTEXT.md 原本记录的
-// Block 类型列表（文字/代码/LaTeX/引用/图片/视频/音频/链接）一一对应；
-// heading/file 这两种类型模型本身还在（已发布内容里可能用到，阅读端要
-// 继续认得），只是不再放进这条一眼扫完的快捷栏，通过最后的"更多"按钮
-// 打开完整的 BlockPickerSheet 才能加
+// 底部横排工具栏快捷图标。heading 补回来了——模型/渲染其实一直都支持
+// （block_model.dart 的 headingLevel、block_card.dart 的
+// _buildHeadingBlock 都在），之前只是没有入口能加。file 类型模型也还在
+// （已发布内容里可能用到，阅读端要继续认得），但这次任务没要求加，先
+// 不动
 const _toolbarTypes = [
   BlockType.text,
+  BlockType.heading,
   BlockType.code,
   BlockType.latex,
   BlockType.callout,
@@ -574,17 +575,20 @@ result
       'block_${DateTime.now().millisecondsSinceEpoch}_${_blocks.length}';
 
   void _addBlock(BlockType type) {
+    final newBlock = EditorBlock(
+      id: _uid(),
+      type: type,
+      language: type == BlockType.code ? 'python' : null,
+    );
     setState(() {
       _activeToolbarType = type;
-      _blocks.add(
-        EditorBlock(
-          id: _uid(),
-          type: type,
-          language: type == BlockType.code ? 'python' : null,
-        ),
-      );
+      _blocks.add(newBlock);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 光标跳到新block——只有text/heading/callout这几种把focusNode接到
+      // 了真正的输入框上（block_card.dart），其它类型（图片/代码等）
+      // requestFocus 没有对应输入框接收，是个安全的空操作
+      newBlock.focusNode.requestFocus();
       if (!_scrollCtrl.hasClients) return;
       _scrollCtrl.animateTo(
         _scrollCtrl.position.maxScrollExtent,
@@ -595,6 +599,10 @@ result
   }
 
   void _deleteBlock(String id) {
+    final removed = _blocks.where((b) => b.id == id);
+    for (final b in removed) {
+      b.focusNode.dispose();
+    }
     setState(() => _blocks.removeWhere((b) => b.id == id));
   }
 
@@ -2604,6 +2612,9 @@ result
     _titleCtrl.dispose();
     _summaryCtrl.dispose();
     _scrollCtrl.dispose();
+    for (final b in _blocks) {
+      b.focusNode.dispose();
+    }
     super.dispose();
   }
 }

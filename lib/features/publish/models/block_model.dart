@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 enum BlockType {
   text,
   heading,
@@ -35,6 +37,12 @@ class EditorBlock {
   bool isExecutable;
   String? outputContent;
   String? outputType; // text/image/error
+  // 新建block之后自动跳光标要用——block_card.dart把这个传给对应输入框的
+  // TextFormField.focusNode，_PublishScreenState._addBlock()在下一帧调
+  // requestFocus()。EditorBlock被删除时要记得在_deleteBlock()里dispose，
+  // 整个页面dispose()时也要把还剩的都清一遍，不然每次新建/删除block都在
+  // 泄漏一个FocusNode
+  final FocusNode focusNode = FocusNode();
 
   EditorBlock({
     required this.id,
