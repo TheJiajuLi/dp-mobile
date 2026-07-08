@@ -143,15 +143,44 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       itemCount: filtered.length,
                       itemBuilder: (ctx, i) {
                         final n = filtered[i];
+                        final isDark =
+                            Theme.of(ctx).brightness == Brightness.dark;
                         return Container(
-                          color: n.isRead
-                              ? Colors.transparent
-                              : kMessagesPrimary.withValues(alpha: 0.04),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: n.isRead
+                                ? Theme.of(ctx).cardColor
+                                : kMessagesPrimary.withValues(alpha: 0.07),
+                            borderRadius: BorderRadius.circular(16),
+                            border: isDark
+                                ? Border.all(
+                                    color: Theme.of(ctx).dividerColor,
+                                    width: 0.5,
+                                  )
+                                : null,
+                            boxShadow: isDark
+                                ? null
+                                : [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.03,
+                                      ),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                          ),
                           child: ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 6,
