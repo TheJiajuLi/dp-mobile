@@ -33,6 +33,13 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Flutter 默认会把收到的自定义 scheme URL 自动当路由 push 给
+	     GoRouter——jimeng://auth/callback 不是一个真实页面路径，会被
+	     go_router 当成"没有匹配的路由"报错（GoException: no routes for
+	     location），而不是被 main.dart 里 app_links 那个手动监听器接住。
+	     关掉这个自动转发，jimeng:// 的 URL 只走 app_links 一条路 -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
