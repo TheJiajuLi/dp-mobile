@@ -1,6 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+// 提问领域配色——提问 Sheet 的领域选择跟热门提问卡片的领域标签共用同一套
+Color jisuoDomainColor(String d) => switch (d) {
+  '编程开发' => const Color(0xFF6366F1),
+  '数学' => const Color(0xFFD97706),
+  '天体物理' => const Color(0xFF8B5CF6),
+  '经济' => const Color(0xFF16A34A),
+  '生命科学' => const Color(0xFFDC2626),
+  _ => const Color(0xFF6B7280),
+};
+
+Color jisuoDomainBg(String d) => switch (d) {
+  '编程开发' => const Color(0xFFEEF0FF),
+  '数学' => const Color(0xFFFEF3C7),
+  '天体物理' => const Color(0xFFF3E8FF),
+  '经济' => const Color(0xFFDCFCE7),
+  '生命科学' => const Color(0xFFFEE2E2),
+  _ => const Color(0xFFF3F4F6),
+};
+
 class JisuoScreen extends StatefulWidget {
   const JisuoScreen({super.key});
 
@@ -19,6 +38,21 @@ class _JisuoScreenState extends State<JisuoScreen> {
 
   void _placeholderSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showAskSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _AskSheet(onPost: _postQuestion),
+    );
+  }
+
+  // 后端目前没有 /auth/questions 这个接口——极索提问功能整体还是纯前端
+  // mock，这里先原地假装发布成功，真正接后端时再替换成真实 POST
+  Future<void> _postQuestion(String text, String domain, bool anon) async {
+    await Future.delayed(const Duration(milliseconds: 600));
   }
 
   @override
@@ -65,6 +99,18 @@ class _JisuoScreenState extends State<JisuoScreen> {
             icon: const Icon(Icons.history, size: 20),
             color: Colors.grey[500],
             onPressed: () => _placeholderSnack('搜索历史即将上线'),
+          ),
+          GestureDetector(
+            onTap: _showAskSheet,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1A1A),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 20),
+            ),
           ),
         ],
       ),
@@ -397,26 +443,31 @@ class _JisuoScreenState extends State<JisuoScreen> {
     );
   }
 
+  // 头像叠加用的固定配色——跟专家名单那套调色板保持一致
+  static const _avatarColors = [
+    Color(0xFF6366F1),
+    Color(0xFFD97706),
+    Color(0xFF16A34A),
+  ];
+
   // 热门提问——目前后端没有"提问/回答"这套数据模型，先用静态占位展示
   // 布局效果，等后端有对应接口再接（跟精选内容一样，不是我漏接，是
   // 这次任务范围明确写了"先用静态数据，后续接API"）
   Widget _buildHotQuestions() {
     final questions = [
       {
-        'q': '泊松分布和正态分布有什么本质区别？',
-        'a': '泊松分布用于描述稀有事件次数，参数λ同时是均值和方差；正态分布描述连续型随机变量，均值μ和方差σ²独立控制。当λ足够大时，泊松趋近于正态。',
-        'author': '大兔兔',
-        'aColor': const Color(0xFF6366F1),
-        'likes': '234',
-        'domain': '编程',
+        'domain': '编程开发',
+        'text': '泊松分布和正态分布在实际建模时如何选择？有没有经验法则？',
+        'answer_count': 3,
+        'view_count': 234,
+        'invited_count': 2,
       },
       {
-        'q': '梯度下降为什么要除以batch size？',
-        'a': '除以batch size让学习率意义保持一致——每步更新对应平均样本的梯度，而不是梯度之和。否则大batch时梯度累加变大，等效学习率增加，训练不稳定。',
-        'author': '深度学习er',
-        'aColor': const Color(0xFF8B5CF6),
-        'likes': '189',
-        'domain': '编程',
+        'domain': '数学',
+        'text': '黎曼积分和勒贝格积分的本质区别是什么？',
+        'answer_count': 2,
+        'view_count': 189,
+        'invited_count': 3,
       },
     ];
 
@@ -435,99 +486,130 @@ class _JisuoScreenState extends State<JisuoScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          ...questions.map(
-            (q) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.grey.withValues(alpha: 0.1),
-                  width: 0.5,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    q['q'] as String,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
-                    ),
+          ...questions.map((q) => _hotQuestionCard(q)),
+        ],
+      ),
+    );
+  }
+
+  Widget _hotQuestionCard(Map<String, dynamic> q) {
+    final domain = q['domain'] as String;
+    final answerCount = q['answer_count'] as int;
+    final viewCount = q['view_count'] as int;
+    final invitedCount = q['invited_count'] as int;
+    final avatarCount = answerCount < 3 ? answerCount : 3;
+
+    return GestureDetector(
+      onTap: () => _placeholderSnack('问题详情即将上线'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1), width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: jisuoDomainBg(domain),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    q['a'] as String,
+                  child: Text(
+                    domain,
                     style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[500],
-                      height: 1.6,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: jisuoDomainColor(domain),
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 10,
-                        backgroundColor: q['aColor'] as Color,
-                        child: Text(
-                          (q['author'] as String).substring(0, 1),
-                          style: const TextStyle(
-                            fontSize: 8,
-                            color: Colors.white,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    q['text'] as String,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                SizedBox(
+                  width: avatarCount * 14.0 + 4,
+                  height: 20,
+                  child: Stack(
+                    children: List.generate(
+                      avatarCount,
+                      (i) => Positioned(
+                        left: i * 14.0,
+                        child: CircleAvatar(
+                          radius: 9,
+                          backgroundColor: Colors.white,
+                          child: CircleAvatar(
+                            radius: 8,
+                            backgroundColor: _avatarColors[i % _avatarColors.length],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          q['author'] as String,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[400],
-                          ),
-                        ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '$answerCount 个回答',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.remove_red_eye_outlined, size: 12, color: Colors.grey[400]),
+                const SizedBox(width: 3),
+                Text(
+                  '$viewCount',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                ),
+                const Spacer(),
+                if (invitedCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                        width: 0.5,
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEEF0FF),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          q['domain'] as String,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.phone_in_talk, size: 10, color: Color(0xFFF59E0B)),
+                        const SizedBox(width: 3),
+                        Text(
+                          '已邀请 $invitedCount 位专家',
                           style: const TextStyle(
                             fontSize: 10,
-                            color: Color(0xFF6366F1),
+                            color: Color(0xFFF59E0B),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.favorite_border,
-                        size: 13,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        q['likes'] as String,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ],
-              ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -665,4 +747,404 @@ class _AuroraIconPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AuroraIconPainter oldDelegate) => false;
+}
+
+class _AskSheet extends StatefulWidget {
+  final Future<void> Function(String text, String domain, bool anon) onPost;
+  const _AskSheet({required this.onPost});
+
+  @override
+  State<_AskSheet> createState() => _AskSheetState();
+}
+
+class _AskSheetState extends State<_AskSheet> {
+  final _ctrl = TextEditingController();
+  String? _domain;
+  bool _anon = false;
+  bool _posting = false;
+  bool _done = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  static const _domains = ['编程开发', '数学', '天体物理', '经济', '生命科学', '科普'];
+
+  Future<void> _submit() async {
+    if (_ctrl.text.trim().length < 10 || _domain == null) return;
+    setState(() => _posting = true);
+    await widget.onPost(_ctrl.text.trim(), _domain!, _anon);
+    if (!mounted) return;
+    setState(() {
+      _posting = false;
+      _done = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: _done ? _buildSuccess() : _buildForm(),
+    );
+  }
+
+  Widget _buildForm() {
+    final canPost = _ctrl.text.trim().length >= 10 && _domain != null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 36,
+          height: 4,
+          margin: const EdgeInsets.only(top: 10, bottom: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              const Text(
+                '提问',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close, size: 16, color: Colors.grey[500]),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text(
+            '好问题能吸引领域专家作答，尽量描述清楚背景',
+            style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            controller: _ctrl,
+            maxLines: 4,
+            maxLength: 300,
+            onChanged: (_) => setState(() {}),
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: '你想问什么？',
+              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
+              border: InputBorder.none,
+              counterStyle: TextStyle(fontSize: 11, color: Colors.grey[400]),
+            ),
+            style: const TextStyle(fontSize: 16, height: 1.6),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '所属领域',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[400],
+                  letterSpacing: .04,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _domains.map((d) {
+                  final on = _domain == d;
+                  return GestureDetector(
+                    onTap: () => setState(() => _domain = d),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: on ? jisuoDomainBg(d) : Colors.grey[50],
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(
+                          color: on ? jisuoDomainColor(d) : Colors.grey[200]!,
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        d,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: on ? FontWeight.w500 : FontWeight.normal,
+                          color: on ? jisuoDomainColor(d) : Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '匿名提问',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                    ),
+                    Text(
+                      '其他用户看不到你的名字',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: _anon,
+                onChanged: (v) => setState(() => _anon = v),
+                activeThumbColor: const Color(0xFF6366F1),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: canPost && !_posting ? _submit : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A1A1A),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                disabledBackgroundColor: Colors.grey[200],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _posting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      '发布提问',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSuccess() {
+    final experts = [
+      {
+        'name': '大兔兔',
+        'color': 0xFF6366F1,
+        'role': '编程开发 · 12篇相关内容',
+        'aurora': true,
+      },
+      {
+        'name': '数学星人',
+        'color': 0xFFD97706,
+        'role': '数学 · 8篇相关内容',
+        'aurora': false,
+      },
+      {
+        'name': '生科研究员',
+        'color': 0xFF16A34A,
+        'role': '生命科学 · 5篇相关内容',
+        'aurora': false,
+      },
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEEF0FF),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_outline,
+              size: 30,
+              color: Color(0xFF6366F1),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '提问已发布',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '极索已根据问题领域\n自动邀请以下专家为你解答',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey[400], height: 1.6),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A0E2E),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                width: 0.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '⚡  已邀请 3 位领域专家',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFF59E0B),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...experts.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 12,
+                          backgroundColor: Color(e['color'] as int),
+                          child: Text(
+                            (e['name'] as String).substring(0, 1),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    e['name'] as String,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  if (e['aurora'] == true) ...[
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFFF59E0B,
+                                        ).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: const Text(
+                                        '★ 极光',
+                                        style: TextStyle(
+                                          fontSize: 8,
+                                          color: Color(0xFFF59E0B),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              Text(
+                                e['role'] as String,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6366F1),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                '好的，期待回答',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -808,8 +808,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifFilterAi => 'AI';
 
   @override
+  String get notifFilterInviteAnswer => 'Invited';
+
+  @override
+  String get notifFilterSystem => 'System';
+
+  @override
   String get notifFilterComingSoonMessage =>
       'This notification category is coming soon';
+
+  @override
+  String get inviteAnswerAccept => 'Accept & answer';
+
+  @override
+  String get inviteAnswerIgnore => 'Ignore for now';
+
+  @override
+  String get inviteAnswerEmpty => 'No answer invitations yet';
+
+  @override
+  String get inviteAnswerFooter =>
+      'Invitations are matched to your creator domains automatically\nAnswering earns bonus Aurora points';
 
   @override
   String get friendsQuickLabel => 'Friends';

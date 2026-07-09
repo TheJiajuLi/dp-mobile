@@ -795,7 +795,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notifFilterAi => 'AI';
 
   @override
+  String get notifFilterInviteAnswer => '邀请回答';
+
+  @override
+  String get notifFilterSystem => '系统';
+
+  @override
   String get notifFilterComingSoonMessage => '该分类的通知即将上线';
+
+  @override
+  String get inviteAnswerAccept => '接受邀请，去回答';
+
+  @override
+  String get inviteAnswerIgnore => '暂时忽略';
+
+  @override
+  String get inviteAnswerEmpty => '暂无邀请回答';
+
+  @override
+  String get inviteAnswerFooter => '系统根据你的创作领域智能匹配邀请\n回答问题可获得额外极光积分';
 
   @override
   String get friendsQuickLabel => '好友';

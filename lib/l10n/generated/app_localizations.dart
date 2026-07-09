@@ -1580,11 +1580,47 @@ abstract class AppLocalizations {
   /// **'AI'**
   String get notifFilterAi;
 
+  /// No description provided for @notifFilterInviteAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Invited'**
+  String get notifFilterInviteAnswer;
+
+  /// No description provided for @notifFilterSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get notifFilterSystem;
+
   /// No description provided for @notifFilterComingSoonMessage.
   ///
   /// In en, this message translates to:
   /// **'This notification category is coming soon'**
   String get notifFilterComingSoonMessage;
+
+  /// No description provided for @inviteAnswerAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept & answer'**
+  String get inviteAnswerAccept;
+
+  /// No description provided for @inviteAnswerIgnore.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore for now'**
+  String get inviteAnswerIgnore;
+
+  /// No description provided for @inviteAnswerEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No answer invitations yet'**
+  String get inviteAnswerEmpty;
+
+  /// No description provided for @inviteAnswerFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitations are matched to your creator domains automatically\nAnswering earns bonus Aurora points'**
+  String get inviteAnswerFooter;
 
   /// No description provided for @friendsQuickLabel.
   ///

@@ -7,12 +7,12 @@ import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
 import '../utils/message_avatar.dart';
 
-// 通知类型过滤——评论/点赞/关注是后端真实会产生的 type（见
+// 通知分 4 个 tab——评论/点赞是后端真实会产生的 type（见
 // tutorial.controller.ts/user.controller.ts 里 createNotification 的调用
-// 点），@提及和 AI 目前完全没有对应的后端类型（没有评论 @人 的解析逻辑，
-// 也没有 AI 专属通知），选中这两个 tab 一定是空列表——用专门的
-// "即将上线" 提示跟"你真的还没有这类通知"区分开，不假装有数据
-enum _NotifFilter { all, comment, like, follow, mention, ai }
+// 点）；关注也是真实类型，但跟"邀请回答"这类还没有后端数据模型的内容一起
+// 并进"系统"这个兜底 tab，不单独占一个位置（对齐提问功能的邀请回答设计稿，
+// 只有 4 个 tab）
+enum _NotifFilter { comment, like, inviteAnswer, system }
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -21,8 +21,47 @@ class NotificationsScreen extends ConsumerStatefulWidget {
       _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  _NotifFilter _filter = _NotifFilter.all;
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabCtrl;
+
+  // 邀请回答目前后端没有对应的数据模型（跟极索提问功能一样，是同一批
+  // mock），先用静态数据展示交互，接受/忽略只做本地移除
+  final _invites = [
+    {
+      'question': 'CRISPR基因编辑中如何降低脱靶效应？目前最优方案是什么？',
+      'asker': '匿名用户',
+      'time': '极索系统 · 2分钟前',
+      'reason': '你在生命科学领域有 3 篇相关内容',
+    },
+    {
+      'question': '泊松分布和正态分布在实际建模时如何选择？',
+      'asker': '经济学徒',
+      'time': '极索系统 · 1小时前',
+      'reason': '你有泊松分布相关教程',
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  void _acceptInvite(Map<String, dynamic> inv) {
+    context.push('/publish');
+    setState(() => _invites.remove(inv));
+  }
+
+  void _ignoreInvite(Map<String, dynamic> inv) {
+    setState(() => _invites.remove(inv));
+  }
 
   Color _typeColor(String type) {
     switch (type) {
@@ -50,30 +89,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
-  List<AppNotification> _filtered(List<AppNotification> all) {
-    switch (_filter) {
-      case _NotifFilter.all:
-        return all;
+  List<AppNotification> _filtered(List<AppNotification> all, _NotifFilter f) {
+    switch (f) {
       case _NotifFilter.comment:
         return all.where((n) => n.type == 'comment').toList();
       case _NotifFilter.like:
         return all.where((n) => n.type == 'like').toList();
-      case _NotifFilter.follow:
-        return all.where((n) => n.type == 'follow').toList();
-      case _NotifFilter.mention:
-      case _NotifFilter.ai:
+      case _NotifFilter.inviteAnswer:
         return const [];
+      case _NotifFilter.system:
+        return all.where((n) => n.type != 'comment' && n.type != 'like').toList();
     }
   }
-
-  bool get _isComingSoonFilter =>
-      _filter == _NotifFilter.mention || _filter == _NotifFilter.ai;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final notifications = ref.watch(notificationsProvider);
-    final filtered = _filtered(notifications);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -98,62 +130,124 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: SizedBox(
-                height: 32,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    _filterChip(l10n.notifFilterAll, _NotifFilter.all),
-                    _filterChip(l10n.notifFilterComments, _NotifFilter.comment),
-                    _filterChip(l10n.notifFilterLikes, _NotifFilter.like),
-                    _filterChip(l10n.notifFilterFollows, _NotifFilter.follow),
-                    _filterChip(l10n.notifFilterMentions, _NotifFilter.mention),
-                    _filterChip(l10n.notifFilterAi, _NotifFilter.ai),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: _isComingSoonFilter
-                  ? _ComingSoonNotice(
-                      message: l10n.notifFilterComingSoonMessage,
-                    )
-                  : filtered.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.notifications_none,
-                            size: 56,
-                            color: Colors.grey,
+            TabBar(
+              controller: _tabCtrl,
+              labelColor: Theme.of(context).textTheme.bodyLarge?.color,
+              unselectedLabelColor: Colors.grey,
+              labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+              indicatorColor: kMessagesPrimary,
+              indicatorSize: TabBarIndicatorSize.label,
+              dividerColor: Colors.transparent,
+              tabs: [
+                Tab(text: l10n.notifFilterComments),
+                Tab(text: l10n.notifFilterLikes),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(l10n.notifFilterInviteAnswer),
+                      if (_invites.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(99),
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            l10n.noNotificationsYet,
+                          child: Text(
+                            '${_invites.length}',
                             style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 15,
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ],
-                      ),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [_notificationGroupCard(context, l10n, filtered)],
-                    ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Tab(text: l10n.notifFilterSystem),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  _notifListTab(l10n, _filtered(notifications, _NotifFilter.comment)),
+                  _notifListTab(l10n, _filtered(notifications, _NotifFilter.like)),
+                  _inviteAnswerTab(l10n),
+                  _notifListTab(l10n, _filtered(notifications, _NotifFilter.system)),
+                ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _notifListTab(AppLocalizations l10n, List<AppNotification> filtered) {
+    if (filtered.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.notifications_none, size: 56, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(
+              l10n.noNotificationsYet,
+              style: const TextStyle(color: Colors.grey, fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [_notificationGroupCard(context, l10n, filtered)],
+    );
+  }
+
+  Widget _inviteAnswerTab(AppLocalizations l10n) {
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        ..._invites.map(
+          (inv) => _InviteCard(
+            invite: inv,
+            onAccept: () => _acceptInvite(inv),
+            onIgnore: () => _ignoreInvite(inv),
+          ),
+        ),
+        if (_invites.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 60),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.mark_email_read_outlined,
+                    size: 48,
+                    color: Colors.grey[300],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(l10n.inviteAnswerEmpty, style: TextStyle(color: Colors.grey[400])),
+                ],
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: Text(
+            l10n.inviteAnswerFooter,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Colors.grey[400], height: 1.7),
+          ),
+        ),
+      ],
     );
   }
 
@@ -282,65 +376,160 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Widget _filterChip(String label, _NotifFilter value) {
-    final selected = _filter == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: () => setState(() => _filter = value),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? kMessagesPrimary : Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: selected
-                ? null
-                : Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: selected
-                  ? Colors.white
-                  : Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-class _ComingSoonNotice extends StatelessWidget {
-  final String message;
-  const _ComingSoonNotice({required this.message});
+// 邀请回答卡片——问题原文+匹配原因+接受/忽略，跟极索提问功能共用同一批
+// mock 数据（后端还没有对应的邀请模型）
+class _InviteCard extends StatelessWidget {
+  final Map<String, dynamic> invite;
+  final VoidCallback onAccept;
+  final VoidCallback onIgnore;
+  const _InviteCard({
+    required this.invite,
+    required this.onAccept,
+    required this.onIgnore,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1A0E2E), Color(0xFF0D1A38)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: kMessagesPrimary.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: kMessagesPrimary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.hourglass_top_outlined,
-              color: kMessagesPrimary,
-              size: 28,
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: kMessagesPrimary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.phone_in_talk,
+                  size: 16,
+                  color: kMessagesPrimary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.notifFilterInviteAnswer,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      invite['time'] as String? ?? '',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '「${invite['question']}」',
+            style: TextStyle(
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+              color: Colors.white.withValues(alpha: 0.8),
+              height: 1.5,
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            message,
-            style: const TextStyle(color: Colors.grey, fontSize: 14),
+          const SizedBox(height: 6),
+          RichText(
+            text: TextSpan(
+              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4)),
+              children: [
+                const TextSpan(text: '来自用户 '),
+                TextSpan(
+                  text: '@${invite['asker']}',
+                  style: const TextStyle(
+                    color: Color(0xFF818CF8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                TextSpan(text: ' · ${invite['reason']}'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onAccept,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: kMessagesPrimary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        l10n.inviteAnswerAccept,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  onTap: onIgnore,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        l10n.inviteAnswerIgnore,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

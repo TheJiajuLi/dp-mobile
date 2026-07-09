@@ -380,7 +380,13 @@
   "notifFilterFollows": "Follows",
   "notifFilterMentions": "@Mentions",
   "notifFilterAi": "AI",
+  "notifFilterInviteAnswer": "Invited",
+  "notifFilterSystem": "System",
   "notifFilterComingSoonMessage": "This notification category is coming soon",
+  "inviteAnswerAccept": "Accept & answer",
+  "inviteAnswerIgnore": "Ignore for now",
+  "inviteAnswerEmpty": "No answer invitations yet",
+  "inviteAnswerFooter": "Invitations are matched to your creator domains automatically\nAnswering earns bonus Aurora points",
   "friendsQuickLabel": "Friends",
   "friendsCountLabel": "{count} friends",
   "@friendsCountLabel": {
