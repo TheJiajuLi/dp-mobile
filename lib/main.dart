@@ -82,8 +82,20 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   // scheme（见 dreamingpolar_user_auth_backend 的 oauth.ts），成功带
   // accessToken，失败带 error——跟密码登录一样，userId/username 不直接
   // 信回调参数，交给 AuthService.completeOAuthLogin 重新拉一次 /auth/me
+  //
+  // 忘记密码邮件里的重置链接走 jimeng://reset-password?token=xxx——跟
+  // OAuth 回调是同一个自定义 scheme 下的不同 host，各自独立处理
   void _handleDeepLink(Uri uri) {
-    if (uri.scheme != 'jimeng' || uri.host != 'auth') return;
+    if (uri.scheme != 'jimeng') return;
+
+    if (uri.host == 'reset-password') {
+      final token = uri.queryParameters['token'];
+      if (token == null || token.isEmpty) return;
+      appRouter.push('/reset-password?token=$token');
+      return;
+    }
+
+    if (uri.host != 'auth') return;
 
     final error = uri.queryParameters['error'];
     if (error != null) {

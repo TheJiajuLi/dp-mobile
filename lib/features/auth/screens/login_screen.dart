@@ -248,7 +248,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(width: 10),
                 GestureDetector(
-                  onTap: () => _placeholderSnack('忘记密码即将上线'),
+                  onTap: () => context.push('/forgot-password'),
                   child: Text('忘记', style: TextStyle(fontSize: 13, color: iconColor)),
                 ),
               ],

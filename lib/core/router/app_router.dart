@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../features/aria/screens/aria_screen.dart';
 import '../../features/aurora/screens/aurora_progress_screen.dart';
 import '../../features/auth/auth_service.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/auth/screens/switch_account_screen.dart';
 import '../../features/community/screens/community_screen.dart';
@@ -52,6 +54,19 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/register',
       builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (context, state) => const ForgotPasswordScreen(),
+    ),
+    // token 通过 main.dart 的 jimeng://reset-password?token=xxx deep link
+    // 解析出来后带着它 push 到这里；理论上也可以直接手动导航到这个路径
+    // 本身自带 query 参数，两条路都从 state.uri 读，逻辑统一
+    GoRoute(
+      path: '/reset-password',
+      builder: (context, state) => ResetPasswordScreen(
+        token: state.uri.queryParameters['token'] ?? '',
+      ),
     ),
     GoRoute(
       path: '/switch-account',
