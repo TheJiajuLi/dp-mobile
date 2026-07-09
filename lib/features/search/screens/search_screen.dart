@@ -23,7 +23,6 @@ import '../../community/community_provider.dart';
 // 同名板块，比首页那份写死的固定标签表更准，直接算作已经"移过来"了，
 // 不用再多一份重复的静态标签榜
 
-
 class SearchScreen extends ConsumerStatefulWidget {
   final String? initialQuery;
   const SearchScreen({super.key, this.initialQuery});
@@ -35,10 +34,16 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen>
     with SingleTickerProviderStateMixin {
   static const _primary = Color(0xFF6366F1);
-  static const _ink = Color(0xFF1A1A1A);
-  static const _bg = Color(0xFFFAFAF8);
-  static const _border = Color(0xFFF0F0F0);
-  static const _muted = Color(0xFF999999);
+
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _ink => _isDark ? Colors.white : const Color(0xFF1A1A1A);
+  Color get _bg =>
+      _isDark ? Theme.of(context).scaffoldBackgroundColor : const Color(0xFFFAFAF8);
+  Color get _cardBg => Theme.of(context).cardColor;
+  Color get _border => Theme.of(context).dividerColor;
+  Color get _muted => _isDark ? Colors.white54 : const Color(0xFF999999);
+  Color get _tagBg =>
+      _isDark ? _primary.withValues(alpha: 0.15) : const Color(0xFFEEF0FF);
 
   late final TextEditingController _ctrl;
   late final FocusNode _focusNode;
@@ -273,8 +278,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: _cardBg,
         border: Border(bottom: BorderSide(color: _border, width: 0.5)),
       ),
       child: Row(
@@ -282,7 +287,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F2),
+                color: _isDark
+                    ? Colors.white.withValues(alpha: 0.07)
+                    : const Color(0xFFF5F5F2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: TextField(
@@ -290,15 +297,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 focusNode: _focusNode,
                 decoration: InputDecoration(
                   hintText: l10n.searchHint,
-                  hintStyle: const TextStyle(fontSize: 14, color: _muted),
-                  prefixIcon: const Icon(Icons.search, size: 20, color: _muted),
+                  hintStyle: TextStyle(fontSize: 14, color: _muted),
+                  prefixIcon: Icon(Icons.search, size: 20, color: _muted),
                   suffixIcon: _ctrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                            size: 18,
-                            color: _muted,
-                          ),
+                          icon: Icon(Icons.close, size: 18, color: _muted),
                           onPressed: () {
                             _ctrl.clear();
                             setState(() {
@@ -314,7 +317,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 ),
-                style: const TextStyle(fontSize: 14, color: _ink),
+                style: TextStyle(fontSize: 14, color: _ink),
                 onChanged: _onQueryChanged,
                 onSubmitted: _search,
                 textInputAction: TextInputAction.search,
@@ -361,7 +364,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               },
               child: Text(
                 l10n.searchClear,
-                style: const TextStyle(fontSize: 12, color: _muted),
+                style: TextStyle(fontSize: 12, color: _muted),
               ),
             ),
           ),
@@ -378,19 +381,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _cardBg,
                     borderRadius: BorderRadius.circular(99),
                     border: Border.all(color: _border, width: 0.5),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.history, size: 13, color: _muted),
+                      Icon(Icons.history, size: 13, color: _muted),
                       const SizedBox(width: 4),
-                      Text(
-                        h,
-                        style: const TextStyle(fontSize: 13, color: _ink),
-                      ),
+                      Text(h, style: TextStyle(fontSize: 13, color: _ink)),
                     ],
                   ),
                 ),
@@ -416,7 +416,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _cardBg,
                     borderRadius: BorderRadius.circular(99),
                     border: Border.all(color: _border, width: 0.5),
                   ),
@@ -432,14 +432,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                         ),
                       ),
                       const SizedBox(width: 2),
-                      Text(
-                        tag,
-                        style: const TextStyle(fontSize: 13, color: _ink),
-                      ),
+                      Text(tag, style: TextStyle(fontSize: 13, color: _ink)),
                       const SizedBox(width: 4),
                       Text(
                         '$count',
-                        style: const TextStyle(fontSize: 11, color: _muted),
+                        style: TextStyle(fontSize: 11, color: _muted),
                       ),
                     ],
                   ),
@@ -479,7 +476,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             width: 130,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _cardBg,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _border, width: 0.5),
             ),
@@ -502,7 +499,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   t.username,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                     color: _ink,
@@ -514,7 +511,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     category,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 10.5, color: _muted),
+                    style: TextStyle(fontSize: 10.5, color: _muted),
                   ),
                 ],
                 const Spacer(),
@@ -560,7 +557,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardBg,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _border, width: 0.5),
       ),
@@ -594,13 +591,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       t.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, color: _ink),
+                      style: TextStyle(fontSize: 13, color: _ink),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     '${t.views}',
-                    style: const TextStyle(fontSize: 11.5, color: _muted),
+                    style: TextStyle(fontSize: 11.5, color: _muted),
                   ),
                 ],
               ),
@@ -647,7 +644,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final labels = [l10n.searchTutorials, l10n.searchUsers, l10n.searchTags];
 
     return Container(
-      color: Colors.white,
+      color: _cardBg,
       child: TabBar(
         controller: _tabCtrl,
         labelColor: _primary,
@@ -674,7 +671,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _tutorials.length,
-      separatorBuilder: (_, __) => const Divider(
+      separatorBuilder: (_, __) => Divider(
         height: 0.5,
         thickness: 0.5,
         indent: 16,
@@ -698,7 +695,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _users.length,
-      separatorBuilder: (_, __) => const Divider(
+      separatorBuilder: (_, __) => Divider(
         height: 0.5,
         thickness: 0.5,
         indent: 72,
@@ -728,7 +725,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           ),
           title: Text(
             u.username,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: _ink,
@@ -746,13 +743,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             children: [
               Text(
                 '${u.followerCount}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: _ink,
                 ),
               ),
-              const Text('粉丝', style: TextStyle(fontSize: 11, color: _muted)),
+              Text('粉丝', style: TextStyle(fontSize: 11, color: _muted)),
             ],
           ),
         );
@@ -776,8 +773,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: _cardBg,
               border: Border(bottom: BorderSide(color: _border, width: 0.5)),
             ),
             child: Row(
@@ -786,7 +783,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEEF0FF),
+                    color: _tagBg,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Center(
@@ -807,7 +804,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     children: [
                       Text(
                         tag,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: _ink,
@@ -815,12 +812,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       ),
                       Text(
                         '$count 篇教程',
-                        style: const TextStyle(fontSize: 12, color: _muted),
+                        style: TextStyle(fontSize: 12, color: _muted),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: _muted, size: 18),
+                Icon(Icons.chevron_right, color: _muted, size: 18),
               ],
             ),
           ),
@@ -831,11 +828,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   Widget _buildSuggestionsOverlay() {
     return Container(
-      color: Colors.white,
+      color: _cardBg,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Divider(height: 0.5, color: _border),
+          Divider(height: 0.5, color: _border),
           ..._suggestions.take(8).map((s) {
             final map = s as Map;
             final text = map['text'] as String? ?? '';
@@ -866,10 +863,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     Expanded(
                       child: Text(
                         text,
-                        style: const TextStyle(fontSize: 14, color: _ink),
+                        style: TextStyle(fontSize: 14, color: _ink),
                       ),
                     ),
-                    const Icon(Icons.north_west, size: 14, color: _muted),
+                    Icon(Icons.north_west, size: 14, color: _muted),
                   ],
                 ),
               ),
@@ -889,17 +886,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           Icon(
             Icons.search_off_outlined,
             size: 48,
-            color: Colors.grey.shade300,
+            color: _isDark ? Colors.white24 : Colors.grey.shade300,
           ),
           const SizedBox(height: 12),
           Text(
             l10n.searchNoResult(type),
-            style: const TextStyle(fontSize: 14, color: _muted),
+            style: TextStyle(fontSize: 14, color: _muted),
           ),
           const SizedBox(height: 6),
           Text(
             l10n.searchTryOther,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            style: TextStyle(
+              fontSize: 12,
+              color: _isDark ? Colors.white30 : Colors.grey.shade400,
+            ),
           ),
         ],
       ),
@@ -910,7 +910,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     children: [
       Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: _ink,
@@ -945,11 +945,18 @@ class _TutorialResultItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final muted = isDark ? Colors.white54 : const Color(0xFF999999);
+    final tagBg = isDark
+        ? const Color(0xFF6366F1).withValues(alpha: 0.15)
+        : const Color(0xFFEEF0FF);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -960,10 +967,10 @@ class _TutorialResultItem extends StatelessWidget {
                   _HighlightText(
                     text: tutorial.title,
                     query: query,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
+                      color: ink,
                       height: 1.4,
                     ),
                     highlightStyle: const TextStyle(
@@ -979,11 +986,7 @@ class _TutorialResultItem extends StatelessWidget {
                       tutorial.summary!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF999999),
-                        height: 1.5,
-                      ),
+                      style: TextStyle(fontSize: 12, color: muted, height: 1.5),
                     ),
                   const SizedBox(height: 6),
                   if (tutorial.tags.isNotEmpty)
@@ -996,7 +999,7 @@ class _TutorialResultItem extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEEF0FF),
+                            color: tagBg,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -1033,38 +1036,25 @@ class _TutorialResultItem extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         tutorial.username,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF999999),
-                        ),
+                        style: TextStyle(fontSize: 11, color: muted),
                       ),
                       const SizedBox(width: 10),
-                      const Icon(
-                        Icons.favorite_outline,
-                        size: 12,
-                        color: Color(0xFF999999),
-                      ),
+                      Icon(Icons.favorite_outline, size: 12, color: muted),
                       const SizedBox(width: 2),
                       Text(
                         '${tutorial.likes}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF999999),
-                        ),
+                        style: TextStyle(fontSize: 11, color: muted),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(
+                      Icon(
                         Icons.remove_red_eye_outlined,
                         size: 12,
-                        color: Color(0xFF999999),
+                        color: muted,
                       ),
                       const SizedBox(width: 2),
                       Text(
                         '${tutorial.views}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF999999),
-                        ),
+                        style: TextStyle(fontSize: 11, color: muted),
                       ),
                     ],
                   ),

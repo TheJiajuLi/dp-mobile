@@ -136,8 +136,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // 微信式已读：进入聊天页就把这个会话的未读清零，不等下一次轮询——
     // 后端已经会在下面 _loadMessages() 那个 GET messages 接口里把这个
     // 会话标成已读（实测确认过），这里不需要额外调 API，只是不想让本地
-    // 消息 tab 的角标在 15 秒轮询间隔里还显示旧的未读数
-    _clearUnread();
+    // 消息 tab 的角标在 15 秒轮询间隔里还显示旧的未读数。
+    // 必须放进 addPostFrameCallback——直接在 initState 里同步调用会在
+    // 第一帧构建过程中修改 conversationsProvider 的状态，Riverpod 判定
+    // 为"在 widget 树构建期间修改 provider"直接抛异常（实测确认过这个
+    // 崩溃），要等这一帧构建完再改
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _clearUnread();
+    });
     // 每 5 秒拉新消息
     _pollTimer = Timer.periodic(
       const Duration(seconds: 5),
@@ -586,12 +592,81 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  Future<void> _toggleMute(bool currentlyMuted) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .put(
+          '/auth/conversations/${widget.conversationId}/mute',
+          data: {'muted': !currentlyMuted},
+        );
+    if (!mounted) return;
+    if (res.success) {
+      ref
+          .read(conversationsProvider.notifier)
+          .setMuted(widget.conversationId, !currentlyMuted);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.message ?? (currentlyMuted ? '已关闭免打扰' : '已开启免打扰')),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('操作失败：${res.message}')));
+    }
+  }
+
+  // 清空历史消息——DELETE /auth/conversations/:id/messages 是硬删除，双方
+  // 视角都会清空，不是软删除/单向隐藏，删前必须二次确认
+  Future<void> _confirmClearHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空历史消息'),
+        content: const Text('清空后，双方都将无法查看这段聊天记录，且无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清空', style: TextStyle(color: Color(0xFFDC2626))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final res = await ref
+        .read(apiClientProvider)
+        .delete('/auth/conversations/${widget.conversationId}/messages');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() => _messages = []);
+      ref
+          .read(conversationsProvider.notifier)
+          .clearLastMessage(widget.conversationId);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '对话已清空')));
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('操作失败：${res.message}')));
+    }
+  }
+
   // 头顶"..."菜单——参考截图里这个位置紧挨着语音/视频通话按钮，但那两个
-  // 按钮这次明确不加（没有实时通话能力）；真正能做的只有跳转对方主页，
-  // 是已经在用的真实路由，不是新功能
+  // 按钮这次明确不加（没有实时通话能力）
   void _showChatMenu() {
     final l10n = AppLocalizations.of(context)!;
-    final otherId = widget.conversation?.otherUserId ?? '';
+    final otherUsername = widget.conversation?.otherUsername ?? '';
+    final convs = ref.read(conversationsProvider);
+    final idx = convs.indexWhere((c) => c.id == widget.conversationId);
+    final isMuted = idx != -1
+        ? convs[idx].isMuted
+        : (widget.conversation?.isMuted ?? false);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -609,7 +684,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               title: Text(l10n.viewProfileAction),
               onTap: () {
                 Navigator.pop(ctx);
-                if (otherId.isNotEmpty) context.push('/users/$otherId');
+                // 用 otherUsername 不是 otherUserId——/users/:identifier
+                // 这条路由期望的是 username/handle，传原始用户 id 进去，
+                // 后端按 username 匹配不到人，页面直接显示"用户不存在"
+                if (otherUsername.isNotEmpty) {
+                  context.push('/users/$otherUsername');
+                }
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                isMuted
+                    ? Icons.notifications_off
+                    : Icons.notifications_off_outlined,
+              ),
+              title: const Text('消息免打扰'),
+              trailing: isMuted
+                  ? const Icon(Icons.check, color: _primary, size: 18)
+                  : null,
+              onTap: () {
+                Navigator.pop(ctx);
+                _toggleMute(isMuted);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_sweep_outlined,
+                color: Color(0xFFDC2626),
+              ),
+              title: const Text(
+                '清空聊天记录',
+                style: TextStyle(color: Color(0xFFDC2626)),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmClearHistory();
               },
             ),
           ],

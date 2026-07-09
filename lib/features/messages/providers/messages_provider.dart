@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
+import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
 import '../models/notification_model.dart';
 
@@ -46,22 +47,28 @@ class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
 
 final conversationsProvider =
     StateNotifierProvider<ConversationsNotifier, List<Conversation>>((ref) {
-  return ConversationsNotifier(ref.read(apiClientProvider));
+  return ConversationsNotifier(ref);
 });
 
 class ConversationsNotifier extends StateNotifier<List<Conversation>> {
-  final ApiClient _api;
-  ConversationsNotifier(this._api) : super([]);
+  final Ref _ref;
+  ConversationsNotifier(this._ref) : super([]);
 
   Future<void> fetch() async {
-    final res = await _api.get('/auth/conversations');
+    final res = await _ref.read(apiClientProvider).get('/auth/conversations');
     if (!res.success || res.data == null) {
       debugPrint('[conversations] fetch failed: ${res.message}');
       return;
     }
     try {
+      final currentUserId = _ref.read(currentUserProvider)?.id;
       final list = (res.data['conversations'] as List)
-          .map((j) => Conversation.fromJson(j as Map<String, dynamic>))
+          .map(
+            (j) => Conversation.fromJson(
+              j as Map<String, dynamic>,
+              currentUserId: currentUserId,
+            ),
+          )
           .toList();
       state = list;
     } catch (e) {
@@ -76,6 +83,35 @@ class ConversationsNotifier extends StateNotifier<List<Conversation>> {
   void clearUnread(String convId) {
     state = state
         .map((c) => c.id == convId ? c.copyWith(unreadCount: 0) : c)
+        .toList();
+  }
+
+  // 免打扰/清空历史消息本地即时更新，不等下一次轮询——跟 clearUnread
+  // 同一个套路
+  void setMuted(String convId, bool muted) {
+    state = state
+        .map((c) => c.id == convId ? c.copyWith(isMuted: muted) : c)
+        .toList();
+  }
+
+  // copyWith 的 ?? 套路分不清"没传"和"故意传 null"，清空最后一条消息
+  // 要把 lastMessage/lastMessageAt 真的置空，只能手动重新拼一个新对象
+  void clearLastMessage(String convId) {
+    state = state
+        .map(
+          (c) => c.id == convId
+              ? Conversation(
+                  id: c.id,
+                  otherUserId: c.otherUserId,
+                  otherUsername: c.otherUsername,
+                  otherAvatar: c.otherAvatar,
+                  lastMessage: null,
+                  lastMessageAt: null,
+                  unreadCount: 0,
+                  isMuted: c.isMuted,
+                )
+              : c,
+        )
         .toList();
   }
 }
