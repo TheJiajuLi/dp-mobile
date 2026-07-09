@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
@@ -15,19 +14,21 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/founding_badge.dart';
 import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/avatar_upload.dart';
-import '../../../shared/utils/gender_label.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
 import '../../messages/models/conversation_model.dart';
 import '../../notebook/services/notebook_service.dart';
-import '../../../shared/widgets/interest_tag.dart';
 import '../models/user_profile_model.dart';
+import '../widgets/profile_avatar_sheets.dart';
+import '../widgets/profile_blocked_widget.dart';
+import '../widgets/profile_header_widget.dart';
+import '../widgets/profile_painters.dart';
+import '../widgets/profile_tabs_widget.dart';
 import '../widgets/tutorial_list_card.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -35,7 +36,6 @@ const _primary = Color(0xFF6366F1);
 // 点缀，卡片用 0.5px 细线不用阴影。深色模式下这几个不跟着主题走的固定色
 // 只在浅色场景使用，深色场景仍然读 Theme.of(context) 已有的那一套
 const _ink = Color(0xFF1A1A1A);
-const _muted = Color(0xFF999999);
 // 2026-07-06 起改成 AppColors.bg（跟首页/发现页/消息页/底部导航栏统一），
 // 原来自己配的 #FAFAF8 跟 Theme.of(context).scaffoldBackgroundColor 拿到的
 // #F7F7FB 是两个非常接近但不相同的浅灰白，页面之间拼接处会露出一条很淡
@@ -52,9 +52,6 @@ String _initial(String? name) {
 // 不是自己另配一个更深的藏青色。跟全局深色主题背景不一致，会显得这个
 // 页面是另外拼上去的，不像同一个 app
 const _profileDarkBg = Color(0xFF1C1C1E);
-// tab栏 pinned header 顶部圆角半径——头图背景要往下多铺这么多才能让圆角
-// 裁掉的三角形露出头图颜色而不是页面主背景色，两处必须用同一个值
-const _kTabBarRadius = 20.0;
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle
@@ -648,79 +645,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  void _showAvatarOptions() {
-    final l10n = AppLocalizations.of(context)!;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      // showModalBottomSheet 传 backgroundColor: Colors.transparent 时，
-      // 弹层自带的 Material 会变成 MaterialType.transparency（没有颜色）。
-      // 下面的 ListTile 找 Material 祖先画点击水波纹时，会往上找到这个
-      // 透明 Material，而不是这层 Container——Container 不是 Material，
-      // 水波纹就没有画布可画，Flutter 会打印"ListTile background color
-      // or ink splashes may be invisible"警告。用 Material 包一层给
-      // ListTile 一个真正带颜色的画布，而不是 Container
-      //
-      // 颜色用 scaffoldBackgroundColor 而不是 cardColor——底部导航栏
-      // （main_shell.dart）用的就是 scaffoldBackgroundColor 这一套
-      // （浅色 AppColors.bg / 深色 #1C1C1E），cardColor 在两个主题下都是
-      // 另一个更浅/更亮的色号，弹层跟导航栏会撞出一条不统一的接缝
-      builder: (ctx) => Material(
-        color: Theme.of(ctx).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: Text(l10n.selectFromAlbum),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickAndUploadAvatar(ImageSource.gallery);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: Text(l10n.takePhoto),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickAndUploadAvatar(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.auto_awesome_outlined,
-                  color: _primary,
-                ),
-                title: const Text('AI 生成头像'),
-                subtitle: const Text(
-                  '描述你想要的风格，小梦帮你生成',
-                  style: TextStyle(fontSize: 11),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showAiAvatarSheet();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _pickAndUploadAvatar(ImageSource source) async {
     setState(() => _uploadingAvatar = true);
     try {
@@ -766,134 +690,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     }
   }
 
-  void _showAiAvatarSheet() {
-    final descCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(ctx).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF0FF),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.auto_awesome_outlined,
-                      size: 14,
-                      color: _primary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'AI 生成头像',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descCtrl,
-                decoration: InputDecoration(
-                  hintText: '描述你想要的风格（可选），如"极地风景，极光，简约"',
-                  hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: _primary),
-                  ),
-                ),
-                maxLines: 2,
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: ['极地风光', '几何抽象', '赛博朋克', '水彩插画', '星空宇宙'].map((t) {
-                  return GestureDetector(
-                    onTap: () => descCtrl.text = t,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F2),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        t,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF555555),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await _aiGenerateAvatar(descCtrl.text.trim());
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A1A1A),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    '开始生成（约20秒）',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _aiGenerateAvatar(String description) async {
     // dialog 是否还在显示——避免网络异常提前抛出、或用户手动划走弹窗后，
     // 结果回来时再 pop 一次把个人主页本身也顶掉
@@ -901,7 +697,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => const _AiGeneratingAvatarDialog(),
+      builder: (ctx) => const AiGeneratingAvatarDialog(),
     );
 
     try {
@@ -937,9 +733,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       if (urls.isEmpty) return;
 
       if (urls.length == 1) {
-        _showSingleAvatarConfirm(urls.first);
+        showSingleAvatarConfirm(
+          context,
+          urls.first,
+          onRegenerate: () => _aiGenerateAvatar(''),
+          onUse: _setAvatarFromUrl,
+        );
       } else {
-        _showAvatarPickerSheet(urls);
+        showAvatarPickerSheet(context, urls, onSelect: _setAvatarFromUrl);
       }
     } catch (e) {
       if (mounted && dialogShowing) {
@@ -952,199 +753,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         ).showSnackBar(const SnackBar(content: Text('生成失败，请稍后重试')));
       }
     }
-  }
-
-  // 生成接口目前会因上游并发限流偶尔只成功1张而不是预期的多张——只有1张时
-  // 不套用选择网格（网格布局在只有1个格子时显得很空），改成大图+二选一
-  void _showSingleAvatarConfirm(String url) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                url,
-                width: 160,
-                height: 160,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '使用这张头像？',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _aiGenerateAvatar('');
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      side: const BorderSide(color: Color(0xFFD0D0D0)),
-                    ),
-                    child: const Text(
-                      '重新生成',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      await _setAvatarFromUrl(url);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A1A1A),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      '使用',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAvatarPickerSheet(List<String> urls) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF0FF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.auto_awesome_outlined,
-                    size: 14,
-                    color: _primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  '选择一个头像',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              '点击即可设为头像',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 14),
-            // 生成的头像数量不固定，多了就该在网格内部往下滚，而不是让整个
-            // sheet 跟着无限拉长（甚至顶到状态栏）——所以这里用 maxHeight
-            // 卡住网格区域的高度，GridView 保留正常的滚动手势
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(ctx).size.height * 0.5,
-              ),
-              child: GridView.builder(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 1,
-                ),
-                itemCount: urls.length,
-                itemBuilder: (ctx, i) => GestureDetector(
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await _setAvatarFromUrl(urls[i]);
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      urls[i],
-                      fit: BoxFit.cover,
-                      loadingBuilder: (ctx, child, progress) =>
-                          progress == null
-                          ? child
-                          : Container(
-                              color: Colors.grey[100],
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: _primary,
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   // 生成结果的 url 是小梦后端另外生成的图，不是走 /auth/update-avatar 那套
@@ -1255,152 +863,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 网易云那样），发布的内容/收藏这些直接不显示——不复用下面那套带
   // Positioned 精确定位的头图布局，那套是为了让操作按钮/用户名跟正常
   // 资料页的九宫格对齐设计的，这里没有九宫格，简单摆一个居中布局即可
-  Widget _buildBlockedProfile(AppLocalizations l10n, double topPad, bool isMe) {
-    return Column(
-      children: [
-        // 真机实测抓到的真正崩溃根因：_CoverGradient 自己的注释就说明它是
-        // 设计给 Stack 里的 Positioned.fill 用的（靠 Stack 已经解出来的
-        // 有限尺寸撑开），但这里直接把它当 Stack 的裸的非定位子项放，Stack
-        // 外层又是 Column 直接摆放、没有任何地方给出高度上限——
-        // Container(height: double.infinity) 在无边界高度约束下解不出
-        // 数值，直接炸 "BoxConstraints forces an infinite height"，然后
-        // 每一帧重新布局都再炸一次，表现为疯狂反复的崩溃日志。点一个设置了
-        // "主页不公开" 的用户头像、落到这个受限视图，就是这么崩的——
-        // 用固定高度的 SizedBox 包一层，配合 Positioned.fill 用法一致
-        SizedBox(
-          height: 200,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Positioned.fill(child: _CoverGradient()),
-              if (widget.showBackButton)
-                Positioned(
-                  top: topPad + 8,
-                  left: 8,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                    onPressed: () => context.pop(),
-                  ),
-                ),
-              Positioned(
-                bottom: -40,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.fromBorderSide(
-                        BorderSide(color: Colors.white, width: 3),
-                      ),
-                    ),
-                    child: _buildAvatar(radius: 40),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 48),
-        Text(
-          _profile!.username,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-        ),
-        if (_profile!.handle != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            '@${_profile!.handle}',
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-        ],
-        const SizedBox(height: 16),
-        if (!isMe)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OutlinedButton.icon(
-                onPressed: _startingChat ? null : _startChat,
-                icon: _startingChat
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: _primary,
-                        ),
-                      )
-                    : const Icon(Icons.message_outlined, size: 16),
-                label: Text(l10n.sendMessageAction),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _primary,
-                  side: const BorderSide(color: _primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _toggleFollow,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _profile!.isFollowing
-                      ? Theme.of(context).cardColor
-                      : _primary,
-                  foregroundColor: _profile!.isFollowing
-                      ? Theme.of(context).textTheme.bodyLarge?.color
-                      : Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                ),
-                child: Text(
-                  _profile!.isFollowing
-                      ? l10n.followingAction
-                      : l10n.followAction,
-                ),
-              ),
-            ],
-          ),
-        Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.lock_outline,
-                    size: 40,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.profileIsPrivate,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // 头像图片本身排除出语义树——用户名在旁边另有文字承载，头像纯装饰；
   // 这个页面刚好是"点头像跳转过来"的落地页，头像图片异步解码/加载完成
   // 触发的 relayout 跟自己入场的转场动画抢语义树更新会炸断言，跟上面
@@ -1439,572 +901,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           color: Colors.white,
           fontWeight: FontWeight.w700,
         ),
-      ),
-    );
-  }
-
-  // 头图区——封面背景铺满，内容按截图参考重排：顶部图标行、头像+用户名/
-  // 认证勾/handle、简介、位置+星座+链接一行（右侧挂编辑资料/关注+发消息
-  // 按钮）、内容计数统计行、连续创作卡片。不再用固定屏幕高度的 Positioned
-  // 绝对定位堆叠——高度跟内容走，封面图作为背景层用 Stack 撑到内容实际
-  // 高度（Stack 默认按非 Positioned 子项——也就是这条内容 Column——来定
-  // 尺寸，Positioned.fill 的背景层会跟着一起伸缩）
-  Widget _buildProfileHeader({
-    required AppLocalizations l10n,
-    required bool isSelfView,
-    required bool isMe,
-    required String displayUsername,
-    required String? displayBio,
-    required String? displayLocation,
-    required String? displayIpLocation,
-    required String? displayOccupation,
-    required String? displayGender,
-    required ZodiacSign? displayZodiacSign,
-    required List<String> interestTags,
-    required double topPad,
-  }) {
-    final links = _allLinks();
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return Stack(
-      // 默认 Clip.hardEdge 会把下面圆角"卡片沿"故意超出 Stack 底边的
-      // 2px 出血裁掉——那 2px 就是专门用来盖住跟下一个 sliver（pinned
-      // 的 TabBar）拼接处那条灰线的，不能被裁
-      clipBehavior: Clip.none,
-      children: [
-        // 封面图/渐变纯装饰，排除出语义树——跟 tutorial_detail_screen.dart/
-        // column_detail_screen.dart 的封面图同一个坑：图片异步加载完成的
-        // relayout 可能跟这个页面自己入场的转场动画抢语义树更新
-        Positioned.fill(
-          child: ExcludeSemantics(
-            child: GestureDetector(
-              onTap: isSelfView && !_uploadingCover
-                  ? _pickAndUploadCover
-                  : null,
-              child: _coverImageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: _coverImageUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) =>
-                          const _CoverGradient(),
-                    )
-                  : const _CoverGradient(),
-            ),
-          ),
-        ),
-        const Positioned.fill(
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x33000000), Color(0xCC000000)],
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (_uploadingCover)
-          const Positioned.fill(
-            child: IgnorePointer(
-              ignoring: false,
-              child: ColoredBox(
-                color: Colors.black38,
-                child: Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              ),
-            ),
-          ),
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (widget.showBackButton)
-                      _heroIconButton(
-                        Icons.arrow_back_ios_new,
-                        () => context.pop(),
-                      ),
-                    const Spacer(),
-                    if (isSelfView) ...[
-                      _heroIconButton(
-                        Theme.of(context).brightness == Brightness.dark
-                            ? Icons.dark_mode_outlined
-                            : Icons.light_mode_outlined,
-                        _toggleTheme,
-                      ),
-                      _heroIconButton(
-                        Icons.people_outline,
-                        () => context.push('/friends'),
-                      ),
-                      _heroIconButton(
-                        Icons.article_outlined,
-                        () => context.push('/creator'),
-                      ),
-                      _heroIconButton(
-                        Icons.settings_outlined,
-                        () => context.push('/settings'),
-                      ),
-                    ] else if (links.isNotEmpty)
-                      _heroIconButton(
-                        Icons.link_rounded,
-                        () => _showLinksSheet(l10n),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: [
-                        FoundingAvatarRing(
-                          isFoundingCreator:
-                              _profile?.isFoundingCreator ?? false,
-                          size: 68,
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.fromBorderSide(
-                                BorderSide(color: Colors.white, width: 2.5),
-                              ),
-                            ),
-                            child: _buildAvatar(radius: 34),
-                          ),
-                        ),
-                        if (_uploadingAvatar)
-                          const CircleAvatar(
-                            radius: 34,
-                            backgroundColor: Colors.black45,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                          ),
-                        // VIP 标识挪到头像右上角当角标——不分自己/别人都
-                        // 显示，自己会员是真实数据（currentUserProvider，
-                        // GET /auth/me 直接返回），看别人主页时目前后端 GET
-                        // /auth/users/profile/:identifier 还没把 membership
-                        // 字段加进 SELECT 列表，_profile.membership 会先
-                        // 恒为 'free'（灰色角标），等后端加了这一列直接生效
-                        Positioned(
-                          right: -6,
-                          top: -4,
-                          child: _buildVipBadge(isSelfView: isSelfView),
-                        ),
-                        if (isSelfView)
-                          Positioned(
-                            right: -4,
-                            bottom: -4,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: _showAvatarOptions,
-                              child: Container(
-                                width: 32,
-                                height: 32,
-                                alignment: Alignment.center,
-                                child: Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    color: _primary,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.camera_alt,
-                                    color: Colors.white,
-                                    size: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  displayUsername,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              // 认证徽章——UserProfile.isVerified 目前后端恒为
-                              // false，这里只是把渲染逻辑接好，字段一旦上线
-                              // 直接生效，不需要再改这里
-                              if (_profile!.isVerified) ...[
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.verified,
-                                  size: 16,
-                                  color: _primary,
-                                ),
-                              ],
-                              if (_profile!.isFoundingCreator)
-                                const FoundingBadgeSmall(),
-                            ],
-                          ),
-                          if (_profile!.handle != null) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              '@${_profile!.handle}',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.white60,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (interestTags.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: interestTags
-                        .map((tag) => InterestTag(label: tag))
-                        .toList(),
-                  ),
-                ],
-                if (displayBio?.isNotEmpty == true) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    displayBio!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.white,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 10,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (displayGender?.isNotEmpty ?? false)
-                            _infoChip(
-                              genderIconFor(displayGender!),
-                              genderDisplayLabel(l10n, displayGender),
-                            ),
-                          if (displayLocation?.isNotEmpty ?? false)
-                            _infoChip(
-                              Icons.location_on_outlined,
-                              displayLocation!,
-                            ),
-                          if (displayIpLocation?.isNotEmpty ?? false)
-                            _infoChip(Icons.public, displayIpLocation!),
-                          if (displayOccupation?.isNotEmpty ?? false)
-                            _infoChip(Icons.work_outline, displayOccupation!),
-                          if (displayZodiacSign != null)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ZodiacIcon(sign: displayZodiacSign, size: 12),
-                                const SizedBox(width: 3),
-                                Text(
-                                  zodiacDisplayName(l10n, displayZodiacSign),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          if (links.isNotEmpty)
-                            GestureDetector(
-                              onTap: () => _openLink(links.first),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.language,
-                                    size: 12,
-                                    color: Colors.white70,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 150,
-                                    ),
-                                    child: Text(
-                                      links.first
-                                          .replaceAll('https://', '')
-                                          .replaceAll('http://', ''),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (isMe) ...[
-                      _headerActionButton(
-                        label: l10n.editProfile,
-                        filled: true,
-                        onTap: () async {
-                          await context.push('/edit-profile');
-                          if (mounted) _loadProfile();
-                        },
-                      ),
-                      const SizedBox(width: 6),
-                      _heroIconButton(
-                        Icons.link_rounded,
-                        () => _showLinksSheet(l10n),
-                      ),
-                    ] else ...[
-                      _headerActionButton(
-                        label: _profile!.isFollowing
-                            ? l10n.followingAction
-                            : l10n.followAction,
-                        filled: !_profile!.isFollowing,
-                        onTap: _toggleFollow,
-                      ),
-                      const SizedBox(width: 6),
-                      _headerActionButton(
-                        label: l10n.sendMessageAction,
-                        filled: false,
-                        loading: _startingChat,
-                        onTap: _startingChat ? null : _startChat,
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildStatsRow(l10n),
-                if (_creationStreak > 0) ...[
-                  const SizedBox(height: 14),
-                  _buildStreakCard(l10n),
-                ],
-                // 给下面圆角"卡片沿"留出空间——内容到这里为止，圆角沿贴在
-                // 正下方，不会互相压着
-                const SizedBox(height: _kTabBarRadius),
-              ],
-            ),
-          ),
-        ),
-        // 网易云那种"卡片浮在头图上"的圆角沿——必须放在头图区自己这个
-        // Stack 里（跟封面图渐变同一层，不隔着 Sliver 边界），圆角裁掉的
-        // 两个直角三角形才能露出正下方的头图渐变色。之前想靠 tab栏
-        // pinned header 自己的圆角去露头图颜色，指望它的绘制能"溢出"到
-        // 上一个 sliver 的画面里——NestedScrollView 的普通 sliver 之间
-        // 没有这种重叠机制（那是 SliverOverlapAbsorber 专门解决的问题，
-        // 这里没用那套），所以完全不显示，圆角形同虚设
-        //
-        // bottom 故意给 -2 配 22px 高（顶部圆角位置不变，只是底边往下
-        // 多铺 2px）：这块纯色矩形跟紧接着的 pinned TabBar 背景理论上是
-        // 同一个颜色，但两块分属不同 sliver/RenderObject，各自独立走
-        // 反走样光栅化，紧贴边界处会露出一条极淡的灰线（RRect 反走样在
-        // 直边上也会画一点半透明像素，不是 TabBar 的 divider，dividerHeight
-        // 设成0也去不掉）。让色块本身多铺出 2px 盖过这条拼接线，比继续
-        // 在 TabBar 那边找原因更直接可靠
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: -2,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: isDarkMode ? _profileDarkBg : _heroBg,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(_kTabBarRadius),
-                  topRight: Radius.circular(_kTabBarRadius),
-                ),
-              ),
-              child: const SizedBox(
-                height: _kTabBarRadius + 2,
-                width: double.infinity,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _headerActionButton({
-    required String label,
-    required bool filled,
-    VoidCallback? onTap,
-    bool loading = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: filled ? Colors.white : Colors.transparent,
-          border: filled ? null : Border.all(color: Colors.white54),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: loading
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: filled ? _ink : Colors.white,
-                ),
-              ),
-      ),
-    );
-  }
-
-  // 内容计数统计行——文章/专栏/文件/收藏/点赞/阅读，纯展示不可点
-  // （截图里这行没有任何一项有"可点"的视觉提示，真正的切 tab 交给下面
-  // 单独的白底 TabBar）。收藏数没有真实后端聚合数据（只有单条save/unsave
-  // 接口，没有"我收藏了多少篇"这个统计），显示"-"而不是编个假数字。
-  // 关注/粉丝是真实数据（UserProfile.followingCount/followerCount），
-  // 点击跳转到 FollowListScreen，是这行里唯一两个真正"可点"的项
-  Widget _buildStatsRow(AppLocalizations l10n) {
-    Widget stat(String value, String label, {VoidCallback? onTap}) {
-      final content = Padding(
-        padding: const EdgeInsets.only(right: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 10, color: Colors.white60),
-            ),
-          ],
-        ),
-      );
-      if (onTap == null) return content;
-      return GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: content,
-      );
-    }
-
-    final userId = _profile?.id;
-
-    // 文章/专栏/文件这几个数量本来就是下面 Tab 切换后能直接看到的东西，
-    // 跟这一行其它"要点进去才知道"的统计（点赞/阅读/关注/粉丝）放在一起
-    // 纯属重复计数、白占一行横向滚动的空间——挪到各自 Tab 内容顶部用
-    // 不带 pill 底色的纯文字展示（效仿知乎"创作"页签下方的计数写法），
-    // 只在切到那个 Tab 时才看得到，减少头图区一上来就是一整排数字的
-    // 视觉噪音
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          stat('-', l10n.tabBookmarksLabel),
-          stat(_formatCount(_totalLikes), l10n.tabLikesLabel),
-          stat(_formatCount(_totalViews), l10n.viewsCountLabel),
-          stat(
-            '${_profile?.followingCount ?? 0}',
-            l10n.followingCountLabel,
-            onTap: userId == null
-                ? null
-                : () => context.push('/users/$userId/following'),
-          ),
-          stat(
-            '${_profile?.followerCount ?? 0}',
-            l10n.followersCountLabel,
-            onTap: userId == null
-                ? null
-                : () => context.push('/users/$userId/followers'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 连续创作天数卡片——真实计算（见 _creationStreak），streak 为 0 时
-  // 上层已经不渲染这个 widget 了
-  Widget _buildStreakCard(AppLocalizations l10n) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Text('🔥', style: TextStyle(fontSize: 20)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.creationStreakDays(_creationStreak),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  l10n.creationStreakSubtitle,
-                  style: const TextStyle(fontSize: 11, color: Colors.white60),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2112,7 +1008,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             : _profile == null
             ? Center(child: Text(l10n.userNotFound))
             : _profileBlocked
-            ? _buildBlockedProfile(l10n, topPad, isMe)
+            ? ProfileBlockedWidget(
+                profile: _profile!,
+                l10n: l10n,
+                topPad: topPad,
+                isMe: isMe,
+                showBackButton: widget.showBackButton,
+                startingChat: _startingChat,
+                avatar: _buildAvatar(radius: 40),
+                onBack: () => context.pop(),
+                onStartChat: _startChat,
+                onToggleFollow: _toggleFollow,
+              )
             // 下半部（Tab栏+内容区）背景跟着主题走：深色主题用
             // _profileDarkBg，浅色主题保持原来的米白——之前改成不跟随
             // ThemePreference 的固定深色，浅色主题下背景变黑但文字/
@@ -2122,7 +1029,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                 child: NestedScrollView(
                   headerSliverBuilder: (ctx, _) => [
                     SliverToBoxAdapter(
-                      child: _buildProfileHeader(
+                      child: ProfileHeaderWidget(
                         l10n: l10n,
                         isSelfView: isSelfView,
                         isMe: isMe,
@@ -2135,6 +1042,41 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         displayZodiacSign: displayZodiacSign,
                         interestTags: interestTags,
                         topPad: topPad,
+                        profile: _profile!,
+                        showBackButton: widget.showBackButton,
+                        uploadingCover: _uploadingCover,
+                        uploadingAvatar: _uploadingAvatar,
+                        coverImageUrl: _coverImageUrl,
+                        creationStreak: _creationStreak,
+                        totalLikes: _totalLikes,
+                        totalViews: _totalViews,
+                        formatCount: _formatCount,
+                        links: _allLinks(),
+                        avatar: _buildAvatar(radius: 34),
+                        vipBadge: _buildVipBadge(isSelfView: isSelfView),
+                        startingChat: _startingChat,
+                        onBack: () => context.pop(),
+                        onToggleTheme: _toggleTheme,
+                        onAvatarTap: () => showAvatarOptions(
+                          context,
+                          onPickGallery: () =>
+                              _pickAndUploadAvatar(ImageSource.gallery),
+                          onPickCamera: () =>
+                              _pickAndUploadAvatar(ImageSource.camera),
+                          onAiAvatar: () => showAiAvatarSheet(
+                            context,
+                            onGenerate: _aiGenerateAvatar,
+                          ),
+                        ),
+                        onCoverTap: _pickAndUploadCover,
+                        onLinksTap: () => _showLinksSheet(l10n),
+                        onEditProfile: () async {
+                          await context.push('/edit-profile');
+                          if (mounted) _loadProfile();
+                        },
+                        onToggleFollow: _toggleFollow,
+                        onStartChat: _startChat,
+                        onOpenLink: _openLink,
                       ),
                     ),
                     // Tab 栏——42px 白底，跟头图区分开，选中态黑字+黑色下划线；
@@ -2143,7 +1085,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                     // 长很多时，切 tab 不用先滚回顶部
                     SliverPersistentHeader(
                       pinned: true,
-                      delegate: _ProfileTabBarDelegate(
+                      delegate: ProfileTabBarDelegate(
                         isDark: isDarkMode,
                         tabBar: TabBar(
                           controller: _tabCtrl,
@@ -2238,7 +1180,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           ],
                         ),
                       ),
-                      _buildColumnsTab(l10n, isSelfView),
+                      ColumnsTabView(
+                        l10n: l10n,
+                        isSelfView: isSelfView,
+                        columns: _columns,
+                        onRefresh: _onRefresh,
+                        onCreateColumn: () => showCreateColumnSheet(
+                          context,
+                          ref,
+                          profileId: _profile?.id,
+                          onCreated: _loadColumns,
+                        ),
+                        onColumnTap: (col) =>
+                            context.push('/columns/${col.id}'),
+                      ),
                       if (_showNotebookTab)
                         RefreshIndicator(
                           color: _primary,
@@ -2279,7 +1234,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         ),
                                         itemBuilder: (ctx, i) {
                                           final nb = _notebooks[i];
-                                          return _NotebookListItem(
+                                          return NotebookListItem(
                                             notebook: nb,
                                             onTap: () => context.push(
                                               '/notebook/${nb['id']}',
@@ -2323,92 +1278,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  // 统计数字内联文字排列——文章/获赞/粉丝/关注挨个写在一行，last:true
-  // 的最后一项右边不再留间距
-  Widget _buildColumnsTab(AppLocalizations l10n, bool isSelfView) {
-    if (_columns.isEmpty && !isSelfView) {
-      return RefreshIndicator(
-        color: _primary,
-        onRefresh: _onRefresh,
-        child: Column(
-          children: [
-            _tabCountHeader(l10n.columnsCountHeader(_columns.length)),
-            Expanded(
-              child: _refreshableCenter(
-                key: const PageStorageKey('profile-tab-columns-empty'),
-                child: Text(
-                  l10n.noColumnsCreatedYetPrompt,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final placeholderColor = isDark ? Colors.white54 : const Color(0xFFC7C7CC);
-    return RefreshIndicator(
-      color: _primary,
-      onRefresh: _onRefresh,
-      child: Column(
-        children: [
-          _tabCountHeader(l10n.columnsCountHeader(_columns.length)),
-          Expanded(
-            child: ListView.builder(
-              key: const PageStorageKey('profile-tab-columns'),
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(12),
-              itemCount: _columns.length + (isSelfView ? 1 : 0),
-              itemBuilder: (ctx, i) {
-                if (isSelfView && i == _columns.length) {
-                  return GestureDetector(
-                    onTap: _showCreateColumnSheet,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white24
-                              : const Color(0xFFD1D1D6),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.add_circle_outline,
-                            color: placeholderColor,
-                            size: 28,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            l10n.createColumnAction,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: placeholderColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-                final col = _columns[i];
-                return _ColumnCard(
-                  column: col,
-                  onTap: () => context.push('/columns/${col.id}'),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 收藏/点赞等占位 Tab 也要能下拉刷新——RefreshIndicator 得包一个真正
   // 可滚动的 Scrollable 才能识别下拉手势，光一个 Center 不够，所以套一层
   // 带 AlwaysScrollableScrollPhysics 的 ListView
@@ -2442,128 +1311,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       ),
     );
   }
-
-  void _showCreateColumnSheet() {
-    final l10n = AppLocalizations.of(context)!;
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    l10n.createColumnAction,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () async {
-                      if (nameCtrl.text.trim().isEmpty) return;
-                      final res = await ref
-                          .read(apiClientProvider)
-                          .post(
-                            '/auth/columns',
-                            data: {
-                              'name': nameCtrl.text.trim(),
-                              'description': descCtrl.text.trim(),
-                            },
-                          );
-                      if (!ctx.mounted) return;
-                      if (res.success) {
-                        Navigator.pop(ctx);
-                        final userId =
-                            _profile?.id ?? ref.read(currentUserProvider)?.id;
-                        if (userId != null) await _loadColumns(userId);
-                      } else if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              l10n.actionFailedWithReason('${res.message}'),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    child: Text(
-                      l10n.createColumnAction,
-                      style: const TextStyle(
-                        color: _primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: l10n.columnNameLabel,
-                  hintText: l10n.columnNameHint,
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: _primary),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: l10n.columnDescOptionalLabel,
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: _primary),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 头图信息行的小图标+文字组合——性别/地区/职业公用同一个样式
-  Widget _infoChip(IconData icon, String text) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 12, color: Colors.white70),
-      const SizedBox(width: 3),
-      Text(text, style: const TextStyle(fontSize: 11, color: Colors.white70)),
-    ],
-  );
 
   // VIP 徽章——会员是暖金色渐变字（有质感），非会员是暗淡的灰白字，
   // 两种状态都真实反映 membership，不是随手编一个"看起来高级"的常亮效果。
@@ -2613,24 +1360,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       ),
     );
   }
-
-  // 头图区里叠在背景上的圆形按钮（返回/汉堡）——半透明白底保证无论背景
-  // 是浅色渐变占位还是用户传的任意亮度照片，深色图标都能看清
-  // filled:false 给不需要白底圆圈衬托的场景用（比如链接图标）——直接裸
-  // 2026-07-06 去掉了原来 BackdropFilter 毛玻璃圆角底——裸图标压在头图上，
-  // 靠一圈黑色投影保证不管封面照片亮暗都还能看清，不再靠白色半透明底衬托
-  Widget _heroIconButton(IconData icon, VoidCallback onTap) => GestureDetector(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.all(6),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: 22,
-        shadows: const [Shadow(color: Colors.black45, blurRadius: 6)],
-      ),
-    ),
-  );
 
   // 头图右上角链接图标点开——列出全部个人链接的底部弹窗，替代原来直接
   // 跳GitHub/第一条链接的快捷方式
@@ -2708,466 +1437,3 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   }
 }
 
-// 没设置背景图时的默认渐变，也是加载失败时的兜底——特意选了跟页面米白底
-// 很接近的浅紫色，让头图"嵌合"进背景里，而不是像旧版那样一块很跳的深紫
-// 色块。不写死高度：这层背景铺在 Stack 里的 Positioned.fill 下面，会跟着
-// 前景内容（头像/用户名/简介/统计卡）自然撑开的高度一起拉伸
-// 没有真实封面图时的默认底——头像/用户名这一圈无论 App 是浅色还是深色
-// 主题都固定叠白字白描边（见本文件里关于崩溃修复/暗色适配的说明，这块
-// 区域本来就设计成"独立于 App 主题、始终够暗"），之前是一块很平的两色
-// 斜向渐变，看起来更像"占位色块"而不是产品自己的视觉。改成呼应品牌
-// 愿景文案本身那句"极地——无尽的白与深邃的星空"：深靛紫到品牌
-// 靛蓝（#6366F1）过渡的极光渐变，叠一层稀疏的星点，靠固定随机种子生成、
-// 每次 build 位置都一样，不会一重绘就"星星在跳"
-// 深色模式保留极地星空（呼应品牌文案"无尽的白与深邃的星空"）；浅色模式
-// 换成晴天/海边基调——深邃的星空放在浅色页面上会显得脏，晴空蓝到暖白
-// 光晕再到海面蓝的渐变配一个柔和的"日光"光晕，跟深色版的星点是同一个
-// 设计语言（渐变+一个 CustomPaint 点缀层），只是主题不同
-class _CoverGradient extends StatelessWidget {
-  const _CoverGradient();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? const [
-                      Color(0xFF120C24),
-                      Color(0xFF362D6B),
-                      Color(0xFF0D2436),
-                    ]
-                  : const [
-                      Color(0xFF7EC8E3),
-                      Color(0xFFFFF3D6),
-                      Color(0xFF3D8FB0),
-                    ],
-              stops: const [0.0, 0.55, 1.0],
-            ),
-          ),
-        ),
-        if (isDark)
-          const CustomPaint(painter: _StarFieldPainter())
-        else
-          const CustomPaint(painter: _SunGlowPainter()),
-      ],
-    );
-  }
-}
-
-class _StarFieldPainter extends CustomPainter {
-  const _StarFieldPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rnd = math.Random(7);
-    final paint = Paint();
-    for (var i = 0; i < 60; i++) {
-      final dx = rnd.nextDouble() * size.width;
-      final dy = rnd.nextDouble() * size.height;
-      final radius = 0.4 + rnd.nextDouble() * 1.0;
-      paint.color = Colors.white.withValues(
-        alpha: 0.12 + rnd.nextDouble() * 0.3,
-      );
-      canvas.drawCircle(Offset(dx, dy), radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _StarFieldPainter oldDelegate) => false;
-}
-
-// 浅色模式的"日光"光晕——右上角一圈柔和白光，叠在晴空蓝渐变上，
-// 营造晴天/海边的暖意，固定位置，不需要随机
-class _SunGlowPainter extends CustomPainter {
-  const _SunGlowPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width * 0.78, size.height * 0.22);
-    final radius = size.width * 0.32;
-    final paint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.55),
-          Colors.white.withValues(alpha: 0.0),
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
-    canvas.drawCircle(center, radius, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SunGlowPainter oldDelegate) => false;
-}
-
-// AI头像生成等待弹窗——带计时+轮换提示语，跟 publish_screen.dart 的
-// _AiGeneratingDialog 是同一套设计，只是文案换成头像场景，不共用一个
-// widget 是因为两边弹窗的调用方各自处理自己的 dialogShowing 防重复pop，
-// 抽成公共组件反而要多传一层回调，不值当
-class _AiGeneratingAvatarDialog extends StatefulWidget {
-  const _AiGeneratingAvatarDialog();
-
-  @override
-  State<_AiGeneratingAvatarDialog> createState() =>
-      _AiGeneratingAvatarDialogState();
-}
-
-class _AiGeneratingAvatarDialogState extends State<_AiGeneratingAvatarDialog> {
-  int _seconds = 0;
-  Timer? _timer;
-
-  static const _tips = [
-    '小梦正在理解你的描述...',
-    '正在构思头像风格...',
-    '头像生成中，请稍候...',
-    '即将完成，再等一下...',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _seconds++);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  String get _tip {
-    if (_seconds < 5) return _tips[0];
-    if (_seconds < 15) return _tips[1];
-    if (_seconds < 35) return _tips[2];
-    return _tips[3];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(color: _primary),
-          const SizedBox(height: 20),
-          Text(
-            _tip,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '已等待 $_seconds 秒',
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '头像生成通常需要 15-25 秒',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Notebook tab 列表项：文件名 + 语言 badge + cells 数量 + 时间
-class _NotebookListItem extends StatelessWidget {
-  final Map<String, dynamic> notebook;
-  final VoidCallback onTap;
-
-  const _NotebookListItem({required this.notebook, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final lang = notebook['lang'] as String? ?? 'python';
-    final badgeLabel =
-        const {'python': 'PY', 'latex': 'TEX', 'mixed': 'MD'}[lang] ?? 'PY';
-    final badgeColor =
-        const {
-          'python': _primary,
-          'latex': Color(0xFFC026D3),
-          'mixed': Color(0xFF16A34A),
-        }[lang] ??
-        _primary;
-    final name = notebook['name'] as String? ?? '';
-    final cellCount = notebook['cellCount'] as int? ?? 0;
-    final updatedAt = (notebook['updatedAt'] as num?)?.toInt() ?? 0;
-    final dt = DateTime.fromMillisecondsSinceEpoch(updatedAt * 1000);
-    final dateStr =
-        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: badgeColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.description_outlined,
-                size: 18,
-                color: badgeColor,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : _ink,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: badgeColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          badgeLabel,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$cellCount cells',
-                        style: const TextStyle(fontSize: 12, color: _muted),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        dateStr,
-                        style: const TextStyle(fontSize: 12, color: _muted),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, size: 18, color: _muted),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ColumnCard extends StatelessWidget {
-  final ColumnModel column;
-  final VoidCallback onTap;
-
-  const _ColumnCard({required this.column, required this.onTap});
-
-  static const _gradients = [
-    [Color(0xFF4F46E5), Color(0xFF818CF8)],
-    [Color(0xFF059669), Color(0xFF34D399)],
-    [Color(0xFFD97706), Color(0xFFFBBF24)],
-    [Color(0xFFDC2626), Color(0xFFF87171)],
-  ];
-
-  // 之前是大banner封面+左上角深色圆角标签叠"收录内容·N篇"的样式——
-  // 改成跟 tutorial_list_card.dart 一样效仿知乎"创作"页签的列表行：左边
-  // 一个小缩略图，右边标题/简介/纯文字元信息，篇数不再单独用一个 pill
-  // 底色的标签浮在封面上，并入下面这一排跟浏览/点赞同样朴素的文字里
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final ci = column.name.isNotEmpty
-        ? column.name.codeUnitAt(0) % _gradients.length
-        : 0;
-    final gradient = _gradients[ci];
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? Colors.white12 : const Color(0xFFF0F0F0),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 70,
-                height: 66,
-                child:
-                    column.coverImage != null && column.coverImage!.isNotEmpty
-                    ? ExcludeSemantics(
-                        child: CachedNetworkImage(
-                          imageUrl: column.coverImage!,
-                          fit: BoxFit.cover,
-                          errorWidget: (context, url, error) =>
-                              _gradBg(gradient),
-                        ),
-                      )
-                    : _gradBg(gradient),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    column.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  if (column.description?.isNotEmpty == true) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      column.description!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? Colors.white54
-                            : const Color(0xFF8E8E93),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      _stat(
-                        isDark,
-                        Icons.collections_bookmark_outlined,
-                        '${column.articleCount}',
-                      ),
-                      const SizedBox(width: 12),
-                      _stat(
-                        isDark,
-                        Icons.remove_red_eye_outlined,
-                        '${column.viewCount}',
-                      ),
-                      const SizedBox(width: 12),
-                      _stat(
-                        isDark,
-                        Icons.favorite_outline,
-                        '${column.likeCount}',
-                      ),
-                      const SizedBox(width: 12),
-                      _stat(
-                        isDark,
-                        Icons.bookmark_outline,
-                        '${column.saveCount}',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _gradBg(List<Color> colors) => Container(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: colors,
-      ),
-    ),
-  );
-
-  Widget _stat(bool isDark, IconData icon, String val) {
-    final color = isDark ? Colors.white60 : Colors.grey;
-    return Row(
-      children: [
-        Icon(icon, size: 13, color: color),
-        const SizedBox(width: 3),
-        Text(val, style: TextStyle(fontSize: 11, color: color)),
-      ],
-    );
-  }
-}
-
-// TabBar 包成 SliverPersistentHeader 需要的 delegate，背景色跟着
-// isDark 走——minExtent/maxExtent 再收紧到 34（42→38→34），让整组 tab
-// 尽量贴近上面圆角沿，不用随内容变化
-class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar tabBar;
-  final bool isDark;
-  const _ProfileTabBarDelegate({required this.tabBar, required this.isDark});
-
-  @override
-  double get minExtent => 34;
-  @override
-  double get maxExtent => 34;
-
-  // 圆角"卡片沿"是头图区自己 Stack 里的一个装饰层（_buildProfileHeader
-  // 末尾那个 Positioned），不是这里——这层 pinned header 只负责紧接着
-  // 圆角沿之后原样铺开一块同色平面，两者颜色一致、紧贴着，看起来才是
-  // 一整块从头图上"浮"出来的圆角卡片。之前想在这里单独裁一次圆角，
-  // 指望能透出上一个 sliver（头图）的颜色——NestedScrollView 的普通
-  // sliver 之间没有这种重叠机制，圆角背后只会露出页面主背景色，跟这里
-  // 的白/深色几乎撞色，圆角形同虚设，所以挪到头图自己的 Stack 里做
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: isDark ? _profileDarkBg : _heroBg),
-      child: tabBar,
-    );
-  }
-
-  // tabBar 每次父级 build() 都会 new 一个新实例，按引用比较 (!=) 永远为
-  // true——之前这行等于白写，父级任何一次 setState 都会连带把这个 pinned
-  // header 重新 build 一遍。只有 isDark 会真的影响这里画出来的东西
-  @override
-  bool shouldRebuild(covariant _ProfileTabBarDelegate oldDelegate) =>
-      oldDelegate.isDark != isDark;
-}

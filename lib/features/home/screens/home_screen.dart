@@ -52,17 +52,11 @@ const _bg = AppColors.bg;
 
 // Feed 里三种卡片怎么混排，不需要用户自己选、也不需要后端打标记，纯前端
 // 按下标规则自动分配：
-//   - 固定在渲染出的第 3 张卡（rows.length==2 时）插入本周专题卡，不消耗
-//     tutorial
 //   - 原始下标 i%5==0 且带封面图 → 大图头条
 //   - 原始下标 i%8==0 且后面还有一条 → 双列小卡（连续消耗两条）
 //   - 其余 → 文字+缩略图
 sealed class _FeedRow {
   const _FeedRow();
-}
-
-class _FeatureRow extends _FeedRow {
-  const _FeatureRow();
 }
 
 class _HeroRow extends _FeedRow {
@@ -84,13 +78,7 @@ class _TextRow extends _FeedRow {
 List<_FeedRow> _buildRows(List<TutorialModel> tutorials) {
   final rows = <_FeedRow>[];
   var i = 0;
-  var insertedFeature = false;
   while (i < tutorials.length) {
-    if (!insertedFeature && rows.length == 2) {
-      rows.add(const _FeatureRow());
-      insertedFeature = true;
-      continue;
-    }
     final t = tutorials[i];
     if (i % 5 == 0 && (t.coverImage?.isNotEmpty ?? false)) {
       rows.add(_HeroRow(t));
@@ -437,10 +425,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
 
-    // 前面几段固定区块（原发现页板块/继续创作/热门话题/推荐文章标题）先
-    // 拼成一个 widget 列表，后面 Feed 卡片行接着往下排——比手动算好几段
-    // 偏移量简单可靠，加/减一段不用重新核对下标
-    final prefixWidgets = <Widget>[
+    // 推荐文章标题 + 下面的 Feed 卡片行是页面最顶部、最主要的内容——原
+    // 发现页板块（大卡轮播/热门话题/推荐关注/为你推荐）跟继续创作/热门
+    // 话题挪到 Feed 末尾当"逛完推荐还有更多"的附加区块，只在 Feed 翻到
+    // 底（!hasMore）时才接上，不然会插在推荐文章标题和它自己的内容中间
+    final topPrefix = <Widget>[
+      _buildRecommendedHeader(context, l10n, state),
+      const SizedBox(height: 10),
+    ];
+    final bottomSuffix = <Widget>[
       ..._buildDiscoverSections(context, l10n, discoverState),
       if (_recentNotebooks.isNotEmpty) ...[
         _buildContinueCreating(context, l10n, isDarkMode),
@@ -451,15 +444,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         topics,
         const SizedBox(height: 20),
       ],
-      _buildRecommendedHeader(context, l10n, state),
-      const SizedBox(height: 10),
     ];
 
     final showEmpty = rows.isEmpty;
+    final showSuffix = !showEmpty && !state.hasMore && !state.isLoadingMore;
+    final rowsCount = showEmpty ? 1 : rows.length;
     final itemCount =
-        prefixWidgets.length +
-        (showEmpty ? 1 : rows.length) +
-        (state.isLoadingMore ? 1 : 0);
+        topPrefix.length +
+        rowsCount +
+        (state.isLoadingMore ? 1 : 0) +
+        (showSuffix ? bottomSuffix.length : 0);
 
     return ListView.builder(
       controller: _scrollCtrl,
@@ -467,8 +461,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: itemCount,
       itemBuilder: (context, index) {
-        if (index < prefixWidgets.length) return prefixWidgets[index];
-        final rowIndex = index - prefixWidgets.length;
+        if (index < topPrefix.length) return topPrefix[index];
+        final rowIndex = index - topPrefix.length;
         if (showEmpty) {
           return Padding(
             padding: const EdgeInsets.only(top: 60),
@@ -487,16 +481,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         if (rowIndex < rows.length) {
           return _buildRow(context, l10n, rows[rowIndex], isDarkMode);
         }
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(color: _primary, strokeWidth: 2),
+        if (state.isLoadingMore && rowIndex == rows.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: _primary,
+                  strokeWidth: 2,
+                ),
+              ),
             ),
-          ),
-        );
+          );
+        }
+        final suffixIndex =
+            rowIndex - rows.length - (state.isLoadingMore ? 1 : 0);
+        return bottomSuffix[suffixIndex];
       },
     );
   }
@@ -553,6 +555,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           height: 208,
           child: PageView.builder(
             controller: _heroCtrl,
+            // PageController(viewportFraction < 1) 默认 padEnds:true，会给
+            // 第一张/最后一张卡自动叠加一圈居中留白——这才是首卡左边距一直
+            // 顶不到边的真正原因，之前每次都只调 itemBuilder 自己的 Padding，
+            // 治标不治本，这个 flag 才是不留白的根本开关
+            padEnds: false,
             itemCount: heroList.length,
             onPageChanged: (i) => setState(() => _heroPage = i),
             // 外层 ListView 本身已经统一带 16px 左右边距——这里只补卡片
@@ -1149,7 +1156,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: switch (row) {
-        _FeatureRow() => _FeatureCard(l10n: l10n),
         _HeroRow(:final tutorial) => _HeroCard(
           tutorial: tutorial,
           isDarkMode: isDarkMode,
@@ -1253,111 +1259,6 @@ class _Avatar extends StatelessWidget {
               ),
             )
           : null,
-    );
-  }
-}
-
-// 本周专题——目前是纯前端 hardcode 的展示卡，后端还没有专题相关的接口，
-// 「进入专题」先给一个"即将上线"占位，不接不存在的路由
-class _FeatureCard extends StatelessWidget {
-  final AppLocalizations l10n;
-  const _FeatureCard({required this.l10n});
-
-  int get _weekNumber {
-    final now = DateTime.now();
-    final startOfYear = DateTime(now.year, 1, 1);
-    return (now.difference(startOfYear).inDays / 7).ceil().clamp(1, 53);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              l10n.weeklyTopicBadge(_weekNumber),
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: Colors.white70,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            l10n.weeklyTopicTitle,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.weeklyTopicSummary,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.white60,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Text(
-                l10n.articlesCountWithValue(12),
-                style: const TextStyle(fontSize: 12, color: Colors.white54),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                l10n.readCountWithValue('8.4k'),
-                style: const TextStyle(fontSize: 12, color: Colors.white54),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.comingSoonStayTuned)),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    l10n.enterTopicAction,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
