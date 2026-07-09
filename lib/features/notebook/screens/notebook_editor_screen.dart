@@ -13,8 +13,14 @@ import '../../../core/utils/membership_utils.dart';
 import '../../../core/widgets/pro_gate.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../models/notebook_language.dart';
 import '../models/notebook_model.dart';
 import '../services/notebook_service.dart';
+import '../widgets/add_cell_bar.dart';
+import '../widgets/keyboard_toolbar.dart';
+import '../widgets/language_selector.dart';
+import '../widgets/notebook_topbar.dart';
+import '../widgets/snippet_bar.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -24,11 +30,38 @@ const _primary = Color(0xFF6366F1);
 // 全屏编辑页，setCode/setLanguage 灌入内容，编辑页关掉后 WebView 也随之
 // 销毁，不会有多个实例同时占着内存。
 //
-// 工具栏按钮没有用内联 onclick="ins('...')" 塞引号字符——HTML 属性定界符
-// 和 JS 字符串定界符只要选的引号种类一样就会互相截断（想插入一对双引号
-// 时尤其容易踩），改用 data-ins 属性 + addEventListener 统一分发，彻底
-// 避免这类转义问题
-const _editorHtml = r'''
+// 快捷片段栏/键盘辅助栏改成 Flutter 侧的 SnippetBar/KeyboardToolbar 之后，
+// WebView 内部不再需要自己的 #toolbar——所有插入操作统一走 window.ins()
+// 这一个 JS 桥（Flutter 用 evaluateJavascript 调用），不重复维护两套UI。
+//
+// 深浅主题不是靠 JS 运行时切换，而是 build 时把颜色值插进这份 HTML 里
+// 生成两份不同内容——WebView 的 initialData 本来就是一次性灌入，没有
+// "已经在跑的 WebView 里切主题"这个需求（切主题会整页重建），没必要
+// 用 CSS 变量 + JS toggle 这种更复杂的方案
+String _buildEditorHtml({required bool isDark}) {
+  final bg = isDark ? '#0A0A1A' : '#FAFAF8';
+  final gutterBg = isDark ? '#0A0A1A' : '#FAFAF8';
+  final gutterBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  final gutterText = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.25)';
+  final contentText = isDark ? '#E2E8F0' : '#1A1A1A';
+  final tooltipBg = isDark ? '#16162A' : '#FFFFFF';
+  final tooltipText = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.75)';
+  final loadingText = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
+  // token 配色——深色是原来那套霓虹色系；浅色换成对应的加深版本，避免
+  // 直接照搬深色那套在白底上糊成一片看不清
+  final tokKeyword = isDark ? '#818CF8' : '#4F46E5';
+  final tokString = isDark ? '#4ADE80' : '#15803D';
+  final tokComment = isDark ? '#6B7280' : '#9CA3AF';
+  final tokNumber = isDark ? '#F59E0B' : '#B45309';
+  final tokFunction = isDark ? '#60A5FA' : '#1D4ED8';
+  final tokClassName = isDark ? '#F472B6' : '#BE185D';
+  final tokOperator = isDark ? '#C084FC' : '#7E22CE';
+  final tokVariableName = isDark ? '#E2E8F0' : '#1F2937';
+  final tokTypeName = isDark ? '#34D399' : '#047857';
+  final tokBoolNull = isDark ? '#FB923C' : '#C2410C';
+  final tokPunctuation = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+
+  return '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -40,7 +73,7 @@ const _editorHtml = r'''
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: #1E1E2E;
+  background: $bg;
   font-family: 'JetBrains Mono', 'Fira Code',
     'Cascadia Code', monospace;
   overscroll-behavior: none;
@@ -50,7 +83,7 @@ body {
   height: 100vh;
   font-size: 14px;
   line-height: 1.6;
-  padding-bottom: 50px;
+  padding-bottom: 16px;
 }
 
 .cm-editor.cm-focused {
@@ -65,6 +98,7 @@ body {
 .cm-editor .cm-content {
   padding: 12px 0;
   caret-color: #6366F1;
+  color: $contentText;
 }
 
 .cm-editor .cm-activeLine {
@@ -72,9 +106,9 @@ body {
 }
 
 .cm-editor .cm-gutters {
-  background: #1E1E2E;
-  border-right: 1px solid rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.2);
+  background: $gutterBg;
+  border-right: 1px solid $gutterBorder;
+  color: $gutterText;
   min-width: 40px;
 }
 
@@ -94,7 +128,7 @@ body {
 }
 
 .cm-tooltip-autocomplete {
-  background: #2A2A3A !important;
+  background: $tooltipBg !important;
   border: 1px solid rgba(99,102,241,0.3) !important;
   border-radius: 8px !important;
   box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
@@ -103,7 +137,7 @@ body {
 
 .cm-tooltip-autocomplete > ul > li {
   padding: 5px 12px !important;
-  color: rgba(255,255,255,0.8) !important;
+  color: $tooltipText !important;
 }
 
 .cm-tooltip-autocomplete > ul > li[aria-selected] {
@@ -116,117 +150,35 @@ body {
   border-radius: 2px;
 }
 
-.tok-keyword    { color: #818CF8; font-weight: 500; }
-.tok-string     { color: #4ADE80; }
-.tok-comment    { color: #4B5563; font-style: italic; }
-.tok-number     { color: #F59E0B; }
-.tok-function   { color: #60A5FA; }
-.tok-className  { color: #F472B6; }
-.tok-operator   { color: #C084FC; }
-.tok-variableName { color: #E2E8F0; }
-.tok-typeName   { color: #34D399; }
-.tok-bool       { color: #FB923C; }
-.tok-null       { color: #FB923C; }
-.tok-regexp     { color: #4ADE80; }
-.tok-punctuation { color: rgba(255,255,255,0.4); }
+.tok-keyword    { color: $tokKeyword; font-weight: 500; }
+.tok-string     { color: $tokString; }
+.tok-comment    { color: $tokComment; font-style: italic; }
+.tok-number     { color: $tokNumber; }
+.tok-function   { color: $tokFunction; }
+.tok-className  { color: $tokClassName; }
+.tok-operator   { color: $tokOperator; }
+.tok-variableName { color: $tokVariableName; }
+.tok-typeName   { color: $tokTypeName; }
+.tok-bool       { color: $tokBoolNull; }
+.tok-null       { color: $tokBoolNull; }
+.tok-regexp     { color: $tokString; }
+.tok-punctuation { color: $tokPunctuation; }
 
 #loading {
   position: fixed;
   inset: 0;
-  background: #1E1E2E;
+  background: $bg;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255,255,255,0.4);
+  color: $loadingText;
   font-size: 13px;
   z-index: 200;
-}
-
-#toolbar {
-  position: fixed;
-  bottom: 0;
-  left: 0; right: 0;
-  background: #16162A;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  display: flex;
-  align-items: center;
-  padding: 6px 8px;
-  padding-bottom: env(safe-area-inset-bottom);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  gap: 4px;
-  z-index: 100;
-  scrollbar-width: none;
-}
-
-#toolbar::-webkit-scrollbar { display: none; }
-
-.tb-btn {
-  min-width: 36px;
-  height: 32px;
-  border-radius: 7px;
-  border: none;
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.7);
-  font-size: 13px;
-  font-family: 'JetBrains Mono', monospace;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 8px;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-  flex-shrink: 0;
-}
-
-.tb-btn:active {
-  background: rgba(99,102,241,0.3);
-  color: #fff;
-}
-
-.tb-btn.run {
-  background: #6366F1;
-  color: #fff;
-  font-weight: 600;
-  margin-left: 4px;
-}
-
-.tb-btn.run:active {
-  background: #4F46E5;
-}
-
-.tb-sep {
-  width: 1px;
-  height: 20px;
-  background: rgba(255,255,255,0.08);
-  flex-shrink: 0;
-  margin: 0 2px;
 }
 </style>
 </head>
 <body>
 <div id="editor"></div>
-<div id="toolbar">
-  <button class="tb-btn" data-ins="    ">&#8677; Tab</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" data-ins="()">( )</button>
-  <button class="tb-btn" data-ins="[]">[  ]</button>
-  <button class="tb-btn" data-ins="{}">{  }</button>
-  <button class="tb-btn" data-ins="''">'  '</button>
-  <button class="tb-btn" data-ins="&quot;&quot;">"  "</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" data-ins=":">:</button>
-  <button class="tb-btn" data-ins="=">=</button>
-  <button class="tb-btn" data-ins="->">&rarr;</button>
-  <button class="tb-btn" data-ins="#">#</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" data-ins="import ">import</button>
-  <button class="tb-btn" data-ins="def ">def</button>
-  <button class="tb-btn" data-ins="print()">print</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn run" id="run-btn">&#9654; Run</button>
-</div>
 <div id="loading">正在加载编辑器…</div>
 
 <script type="module">
@@ -239,7 +191,7 @@ import {EditorView, keymap, lineNumbers,
 import {EditorState, Compartment}
   from 'https://esm.sh/@codemirror/state@6';
 import {defaultKeymap, historyKeymap, history,
-  indentWithTab}
+  indentWithTab, cursorLineUp, cursorLineDown}
   from 'https://esm.sh/@codemirror/commands@6';
 import {python}
   from 'https://esm.sh/@codemirror/lang-python@6';
@@ -254,12 +206,20 @@ import {autocompletion, completionKeymap,
   from 'https://esm.sh/@codemirror/autocomplete@6';
 import {foldGutter, foldKeymap,
   indentOnInput, syntaxHighlighting,
-  defaultHighlightStyle, bracketMatching}
+  defaultHighlightStyle, bracketMatching,
+  StreamLanguage}
   from 'https://esm.sh/@codemirror/language@6';
 import {lintKeymap}
   from 'https://esm.sh/@codemirror/lint@6';
 import {classHighlighter}
   from 'https://esm.sh/@lezer/highlight@1';
+// R/Julia 官方没有 @codemirror/lang-* 包，用 CodeMirror 团队自己维护的
+// legacy-modes（CodeMirror 5 时代模式的移植版）通过 StreamLanguage 接入，
+// 不是拿一个不知道谁维护的三方包赌
+import {r as rMode}
+  from 'https://esm.sh/@codemirror/legacy-modes@6/mode/r';
+import {julia as juliaMode}
+  from 'https://esm.sh/@codemirror/legacy-modes@6/mode/julia';
 
 // 语言切换器
 const langConf = new Compartment();
@@ -282,7 +242,7 @@ const pythonCompletions = [
 ].map(label => ({label, type: 'keyword'}));
 
 function pythonCompletion(context) {
-  const word = context.matchBefore(/\w*/);
+  const word = context.matchBefore(/\\w*/);
   if (!word || (word.from == word.to &&
       !context.explicit)) return null;
   return {
@@ -360,6 +320,8 @@ window.setLanguage = (lang) => {
     javascript: javascript(),
     sql: sql(),
     markdown: markdown(),
+    r: StreamLanguage.define(rMode),
+    julia: StreamLanguage.define(juliaMode),
   };
   view.dispatch({
     effects: langConf.reconfigure(
@@ -368,6 +330,13 @@ window.setLanguage = (lang) => {
 };
 
 window.focusEditor = () => view.focus();
+
+// 键盘辅助栏的上下方向键——按行移动光标，不是移动选区
+window.moveCursor = (dir) => {
+  const cmd = dir < 0 ? cursorLineUp : cursorLineDown;
+  cmd(view);
+  view.focus();
+};
 
 // 工具栏插入字符——括号/引号类是"包住选区"，其余是纯文本插入
 window.ins = (text) => {
@@ -407,20 +376,6 @@ window.ins = (text) => {
   view.focus();
 };
 
-document.querySelectorAll('[data-ins]').forEach(btn => {
-  btn.addEventListener('click', () => window.ins(btn.dataset.ins));
-});
-
-window.runCode = () => {
-  const code = view.state.doc.toString();
-  if (window.flutter_inappwebview) {
-    window.flutter_inappwebview
-      .callHandler('onRunCode', code);
-  }
-};
-document.getElementById('run-btn')
-  .addEventListener('click', window.runCode);
-
 const loadingEl = document.getElementById('loading');
 setTimeout(() => {
   if (loadingEl) loadingEl.remove();
@@ -433,6 +388,106 @@ setTimeout(() => {
 </body>
 </html>
 ''';
+}
+
+// cell 输出的渲染逻辑跟 cell 列表页/单 cell 全屏编辑页共用，提成顶层函数
+// 而不是 State 的方法，两边都能调
+Widget buildCellOutput(BuildContext context, String output, String? type) {
+  switch (type) {
+    case 'latex':
+      final tex = output
+          .replaceAll(r'$$', '')
+          .replaceAll(r'\[', '')
+          .replaceAll(r'\]', '')
+          .trim();
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Math.tex(
+          tex,
+          textStyle: const TextStyle(fontSize: 16),
+          onErrorFallback: (err) => Text(
+            output,
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ),
+      );
+    case 'markdown':
+      return MarkdownBody(data: output);
+    case 'info':
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7E6),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          output,
+          style: const TextStyle(fontSize: 13, color: Color(0xFFD97706)),
+        ),
+      );
+    case 'error':
+      return Container(
+        padding: const EdgeInsets.only(left: 8),
+        decoration: const BoxDecoration(
+          border: Border(left: BorderSide(color: Color(0xFFFCA5A5), width: 2)),
+        ),
+        child: SelectableText(
+          output,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            color: Color(0xFFDC2626),
+            height: 1.5,
+          ),
+        ),
+      );
+    case 'image':
+      try {
+        final base64Data = output.contains(',') ? output.split(',').last : output;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(base64Decode(base64Data), fit: BoxFit.contain),
+        );
+      } catch (e) {
+        return Text(
+          AppLocalizations.of(context)!.chartRenderFailedWithReason('$e'),
+          style: const TextStyle(color: Colors.red),
+        );
+      }
+    case 'html':
+      return SizedBox(
+        height: 200,
+        child: InAppWebView(
+          initialData: InAppWebViewInitialData(
+            data:
+                '''
+<html>
+<head>
+<style>
+body{font-family:monospace;font-size:12px;margin:0}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #e5e5e5;padding:4px 8px;text-align:left}
+th{background:#f5f5f5;font-weight:600}
+</style>
+</head>
+<body>$output</body>
+</html>
+              ''',
+          ),
+        ),
+      );
+    default:
+      return SelectableText(
+        output,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          height: 1.6,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+      );
+  }
+}
 
 class NotebookEditorScreen extends ConsumerStatefulWidget {
   final String nbId;
@@ -532,32 +587,42 @@ setTimeout(() => {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // 打开 CodeMirror 6 全屏编辑页。所有 cell 共用同一份 _editorHtml，编辑页
+  // 打开 CodeMirror 6 全屏编辑页。所有 cell 共用同一份编辑器 HTML，编辑页
   // 关掉时 WebView 也随之销毁——不会同时有多个 WebView 实例常驻。运行
-  // 走的还是现有 _runCell（Pyodide 隐藏 WebView 那条链路），不是另起一套
-  Future<void> _openCellEditor(NotebookCell cell, String label) async {
+  // 走的还是现有 _runCell（Pyodide 隐藏 WebView 那条链路），不是另起一套。
+  // 返回值非 null 时说明用户在编辑页里点了"+代码/文本/LaTeX"，弹回来
+  // 之后接着帮它新建一个 cell 并滚过去，不用用户自己再点一次
+  Future<void> _openCellEditor(NotebookCell cell) async {
     final ctrl =
         _controllers[cell.id] ??
         (_controllers[cell.id] = TextEditingController(text: cell.code));
-    await Navigator.of(context).push(
+    final addType = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => _CodeEditorPage(
           initialCode: cell.code,
           language: cell.type,
-          cellLabel: label,
+          notebookTitle: _nb?.name ?? 'Notebook',
+          initialOutput: _outputs[cell.id],
+          initialOutputType: _outputTypes[cell.id],
           onContentChanged: (code) {
             cell.code = code;
             ctrl.text = code;
+            _scheduleSave();
+          },
+          onLanguageChanged: (lang) {
+            setState(() => cell.type = lang.cmKey);
             _scheduleSave();
           },
           onRun: (code) async {
             cell.code = code;
             ctrl.text = code;
             await _runCell(cell);
+            return (_outputs[cell.id], _outputTypes[cell.id]);
           },
         ),
       ),
     );
+    if (addType != null) _addCell(addType);
   }
 
   // 统一更新单个 cell 的输出：同步进内存态 map（驱动 UI）和 cell 字段（用于持久化）。
@@ -771,8 +836,11 @@ finally:
 ''',
       );
 
+      // pandas/matplotlib 这类重量级包 Pyodide 是首次 import 才会懒加载，
+      // 冷启动经常超过之前的 30 秒——不是这次UI重写引入的问题，是这个阈值
+      // 对重包冷加载本来就偏紧，调宽到 90 秒
       final raw = await completer.future.timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 90),
         onTimeout: () => jsonEncode([
           {'type': 'error', 'content': execTimeoutMsg},
         ]),
@@ -1581,7 +1649,7 @@ finally:
               controller: ctrl,
               readOnly: true,
               showCursor: false,
-              onTap: () => _openCellEditor(cell, badgeLabel),
+              onTap: () => _openCellEditor(cell),
               maxLines: null,
               style: TextStyle(
                 fontFamily: 'monospace',
@@ -1636,124 +1704,33 @@ finally:
     );
   }
 
-  Widget _buildOutput(String output, String? type) {
-    switch (type) {
-      case 'latex':
-        final tex = output
-            .replaceAll(r'$$', '')
-            .replaceAll(r'\[', '')
-            .replaceAll(r'\]', '')
-            .trim();
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Math.tex(
-            tex,
-            textStyle: const TextStyle(fontSize: 16),
-            onErrorFallback: (err) => Text(
-              output,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
-            ),
-          ),
-        );
-      case 'markdown':
-        return MarkdownBody(data: output);
-      case 'info':
-        return Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF7E6),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            output,
-            style: const TextStyle(fontSize: 13, color: Color(0xFFD97706)),
-          ),
-        );
-      case 'error':
-        return Container(
-          padding: const EdgeInsets.only(left: 8),
-          decoration: const BoxDecoration(
-            border: Border(
-              left: BorderSide(color: Color(0xFFFCA5A5), width: 2),
-            ),
-          ),
-          child: SelectableText(
-            output,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: Color(0xFFDC2626),
-              height: 1.5,
-            ),
-          ),
-        );
-      case 'image':
-        try {
-          final base64Data = output.contains(',')
-              ? output.split(',').last
-              : output;
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.memory(base64Decode(base64Data), fit: BoxFit.contain),
-          );
-        } catch (e) {
-          return Text(
-            AppLocalizations.of(context)!.chartRenderFailedWithReason('$e'),
-            style: const TextStyle(color: Colors.red),
-          );
-        }
-      case 'html':
-        return SizedBox(
-          height: 200,
-          child: InAppWebView(
-            initialData: InAppWebViewInitialData(
-              data:
-                  '''
-<html>
-<head>
-<style>
-body{font-family:monospace;font-size:12px;margin:0}
-table{border-collapse:collapse;width:100%}
-th,td{border:1px solid #e5e5e5;padding:4px 8px;text-align:left}
-th{background:#f5f5f5;font-weight:600}
-</style>
-</head>
-<body>$output</body>
-</html>
-              ''',
-            ),
-          ),
-        );
-      default:
-        return SelectableText(
-          output,
-          style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 12,
-            height: 1.6,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        );
-    }
-  }
+  Widget _buildOutput(String output, String? type) => buildCellOutput(context, output, type);
 }
 
 // CodeMirror 6 全屏编辑页——所有 cell 打开编辑时复用这一个 widget/WebView，
 // 不是每个 cell 各自常驻一个 WebView 实例。进页面时 setCode/setLanguage
 // 灌入内容，每次改动通过 onContentChanged 实时同步回 cell，关闭页面时
-// WebView 随路由一起销毁
+// WebView 随路由一起销毁。语言选择器/快捷片段/键盘辅助栏只在"代码"类
+// cell（python/r/julia/sql）出现——latex/markdown/html 不是这几种语言的
+// 变体，没有对应的 NotebookLanguage 值，onLanguageChanged 为 null
 class _CodeEditorPage extends StatefulWidget {
   final String initialCode;
   final String language;
-  final String cellLabel;
+  final String notebookTitle;
+  final String? initialOutput;
+  final String? initialOutputType;
   final ValueChanged<String> onContentChanged;
-  final Future<void> Function(String code) onRun;
+  final ValueChanged<NotebookLanguage>? onLanguageChanged;
+  final Future<(String?, String?)> Function(String code) onRun;
 
   const _CodeEditorPage({
     required this.initialCode,
     required this.language,
-    required this.cellLabel,
+    required this.notebookTitle,
+    required this.initialOutput,
+    required this.initialOutputType,
     required this.onContentChanged,
+    required this.onLanguageChanged,
     required this.onRun,
   });
 
@@ -1765,7 +1742,11 @@ class _CodeEditorPageState extends State<_CodeEditorPage> {
   InAppWebViewController? _webCtrl;
   bool _ready = false;
   bool _timedOut = false;
+  bool _running = false;
   Timer? _timeoutTimer;
+  late NotebookLanguage? _lang = notebookLanguageFromCellType(widget.language);
+  late String? _output = widget.initialOutput;
+  late String? _outputType = widget.initialOutputType;
 
   @override
   void initState() {
@@ -1786,137 +1767,223 @@ class _CodeEditorPageState extends State<_CodeEditorPage> {
     super.dispose();
   }
 
+  void _insert(String code) {
+    _webCtrl?.evaluateJavascript(source: 'window.ins(${jsonEncode(code)})');
+  }
+
+  void _moveCursor(int dir) {
+    _webCtrl?.evaluateJavascript(source: 'window.moveCursor($dir)');
+  }
+
+  void _onLanguageSelected(NotebookLanguage lang) {
+    setState(() => _lang = lang);
+    _webCtrl?.evaluateJavascript(
+      source: 'window.setLanguage(${jsonEncode(lang.cmKey)})',
+    );
+    widget.onLanguageChanged?.call(lang);
+  }
+
+  Future<void> _save() async {
+    final code = await _webCtrl?.evaluateJavascript(source: 'window.getCode()');
+    widget.onContentChanged((code as String?) ?? '');
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)));
+  }
+
+  Future<void> _run() async {
+    final code = await _webCtrl?.evaluateJavascript(source: 'window.getCode()');
+    final codeStr = (code as String?) ?? '';
+    widget.onContentChanged(codeStr);
+    setState(() => _running = true);
+    final (output, outputType) = await widget.onRun(codeStr);
+    if (!mounted) return;
+    setState(() {
+      _running = false;
+      _output = output;
+      _outputType = outputType;
+    });
+  }
+
+  Future<void> _addCell(String type) async {
+    if (!mounted) return;
+    Navigator.of(context).pop(type);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF0A0A1A) : const Color(0xFFFAFAF8);
+    final lang = _lang;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E2E),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF16162A),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            size: 18,
-            color: Colors.white70,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          widget.cellLabel,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      body: Stack(
-        children: [
-          InAppWebView(
-            initialData: InAppWebViewInitialData(
-              data: _editorHtml,
-              baseUrl: WebUri('https://dreamingpolar.com'),
+      backgroundColor: bg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            NotebookTopBar(
+              title: widget.notebookTitle,
+              isRunning: _running,
+              onBack: () => Navigator.pop(context),
+              onSave: _save,
+              onRunAll: _run,
             ),
-            initialSettings: InAppWebViewSettings(
-              javaScriptEnabled: true,
-              allowUniversalAccessFromFileURLs: true,
-              allowFileAccessFromFileURLs: true,
-              allowsInlineMediaPlayback: true,
-              mediaPlaybackRequiresUserGesture: false,
+            if (lang != null)
+              LanguageSelector(current: lang, onChanged: _onLanguageSelected),
+            Expanded(
+              child: Stack(
+                children: [
+                  InAppWebView(
+                    initialData: InAppWebViewInitialData(
+                      data: _buildEditorHtml(isDark: isDark),
+                      baseUrl: WebUri('https://dreamingpolar.com'),
+                    ),
+                    initialSettings: InAppWebViewSettings(
+                      javaScriptEnabled: true,
+                      allowUniversalAccessFromFileURLs: true,
+                      allowFileAccessFromFileURLs: true,
+                      allowsInlineMediaPlayback: true,
+                      mediaPlaybackRequiresUserGesture: false,
+                    ),
+                    onWebViewCreated: (ctrl) {
+                      _webCtrl = ctrl;
+                      ctrl.addJavaScriptHandler(
+                        handlerName: 'onContentChange',
+                        callback: (args) {
+                          widget.onContentChanged(
+                            args.isNotEmpty ? (args[0] as String? ?? '') : '',
+                          );
+                          return null;
+                        },
+                      );
+                      ctrl.addJavaScriptHandler(
+                        handlerName: 'editorReady',
+                        callback: (args) {
+                          _timeoutTimer?.cancel();
+                          if (!mounted) return null;
+                          setState(() {
+                            _ready = true;
+                            _timedOut = false;
+                          });
+                          ctrl.evaluateJavascript(
+                            source:
+                                'window.setLanguage(${jsonEncode(lang?.cmKey ?? widget.language)})',
+                          );
+                          ctrl.evaluateJavascript(
+                            source:
+                                'window.setCode(${jsonEncode(widget.initialCode)})',
+                          );
+                          return null;
+                        },
+                      );
+                    },
+                  ),
+                  if (!_ready)
+                    Container(
+                      color: bg,
+                      alignment: Alignment.center,
+                      child: _timedOut
+                          ? Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.wifi_off,
+                                  color: isDark ? Colors.white38 : Colors.black26,
+                                  size: 32,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  '加载较慢，请检查网络',
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white54 : Colors.black45,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() => _timedOut = false);
+                                    _armTimeout();
+                                    _webCtrl?.reload();
+                                  },
+                                  child: const Text('重试'),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const CircularProgressIndicator(color: _primary),
+                                const SizedBox(height: 12),
+                                Text(
+                                  '正在加载编辑器…',
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white54 : Colors.black45,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                ],
+              ),
             ),
-            onWebViewCreated: (ctrl) {
-              _webCtrl = ctrl;
-              ctrl.addJavaScriptHandler(
-                handlerName: 'onContentChange',
-                callback: (args) {
-                  widget.onContentChanged(
-                    args.isNotEmpty ? (args[0] as String? ?? '') : '',
-                  );
-                  return null;
-                },
-              );
-              ctrl.addJavaScriptHandler(
-                handlerName: 'onRunCode',
-                callback: (args) async {
-                  final code = args.isNotEmpty
-                      ? (args[0] as String? ?? '')
-                      : '';
-                  final messenger = ScaffoldMessenger.of(context);
-                  await widget.onRun(code);
-                  if (mounted) {
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('已运行，返回可查看结果'),
-                        duration: Duration(seconds: 2),
+            if (_output != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 140),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : const Color(0xFFF0FDF4),
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : const Color(0xFFE5E5E5),
+                        width: 0.5,
                       ),
-                    );
-                  }
-                  return null;
-                },
-              );
-              ctrl.addJavaScriptHandler(
-                handlerName: 'editorReady',
-                callback: (args) {
-                  _timeoutTimer?.cancel();
-                  if (!mounted) return null;
-                  setState(() {
-                    _ready = true;
-                    _timedOut = false;
-                  });
-                  ctrl.evaluateJavascript(
-                    source:
-                        'window.setLanguage(${jsonEncode(widget.language)})',
-                  );
-                  ctrl.evaluateJavascript(
-                    source: 'window.setCode(${jsonEncode(widget.initialCode)})',
-                  );
-                  return null;
-                },
-              );
-            },
-          ),
-          if (!_ready)
-            Container(
-              color: const Color(0xFF1E1E2E),
-              alignment: Alignment.center,
-              child: _timedOut
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.wifi_off,
-                          color: Colors.white38,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          '加载较慢，请检查网络',
-                          style: TextStyle(color: Colors.white54, fontSize: 13),
-                        ),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () {
-                            setState(() => _timedOut = false);
-                            _armTimeout();
-                            _webCtrl?.reload();
-                          },
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    )
-                  : const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: _primary),
-                        SizedBox(height: 12),
                         Text(
-                          '正在加载编辑器…',
-                          style: TextStyle(color: Colors.white54, fontSize: 13),
+                          'OUTPUT',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: .08,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.3)
+                                : const Color(0xFFAAAAAA),
+                          ),
                         ),
+                        const SizedBox(height: 6),
+                        buildCellOutput(context, _output!, _outputType),
                       ],
                     ),
+                  ),
+                ),
+              ),
+            if (lang != null)
+              SnippetBar(language: lang, onInsert: _insert),
+            KeyboardToolbar(
+              onInsert: _insert,
+              onMoveUp: () => _moveCursor(-1),
+              onMoveDown: () => _moveCursor(1),
             ),
-        ],
+            AddCellBar(
+              onAddCode: () => _addCell(widget.language),
+              onAddText: () => _addCell('markdown'),
+              onAddLatex: () => _addCell('latex'),
+            ),
+          ],
+        ),
       ),
     );
   }

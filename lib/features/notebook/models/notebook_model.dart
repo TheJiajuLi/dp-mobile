@@ -12,7 +12,7 @@ enum CellLanguage {
 
 class NotebookCell {
   final String id;
-  final String type; // python / sql / javascript / latex / markdown / r / julia / html
+  String type; // python / sql / javascript / latex / markdown / r / julia / html
   String code;
   String? output;
   String? outputType; // text / error / image / latex / html / markdown / info
