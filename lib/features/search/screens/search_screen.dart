@@ -285,43 +285,36 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: _isDark
-                    ? Colors.white.withValues(alpha: 0.07)
-                    : const Color(0xFFF5F5F2),
-                borderRadius: BorderRadius.circular(10),
+            child: TextField(
+              controller: _ctrl,
+              focusNode: _focusNode,
+              decoration: InputDecoration(
+                hintText: l10n.searchHint,
+                hintStyle: TextStyle(fontSize: 14, color: _muted),
+                prefixIcon: Icon(Icons.search, size: 20, color: _muted),
+                suffixIcon: _ctrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.close, size: 18, color: _muted),
+                        onPressed: () {
+                          _ctrl.clear();
+                          setState(() {
+                            _currentQuery = '';
+                            _showSuggestions = false;
+                            _suggestions = [];
+                          });
+                          _focusNode.requestFocus();
+                        },
+                      )
+                    : null,
+                filled: false,
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
-              child: TextField(
-                controller: _ctrl,
-                focusNode: _focusNode,
-                decoration: InputDecoration(
-                  hintText: l10n.searchHint,
-                  hintStyle: TextStyle(fontSize: 14, color: _muted),
-                  prefixIcon: Icon(Icons.search, size: 20, color: _muted),
-                  suffixIcon: _ctrl.text.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(Icons.close, size: 18, color: _muted),
-                          onPressed: () {
-                            _ctrl.clear();
-                            setState(() {
-                              _currentQuery = '';
-                              _showSuggestions = false;
-                              _suggestions = [];
-                            });
-                            _focusNode.requestFocus();
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-                style: TextStyle(fontSize: 14, color: _ink),
-                onChanged: _onQueryChanged,
-                onSubmitted: _search,
-                textInputAction: TextInputAction.search,
-              ),
+              style: TextStyle(fontSize: 14, color: _ink),
+              onChanged: _onQueryChanged,
+              onSubmitted: _search,
+              textInputAction: TextInputAction.search,
             ),
           ),
           const SizedBox(width: 10),

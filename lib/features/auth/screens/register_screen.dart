@@ -254,14 +254,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 16),
           Text(
             _slogan ?? l10n.appSlogan,
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           const SizedBox(height: 28),
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
               l10n.createAccount,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: _ink,
+              ),
             ),
           ),
           const SizedBox(height: 4),
@@ -269,7 +273,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             alignment: Alignment.centerLeft,
             child: Text(
               '加入极梦，开始你的创作之旅',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
           ),
           const SizedBox(height: 24),
@@ -277,10 +281,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             alignment: Alignment.centerLeft,
             child: Text(
               '邮箱地址',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
+                color: _ink,
               ),
             ),
           ),
@@ -328,7 +332,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               style: TextStyle(
                 fontSize: 12,
                 color: !showValidation
-                    ? Colors.grey[500]
+                    ? Colors.grey[600]
                     : _emailValid
                     ? const Color(0xFF16A34A)
                     : const Color(0xFFDC2626),
@@ -367,7 +371,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
                   l10n.alreadyHaveAccount,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ),
               Expanded(child: Divider(color: Colors.grey[300])),
@@ -397,7 +401,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             children: [
               Text(
                 '继续即表示同意 ',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               GestureDetector(
                 onTap: () => context.push('/settings/terms'),
@@ -406,7 +410,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   style: const TextStyle(fontSize: 12, color: _primary),
                 ),
               ),
-              Text(' 与 ', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(' 与 ', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
               GestureDetector(
                 onTap: () => context.push('/settings/privacy-policy'),
                 child: Text(
@@ -438,12 +442,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 16),
           const Text(
             '有邀请码吗？',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _ink),
           ),
           const SizedBox(height: 6),
           Text(
             '邀请码可解锁创始会员专属权益',
-            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
           ),
           const SizedBox(height: 20),
           Container(
@@ -507,7 +511,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
+                color: _ink,
               ),
             ),
           ),
@@ -595,7 +599,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ? const Color(0xFF16A34A)
                     : _codeError != null
                     ? const Color(0xFFDC2626)
-                    : Colors.grey[500],
+                    : Colors.grey[600],
               ),
             ),
           ),
@@ -629,7 +633,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               onTap: _skipInviteCode,
               child: RichText(
                 text: TextSpan(
-                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   children: const [
                     TextSpan(text: '没有邀请码？ '),
                     TextSpan(
@@ -682,7 +686,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 16),
           const Text(
             '设置账号信息',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _ink),
           ),
           if (_isFoundingCreator) ...[
             const SizedBox(height: 6),
@@ -710,7 +714,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
+                color: _ink,
               ),
             ),
           ),
@@ -748,7 +752,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
+                color: _ink,
               ),
             ),
           ),
@@ -917,13 +921,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 20),
           Text(
             _isFoundingCreator ? '欢迎加入，元老！' : '注册成功',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: _ink,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             _isFoundingCreator ? '你是极梦最早的一批创作者\n感谢你的信任与支持' : '欢迎加入极梦，开始你的创作之旅',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey[500], height: 1.5),
+            style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5),
           ),
           if (_isFoundingCreator) ...[
             const SizedBox(height: 20),
