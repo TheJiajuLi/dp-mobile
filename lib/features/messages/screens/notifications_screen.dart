@@ -67,7 +67,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   }
 
   void _acceptInvite(Map<String, dynamic> inv) {
-    context.push('/publish');
+    context.push(
+      '/answer-question',
+      extra: {
+        'questionId': inv['question_id'],
+        'questionText': inv['question_text'],
+        'domain': inv['domain'],
+      },
+    );
     _respondInvite(inv, 'accept');
   }
 
@@ -328,6 +335,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     return Container(
       color: n.isRead ? null : kMessagesPrimary.withValues(alpha: 0.07),
       child: ListTile(
+        // answer_posted 通知复用 tutorialId 这个字段传 questionId（后端
+        // createAnswer 目前发通知时还没传这个参数，没传的话这里点了也
+        // 没地方可跳，是待后端补的一环，见任务小结）
+        onTap: n.type == 'answer_posted' && n.tutorialId != null
+            ? () => context.push('/questions/${n.tutorialId}')
+            : null,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 6,

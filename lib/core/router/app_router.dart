@@ -18,7 +18,9 @@ import '../../features/creator/screens/columns_screen.dart';
 import '../../features/creator/screens/creator_center_screen.dart';
 import '../../features/creator/screens/works_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/jisuo/screens/answer_question_screen.dart';
 import '../../features/jisuo/screens/jisuo_screen.dart';
+import '../../features/jisuo/screens/question_detail_screen.dart';
 import '../../features/messages/models/conversation_model.dart';
 import '../../features/messages/screens/chat_screen.dart';
 import '../../features/messages/screens/conversation_list_screen.dart';
@@ -133,6 +135,24 @@ final appRouter = GoRouter(
     ),
     // ARIA 不再是底部导航的一个 tab，改由首页九宫格 push 进来
     GoRoute(path: '/aria', builder: (context, state) => const AriaScreen()),
+    GoRoute(
+      path: '/answer-question',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return AnswerQuestionScreen(
+          questionId: extra['questionId']?.toString() ?? '',
+          questionText: extra['questionText']?.toString() ?? '',
+          domain: extra['domain']?.toString() ?? '',
+        );
+      },
+    ),
+    GoRoute(
+      path: '/questions/:id',
+      builder: (context, state) => QuestionDetailScreen(
+        questionId: state.pathParameters['id']!,
+        initialQuestion: state.extra as Map<String, dynamic>?,
+      ),
+    ),
     GoRoute(
       path: '/edit-profile',
       builder: (context, state) => const EditProfileScreen(),

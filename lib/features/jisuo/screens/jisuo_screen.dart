@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../messages/utils/message_avatar.dart';
 
 // 提问领域配色——提问 Sheet 的领域选择跟热门提问卡片的领域标签共用同一套
 Color jisuoDomainColor(String d) => switch (d) {
@@ -73,7 +74,11 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     });
   }
 
-  Future<int> _postQuestion(String text, String domain, bool anon) async {
+  Future<Map<String, dynamic>> _postQuestion(
+    String text,
+    String domain,
+    bool anon,
+  ) async {
     final res = await ref.read(apiClientProvider).post(
       '/auth/questions',
       data: {'text': text, 'domain': domain, 'isAnonymous': anon},
@@ -82,7 +87,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       throw Exception(res.message ?? '发布失败，请稍后重试');
     }
     unawaited(_loadHotQuestions());
-    return (res.data['invitedCount'] as num?)?.toInt() ?? 0;
+    return Map<String, dynamic>.from(res.data as Map);
   }
 
   @override
@@ -511,7 +516,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     final avatarCount = answerCount < 3 ? answerCount : 3;
 
     return GestureDetector(
-      onTap: () => _placeholderSnack('问题详情即将上线'),
+      onTap: () => context.push('/questions/${q['id']}', extra: q),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
@@ -761,7 +766,7 @@ class _AuroraIconPainter extends CustomPainter {
 }
 
 class _AskSheet extends StatefulWidget {
-  final Future<int> Function(String text, String domain, bool anon) onPost;
+  final Future<Map<String, dynamic>> Function(String text, String domain, bool anon) onPost;
   const _AskSheet({required this.onPost});
 
   @override
@@ -775,6 +780,7 @@ class _AskSheetState extends State<_AskSheet> {
   bool _posting = false;
   bool _done = false;
   int _invitedCount = 0;
+  List<Map<String, dynamic>> _experts = [];
 
   @override
   void dispose() {
@@ -788,12 +794,15 @@ class _AskSheetState extends State<_AskSheet> {
     if (_ctrl.text.trim().length < 10 || _domain == null) return;
     setState(() => _posting = true);
     try {
-      final invitedCount = await widget.onPost(_ctrl.text.trim(), _domain!, _anon);
+      final result = await widget.onPost(_ctrl.text.trim(), _domain!, _anon);
       if (!mounted) return;
       setState(() {
         _posting = false;
         _done = true;
-        _invitedCount = invitedCount;
+        _invitedCount = (result['invitedCount'] as num?)?.toInt() ?? 0;
+        _experts = ((result['experts'] as List?) ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
       });
     } catch (e) {
       if (!mounted) return;
@@ -995,6 +1004,61 @@ class _AskSheetState extends State<_AskSheet> {
     );
   }
 
+  Widget _expertRow(Map<String, dynamic> e) {
+    final username = e['username'] as String? ?? '';
+    final articleCount = (e['articleCount'] as num?)?.toInt() ?? 0;
+    final isAurora = e['isAuroraCreator'] == true;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          buildMessageAvatar(e['avatar'] as String?, username, radius: 12),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    username,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                if (isAurora) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Text(
+                      '★ 极光',
+                      style: TextStyle(
+                        fontSize: 8,
+                        color: Color(0xFFF59E0B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 6),
+                Text(
+                  '$articleCount篇相关内容',
+                  style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSuccess() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
@@ -1040,21 +1104,27 @@ class _AskSheetState extends State<_AskSheet> {
                   width: 0.5,
                 ),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '⚡',
-                    style: TextStyle(fontSize: 14),
+                  Row(
+                    children: [
+                      const Text('⚡', style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 8),
+                      Text(
+                        '已邀请 $_invitedCount 位领域创作者',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '已邀请 $_invitedCount 位领域创作者',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFF59E0B),
-                    ),
-                  ),
+                  if (_experts.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ..._experts.map((e) => _expertRow(e)),
+                  ],
                 ],
               ),
             ),
