@@ -194,9 +194,12 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         child: Column(
           children: [
             _header(),
-            _statsOverview(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _statsRow(),
+            ),
             Container(
-              color: Colors.white,
+              color: const Color(0xFFFAFAF8),
               child: TabBar(
                 controller: _tabCtrl,
                 isScrollable: true,
@@ -225,30 +228,16 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
 
   Widget _header() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      color: const Color(0xFFFAFAF8),
       child: Row(
         children: [
           GestureDetector(
             onTap: () => context.pop(),
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.arrow_back,
-                size: 17,
-                color: Colors.white,
-              ),
+            child: const Icon(
+              Icons.arrow_back,
+              size: 20,
+              color: Color(0xFF1A1A1A),
             ),
           ),
           const SizedBox(width: 12),
@@ -258,7 +247,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: Color(0xFF1A1A1A),
               ),
             ),
           ),
@@ -270,34 +259,26 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
                 _query = '';
               }
             }),
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                _searching ? Icons.close : Icons.search,
-                size: 17,
-                color: Colors.white,
-              ),
+            child: Icon(
+              _searching ? Icons.close : Icons.search,
+              size: 20,
+              color: const Color(0xFF555555),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 14),
           GestureDetector(
             onTap: () => ScaffoldMessenger.of(
               context,
             ).showSnackBar(const SnackBar(content: Text('批量操作即将上线，敬请期待'))),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
+                color: const Color(0xFFF5F5F7),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 '批量',
-                style: TextStyle(fontSize: 12, color: Colors.white),
+                style: TextStyle(fontSize: 12, color: Color(0xFF1A1A1A)),
               ),
             ),
           ),
@@ -306,58 +287,86 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     );
   }
 
+  // 跟专栏管理的统计卡片同一套视觉语言（图标胶囊+粗体数值+灰色标签）。
   // 参考图里数据概览是阅读量/点赞数/收藏数/评论数四个格子，但收藏数/
   // 评论数目前只有单篇详情接口（GET /auth/tutorials/:id）会返回，这个
   // 列表页调的 listTutorials 批量接口没有带这两个字段——总览要汇总的是
   // "当前这一批作品"的整体数据，不能为了拼出这两个数字挨篇再调一次详情
-  // 接口，所以先只做阅读量/点赞数这两个真实能拿到的
-  Widget _statsOverview() {
-    Widget stat(IconData icon, String value, String growth) {
+  // 接口，所以换成作品数量/已发布/阅读量/点赞数这四个真实能拿到的
+  Widget _statsRow() {
+    Widget stat(IconData icon, Color color, String value, String label) {
       return Expanded(
-        child: Column(
-          children: [
-            Icon(icon, size: 18, color: const Color(0xFF999999)),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 15, color: color),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: Color(0xFF999999),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '数据概览',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1A1A1A),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              stat(
-                Icons.remove_red_eye_outlined,
-                _formatCount(_totalViews),
-                '',
-              ),
-              stat(Icons.favorite_border, _formatCount(_totalLikes), ''),
-            ],
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        stat(
+          Icons.grid_view_outlined,
+          _primary,
+          '${_allWorks.length}',
+          '作品数量',
+        ),
+        const SizedBox(width: 8),
+        stat(
+          Icons.check_circle_outline,
+          const Color(0xFF16A34A),
+          '${_lists[_WorkTab.published]?.length ?? 0}',
+          '已发布',
+        ),
+        const SizedBox(width: 8),
+        stat(
+          Icons.remove_red_eye_outlined,
+          const Color(0xFFD97706),
+          _formatCount(_totalViews),
+          '总阅读量',
+        ),
+        const SizedBox(width: 8),
+        stat(
+          Icons.favorite_border,
+          const Color(0xFFDC2626),
+          _formatCount(_totalLikes),
+          '总点赞数',
+        ),
+      ],
     );
   }
 

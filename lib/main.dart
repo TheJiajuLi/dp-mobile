@@ -31,12 +31,12 @@ Future<void> main() async {
 
   // /auth/refresh 认的是登录时后端下发的 dp_refresh HttpOnly cookie，必须
   // 落盘（PersistCookieJar）才能在 App 被系统整个杀掉重启后依然有效——
-  // 只是"划走切到后台但进程没被杀"的话，内存态的 cookie 本来就不会丢
-  final docsDir = await getApplicationDocumentsDirectory();
-  final cookieJar = PersistCookieJar(
-    ignoreExpires: false,
-    storage: FileStorage('${docsDir.path}/.cookies/'),
-  );
+  // 只是"划走切到后台但进程没被杀"的话，内存态的 cookie 本来就不会丢。
+  // getApplicationDocumentsDirectory() 是个平台 channel 调用，冷启动时
+  // await 它会直接卡住 runApp()、拖慢启动页出现的时间——用
+  // _DeferredCookieJar 包一层同步喂给 Dio，真正的 PersistCookieJar 在
+  // 后台异步建好后再生效，不阻塞首帧
+  final cookieJar = _DeferredCookieJar(_buildPersistentCookieJar());
 
   // Runner 这个 target 只跑 iPhone 版——iPad 版是完全独立的 RunnerHD
   // target（入口是 lib/hd/main_hd.dart），两边互不相关，main.dart 不需要
@@ -51,6 +51,38 @@ Future<void> main() async {
       child: const MyApp(),
     ),
   );
+}
+
+Future<PersistCookieJar> _buildPersistentCookieJar() async {
+  final docsDir = await getApplicationDocumentsDirectory();
+  return PersistCookieJar(
+    ignoreExpires: false,
+    storage: FileStorage('${docsDir.path}/.cookies/'),
+  );
+}
+
+class _DeferredCookieJar implements CookieJar {
+  _DeferredCookieJar(this._ready);
+
+  final Future<CookieJar> _ready;
+
+  @override
+  bool get ignoreExpires => false;
+
+  @override
+  Future<void> saveFromResponse(Uri uri, List<Cookie> cookies) async =>
+      (await _ready).saveFromResponse(uri, cookies);
+
+  @override
+  Future<List<Cookie>> loadForRequest(Uri uri) async =>
+      (await _ready).loadForRequest(uri);
+
+  @override
+  Future<void> deleteAll() async => (await _ready).deleteAll();
+
+  @override
+  Future<void> delete(Uri uri, [bool withDomainSharedCookie = false]) async =>
+      (await _ready).delete(uri, withDomainSharedCookie);
 }
 
 class MyApp extends ConsumerStatefulWidget {

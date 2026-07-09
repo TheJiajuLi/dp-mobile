@@ -179,7 +179,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
   Widget _header() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      color: Colors.white,
+      color: const Color(0xFFFAFAF8),
       child: Row(
         children: [
           GestureDetector(
@@ -262,7 +262,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     }
 
     return Container(
-      color: Colors.white,
+      color: const Color(0xFFFAFAF8),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(children: [tab('我的专栏', 0), tab('收藏的专栏', 1)]),
     );

@@ -438,10 +438,12 @@ class ProfileHeaderWidget extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildStatsRow(context, l10n),
-                if (creationStreak > 0) ...[
-                  const SizedBox(height: 14),
-                  _buildStreakCard(context, l10n),
+                if (isSelfView) ...[
+                  _buildStatsRow(context, l10n),
+                  if (creationStreak > 0) ...[
+                    const SizedBox(height: 14),
+                    _buildStreakCard(context, l10n),
+                  ],
                 ],
                 // 给下面圆角"卡片沿"留出空间——内容到这里为止，圆角沿贴在
                 // 正下方，不会互相压着

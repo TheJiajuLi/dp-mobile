@@ -278,43 +278,59 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        border: Border(bottom: BorderSide(color: _border, width: 0.5)),
-      ),
+      color: _bg,
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: _ctrl,
-              focusNode: _focusNode,
-              decoration: InputDecoration(
-                hintText: l10n.searchHint,
-                hintStyle: TextStyle(fontSize: 14, color: _muted),
-                prefixIcon: Icon(Icons.search, size: 20, color: _muted),
-                suffixIcon: _ctrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.close, size: 18, color: _muted),
-                        onPressed: () {
-                          _ctrl.clear();
-                          setState(() {
-                            _currentQuery = '';
-                            _showSuggestions = false;
-                            _suggestions = [];
-                          });
-                          _focusNode.requestFocus();
-                        },
-                      )
-                    : null,
-                filled: false,
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            child: Container(
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8E8ED),
+                borderRadius: BorderRadius.circular(19),
               ),
-              style: TextStyle(fontSize: 14, color: _ink),
-              onChanged: _onQueryChanged,
-              onSubmitted: _search,
-              textInputAction: TextInputAction.search,
+              child: TextField(
+                controller: _ctrl,
+                focusNode: _focusNode,
+                decoration: InputDecoration(
+                  hintText: l10n.searchHint,
+                  hintStyle: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 20,
+                    color: Colors.grey[600],
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 20,
+                  ),
+                  suffixIcon: _ctrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.close,
+                            size: 18,
+                            color: Colors.grey[600],
+                          ),
+                          onPressed: () {
+                            _ctrl.clear();
+                            setState(() {
+                              _currentQuery = '';
+                              _showSuggestions = false;
+                              _suggestions = [];
+                            });
+                            _focusNode.requestFocus();
+                          },
+                        )
+                      : null,
+                  filled: false,
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                ),
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+                onChanged: _onQueryChanged,
+                onSubmitted: _search,
+                textInputAction: TextInputAction.search,
+              ),
             ),
           ),
           const SizedBox(width: 10),

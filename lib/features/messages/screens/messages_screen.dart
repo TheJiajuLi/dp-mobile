@@ -776,7 +776,7 @@ class _PreviewCard extends StatelessWidget {
               ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(children: rows),
+      child: Material(color: Colors.transparent, child: Column(children: rows)),
     );
   }
 }
