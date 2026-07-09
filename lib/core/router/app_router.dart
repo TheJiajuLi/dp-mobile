@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/aria/screens/aria_screen.dart';
+import '../../features/aurora/screens/aurora_progress_screen.dart';
 import '../../features/auth/auth_service.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
@@ -93,6 +94,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/creator/aurora',
       builder: (context, state) => const AuroraScreen(),
+    ),
+    // 已经是极光创作者之后查看"本月续期进度"用这个——跟上面 /creator/
+    // aurora（还没入选时的申请门槛/宣传页）是两个不同阶段的页面，不要
+    // 合并成一个，语义不一样
+    GoRoute(
+      path: '/aurora/progress',
+      builder: (context, state) => const AuroraProgressScreen(),
     ),
     GoRoute(
       path: '/search',

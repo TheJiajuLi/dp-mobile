@@ -39,6 +39,10 @@ class UserProfile {
   // 元老创作者标识——后端还没有这个字段，先跟 occupation 一样走
   // "本地/恒为false，等后端上线直接生效"的过渡套路
   final bool isFoundingCreator;
+  // 极光创作者——达标（月度活跃满足任意3项）自动获得。实测确认
+  // （2026-07-09）GET /auth/users/profile/:identifier 已经把
+  // is_aurora_creator 加进 SELECT 列表了，不是过渡期占位字段
+  final bool isAuroraCreator;
 
   UserProfile({
     required this.id,
@@ -61,6 +65,7 @@ class UserProfile {
     this.membership = 'free',
     this.occupation,
     this.isFoundingCreator = false,
+    this.isAuroraCreator = false,
   });
 
   UserProfile copyWith({String? avatar, List<String>? tags}) => UserProfile(
@@ -84,6 +89,7 @@ class UserProfile {
     membership: membership,
     occupation: occupation,
     isFoundingCreator: isFoundingCreator,
+    isAuroraCreator: isAuroraCreator,
   );
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -108,5 +114,7 @@ class UserProfile {
     occupation: j['occupation']?.toString(),
     isFoundingCreator:
         j['is_founding_creator'] == true || j['is_founding_creator'] == 1,
+    isAuroraCreator:
+        j['is_aurora_creator'] == true || j['is_aurora_creator'] == 1,
   );
 }

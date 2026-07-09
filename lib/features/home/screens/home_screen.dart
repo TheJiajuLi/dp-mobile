@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -17,28 +16,6 @@ import '../../community/community_provider.dart';
 import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
 import '../../notebook/services/notebook_service.dart';
 import '../providers/home_feed_provider.dart';
-
-// 发现页那套 tag（跟首页自己的分类 homeFeedCategories 是两套不同的
-// 词表）——热门话题横滑胶囊、推荐关注卡片都靠它筛 communityProvider
-// 的数据，跟发现页原来用的是同一份
-const _discoverTags = [
-  'Python',
-  '数据分析',
-  '机器学习',
-  '可视化',
-  'LaTeX',
-  '统计学',
-  '数学建模',
-];
-
-String _discoverTagLabel(AppLocalizations l10n, String tag) => switch (tag) {
-  '数据分析' => l10n.tagDataAnalysis,
-  '机器学习' => l10n.tagMachineLearning,
-  '可视化' => l10n.tagVisualization,
-  '统计学' => l10n.tagStatistics,
-  '数学建模' => l10n.tagMathModeling,
-  _ => tag,
-};
 
 const _primary = Color(0xFF6366F1);
 const _ink = Color(0xFF1A1A1A);
@@ -113,11 +90,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   List<TutorialModel>? _shuffleSeed;
   String? _shuffleCategory;
 
-  // 发现页搬过来的顶部板块用的状态——PageController/关注按钮的乐观本地
-  // 状态，跟发现页原来那份是同一套逻辑
+  // 发现页搬过来的大卡轮播用的状态
   final _heroCtrl = PageController(viewportFraction: 0.88);
   int _heroPage = 0;
-  final Set<String> _followingIds = {};
 
   // 首页+发现合并之后这一页同时喂两个数据源（homeFeedProvider/
   // communityProvider），定时和回前台刷新都要两个一起刷，不然会出现
@@ -156,26 +131,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _refreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  Future<void> _toggleFollow(String? userId) async {
-    if (userId == null || userId.isEmpty) return;
-    final api = ref.read(apiClientProvider);
-    final following = _followingIds.contains(userId);
-    final res = following
-        ? await api.delete('/auth/users/$userId/follow')
-        : await api.post('/auth/users/$userId/follow');
-    if (!mounted) return;
-    if (res.success) {
-      setState(() {
-        following ? _followingIds.remove(userId) : _followingIds.add(userId);
-      });
-    } else {
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
-      );
-    }
   }
 
   Future<void> _loadRecentNotebooks() async {
@@ -503,47 +458,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // 原发现页顶部板块（大卡轮播/热门话题/推荐关注/今日热度榜）搬到首页
-  // 顶部——数据源还是 communityProvider，跟首页自己的 homeFeedProvider
-  // 完全独立，各自请求各自的。搜索栏（首页头部已经有）和分类tab（首页
-  // 自己的分类跟这套tag是两个词表，两条tab摞一起会很怪）不搬，只搬
-  // 这四段
+  // 原发现页顶部板块只留大卡轮播——热门话题/推荐关注/为你推荐三段挪去
+  // 搜索页空状态了（search_screen.dart），跟"最近搜索/换门搜索"放一起
+  // 更合适：那三段本质是"你可能感兴趣的内容/人"，跟搜索场景比首页信息流
+  // 场景更贴，也让首页顶部不用一次性铺这么多板块
   List<Widget> _buildDiscoverSections(
     BuildContext context,
     AppLocalizations l10n,
     CommunityState discoverState,
   ) {
-    final list = discoverState.filtered;
-    final heroList = list.take(5).toList();
-    final rankList = ([...list]..sort((a, b) => b.views.compareTo(a.views)))
-        .take(5)
-        .toList();
-    final seenAuthors = <String>{};
-    final suggestedAuthors = <TutorialModel>[];
-    for (final t in discoverState.tutorials) {
-      if (t.username.isEmpty || !seenAuthors.add(t.username)) continue;
-      suggestedAuthors.add(t);
-      if (suggestedAuthors.length >= 8) break;
-    }
+    final heroList = discoverState.filtered.take(5).toList();
 
     return [
       if (heroList.isNotEmpty) ...[
         _discoverHeroCarousel(heroList),
         const SizedBox(height: 16),
-      ],
-      _discoverHotTopics(context, l10n),
-      const SizedBox(height: 8),
-      if (suggestedAuthors.isNotEmpty) ...[
-        const _SectionHeader(title: '推荐关注'),
-        const SizedBox(height: 10),
-        _discoverSuggestedFollow(context, suggestedAuthors),
-        const SizedBox(height: 8),
-      ],
-      if (rankList.isNotEmpty) ...[
-        const _SectionHeader(title: '为你推荐'),
-        const SizedBox(height: 10),
-        _discoverNewsRanking(context, rankList),
-        const SizedBox(height: 20),
       ],
     ];
   }
@@ -722,224 +651,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           end: Alignment.bottomRight,
           colors: [base.withValues(alpha: 0.9), base.withValues(alpha: 0.55)],
         ),
-      ),
-    );
-  }
-
-  Widget _discoverHotTopics(BuildContext context, AppLocalizations l10n) {
-    return SizedBox(
-      height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _discoverTags.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final tag = _discoverTags[index];
-          return GestureDetector(
-            onTap: () => ref.read(communityProvider.notifier).setTag(tag),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(17),
-                border: Border.all(
-                  color: Theme.of(context).dividerColor,
-                  width: 0.5,
-                ),
-              ),
-              child: Text(
-                '# ${_discoverTagLabel(l10n, tag)}',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).textTheme.bodySmall?.color,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _discoverSuggestedFollow(
-    BuildContext context,
-    List<TutorialModel> authors,
-  ) {
-    return SizedBox(
-      height: 156,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: authors.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final t = authors[index];
-          final following = _followingIds.contains(t.userId);
-          final category = topicCategoryLabelFor(t.tags);
-          return Container(
-            width: 130,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Theme.of(context).dividerColor,
-                width: 0.5,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: t.username.isEmpty
-                      ? null
-                      : () => context.push('/users/${t.username}'),
-                  child: _AuthorAvatar(
-                    avatar: t.avatar,
-                    username: t.username,
-                    isFoundingCreator: t.isFoundingCreator,
-                    radius: 20,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t.username,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (category != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    category,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  height: 27,
-                  child: OutlinedButton(
-                    onPressed: () => _toggleFollow(t.userId),
-                    style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      backgroundColor: following ? null : _primary,
-                      side: BorderSide(
-                        color: following
-                            ? Theme.of(context).dividerColor
-                            : _primary,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                    ),
-                    child: Text(
-                      following ? '已关注' : '关注',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: following
-                            ? Theme.of(context).textTheme.bodySmall?.color
-                            : Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _discoverNewsRanking(
-    BuildContext context,
-    List<TutorialModel> rankList,
-  ) {
-    const rankColors = [
-      Color(0xFFF43F5E),
-      Color(0xFFF59E0B),
-      Color(0xFF10B981),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.local_fire_department,
-                size: 17,
-                color: Color(0xFFF59E0B),
-              ),
-              SizedBox(width: 6),
-              Text(
-                '今日热度榜',
-                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ...List.generate(rankList.length, (index) {
-            final t = rankList[index];
-            return GestureDetector(
-              onTap: () => _openTutorial(context, t),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 18,
-                      child: Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: index < 3
-                              ? rankColors[index]
-                              : Theme.of(context).textTheme.bodySmall?.color,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        t.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${t.views}',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Theme.of(context).textTheme.bodySmall?.color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
       ),
     );
   }

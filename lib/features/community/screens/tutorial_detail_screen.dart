@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/topic_badge.dart';
@@ -33,6 +34,8 @@ class TutorialComment {
   // 元老创作者标识——后端还没有这个字段，恒为 false，等后端在
   // 评论接口的 SELECT 里加上 is_founding_creator 直接生效
   final bool isFoundingCreator;
+  // 极光创作者标识——评论接口的 SELECT 已经加上 is_aurora_creator 了
+  final bool isAuroraCreator;
 
   TutorialComment({
     required this.id,
@@ -45,6 +48,7 @@ class TutorialComment {
     this.likes = 0,
     this.replies = const [],
     this.isFoundingCreator = false,
+    this.isAuroraCreator = false,
   });
 
   factory TutorialComment.fromJson(Map<String, dynamic> j) {
@@ -60,6 +64,8 @@ class TutorialComment {
       likes: (j['likes'] as num?)?.toInt() ?? 0,
       isFoundingCreator:
           j['is_founding_creator'] == true || j['is_founding_creator'] == 1,
+      isAuroraCreator:
+          j['is_aurora_creator'] == true || j['is_aurora_creator'] == 1,
       replies: repliesRaw
           .map(
             (r) =>
@@ -372,11 +378,16 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     String username, {
     double radius = 18,
     bool isFoundingCreator = false,
+    bool isAuroraCreator = false,
   }) {
-    return FoundingAvatarRing(
-      isFoundingCreator: isFoundingCreator,
+    return AuroraAvatarRing(
+      isAuroraCreator: isAuroraCreator,
       size: radius * 2,
-      child: _plainAvatar(avatar, username, radius: radius),
+      child: FoundingAvatarRing(
+        isFoundingCreator: isFoundingCreator,
+        size: radius * 2,
+        child: _plainAvatar(avatar, username, radius: radius),
+      ),
     );
   }
 
@@ -439,6 +450,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               c.username,
               radius: isReply ? 14 : 18,
               isFoundingCreator: c.isFoundingCreator,
+              isAuroraCreator: c.isAuroraCreator,
             ),
           ),
           const SizedBox(width: 10),
@@ -456,6 +468,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                       ),
                     ),
                     if (c.isFoundingCreator) const FoundingBadgeSmall(),
+                    if (c.isAuroraCreator) const AuroraBadgeSmall(),
                     if (isAuthor) ...[
                       const SizedBox(width: 4),
                       Container(
@@ -630,6 +643,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final avatar = t['avatar'] as String?;
     final authorIsFoundingCreator =
         t['is_founding_creator'] == true || t['is_founding_creator'] == 1;
+    final authorIsAuroraCreator =
+        t['is_aurora_creator'] == true || t['is_aurora_creator'] == 1;
     final likes = (t['likes'] as num?)?.toInt() ?? 0;
     final coverImage = t['cover_image'] as String?;
     final createdAt = (t['created_at'] as num?)?.toInt() ?? 0;
@@ -817,6 +832,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                                 username,
                                 radius: 18,
                                 isFoundingCreator: authorIsFoundingCreator,
+                                isAuroraCreator: authorIsAuroraCreator,
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -834,6 +850,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                                         ),
                                         if (authorIsFoundingCreator)
                                           const FoundingBadgeSmall(),
+                                        if (authorIsAuroraCreator)
+                                          const AuroraBadgeSmall(),
                                       ],
                                     ),
                                     Text(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/gender_label.dart';
@@ -173,10 +174,6 @@ class ProfileHeaderWidget extends StatelessWidget {
                         () => context.push('/friends'),
                       ),
                       _heroIconButton(
-                        Icons.article_outlined,
-                        () => context.push('/creator'),
-                      ),
-                      _heroIconButton(
                         Icons.settings_outlined,
                         () => context.push('/settings'),
                       ),
@@ -192,17 +189,25 @@ class ProfileHeaderWidget extends StatelessWidget {
                       clipBehavior: Clip.none,
                       alignment: Alignment.center,
                       children: [
-                        FoundingAvatarRing(
-                          isFoundingCreator: profile.isFoundingCreator,
+                        // 极光创作者外圈叠在元老外圈外面——两个身份不互斥，
+                        // 极光圈(金)在外/元老圈(极光紫)在内都会显示；只有
+                        // 其中一个身份时，另一层直接原样返回 child，不额外
+                        // 占位，不会露出多余的空环
+                        AuroraAvatarRing(
+                          isAuroraCreator: profile.isAuroraCreator,
                           size: 68,
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.fromBorderSide(
-                                BorderSide(color: Colors.white, width: 2.5),
+                          child: FoundingAvatarRing(
+                            isFoundingCreator: profile.isFoundingCreator,
+                            size: 68,
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.fromBorderSide(
+                                  BorderSide(color: Colors.white, width: 2.5),
+                                ),
                               ),
+                              child: avatar,
                             ),
-                            child: avatar,
                           ),
                         ),
                         if (uploadingAvatar)
@@ -286,6 +291,8 @@ class ProfileHeaderWidget extends StatelessWidget {
                               ],
                               if (profile.isFoundingCreator)
                                 const FoundingBadgeSmall(),
+                              if (profile.isAuroraCreator)
+                                const AuroraBadgeSmall(),
                             ],
                           ),
                           if (profile.handle != null) ...[
@@ -434,7 +441,7 @@ class ProfileHeaderWidget extends StatelessWidget {
                 _buildStatsRow(context, l10n),
                 if (creationStreak > 0) ...[
                   const SizedBox(height: 14),
-                  _buildStreakCard(l10n),
+                  _buildStreakCard(context, l10n),
                 ],
                 // 给下面圆角"卡片沿"留出空间——内容到这里为止，圆角沿贴在
                 // 正下方，不会互相压着
@@ -587,39 +594,55 @@ class ProfileHeaderWidget extends StatelessWidget {
   }
 
   // 连续创作天数卡片——真实计算（见 _creationStreak），streak 为 0 时
-  // 上层已经不渲染这个 widget 了
-  Widget _buildStreakCard(AppLocalizations l10n) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Text('🔥', style: TextStyle(fontSize: 20)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.creationStreakDays(creationStreak),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+  // 上层已经不渲染这个 widget 了。原来头图区右上角另有一个独立的"创作者
+  // 中心"图标按钮，跟这张卡片功能重叠——去掉那个图标，改成直接点这张卡
+  // 进创作者中心，只有自己看自己主页时才能点（看别人主页也可能显示这张
+  // 卡，但点进去应该是打开自己的创作者中心，不是对方的，容易误解，所以
+  // 干脆不给点）
+  Widget _buildStreakCard(BuildContext context, AppLocalizations l10n) {
+    return GestureDetector(
+      onTap: isSelfView ? () => context.push('/creator') : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Text('🔥', style: TextStyle(fontSize: 20)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.creationStreakDays(creationStreak),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  l10n.creationStreakSubtitle,
-                  style: const TextStyle(fontSize: 11, color: Colors.white60),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.creationStreakSubtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white60,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (isSelfView)
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: Colors.white54,
+              ),
+          ],
+        ),
       ),
     );
   }

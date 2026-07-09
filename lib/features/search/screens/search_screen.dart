@@ -8,10 +8,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/models/user_model.dart';
+import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
+import '../../community/community_provider.dart';
+
+// 首页顶部原来的"推荐关注/为你推荐"两段搬过来了——本质是"你可能感兴趣
+// 的内容/人"，跟搜索页"还没输入关键词时给点探索性内容"的空状态场景比
+// 首页信息流场景更贴。"热门话题"没有一起单独搬——search_screen.dart
+// 自己已经有一份用真实聚合数据（GET /auth/search 的 hotTags）驱动的
+// 同名板块，比首页那份写死的固定标签表更准，直接算作已经"移过来"了，
+// 不用再多一份重复的静态标签榜
+
 
 class SearchScreen extends ConsumerStatefulWidget {
   final String? initialQuery;
@@ -41,6 +52,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   List<TutorialModel> _tutorials = [];
   List<UserModel> _users = [];
   List<dynamic> _tags = [];
+  // 推荐关注按钮的乐观本地状态——跟原来首页那份是同一套逻辑
+  final Set<String> _followingIds = {};
   List<dynamic> _hotTags = [];
   List<String> _history = [];
 
@@ -86,6 +99,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     if (userId == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(AppConstants.keySearchHistory(userId), _history);
+  }
+
+  Future<void> _toggleFollow(String? userId) async {
+    if (userId == null || userId.isEmpty) return;
+    final api = ref.read(apiClientProvider);
+    final following = _followingIds.contains(userId);
+    final res = following
+        ? await api.delete('/auth/users/$userId/follow')
+        : await api.post('/auth/users/$userId/follow');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() {
+        following ? _followingIds.remove(userId) : _followingIds.add(userId);
+      });
+    } else {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
+      );
+    }
   }
 
   Future<void> _loadHotTags() async {
@@ -303,6 +336,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   Widget _buildEmptyState() {
     final l10n = AppLocalizations.of(context)!;
+    final discoverState = ref.watch(communityProvider);
+    final rankList =
+        ([...discoverState.filtered]..sort((a, b) => b.views.compareTo(a.views)))
+            .take(5)
+            .toList();
+    final seenAuthors = <String>{};
+    final suggestedAuthors = <TutorialModel>[];
+    for (final t in discoverState.tutorials) {
+      if (t.username.isEmpty || !seenAuthors.add(t.username)) continue;
+      suggestedAuthors.add(t);
+      if (suggestedAuthors.length >= 8) break;
+    }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -402,8 +447,197 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               );
             }).toList(),
           ),
+          const SizedBox(height: 20),
+        ],
+        if (suggestedAuthors.isNotEmpty) ...[
+          _sectionHeader('推荐关注'),
+          const SizedBox(height: 8),
+          _suggestedFollowSection(suggestedAuthors),
+          const SizedBox(height: 20),
+        ],
+        if (rankList.isNotEmpty) ...[
+          _sectionHeader('为你推荐'),
+          const SizedBox(height: 8),
+          _newsRankingSection(rankList),
         ],
       ],
+    );
+  }
+
+  Widget _suggestedFollowSection(List<TutorialModel> authors) {
+    return SizedBox(
+      height: 156,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: authors.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final t = authors[index];
+          final following = _followingIds.contains(t.userId);
+          final category = topicCategoryLabelFor(t.tags);
+          return Container(
+            width: 130,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _border, width: 0.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: t.username.isEmpty
+                      ? null
+                      : () => context.push('/users/${t.username}'),
+                  child: _searchAuthorAvatar(
+                    avatar: t.avatar,
+                    username: t.username,
+                    isFoundingCreator: t.isFoundingCreator,
+                    radius: 20,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  t.username,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
+                ),
+                if (category != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10.5, color: _muted),
+                  ),
+                ],
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  height: 27,
+                  child: OutlinedButton(
+                    onPressed: () => _toggleFollow(t.userId),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      backgroundColor: following ? null : _primary,
+                      side: BorderSide(
+                        color: following ? _border : _primary,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    child: Text(
+                      following ? '已关注' : '关注',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: following ? _muted : Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _newsRankingSection(List<TutorialModel> rankList) {
+    const rankColors = [
+      Color(0xFFF43F5E),
+      Color(0xFFF59E0B),
+      Color(0xFF10B981),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(rankList.length, (index) {
+          final t = rankList[index];
+          return GestureDetector(
+            onTap: () => context.push('/tutorial/${t.id}'),
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: index == 0 ? 0 : 7,
+                bottom: 7,
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: index < 3 ? rankColors[index] : _muted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, color: _ink),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${t.views}',
+                    style: const TextStyle(fontSize: 11.5, color: _muted),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _searchAuthorAvatar({
+    required String? avatar,
+    required String username,
+    required double radius,
+    bool isFoundingCreator = false,
+  }) {
+    final hasAvatar = (avatar ?? '').isNotEmpty;
+    return FoundingAvatarRing(
+      isFoundingCreator: isFoundingCreator,
+      size: radius * 2,
+      child: CircleAvatar(
+        radius: radius,
+        backgroundColor: _primary.withValues(alpha: 0.15),
+        backgroundImage: hasAvatar
+            ? CachedNetworkImageProvider(avatar!)
+            : null,
+        child: !hasAvatar
+            ? Text(
+                username.isNotEmpty ? username.substring(0, 1) : '?',
+                style: TextStyle(
+                  fontSize: radius,
+                  fontWeight: FontWeight.w700,
+                  color: _primary,
+                ),
+              )
+            : null,
+      ),
     );
   }
 

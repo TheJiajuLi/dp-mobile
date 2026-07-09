@@ -166,7 +166,15 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                     likesSavesTarget: auroraLikesSavesTarget,
                     followers: user?.followerCount ?? 0,
                     followerTarget: auroraFollowerTarget,
-                    onTap: () => context.push('/creator/aurora'),
+                    isAuroraCreator: user?.isAuroraCreator ?? false,
+                    // 已经是极光创作者了就直接看每月续期的真实进度，不用
+                    // 再看一遍"怎么才能入选"的申请门槛宣传页——两个页面
+                    // 语义不一样，见 app_router.dart 里的注释
+                    onTap: () => context.push(
+                      user?.isAuroraCreator == true
+                          ? '/aurora/progress'
+                          : '/creator/aurora',
+                    ),
                   ),
                 ],
               ),

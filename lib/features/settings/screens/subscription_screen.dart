@@ -100,13 +100,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     (Icons.rocket_launch_outlined, '新功能优先体验', '平台内测资格，第一个用到好东西'),
   ];
 
-  static const _auroraRenewal = <String>[
-    '发布笔记 ≥ 2 篇',
-    '点赞他人 ≥ 20 次',
-    '发表评论 ≥ 5 条',
-    '回复评论 ≥ 5 条',
-    '新增粉丝 ≥ 5 人',
-    '获赞收藏 ≥ 20',
+  static const _auroraRenewal = <(IconData, String)>[
+    (Icons.description_outlined, '发布笔记 ≥ 2 篇'),
+    (Icons.thumb_up_outlined, '点赞他人 ≥ 20 次'),
+    (Icons.chat_bubble_outline, '发表评论 ≥ 5 条'),
+    (Icons.reply_outlined, '回复评论 ≥ 5 条'),
+    (Icons.person_add_outlined, '新增粉丝 ≥ 5 人'),
+    (Icons.favorite_border, '获赞收藏 ≥ 20'),
   ];
 
   @override
@@ -746,6 +746,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
+  // 跟上面"极光专属权益"统一视觉语言——白底卡片 + 浅色圆角图标底 + 主色
+  // 图标，而不是原来一整块纯色（_subtleBg）平铺的无图标文字块
   Widget _renewalGrid() {
     return GridView.count(
       shrinkWrap: true,
@@ -753,16 +755,38 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       crossAxisCount: 2,
       mainAxisSpacing: 8,
       crossAxisSpacing: 8,
-      childAspectRatio: 2.6,
+      childAspectRatio: 2.2,
       children: _auroraRenewal
           .map(
-            (t) => Container(
-              alignment: Alignment.center,
+            (item) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: _subtleBg,
+                color: _cardBg,
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _border, width: 0.5),
               ),
-              child: Text(t, style: TextStyle(fontSize: 12, color: _ink)),
+              child: Row(
+                children: [
+                  Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: _subtleBg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(item.$1, size: 14, color: _primary),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.$2,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: _ink),
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
           .toList(),

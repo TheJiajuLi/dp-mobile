@@ -31,6 +31,10 @@ class UserModel {
   // （截至2026-07-07），先按 gender/occupation 这些字段同样的套路加上，
   // 恒为 false 不影响现有用户，等后端 ALTER TABLE 加了这一列直接生效
   final bool isFoundingCreator;
+  // 极光创作者——达标（月度活跃满足任意3项）自动获得，跟 is_founding_creator
+  // 同款语义。实测确认（2026-07-09）is_aurora_creator 列已经在 users 表里，
+  // GET /auth/me 也已经把它加进 SELECT 列表了，不是过渡期占位字段
+  final bool isAuroraCreator;
   // 会员等级——实测确认（2026-07-08）GET /auth/me 的 SELECT 列表里已经有
   // membership/membership_expires_at 这两列，不是"后端还没上线"的过渡态
   // 字段，可以直接读。之前 VIP 徽章/Pro 权限判断都是绕道另外请求
@@ -58,6 +62,7 @@ class UserModel {
     this.tags = const [],
     this.occupation,
     this.isFoundingCreator = false,
+    this.isAuroraCreator = false,
     this.membership,
     this.membershipExpiresAt,
   });
@@ -84,6 +89,8 @@ class UserModel {
     isFoundingCreator:
         json['is_founding_creator'] == true ||
         json['is_founding_creator'] == 1,
+    isAuroraCreator:
+        json['is_aurora_creator'] == true || json['is_aurora_creator'] == 1,
     membership: json['membership'] as String?,
     membershipExpiresAt: (json['membership_expires_at'] as num?)?.toInt(),
   );
@@ -107,6 +114,7 @@ class UserModel {
     'tags': tags,
     'occupation': occupation,
     'is_founding_creator': isFoundingCreator,
+    'is_aurora_creator': isAuroraCreator,
     'membership': membership,
     'membership_expires_at': membershipExpiresAt,
   };
@@ -126,6 +134,7 @@ class UserModel {
     List<String>? tags,
     String? occupation,
     bool? isFoundingCreator,
+    bool? isAuroraCreator,
     String? membership,
     int? membershipExpiresAt,
   }) => UserModel(
@@ -151,6 +160,7 @@ class UserModel {
     // 都会把这两个字段悄悄重置成默认值（isFoundingCreator=false、
     // membership=null）。这是一个真实存在的 latent bug，现在补上
     isFoundingCreator: isFoundingCreator ?? this.isFoundingCreator,
+    isAuroraCreator: isAuroraCreator ?? this.isAuroraCreator,
     membership: membership ?? this.membership,
     membershipExpiresAt: membershipExpiresAt ?? this.membershipExpiresAt,
   );

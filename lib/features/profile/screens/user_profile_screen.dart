@@ -195,6 +195,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         ipLocation: currentUser.ipLocation,
         tags: currentUser.tags,
         isFoundingCreator: currentUser.isFoundingCreator,
+        isAuroraCreator: currentUser.isAuroraCreator,
       );
       await _loadLocalPrefs(profile);
       if (!widget.showBackButton) {

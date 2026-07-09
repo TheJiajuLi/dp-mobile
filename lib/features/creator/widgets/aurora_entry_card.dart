@@ -13,6 +13,7 @@ class AuroraEntryCard extends StatelessWidget {
   final int likesSavesTarget;
   final int followers;
   final int followerTarget;
+  final bool isAuroraCreator;
   final VoidCallback onTap;
 
   const AuroraEntryCard({
@@ -23,6 +24,7 @@ class AuroraEntryCard extends StatelessWidget {
     required this.likesSavesTarget,
     required this.followers,
     required this.followerTarget,
+    this.isAuroraCreator = false,
     required this.onTap,
   });
 
@@ -140,7 +142,7 @@ class AuroraEntryCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '继续创作，达成条件后自动解锁',
+                        isAuroraCreator ? '已激活 · 点击查看本月续期进度' : '继续创作，达成条件后自动解锁',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.white.withValues(alpha: 0.55),
