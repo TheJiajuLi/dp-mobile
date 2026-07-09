@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -1175,51 +1176,99 @@ result
                 ),
               ),
               _rowDivider(isDarkMode),
-              // 加入专栏/标题植入并成两列——一行显示俩，比之前各占一整行
-              // 更紧凑；副文字也换成更短的版本，两列挤在一起放不下长句子
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _metaEntryRow(
-                        icon: Icons.view_column_outlined,
-                        iconBg: const Color(0xFFEEF0FF),
-                        iconColor: _primary,
-                        title: l10n.joinColumnAction,
-                        subtitle: _selectedColumnName ?? l10n.optionalLabel,
-                        onTap: _showColumnSheet,
-                      ),
-                    ),
-                    VerticalDivider(
-                      width: 0.5,
-                      thickness: 0.5,
-                      color: isDarkMode
-                          ? Theme.of(context).dividerColor
-                          : const Color(0xFFF5F5F5),
-                    ),
-                    Expanded(
-                      child: _metaEntryRow(
-                        icon: Icons.sell_outlined,
-                        iconBg: const Color(0xFFF5F5F5),
-                        iconColor: const Color(0xFF888888),
-                        title: l10n.titleInsertionAction,
-                        subtitle: _seriesTag.isNotEmpty || _subtitle.isNotEmpty
-                            ? [
-                                if (_seriesTag.isNotEmpty) _seriesTag,
-                                if (_subtitle.isNotEmpty) _subtitle,
-                              ].join(' · ')
-                            : l10n.titleInsertionSubtitleShortHint,
-                        onTap: _showTitleInsertionSheet,
-                      ),
-                    ),
-                  ],
-                ),
+              _metaEntryRow(
+                icon: Icons.sell_outlined,
+                iconBg: const Color(0xFFF5F5F5),
+                iconColor: const Color(0xFF888888),
+                title: l10n.titleInsertionAction,
+                subtitle: _seriesTag.isNotEmpty || _subtitle.isNotEmpty
+                    ? [
+                        if (_seriesTag.isNotEmpty) _seriesTag,
+                        if (_subtitle.isNotEmpty) _subtitle,
+                      ].join(' · ')
+                    : l10n.titleInsertionSubtitleShortHint,
+                onTap: _showTitleInsertionSheet,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                child: _joinColumnEntry(),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  // 未选：虚线边框+书本图标；已选：实线紫色边框+专栏名+×直接取消，不用
+  // 重新打开sheet选"不加入专栏"那条
+  Widget _joinColumnEntry() {
+    final l10n = AppLocalizations.of(context)!;
+    final selected = _selectedColumnId != null;
+    return GestureDetector(
+      onTap: _showColumnSheet,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? _primary.withValues(alpha: 0.06) : null,
+          borderRadius: BorderRadius.circular(10),
+          // Flutter 原生 Border 不支持虚线，未选中状态就用纯灰实线区分，
+          // 不额外引入画虚线的依赖
+          border: Border.all(
+            color: selected ? _primary : const Color(0xFFD1D1D6),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.menu_book_outlined,
+              size: 20,
+              color: selected ? _primary : Colors.grey[500],
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    selected ? _selectedColumnName ?? '' : l10n.joinColumnAction,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? _primary : null,
+                    ),
+                  ),
+                  if (!selected)
+                    Text(
+                      l10n.joinColumnSubtitleHint,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                    ),
+                ],
+              ),
+            ),
+            if (selected)
+              GestureDetector(
+                onTap: () => setState(() {
+                  _selectedColumnId = null;
+                  _selectedColumnName = null;
+                }),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, size: 14, color: _primary),
+                ),
+              )
+            else
+              const Icon(Icons.chevron_right, size: 18, color: Color(0xFFBBBBBB)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1577,368 +1626,20 @@ result
     );
   }
 
-  static const _columnGradients = [
-    [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-    [Color(0xFFF59E0B), Color(0xFFEA580C)],
-    [Color(0xFF059669), Color(0xFF34D399)],
-    [Color(0xFFDC2626), Color(0xFFF87171)],
-  ];
-
+  // 加入专栏——列表选择/新建专栏/创建成功三步都在同一个sheet里，用
+  // _ColumnPickerSheet 自己的 State 切换，不是三个各自独立的 dialog/sheet
   Future<void> _showColumnSheet() async {
-    final l10n = AppLocalizations.of(context)!;
-    final res = await ref.read(apiClientProvider).get('/auth/columns/mine');
-    if (!mounted) return;
-    if (!res.success || res.data == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
-      );
-      return;
-    }
-    var columns = ((res.data as Map)['columns'] as List? ?? [])
-        .map((j) => ColumnModel.fromJson(Map<String, dynamic>.from(j as Map)))
-        .toList();
-
-    String? tempId = _selectedColumnId;
-    if (!mounted) return;
-    showModalBottomSheet(
+    final result = await showModalBottomSheet<_ColumnPickerResult>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          return Container(
-            decoration: BoxDecoration(
-              color: Theme.of(ctx).cardColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-            ),
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).padding.bottom + 12,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          l10n.joinColumnAction,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      l10n.myColumnsLabel,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                ),
-                if (columns.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Text(
-                      l10n.noColumnsCreatedYetPrompt,
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ),
-                ...columns.asMap().entries.map((entry) {
-                  final col = entry.value;
-                  final gradient =
-                      _columnGradients[entry.key % _columnGradients.length];
-                  final selected = tempId == col.id;
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: GestureDetector(
-                      onTap: () => setSheetState(() => tempId = col.id),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? const Color(0xFFEEF0FF)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: selected
-                                ? _primary
-                                : const Color(0xFFEBEBEB),
-                            width: selected ? 1.5 : 0.5,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: gradient),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.collections_bookmark_outlined,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    col.name,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    l10n.columnArticlesSubscribers(
-                                      col.articleCount,
-                                      col.subscriberCount,
-                                    ),
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF8E8E93),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              selected
-                                  ? Icons.check_circle
-                                  : Icons.radio_button_unchecked,
-                              color: selected
-                                  ? _primary
-                                  : const Color(0xFFDDDDDD),
-                              size: 22,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: GestureDetector(
-                    onTap: () => setSheetState(() => tempId = null),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.block, size: 18, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Text(
-                          l10n.noColumnOption,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          tempId == null
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: tempId == null
-                              ? _primary
-                              : const Color(0xFFDDDDDD),
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () async {
-                    final created = await _showCreateColumnDialog();
-                    if (created == null || !ctx.mounted) return;
-                    final reloadRes = await ref
-                        .read(apiClientProvider)
-                        .get('/auth/columns/mine');
-                    if (reloadRes.success && reloadRes.data != null) {
-                      columns =
-                          ((reloadRes.data as Map)['columns'] as List? ?? [])
-                              .map(
-                                (j) => ColumnModel.fromJson(
-                                  Map<String, dynamic>.from(j as Map),
-                                ),
-                              )
-                              .toList();
-                      setSheetState(() => tempId = created);
-                    }
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFD1D1D6)),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.add, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          l10n.createColumnAction,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final chosen = tempId != null
-                            ? columns.firstWhere(
-                                (c) => c.id == tempId,
-                                orElse: () => columns.first,
-                              )
-                            : null;
-                        setState(() {
-                          _selectedColumnId = tempId;
-                          _selectedColumnName = chosen?.name;
-                        });
-                        Navigator.pop(ctx);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _ink,
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(
-                        l10n.confirmAction,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+      builder: (ctx) => _ColumnPickerSheet(initialColumnId: _selectedColumnId),
     );
-  }
-
-  // 新建专栏——用 Dialog 而不是又一层 bottom sheet，避免嵌在
-  // _showColumnSheet 的 showModalBottomSheet 里再叠一层 sheet-over-sheet
-  // 的层级/返回栈问题。成功返回新专栏 id，调用方负责刷新列表+预选中它
-  Future<String?> _showCreateColumnDialog() async {
-    final l10n = AppLocalizations.of(context)!;
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.createColumnAction),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: l10n.columnNameHint,
-                filled: false,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: descCtrl,
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: l10n.columnDescOptionalLabel,
-                filled: false,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              final res = await ref
-                  .read(apiClientProvider)
-                  .post(
-                    '/auth/columns',
-                    data: {
-                      'name': nameCtrl.text.trim(),
-                      'description': descCtrl.text.trim(),
-                    },
-                  );
-              if (!ctx.mounted) return;
-              if (res.success) {
-                notifyProfileShouldRefresh(ref);
-                Navigator.pop(ctx, (res.data as Map?)?['id'] as String?);
-              } else {
-                Navigator.pop(ctx);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        l10n.actionFailedWithReason('${res.message}'),
-                      ),
-                    ),
-                  );
-                }
-              }
-            },
-            child: Text(
-              l10n.createColumnAction,
-              style: const TextStyle(color: _primary),
-            ),
-          ),
-        ],
-      ),
-    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _selectedColumnId = result.columnId;
+      _selectedColumnName = result.columnName;
+    });
   }
 
   void _showTitleInsertionSheet() {
@@ -2746,6 +2447,496 @@ class _QuickStartBtn extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ColumnPickerResult {
+  final String? columnId;
+  final String? columnName;
+  const _ColumnPickerResult(this.columnId, this.columnName);
+}
+
+enum _ColumnSheetStep { list, create, success }
+
+// 加入专栏 sheet——一个 StatefulWidget 里切三步（列表/新建表单/创建成功），
+// 不是三个各自独立弹出的 dialog/sheet，靠 _step 切内容，高度跟着内容变。
+// 单独抽成 ConsumerStatefulWidget（而不是塞进 PublishScreen 里一堆闭包）
+// 是因为这几步各自都有自己的表单状态（颜色选择/名称/简介），放一起会很乱
+class _ColumnPickerSheet extends ConsumerStatefulWidget {
+  final String? initialColumnId;
+  const _ColumnPickerSheet({this.initialColumnId});
+
+  @override
+  ConsumerState<_ColumnPickerSheet> createState() => _ColumnPickerSheetState();
+}
+
+class _ColumnPickerSheetState extends ConsumerState<_ColumnPickerSheet> {
+  static const _coverColors = [
+    Color(0xFF6366F1),
+    Color(0xFFD97706),
+    Color(0xFF16A34A),
+    Color(0xFFDC2626),
+    Color(0xFF8B5CF6),
+    Color(0xFF0284C7),
+  ];
+  // 专栏没有封面图时，图标/颜色按 id 第一个字符确定性地选一个——不是真的
+  // 按"学科分类"分的（columns_table 压根没有 domain 这个字段），只是让
+  // 没传封面的专栏在列表里看起来不是清一色一个图标
+  static const _fallbackIcons = [
+    Icons.code,
+    Icons.functions,
+    Icons.blur_circular,
+    Icons.show_chart,
+    Icons.biotech,
+    Icons.library_books,
+  ];
+
+  _ColumnSheetStep _step = _ColumnSheetStep.list;
+  bool _loading = true;
+  String? _loadError;
+  List<ColumnModel> _columns = [];
+  String? _selectedId;
+
+  final _nameCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  int _colorIndex = 0;
+  bool _creating = false;
+  String? _createdName;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedId = widget.initialColumnId;
+    _loadColumns();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadColumns() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    final res = await ref.read(apiClientProvider).get('/auth/columns/mine');
+    if (!mounted) return;
+    if (!res.success || res.data == null) {
+      setState(() {
+        _loading = false;
+        _loadError = res.message;
+      });
+      return;
+    }
+    final columns = ((res.data as Map)['columns'] as List? ?? [])
+        .map((j) => ColumnModel.fromJson(Map<String, dynamic>.from(j as Map)))
+        .toList();
+    setState(() {
+      _columns = columns;
+      _loading = false;
+    });
+  }
+
+  // 选已有专栏——勾选之后停一下再关（让用户看到真的选中了），不需要
+  // 额外的"确认"按钮
+  Future<void> _selectExisting(ColumnModel col) async {
+    setState(() => _selectedId = col.id);
+    await Future.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+    Navigator.pop(context, _ColumnPickerResult(col.id, col.name));
+  }
+
+  Future<void> _createColumn() async {
+    final l10n = AppLocalizations.of(context)!;
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    setState(() => _creating = true);
+    // 颜色只是这个创建表单自己的预览效果——columns_table 没有存颜色的
+    // 字段，创建之后列表里显示的颜色还是走上面那套按id确定性选色的规则，
+    // 不是这里挑的这个，创建接口也不接受这个字段
+    final res = await ref.read(apiClientProvider).post(
+      '/auth/columns',
+      data: {'name': name, 'description': _descCtrl.text.trim()},
+    );
+    if (!mounted) return;
+    setState(() => _creating = false);
+    if (!res.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
+      );
+      return;
+    }
+    notifyProfileShouldRefresh(ref);
+    final newId = (res.data as Map?)?['id'] as String?;
+    setState(() {
+      _selectedId = newId;
+      _createdName = name;
+      _step = _ColumnSheetStep.success;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 12,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          switch (_step) {
+            _ColumnSheetStep.list => _buildListStep(l10n),
+            _ColumnSheetStep.create => _buildCreateStep(l10n),
+            _ColumnSheetStep.success => _buildSuccessStep(l10n),
+          },
+        ],
+      ),
+    );
+  }
+
+  Widget _sheetHeader(
+    String title, {
+    VoidCallback? onBack,
+    bool showClose = true,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 14, 8, 4),
+      child: Row(
+        children: [
+          if (onBack != null)
+            IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBack)
+          else
+            const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+          ),
+          if (showClose)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
+            )
+          else
+            const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListStep(AppLocalizations l10n) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _sheetHeader(l10n.joinColumnAction),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              l10n.myColumnsLabel,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+        ),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator(color: _primary)),
+          )
+        else if (_loadError != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              l10n.actionFailedWithReason('$_loadError'),
+              style: const TextStyle(fontSize: 13, color: Color(0xFFFF3B30)),
+            ),
+          )
+        else if (_columns.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              l10n.noColumnsCreatedYetPrompt,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          )
+        else
+          ..._columns.map((col) => _columnRow(col)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _step = _ColumnSheetStep.create),
+            icon: const Icon(Icons.add, size: 16),
+            label: Text(l10n.createColumnAction),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _primary,
+              side: const BorderSide(color: _primary, width: 0.5),
+              minimumSize: const Size(double.infinity, 44),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _columnRow(ColumnModel col) {
+    final selected = _selectedId == col.id;
+    final seed = col.id.isNotEmpty ? col.id.codeUnitAt(0) : 0;
+    final fallbackColor = _coverColors[seed % _coverColors.length];
+    final fallbackIcon = _fallbackIcons[seed % _fallbackIcons.length];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: GestureDetector(
+        onTap: () => _selectExisting(col),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFEEF0FF) : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? _primary : const Color(0xFFEBEBEB),
+              width: selected ? 1.5 : 0.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: (col.coverImage?.isNotEmpty ?? false)
+                    ? CachedNetworkImage(
+                        imageUrl: col.coverImage!,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorWidget: (context, url, error) => Container(
+                          width: 44,
+                          height: 44,
+                          color: fallbackColor,
+                          child: Icon(fallbackIcon, color: Colors.white, size: 20),
+                        ),
+                      )
+                    : Container(
+                        width: 44,
+                        height: 44,
+                        color: fallbackColor,
+                        child: Icon(fallbackIcon, color: Colors.white, size: 20),
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      col.name,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      AppLocalizations.of(context)!.columnArticlesSubscribers(
+                        col.articleCount,
+                        col.subscriberCount,
+                      ),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                selected ? Icons.check_circle : Icons.circle_outlined,
+                color: selected ? _primary : const Color(0xFFDDDDDD),
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCreateStep(AppLocalizations l10n) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sheetHeader(
+              l10n.createColumnAction,
+              onBack: () => setState(() => _step = _ColumnSheetStep.list),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '专栏颜色',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: List.generate(_coverColors.length, (i) {
+                      final c = _coverColors[i];
+                      final selected = _colorIndex == i;
+                      return GestureDetector(
+                        onTap: () => setState(() => _colorIndex = i),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          margin: const EdgeInsets.only(right: 10),
+                          decoration: BoxDecoration(
+                            color: c,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: selected ? Colors.white : Colors.transparent,
+                              width: 2,
+                            ),
+                            boxShadow: selected
+                                ? [BoxShadow(color: c.withValues(alpha: 0.4), blurRadius: 6)]
+                                : null,
+                          ),
+                          child: selected
+                              ? const Icon(Icons.check, size: 16, color: Colors.white)
+                              : null,
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Text(l10n.columnNameLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 4),
+                      const Text('*', style: TextStyle(color: Color(0xFFFF3B30), fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _nameCtrl,
+                    autofocus: true,
+                    decoration: InputDecoration(hintText: l10n.columnNameHint),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(l10n.columnIntroLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _descCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(hintText: l10n.columnDescOptionalLabel),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: _creating ? null : _createColumn,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: _creating
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Text(l10n.createColumnAction),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessStep(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(
+                context,
+                _ColumnPickerResult(_selectedId, _createdName),
+              ),
+            ),
+          ),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F8F0),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check, size: 36, color: Color(0xFF16A34A)),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '专栏创建成功',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '「$_createdName」已创建，本文已加入该专栏',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(
+                context,
+                _ColumnPickerResult(_selectedId, _createdName),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFD1D1D6)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('完成'),
+            ),
+          ),
+        ],
       ),
     );
   }
