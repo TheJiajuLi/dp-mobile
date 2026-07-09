@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../core/network/api_client.dart';
 
 // 提问领域配色——提问 Sheet 的领域选择跟热门提问卡片的领域标签共用同一套
 Color jisuoDomainColor(String d) => switch (d) {
@@ -20,15 +25,22 @@ Color jisuoDomainBg(String d) => switch (d) {
   _ => const Color(0xFFF3F4F6),
 };
 
-class JisuoScreen extends StatefulWidget {
+class JisuoScreen extends ConsumerStatefulWidget {
   const JisuoScreen({super.key});
 
   @override
-  State<JisuoScreen> createState() => _JisuoScreenState();
+  ConsumerState<JisuoScreen> createState() => _JisuoScreenState();
 }
 
-class _JisuoScreenState extends State<JisuoScreen> {
+class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final _inputCtrl = TextEditingController();
+  List<Map<String, dynamic>> _hotQuestions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHotQuestions();
+  }
 
   @override
   void dispose() {
@@ -49,10 +61,28 @@ class _JisuoScreenState extends State<JisuoScreen> {
     );
   }
 
-  // 后端目前没有 /auth/questions 这个接口——极索提问功能整体还是纯前端
-  // mock，这里先原地假装发布成功，真正接后端时再替换成真实 POST
-  Future<void> _postQuestion(String text, String domain, bool anon) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+  Future<void> _loadHotQuestions() async {
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/questions', queryParameters: {'limit': 10});
+    if (!mounted || !res.success || res.data == null) return;
+    setState(() {
+      _hotQuestions = ((res.data['questions'] as List?) ?? [])
+          .map((q) => Map<String, dynamic>.from(q as Map))
+          .toList();
+    });
+  }
+
+  Future<int> _postQuestion(String text, String domain, bool anon) async {
+    final res = await ref.read(apiClientProvider).post(
+      '/auth/questions',
+      data: {'text': text, 'domain': domain, 'isAnonymous': anon},
+    );
+    if (!res.success || res.data == null) {
+      throw Exception(res.message ?? '发布失败，请稍后重试');
+    }
+    unawaited(_loadHotQuestions());
+    return (res.data['invitedCount'] as num?)?.toInt() ?? 0;
   }
 
   @override
@@ -450,27 +480,8 @@ class _JisuoScreenState extends State<JisuoScreen> {
     Color(0xFF16A34A),
   ];
 
-  // 热门提问——目前后端没有"提问/回答"这套数据模型，先用静态占位展示
-  // 布局效果，等后端有对应接口再接（跟精选内容一样，不是我漏接，是
-  // 这次任务范围明确写了"先用静态数据，后续接API"）
   Widget _buildHotQuestions() {
-    final questions = [
-      {
-        'domain': '编程开发',
-        'text': '泊松分布和正态分布在实际建模时如何选择？有没有经验法则？',
-        'answer_count': 3,
-        'view_count': 234,
-        'invited_count': 2,
-      },
-      {
-        'domain': '数学',
-        'text': '黎曼积分和勒贝格积分的本质区别是什么？',
-        'answer_count': 2,
-        'view_count': 189,
-        'invited_count': 3,
-      },
-    ];
-
+    if (_hotQuestions.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(
@@ -486,17 +497,17 @@ class _JisuoScreenState extends State<JisuoScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          ...questions.map((q) => _hotQuestionCard(q)),
+          ..._hotQuestions.map((q) => _hotQuestionCard(q)),
         ],
       ),
     );
   }
 
   Widget _hotQuestionCard(Map<String, dynamic> q) {
-    final domain = q['domain'] as String;
-    final answerCount = q['answer_count'] as int;
-    final viewCount = q['view_count'] as int;
-    final invitedCount = q['invited_count'] as int;
+    final domain = q['domain'] as String? ?? '';
+    final answerCount = (q['answer_count'] as num?)?.toInt() ?? 0;
+    final viewCount = (q['view_count'] as num?)?.toInt() ?? 0;
+    final invitedCount = (q['invited_count'] as num?)?.toInt() ?? 0;
     final avatarCount = answerCount < 3 ? answerCount : 3;
 
     return GestureDetector(
@@ -750,7 +761,7 @@ class _AuroraIconPainter extends CustomPainter {
 }
 
 class _AskSheet extends StatefulWidget {
-  final Future<void> Function(String text, String domain, bool anon) onPost;
+  final Future<int> Function(String text, String domain, bool anon) onPost;
   const _AskSheet({required this.onPost});
 
   @override
@@ -763,6 +774,7 @@ class _AskSheetState extends State<_AskSheet> {
   bool _anon = false;
   bool _posting = false;
   bool _done = false;
+  int _invitedCount = 0;
 
   @override
   void dispose() {
@@ -775,12 +787,21 @@ class _AskSheetState extends State<_AskSheet> {
   Future<void> _submit() async {
     if (_ctrl.text.trim().length < 10 || _domain == null) return;
     setState(() => _posting = true);
-    await widget.onPost(_ctrl.text.trim(), _domain!, _anon);
-    if (!mounted) return;
-    setState(() {
-      _posting = false;
-      _done = true;
-    });
+    try {
+      final invitedCount = await widget.onPost(_ctrl.text.trim(), _domain!, _anon);
+      if (!mounted) return;
+      setState(() {
+        _posting = false;
+        _done = true;
+        _invitedCount = invitedCount;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _posting = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   @override
@@ -975,27 +996,6 @@ class _AskSheetState extends State<_AskSheet> {
   }
 
   Widget _buildSuccess() {
-    final experts = [
-      {
-        'name': '大兔兔',
-        'color': 0xFF6366F1,
-        'role': '编程开发 · 12篇相关内容',
-        'aurora': true,
-      },
-      {
-        'name': '数学星人',
-        'color': 0xFFD97706,
-        'role': '数学 · 8篇相关内容',
-        'aurora': false,
-      },
-      {
-        'name': '生科研究员',
-        'color': 0xFF16A34A,
-        'role': '生命科学 · 5篇相关内容',
-        'aurora': false,
-      },
-    ];
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
       child: Column(
@@ -1021,108 +1021,44 @@ class _AskSheetState extends State<_AskSheet> {
           ),
           const SizedBox(height: 6),
           Text(
-            '极索已根据问题领域\n自动邀请以下专家为你解答',
+            _invitedCount > 0
+                ? '极索已根据问题领域\n自动邀请该领域最活跃的创作者为你解答'
+                : '暂时还没有该领域的创作者可邀请\n你的问题已经发布，其他人也能看到',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: Colors.grey[400], height: 1.6),
           ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A0E2E),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                width: 0.5,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '⚡  已邀请 3 位领域专家',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFF59E0B),
-                  ),
+          if (_invitedCount > 0) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A0E2E),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                  width: 0.5,
                 ),
-                const SizedBox(height: 10),
-                ...experts.map(
-                  (e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 12,
-                          backgroundColor: Color(e['color'] as int),
-                          child: Text(
-                            (e['name'] as String).substring(0, 1),
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    e['name'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  if (e['aurora'] == true) ...[
-                                    const SizedBox(width: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: 1,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(
-                                          0xFFF59E0B,
-                                        ).withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                      child: const Text(
-                                        '★ 极光',
-                                        style: TextStyle(
-                                          fontSize: 8,
-                                          color: Color(0xFFF59E0B),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              Text(
-                                e['role'] as String,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white.withValues(alpha: 0.4),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    '⚡',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '已邀请 $_invitedCount 位领域创作者',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFF59E0B),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
@@ -25,27 +26,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabCtrl;
 
-  // 邀请回答目前后端没有对应的数据模型（跟极索提问功能一样，是同一批
-  // mock），先用静态数据展示交互，接受/忽略只做本地移除
-  final _invites = [
-    {
-      'question': 'CRISPR基因编辑中如何降低脱靶效应？目前最优方案是什么？',
-      'asker': '匿名用户',
-      'time': '极索系统 · 2分钟前',
-      'reason': '你在生命科学领域有 3 篇相关内容',
-    },
-    {
-      'question': '泊松分布和正态分布在实际建模时如何选择？',
-      'asker': '经济学徒',
-      'time': '极索系统 · 1小时前',
-      'reason': '你有泊松分布相关教程',
-    },
-  ];
+  List<Map<String, dynamic>> _invites = [];
+  bool _loadingInvites = false;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 4, vsync: this);
+    _loadInvites();
   }
 
   @override
@@ -54,13 +42,37 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     super.dispose();
   }
 
+  Future<void> _loadInvites() async {
+    setState(() => _loadingInvites = true);
+    final res = await ref.read(apiClientProvider).get('/auth/questions/invites');
+    if (!mounted) return;
+    setState(() {
+      _loadingInvites = false;
+      if (res.success && res.data != null) {
+        _invites = ((res.data['invites'] as List?) ?? [])
+            .map((i) => Map<String, dynamic>.from(i as Map))
+            .toList();
+      }
+    });
+  }
+
+  Future<void> _respondInvite(Map<String, dynamic> inv, String action) async {
+    setState(() => _invites.remove(inv));
+    final res = await ref
+        .read(apiClientProvider)
+        .post('/auth/questions/invites/${inv['id']}/respond', data: {'action': action});
+    if (!mounted || res.success) return;
+    // 失败就把邀请加回列表——不能让用户以为已经处理成功了
+    setState(() => _invites.add(inv));
+  }
+
   void _acceptInvite(Map<String, dynamic> inv) {
     context.push('/publish');
-    setState(() => _invites.remove(inv));
+    _respondInvite(inv, 'accept');
   }
 
   void _ignoreInvite(Map<String, dynamic> inv) {
-    setState(() => _invites.remove(inv));
+    _respondInvite(inv, 'ignore');
   }
 
   Color _typeColor(String type) {
@@ -143,29 +155,36 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
                 Tab(text: l10n.notifFilterComments),
                 Tab(text: l10n.notifFilterLikes),
                 Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(l10n.notifFilterInviteAnswer),
-                      if (_invites.isNotEmpty) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          child: Text(
-                            '${_invites.length}',
-                            style: const TextStyle(
-                              fontSize: 9,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                  // 4个固定宽度的tab里，"邀请回答"比"评论/点赞/系统"多两个字，
+                  // 加上未读徽标后在等分宽度下会溢出——用 FittedBox 让它在
+                  // 塞不下时整体缩小，而不是继续走 isScrollable（那样4个tab
+                  // 就不再是等分铺满，跟其余三个tab的视觉节奏不一致了）
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(l10n.notifFilterInviteAnswer),
+                        if (_invites.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              '${_invites.length}',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 Tab(text: l10n.notifFilterSystem),
@@ -212,42 +231,49 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   }
 
   Widget _inviteAnswerTab(AppLocalizations l10n) {
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        ..._invites.map(
-          (inv) => _InviteCard(
-            invite: inv,
-            onAccept: () => _acceptInvite(inv),
-            onIgnore: () => _ignoreInvite(inv),
-          ),
-        ),
-        if (_invites.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 60),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.mark_email_read_outlined,
-                    size: 48,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(l10n.inviteAnswerEmpty, style: TextStyle(color: Colors.grey[400])),
-                ],
-              ),
+    if (_loadingInvites && _invites.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return RefreshIndicator(
+      onRefresh: _loadInvites,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        children: [
+          ..._invites.map(
+            (inv) => _InviteCard(
+              invite: inv,
+              onAccept: () => _acceptInvite(inv),
+              onIgnore: () => _ignoreInvite(inv),
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: Text(
-            l10n.inviteAnswerFooter,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: Colors.grey[400], height: 1.7),
+          if (_invites.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 60),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.mark_email_read_outlined,
+                      size: 48,
+                      color: Colors.grey[300],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(l10n.inviteAnswerEmpty, style: TextStyle(color: Colors.grey[400])),
+                  ],
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Text(
+              l10n.inviteAnswerFooter,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: Colors.grey[400], height: 1.7),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -440,7 +466,7 @@ class _InviteCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      invite['time'] as String? ?? '',
+                      '极索系统 · ${messageTimeAgo(l10n, ((invite['question_created_at'] as num?)?.toInt() ?? 0) * 1000)}',
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.white.withValues(alpha: 0.4),
@@ -453,7 +479,7 @@ class _InviteCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '「${invite['question']}」',
+            '「${invite['question_text']}」',
             style: TextStyle(
               fontSize: 13,
               fontStyle: FontStyle.italic,
@@ -468,7 +494,7 @@ class _InviteCard extends StatelessWidget {
               children: [
                 const TextSpan(text: '来自用户 '),
                 TextSpan(
-                  text: '@${invite['asker']}',
+                  text: '@${invite['asker_name']}',
                   style: const TextStyle(
                     color: Color(0xFF818CF8),
                     fontWeight: FontWeight.w500,
