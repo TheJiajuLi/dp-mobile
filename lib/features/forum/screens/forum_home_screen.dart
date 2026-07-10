@@ -150,7 +150,10 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
         onPressed: () async {
           await context.push(
             '/forum/create',
-            extra: {'forumId': widget.forumId},
+            extra: {
+              'forumId': widget.forumId,
+              'forumTags': List<String>.from(_forum?['tags'] ?? const []),
+            },
           );
           _loadForum();
         },

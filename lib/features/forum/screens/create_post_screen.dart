@@ -8,7 +8,12 @@ const _primary = Color(0xFF6366F1);
 
 class CreatePostScreen extends ConsumerStatefulWidget {
   final String forumId;
-  const CreatePostScreen({super.key, required this.forumId});
+  final List<String> forumTags;
+  const CreatePostScreen({
+    super.key,
+    required this.forumId,
+    this.forumTags = const [],
+  });
 
   @override
   ConsumerState<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -17,16 +22,31 @@ class CreatePostScreen extends ConsumerStatefulWidget {
 class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   final _titleCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
+  final _customCtrl = TextEditingController();
   final Set<String> _selectedTags = {};
   bool _submitting = false;
 
-  static const _allTags = ['数学', '编程', 'AI', '数据分析', '物理', '科普'];
+  // 预设标签优先用论坛自己的标签；没传就退回一组通用标签
+  List<String> get _presetTags => widget.forumTags.isNotEmpty
+      ? widget.forumTags
+      : const ['数学', '编程', 'AI', '数据分析', '物理', '科普', '统计', '机器学习'];
 
   @override
   void dispose() {
     _titleCtrl.dispose();
     _contentCtrl.dispose();
+    _customCtrl.dispose();
     super.dispose();
+  }
+
+  // 自定义标签：回车（onSubmitted 传入 val）或点"添加"（无参）都走这里
+  void _addCustomTag([String? val]) {
+    final tag = (val ?? _customCtrl.text).trim();
+    if (tag.isEmpty || _selectedTags.length >= 3) return;
+    if (!_selectedTags.contains(tag)) {
+      setState(() => _selectedTags.add(tag));
+    }
+    _customCtrl.clear();
   }
 
   Future<void> _submit() async {
@@ -201,60 +221,175 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                 ),
                 const SizedBox(height: 12),
                 _fieldLabel('话题标签 · 最多3个', isDark),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    ..._allTags.map((tag) {
-                      final isOn = _selectedTags.contains(tag);
-                      return GestureDetector(
-                        onTap: () => setState(() {
-                          if (isOn) {
-                            _selectedTags.remove(tag);
-                          } else if (_selectedTags.length < 3) {
-                            _selectedTags.add(tag);
-                          }
-                        }),
+                // 1) 已选标签——右侧 × 可删除
+                if (_selectedTags.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _selectedTags.map((tag) {
+                      return Container(
+                        padding: const EdgeInsets.fromLTRB(10, 5, 6, 5),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? _primary.withValues(alpha: 0.15)
+                              : const Color(0xFFEEF0FF),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(color: _primary, width: 0.5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              tag,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _selectedTags.remove(tag)),
+                              child: Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: _primary.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 9,
+                                  color: _primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                // 2) 预设标签——只显示未选的；满 3 个变灰不可点
+                if (_presetTags.any((t) => !_selectedTags.contains(t)))
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _presetTags
+                        .where((t) => !_selectedTags.contains(t))
+                        .map((tag) {
+                          final full = _selectedTags.length >= 3;
+                          return GestureDetector(
+                            onTap: full
+                                ? null
+                                : () => setState(() => _selectedTags.add(tag)),
+                            child: Opacity(
+                              opacity: full ? 0.4 : 1.0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 11,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.05)
+                                      : const Color(0xFFF5F5F5),
+                                  borderRadius: BorderRadius.circular(99),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.1)
+                                        : const Color(0xFFE0E0E0),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.5)
+                                        : const Color(0xFF555555),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(),
+                  ),
+                // 3) 自定义输入——回车或点"添加"；满 3 个隐藏
+                if (_selectedTags.length < 3) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _customCtrl,
+                          maxLength: 10,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: _addCustomTag,
+                          decoration: InputDecoration(
+                            hintText: '自定义标签...',
+                            hintStyle: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[400],
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: _primary,
+                                width: 0.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: _primary,
+                                width: 0.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 7,
+                            ),
+                            counterText: '',
+                            isDense: true,
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      GestureDetector(
+                        onTap: _addCustomTag,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 11,
-                            vertical: 5,
+                            horizontal: 12,
+                            vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: isOn
-                                ? (isDark
-                                      ? _primary.withValues(alpha: 0.15)
-                                      : const Color(0xFFEEF0FF))
-                                : (isDark
-                                      ? Colors.white.withValues(alpha: 0.05)
-                                      : Colors.white),
-                            borderRadius: BorderRadius.circular(99),
-                            border: Border.all(
-                              color: isOn
-                                  ? _primary
-                                  : (isDark
-                                        ? Colors.white.withValues(alpha: 0.1)
-                                        : const Color(0xFFEBEBEB)),
-                              width: 0.5,
-                            ),
+                            color: _primary,
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(
-                            tag,
+                          child: const Text(
+                            '添加',
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: isOn ? FontWeight.w500 : FontWeight.normal,
-                              color: isOn
-                                  ? _primary
-                                  : (isDark
-                                        ? Colors.white.withValues(alpha: 0.5)
-                                        : Colors.grey[500]),
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
-                      );
-                    }),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

@@ -279,7 +279,15 @@ final appRouter = GoRouter(
       path: '/forum/create',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
-        return CreatePostScreen(forumId: extra?['forumId'] as String? ?? '');
+        final tags =
+            (extra?['forumTags'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const <String>[];
+        return CreatePostScreen(
+          forumId: extra?['forumId'] as String? ?? '',
+          forumTags: tags,
+        );
       },
     ),
     GoRoute(
