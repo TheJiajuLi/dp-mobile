@@ -179,6 +179,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                           : Colors.grey[400],
                       fontWeight: FontWeight.w500,
                     ),
+                    filled: false,
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
                     counterText: '',
@@ -282,6 +283,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                       ? Colors.white.withValues(alpha: 0.3)
                       : Colors.grey[400],
                 ),
+                filled: false,
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
               ),

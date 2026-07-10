@@ -76,16 +76,22 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 之前顶栏/Tab条用的是建群/发帖页那套写死的 #0A0A1A/白色"产品感"
+    // 背景，但这个页面的 Scaffold 自己没设背景色，走的是主题默认的
+    // scaffoldBackgroundColor（暗色 #1C1C1E / 浅色 #F7F7FB）——两个颜色
+    // 对不上，顶栏跟下面 TabBarView 内容区之间会有一条明显的接缝，暗色下
+    // 尤其明显。论坛主页是浏览类页面，不是建群/发帖那种独立表单页，跟着
+    // 主题背景走更统一，不用另起一套颜色
+    final bg = Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
+      backgroundColor: bg,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : NestedScrollView(
               headerSliverBuilder: (ctx, inner) => [
                 SliverAppBar(
-                  backgroundColor: isDark
-                      ? const Color(0xFF0A0A1A)
-                      : Colors.white,
+                  backgroundColor: bg,
                   elevation: 0,
                   pinned: true,
                   leading: IconButton(
@@ -127,7 +133,7 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
                           ? Colors.white.withValues(alpha: 0.06)
                           : const Color(0xFFEBEBEB),
                     ),
-                    isDark: isDark,
+                    backgroundColor: bg,
                   ),
                 ),
               ],
@@ -391,8 +397,8 @@ class _StatItem extends StatelessWidget {
 
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;
-  final bool isDark;
-  const _TabBarDelegate(this.tabBar, {required this.isDark});
+  final Color backgroundColor;
+  const _TabBarDelegate(this.tabBar, {required this.backgroundColor});
 
   @override
   double get minExtent => tabBar.preferredSize.height;
@@ -401,13 +407,10 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: isDark ? const Color(0xFF0A0A1A) : Colors.white,
-      child: tabBar,
-    );
+    return Container(color: backgroundColor, child: tabBar);
   }
 
   @override
   bool shouldRebuild(_TabBarDelegate old) =>
-      old.tabBar != tabBar || old.isDark != isDark;
+      old.tabBar != tabBar || old.backgroundColor != backgroundColor;
 }
