@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/utils/forum_gradient.dart';
 import 'forum_list_screen.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -170,6 +171,7 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
     final posts = (_forum?['post_count'] as num?)?.toInt() ?? 0;
     final replies = (_forum?['reply_count'] as num?)?.toInt() ?? 0;
     final tags = List<String>.from((_forum?['tags'] as List?) ?? const []);
+    final colorIdx = (_forum?['color_index'] as num?)?.toInt() ?? 0;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -193,8 +195,8 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
                 width: 58,
                 height: 58,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  gradient: LinearGradient(
+                    colors: forumGradientFor(colorIdx),
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

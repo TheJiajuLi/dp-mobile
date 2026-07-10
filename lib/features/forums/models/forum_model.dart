@@ -9,6 +9,7 @@ class ForumModel {
   final int postCount;
   final int createdAt; // 毫秒
   final bool isFollowing;
+  final int colorIdx;
 
   const ForumModel({
     required this.id,
@@ -21,6 +22,7 @@ class ForumModel {
     required this.postCount,
     required this.createdAt,
     this.isFollowing = false,
+    this.colorIdx = 0,
   });
 
   factory ForumModel.fromJson(Map<String, dynamic> j) => ForumModel(
@@ -35,5 +37,8 @@ class ForumModel {
     // 后端时间戳是秒级，×1000 转毫秒——跟 GroupModel 同一个约定
     createdAt: ((j['created_at'] as num?) ?? 0).toInt() * 1000,
     isFollowing: j['is_following'] == 1 || j['is_following'] == true,
+    // 0-5，超出这个范围（脏数据/未来加了更多渐变色但客户端还没更新表）
+    // 用 .clamp 兜底，不让下标越界崩溃
+    colorIdx: ((j['color_index'] as num?)?.toInt() ?? 0).clamp(0, 5),
   );
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/utils/forum_gradient.dart';
 import '../../../shared/widgets/rounded_list_card.dart';
 import '../models/forum_model.dart';
 
@@ -166,8 +167,8 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
+          gradient: LinearGradient(
+            colors: forumGradientFor(forum.colorIdx),
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -179,7 +180,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF0891B2),
+              color: Colors.white,
             ),
           ),
         ),

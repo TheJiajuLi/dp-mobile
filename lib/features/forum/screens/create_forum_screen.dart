@@ -3,17 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/utils/forum_gradient.dart';
 
 const _primary = Color(0xFF6366F1);
 
-// 建论坛——POST /auth/forums 是真实接口（name/description/tags），但
-// forums 表没有 avatar/color 字段（createForum 的 INSERT 语句里没有这一
-// 列），所以这里的渐变色只是创建时的本地取色器，纯展示用，不会随创建
-// 请求提交、也不会保存下来——AllForumsScreen/ForumHomeScreen 之后看到
-// 的这个论坛头像用的是它们各自的默认配色，不会跟这里选的颜色同步。
+// 建论坛——POST /auth/forums 是真实接口（name/description/tags/
+// color_index）。color_index（0-5，对应 forumGradients 的下标）会随创建
+// 请求一起提交、真实存进 forums 表，AllForumsScreen/ForumHomeScreen 头像
+// 用的是同一份 shared/utils/forum_gradient.dart 取色，三处保持一致
+//
 // 没有做单独的"创建成功页"：创建成功直接 pushReplacement 进论坛主页，
-// 新论坛的名称/标签在那边就是从刚创建的真实数据里来的，不需要再摆一层
-// 复述界面
+// 新论坛的名称/标签/头像颜色在那边就是从刚创建的真实数据里来的，不需要
+// 再摆一层复述界面
 class CreateForumScreen extends ConsumerStatefulWidget {
   const CreateForumScreen({super.key});
 
@@ -30,15 +31,6 @@ class _CreateForumScreenState extends ConsumerState<CreateForumScreen> {
   bool _submitting = false;
   int _colorIdx = 0;
 
-  static const _gradients = [
-    [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-    [Color(0xFF16A34A), Color(0xFF0891B2)],
-    [Color(0xFFD97706), Color(0xFFEF4444)],
-    [Color(0xFFEC4899), Color(0xFF8B5CF6)],
-    [Color(0xFF0891B2), Color(0xFF6366F1)],
-    [Color(0xFFEF4444), Color(0xFFD97706)],
-  ];
-
   static const _presetTags = [
     '数学',
     '编程',
@@ -54,7 +46,7 @@ class _CreateForumScreenState extends ConsumerState<CreateForumScreen> {
 
   bool get _canSubmit => _nameCtrl.text.trim().length >= 2;
 
-  List<Color> get _currentGradient => _gradients[_colorIdx];
+  List<Color> get _currentGradient => forumGradientFor(_colorIdx);
 
   @override
   void initState() {
@@ -80,6 +72,7 @@ class _CreateForumScreenState extends ConsumerState<CreateForumScreen> {
         if (_descCtrl.text.trim().isNotEmpty)
           'description': _descCtrl.text.trim(),
         'tags': _selectedTags.toList(),
+        'color_index': _colorIdx,
       },
     );
     if (!mounted) return;
@@ -180,7 +173,8 @@ class _CreateForumScreenState extends ConsumerState<CreateForumScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => setState(
-                      () => _colorIdx = (_colorIdx + 1) % _gradients.length,
+                      () => _colorIdx =
+                          (_colorIdx + 1) % forumGradients.length,
                     ),
                     child: Stack(
                       children: [
