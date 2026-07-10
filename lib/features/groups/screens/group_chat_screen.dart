@@ -569,75 +569,118 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
+  // 搜索栏跟这个 App 其它搜索框（search_screen.dart/conversation_list_
+  // screen.dart）同一套视觉语言：灰色圆角胶囊+放大镜前缀+有内容才出现的
+  // 清空按钮，不是自己另起一套没有图标、纯边框的输入框。命中数/翻页也
+  // 包一个胶囊容器，不是三个元素干巴巴地散在 AppBar actions 里
   PreferredSizeWidget _buildSearchBar(bool isDark) {
+    final pillBg = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFFF0F0F0);
+    final muted = isDark
+        ? Colors.white.withValues(alpha: 0.4)
+        : Colors.grey[500];
+
     return AppBar(
-      backgroundColor: isDark ? const Color(0xFF0A0A1A) : Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       elevation: 0,
+      titleSpacing: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, size: 18),
         onPressed: _exitSearch,
       ),
-      title: TextField(
-        controller: _searchCtrl,
-        autofocus: true,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: '搜索消息...',
-          hintStyle: TextStyle(
-            fontSize: 14,
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.3)
-                : Colors.grey[400],
-          ),
-          border: InputBorder.none,
+      title: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: pillBg,
+          borderRadius: BorderRadius.circular(18),
         ),
-        style: TextStyle(
-          fontSize: 14,
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.9)
-              : const Color(0xFF1A1A1A),
-        ),
-        onChanged: (v) {
-          setState(() {
-            _searchQuery = v.trim();
-            _updateMatches();
-          });
-        },
-      ),
-      actions: [
-        if (_matchIndices.isNotEmpty) ...[
-          Center(
-            child: Text(
-              '${_currentMatchIdx + 1}/${_matchIndices.length}',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.5)
-                    : Colors.grey[500],
+        child: Row(
+          children: [
+            Icon(Icons.search, size: 18, color: muted),
+            const SizedBox(width: 6),
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: '搜索消息',
+                  hintStyle: TextStyle(fontSize: 14, color: muted),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.9)
+                      : const Color(0xFF1A1A1A),
+                ),
+                onChanged: (v) {
+                  setState(() {
+                    _searchQuery = v.trim();
+                    _updateMatches();
+                  });
+                },
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.keyboard_arrow_up, size: 20),
-            onPressed: _prevMatch,
-          ),
-          IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-            onPressed: _nextMatch,
-          ),
-        ] else if (_searchQuery.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Center(
-              child: Text(
-                '无结果',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.3)
-                      : Colors.grey[400],
-                ),
+            if (_searchQuery.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchCtrl.clear();
+                  setState(() {
+                    _searchQuery = '';
+                    _updateMatches();
+                  });
+                },
+                child: Icon(Icons.cancel, size: 16, color: muted),
               ),
+          ],
+        ),
+      ),
+      actions: [
+        if (_matchIndices.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: pillBg,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_currentMatchIdx + 1}/${_matchIndices.length}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: muted,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_up, size: 20),
+                    color: muted,
+                    onPressed: _prevMatch,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+                    color: muted,
+                    onPressed: _nextMatch,
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (_searchQuery.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Text('无结果', style: TextStyle(fontSize: 12, color: muted)),
             ),
           ),
       ],
@@ -1022,14 +1065,15 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       if (idx > start) {
         spans.add(TextSpan(text: text.substring(start, idx)));
       }
+      // 命中关键词统一用同一个黄色高亮——跟一线聊天/邮件产品的搜索高亮
+      // 一致，不随气泡是"我发的"还是"对方发的"变色。之前"我发的"那一侧
+      // 用半透明白叠在紫色气泡上，反差太弱，一眼看不出是命中词
       spans.add(
         TextSpan(
           text: text.substring(idx, idx + q.length),
-          style: TextStyle(
-            backgroundColor: isMe
-                ? Colors.white.withValues(alpha: 0.3)
-                : const Color(0xFFFFF176),
-            color: isMe ? Colors.white : const Color(0xFF1A1A1A),
+          style: const TextStyle(
+            backgroundColor: Color(0xFFFFF176),
+            color: Color(0xFF1A1A1A),
             fontWeight: FontWeight.w600,
           ),
         ),
