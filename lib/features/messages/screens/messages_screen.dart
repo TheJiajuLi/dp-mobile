@@ -137,18 +137,12 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     final dmUnread = conversations.fold<int>(0, (s, c) => s + c.unreadCount);
     final previewNotifs = _isComingSoonFilter
         ? const <AppNotification>[]
-        // invite_answer 有自己的汇总卡，mention 有自己的提及Tab入口，
-        // answer_posted 靠通知本身跳问题详情——都不该在这个通用预览里
-        // 再原样出现一遍
-        : _filteredPreview(notifications)
-              .where(
-                (n) =>
-                    n.type != 'invite_answer' &&
-                    n.type != 'answer_posted' &&
-                    n.type != 'mention',
-              )
-              .take(4)
-              .toList();
+        // 评论/点赞/关注三个筛选chip各自严格按 type 精确匹配，互不重叠——
+        // 只有"全部"才是真的"全部"，不该再额外排除 invite_answer/mention/
+        // answer_posted 这几个类型（之前排除是想避免跟邀请回答汇总卡/
+        // 提及入口重复展示，但"全部"筛选项的字面意思不该被打折扣，两者
+        // 冲突时以"全部"的语义为准——2026-07-10 改回不过滤）
+        : _filteredPreview(notifications).take(4).toList();
     final previewConvs = conversations.take(3).toList();
 
     return Scaffold(
