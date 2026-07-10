@@ -11,6 +11,7 @@ import '../models/conversation_model.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
 import '../utils/message_avatar.dart';
+import '../utils/notification_nav.dart';
 import '../widgets/invite_summary_card.dart';
 
 const _primary = kMessagesPrimary;
@@ -348,9 +349,14 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                     .map(
                       (n) => _NotifPreviewTile(
                         notification: n,
-                        onTap: (n.fromUsername?.isNotEmpty ?? false)
-                            ? () => context.push('/users/${n.fromUsername}')
-                            : null,
+                        onTap: () {
+                          // 评论/点赞/收藏/提及跳文章（评论/提及再定位到评论），
+                          // 回答跳问题，关注才跳主页；其它类型兜底跳发信人主页
+                          if (openNotificationTarget(context, n)) return;
+                          if (n.fromUsername?.isNotEmpty ?? false) {
+                            context.push('/users/${n.fromUsername}');
+                          }
+                        },
                       ),
                     )
                     .toList(),

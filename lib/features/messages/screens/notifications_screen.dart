@@ -8,6 +8,7 @@ import '../../auth/auth_service.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
 import '../utils/message_avatar.dart';
+import '../utils/notification_nav.dart';
 import '../widgets/invite_summary_card.dart';
 
 // 之前是评论/点赞/邀请回答/系统四个Tab，邀请回答现在改成汇总卡+专属
@@ -485,14 +486,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return Container(
       color: n.isRead ? null : kMessagesPrimary.withValues(alpha: 0.07),
       child: ListTile(
-        // answer_posted 复用 tutorialId 传 questionId（后端 createAnswer
-        // 目前发通知时还没传这个参数，没传的话这里点了也没地方可跳，是
-        // 待后端补的一环）；group_invite 复用 tutorialId 传 group_id
+        // group_invite 复用 tutorialId 传 group_id，走专属的加群流程；
+        // 其余（评论/提及跳文章定位评论、点赞/收藏跳文章、回答跳问题、
+        // 关注跳主页）统一交给 openNotificationTarget 处理
         onTap: isGroupInvite && n.tutorialId != null
             ? () => _handleGroupInvite(n)
-            : n.type == 'answer_posted' && n.tutorialId != null
-            ? () => context.push('/questions/${n.tutorialId}')
-            : null,
+            : () => openNotificationTarget(context, n),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: GestureDetector(
           onTap: isGroupInvite
