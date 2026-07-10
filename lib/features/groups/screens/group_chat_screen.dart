@@ -14,12 +14,11 @@ import '../models/group_model.dart';
 
 const _primary = Color(0xFF6366F1);
 
-// 后端还没有 /auth/groups/:id/messages 这套接口（跟上一步建群流程的
-// /auth/groups 一样，都是真实调用、真实等后端补上）——_loadMessages
-// 失败时在本地种一批演示消息，方便先把气泡/分享卡片/@提及高亮这些
-// 视觉效果过一遍；发消息/分享同理，真实接口失败就本地乐观追加一条。
-// 这两处都有清楚的注释标出来，后端接口一旦真的存在，res.success 会
-// 变成 true，走的就是真实分支，不需要再手动摘掉 mock 逻辑
+// 群相关接口大部分已上线（GET /auth/groups 列表、GET /auth/groups/:id 详情、
+// POST 建群等）；只有 GET /auth/groups/:id/messages 消息接口还没上线，拉取
+// 失败时不再塞演示消息（否则真实群里会冒出不在群里的假人），改为显示空状态。
+// 发消息/分享仍保留乐观更新：真实接口失败时本地先追加一条，等接口补齐后
+// res.success 变 true 自动走真实分支
 class GroupChatScreen extends ConsumerStatefulWidget {
   final String groupId;
   final String? groupName;
@@ -147,9 +146,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   }
 
   // 拉群详情主要是为了拿成员列表给 @ 选择器做本地候选（名字/成员数已经
-  // 从上一页参数带过来了，这里拿到真实值就顺手覆盖）。跟 _loadMessages 一样，
-  // 群详情接口 /auth/groups/:id 后端还没有——失败时本地种一批演示成员，
-  // 保证 @ 选择器有东西可选；接口一旦真的存在，res.success 变 true 自动走真实分支
+  // 从上一页参数带过来了，这里拿到真实值就顺手覆盖）。/auth/groups/:id 已上线；
+  // 万一拉取失败就保持空成员列表，不再塞演示成员
   Future<void> _loadGroupData() async {
     final res = await ref
         .read(apiClientProvider)
@@ -174,11 +172,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       });
       return;
     }
-    // 群详情接口还不存在——演示数据里把自己当群主，方便先把群主管理界面过一遍
-    setState(() {
-      _members = _mockMembers();
-      _myRole = 'owner';
-    });
+    // 拉取失败就保持空成员列表 + 默认 member 角色，不再塞演示成员
   }
 
   // 从成员列表里找当前用户的角色；找不到就看是不是群主，再兜底 member
@@ -193,24 +187,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       }
     }
     return uid.isNotEmpty && uid == ownerId ? 'owner' : 'member';
-  }
-
-  // 演示成员——名字跟 _mockMessages 里的发言人一致，@ 起来更真实；
-  // 顺带带上 role/头像，「群设置」页的角色标签才有东西显示
-  List<Map<String, dynamic>> _mockMembers() {
-    final me = ref.read(currentUserProvider);
-    return [
-      {
-        'id': _myId,
-        'username': me?.username ?? '我',
-        'avatar': me?.avatar,
-        'role': 'owner',
-      },
-      {'id': 'u1', 'username': '宇宙观测员', 'role': 'admin'},
-      {'id': 'u2', 'username': '生科研究员', 'role': 'member'},
-      {'id': 'u3', 'username': '小梦', 'role': 'member'},
-      {'id': 'u4', 'username': '大兔兔', 'role': 'member'},
-    ];
   }
 
   Future<void> _pollMessages() async {
