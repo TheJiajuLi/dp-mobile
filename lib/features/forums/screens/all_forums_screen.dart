@@ -7,20 +7,26 @@ import '../models/forum_model.dart';
 
 const _primary = Color(0xFF6366F1);
 
-// 论坛列表——GET /auth/forums 已经真实上线（连同 follow/posts/replies/likes
-// 一整套）。但列表接口没有区分当前用户是否已关注某个论坛（getForums 没有
-// 用到 req.userId，SQL 里也没有 JOIN forum_follows 判断当前用户），所以
-// "关注"按钮的初始状态只能都显示"关注"，点了之后按真实的 toggle 接口
-// 返回的 following 字段更新——这是后端接口本身的缺口，不是这里漏做，
-// 已经在这次改动的说明里跟用户提出来了，不在 Flutter 这边私自模拟
-class ForumListScreen extends ConsumerStatefulWidget {
-  const ForumListScreen({super.key});
+// 论坛的"选坛页"——后端论坛分两层：GET /auth/forums 列出所有论坛，
+// GET /auth/forums/:forumId/posts 列出某个论坛内的帖子。帖子列表/详情/
+// 发帖/回复/点赞那一整套已经在 lib/features/forum/（单数）里做好了，
+// 但那边的 ForumListScreen 其实是"某个论坛内的帖子列表"，需要外部传入
+// forumId，它自己的注释也写明"论坛选择页后续再做"——这个文件就是那个
+// 后续，选中一个论坛后 push 到 /forum/:forumId 进已有的帖子列表页
+//
+// GET /auth/forums 列表接口没有区分当前用户是否已关注某个论坛
+// （getForums 没有用到 req.userId，SQL 里也没有 JOIN forum_follows
+// 判断当前用户），所以"关注"按钮的初始状态只能都显示"关注"，点了之后
+// 按真实的 toggle 接口返回的 following 字段更新——这是后端接口本身的
+// 缺口，不在 Flutter 这边私自模拟 is_following
+class AllForumsScreen extends ConsumerStatefulWidget {
+  const AllForumsScreen({super.key});
 
   @override
-  ConsumerState<ForumListScreen> createState() => _ForumListScreenState();
+  ConsumerState<AllForumsScreen> createState() => _AllForumsScreenState();
 }
 
-class _ForumListScreenState extends ConsumerState<ForumListScreen> {
+class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
   List<ForumModel> _forums = [];
   final Set<String> _following = {};
   bool _loading = true;
@@ -154,13 +160,7 @@ class _ForumListScreenState extends ConsumerState<ForumListScreen> {
     final following = _following.contains(forum.id);
 
     return GestureDetector(
-      // 帖子列表页这次不在范围内——真实的 posts/replies/likes 接口后端
-      // 已经有了，但 Flutter 这边还没做详情页，老实提示，不假装能点进去
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('论坛详情页即将上线')),
-        );
-      },
+      onTap: () => context.push('/forum/${forum.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),

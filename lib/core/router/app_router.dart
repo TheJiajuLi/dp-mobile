@@ -17,7 +17,7 @@ import '../../features/creator/screens/aurora_screen.dart';
 import '../../features/creator/screens/columns_screen.dart';
 import '../../features/creator/screens/creator_center_screen.dart';
 import '../../features/creator/screens/works_screen.dart';
-import '../../features/forums/screens/forum_list_screen.dart';
+import '../../features/forums/screens/all_forums_screen.dart';
 import '../../features/groups/screens/create_group_screen.dart';
 import '../../features/groups/screens/group_chat_screen.dart';
 import '../../features/groups/screens/group_settings_screen.dart';
@@ -245,7 +245,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/messages/forums',
-      builder: (context, state) => const ForumListScreen(),
+      builder: (context, state) => const AllForumsScreen(),
     ),
     GoRoute(
       path: '/group/:id',
