@@ -227,7 +227,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             // 加了"论坛"之后是6个方块，固定宽度的 Row 会挤得每块都装不下
             // 文字，改成横向可滚动，每块保持原来 Expanded 时差不多的宽度
             SizedBox(
-              height: 76,
+              // 图标48 + 间距6 + 标题(~18) + 间距2 + 副标题(~14) ≈ 88，
+              // 原来的 76 装不下副标题会 BOTTOM OVERFLOW，留足高度
+              height: 94,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -442,6 +444,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     return GestureDetector(
       onTap: onTap,
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             width: 48,
