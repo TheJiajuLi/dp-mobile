@@ -241,7 +241,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHotTopics => '热门话题';
 
   @override
-  String get searchTutorials => '教程';
+  String get searchTutorials => '文章';
 
   @override
   String get searchUsers => '用户';

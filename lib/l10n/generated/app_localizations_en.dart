@@ -247,7 +247,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHotTopics => 'Trending Tags';
 
   @override
-  String get searchTutorials => 'Tutorials';
+  String get searchTutorials => 'Articles';
 
   @override
   String get searchUsers => 'Users';

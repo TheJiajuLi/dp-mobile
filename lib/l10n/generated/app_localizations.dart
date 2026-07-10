@@ -557,7 +557,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchTutorials.
   ///
   /// In en, this message translates to:
-  /// **'Tutorials'**
+  /// **'Articles'**
   String get searchTutorials;
 
   /// No description provided for @searchUsers.
