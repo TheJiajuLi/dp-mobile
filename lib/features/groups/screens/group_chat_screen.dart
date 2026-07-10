@@ -45,7 +45,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
   bool _loading = true;
   bool _sending = false;
-  bool _showPlus = false;
   String? _lastMsgId;
   Timer? _pollTimer;
 
@@ -275,7 +274,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   }
 
   Future<void> _shareContent(String type) async {
-    setState(() => _showPlus = false);
     final picked = type == 'share_tutorial'
         ? await _pickTutorial()
         : await _pickQuestion();
@@ -486,15 +484,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF0D0D15)
-          : const Color(0xFFF0F0F5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(isDark),
       body: GestureDetector(
-        onTap: () {
-          _focusNode.unfocus();
-          setState(() => _showPlus = false);
-        },
+        onTap: _focusNode.unfocus,
         child: Column(
           children: [
             Expanded(
@@ -502,7 +495,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                   ? const Center(child: CircularProgressIndicator())
                   : _buildMessageList(isDark),
             ),
-            if (_showPlus) _buildPlusSheet(isDark),
             // @ 提及浮层——群成员本地过滤，选中后回填到 _inputCtrl
             if (_mentionQuery != null)
               Padding(
@@ -567,11 +559,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
           icon: const Icon(Icons.settings_outlined, size: 20),
           onPressed: () => context.push(
             '/group/${widget.groupId}/settings',
-            extra: {
-              'group': _group,
-              'members': _members,
-              'myRole': _myRole,
-            },
+            extra: {'group': _group, 'members': _members, 'myRole': _myRole},
           ),
         ),
       ],
@@ -977,93 +965,43 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
-  Widget _buildPlusSheet(bool isDark) {
-    final bg = isDark ? const Color(0xFF1A1A2E) : Colors.white;
-    final border = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : const Color(0xFFEBEBEB);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(10, 0, 10, 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: border, width: 0.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _plusItem(
-            icon: Icons.article_outlined,
-            iconBg: const Color(0xFFEEF0FF),
-            iconColor: _primary,
-            label: '分享极梦文章',
-            isDark: isDark,
-            border: border,
-            onTap: () => _shareContent('share_tutorial'),
-            showDivider: true,
-          ),
-          _plusItem(
-            icon: Icons.help_outline,
-            iconBg: const Color(0xFFF3E8FF),
-            iconColor: const Color(0xFF8B5CF6),
-            label: '分享极索问题',
-            isDark: isDark,
-            border: border,
-            onTap: () => _shareContent('share_question'),
-            showDivider: false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _plusItem({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String label,
-    required bool isDark,
-    required Color border,
-    required VoidCallback onTap,
-    required bool showDivider,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  // "+"菜单——跟私信页 chat_screen.dart 的 _showAttachMenu 同一套视觉
+  // 语言：真正的 showModalBottomSheet（不是内嵌在 Column 里临时插一块），
+  // 拖拽把手+cardColor+圆角+图标格子横排，不是自己另起一套卡片/边框风格
+  void _showPlusMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
         decoration: BoxDecoration(
-          border: showDivider
-              ? Border(bottom: BorderSide(color: border, width: 0.5))
-              : null,
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Row(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(9),
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
               ),
-              child: Icon(icon, size: 16, color: iconColor),
             ),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.85)
-                    : const Color(0xFF1A1A1A),
-              ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _attachBtn(Icons.article_outlined, '分享极梦文章', () {
+                  Navigator.pop(ctx);
+                  _shareContent('share_tutorial');
+                }),
+                _attachBtn(Icons.help_outline, '分享极索问题', () {
+                  Navigator.pop(ctx);
+                  _shareContent('share_question');
+                }),
+              ],
             ),
           ],
         ),
@@ -1071,123 +1009,104 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
+  Widget _attachBtn(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF0FF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: _primary, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInputBar(bool isDark) {
-    final bg = isDark
-        ? const Color(0xFF0A0A1A).withValues(alpha: 0.97)
-        : Colors.white.withValues(alpha: 0.97);
-    final border = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : const Color(0xFFEBEBEB);
-    final inputBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : const Color(0xFFF5F5F5);
     final hasText = _inputCtrl.text.trim().isNotEmpty;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        10,
-        8,
-        10,
-        MediaQuery.of(context).padding.bottom + 8,
-      ),
-      decoration: BoxDecoration(
-        color: bg,
-        border: Border(top: BorderSide(color: border, width: 0.5)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          GestureDetector(
-            onTap: () => setState(() => _showPlus = !_showPlus),
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: inputBg,
-                shape: BoxShape.circle,
-                border: Border.all(color: border, width: 0.5),
-              ),
-              child: Icon(
-                Icons.add,
-                size: 18,
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.5)
-                    : Colors.grey[500],
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 34, maxHeight: 100),
-              decoration: BoxDecoration(
-                color: inputBg,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: border, width: 0.5),
-              ),
-              child: TextField(
-                controller: _inputCtrl,
-                focusNode: _focusNode,
-                maxLines: null,
-                textInputAction: TextInputAction.newline,
-                onTap: () => setState(() => _showPlus = false),
-                onChanged: (_) =>
-                    setState(() => _mentionQuery = _mention.detect(_inputCtrl)),
-                decoration: InputDecoration(
-                  hintText: '发消息...',
-                  hintStyle: TextStyle(
-                    fontSize: 13,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.25)
-                        : Colors.grey[400],
+      color: Theme.of(context).cardColor,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              GestureDetector(
+                onTap: _showPlusMenu,
+                child: const Padding(
+                  padding: EdgeInsets.only(bottom: 5),
+                  child: Icon(
+                    Icons.add_circle_outline,
+                    size: 26,
+                    color: Colors.grey,
                   ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 100),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
                     vertical: 8,
                   ),
-                ),
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.9)
-                      : const Color(0xFF1A1A1A),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-          GestureDetector(
-            onTap: hasText && !_sending ? _sendText : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: hasText
-                    ? _primary
-                    : isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : const Color(0xFFE0E0E0),
-                shape: BoxShape.circle,
-              ),
-              child: _sending
-                  ? const Padding(
-                      padding: EdgeInsets.all(9),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.send_rounded,
-                      size: 16,
-                      color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).inputDecorationTheme.fillColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: TextField(
+                    controller: _inputCtrl,
+                    focusNode: _focusNode,
+                    maxLines: null,
+                    textInputAction: TextInputAction.newline,
+                    onChanged: (_) => setState(
+                      () => _mentionQuery = _mention.detect(_inputCtrl),
                     ),
-            ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: '发消息...',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: hasText && !_sending ? _sendText : null,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: hasText ? _primary : Theme.of(context).disabledColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: _sending
+                      ? const Padding(
+                          padding: EdgeInsets.all(9),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send, color: Colors.white, size: 18),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
