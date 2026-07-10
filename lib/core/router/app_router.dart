@@ -22,6 +22,9 @@ import '../../features/groups/screens/group_chat_screen.dart';
 import '../../features/groups/screens/group_settings_screen.dart';
 import '../../features/groups/models/group_model.dart';
 import '../../features/groups/screens/group_list_screen.dart';
+import '../../features/forum/screens/forum_list_screen.dart';
+import '../../features/forum/screens/post_detail_screen.dart';
+import '../../features/forum/screens/create_post_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/jisuo/screens/answer_question_screen.dart';
 import '../../features/jisuo/screens/jisuo_screen.dart';
@@ -266,6 +269,25 @@ final appRouter = GoRouter(
           myRole: (extra['myRole'] as String?) ?? 'member',
         );
       },
+    ),
+    // 论坛：字面路由（create / post）必须排在 :forumId 参数路由之前，
+    // 否则 /forum/create 会被当成 forumId='create' 匹配掉
+    GoRoute(
+      path: '/forum/create',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return CreatePostScreen(forumId: extra?['forumId'] as String? ?? '');
+      },
+    ),
+    GoRoute(
+      path: '/forum/post/:postId',
+      builder: (context, state) =>
+          PostDetailScreen(postId: state.pathParameters['postId']!),
+    ),
+    GoRoute(
+      path: '/forum/:forumId',
+      builder: (context, state) =>
+          ForumListScreen(forumId: state.pathParameters['forumId']!),
     ),
     GoRoute(
       path: '/messages/conversations',
