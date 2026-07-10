@@ -14,11 +14,8 @@ const _primary = Color(0xFF6366F1);
 // forumId，它自己的注释也写明"论坛选择页后续再做"——这个文件就是那个
 // 后续，选中一个论坛后 push 到 /forum/:forumId 进已有的帖子列表页
 //
-// GET /auth/forums 列表接口没有区分当前用户是否已关注某个论坛
-// （getForums 没有用到 req.userId，SQL 里也没有 JOIN forum_follows
-// 判断当前用户），所以"关注"按钮的初始状态只能都显示"关注"，点了之后
-// 按真实的 toggle 接口返回的 following 字段更新——这是后端接口本身的
-// 缺口，不在 Flutter 这边私自模拟 is_following
+// GET /auth/forums 现在会返回 is_following（0/1），关注按钮的初始状态直接用
+// 它来定；点击后按 toggle 接口返回的 following 字段更新，请求失败则回滚
 class AllForumsScreen extends ConsumerStatefulWidget {
   const AllForumsScreen({super.key});
 
@@ -48,6 +45,10 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
         _forums = ((res.data['forums'] as List?) ?? [])
             .map((f) => ForumModel.fromJson(Map<String, dynamic>.from(f as Map)))
             .toList();
+        // 用后端返回的 is_following 初始化/刷新关注态，服务端为准
+        _following
+          ..clear()
+          ..addAll(_forums.where((f) => f.isFollowing).map((f) => f.id));
       }
     });
   }

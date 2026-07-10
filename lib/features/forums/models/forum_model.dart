@@ -8,6 +8,7 @@ class ForumModel {
   final int followerCount;
   final int postCount;
   final int createdAt; // 毫秒
+  final bool isFollowing;
 
   const ForumModel({
     required this.id,
@@ -19,6 +20,7 @@ class ForumModel {
     required this.followerCount,
     required this.postCount,
     required this.createdAt,
+    this.isFollowing = false,
   });
 
   factory ForumModel.fromJson(Map<String, dynamic> j) => ForumModel(
@@ -32,5 +34,6 @@ class ForumModel {
     postCount: (j['post_count'] as num?)?.toInt() ?? 0,
     // 后端时间戳是秒级，×1000 转毫秒——跟 GroupModel 同一个约定
     createdAt: ((j['created_at'] as num?) ?? 0).toInt() * 1000,
+    isFollowing: j['is_following'] == 1 || j['is_following'] == true,
   );
 }
