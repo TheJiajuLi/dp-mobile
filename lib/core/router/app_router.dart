@@ -23,7 +23,7 @@ import '../../features/groups/screens/group_chat_screen.dart';
 import '../../features/groups/screens/group_settings_screen.dart';
 import '../../features/groups/models/group_model.dart';
 import '../../features/groups/screens/group_list_screen.dart';
-import '../../features/forum/screens/forum_list_screen.dart';
+import '../../features/forum/screens/forum_home_screen.dart';
 import '../../features/forum/screens/post_detail_screen.dart';
 import '../../features/forum/screens/create_post_screen.dart';
 import '../../features/home/screens/home_screen.dart';
@@ -275,8 +275,6 @@ final appRouter = GoRouter(
         );
       },
     ),
-    // 论坛：字面路由（create / post）必须排在 :forumId 参数路由之前，
-    // 否则 /forum/create 会被当成 forumId='create' 匹配掉
     GoRoute(
       path: '/forum/create',
       builder: (context, state) {
@@ -289,10 +287,13 @@ final appRouter = GoRouter(
       builder: (context, state) =>
           PostDetailScreen(postId: state.pathParameters['postId']!),
     ),
+    // 论坛主页——ForumListScreen 不再是独立路由页（现在是 ForumHomeScreen
+    // 里 TabBarView 的子项，靠外层 Scaffold/AppBar，自己没有导航壳），
+    // 论坛卡片一律进这里
     GoRoute(
-      path: '/forum/:forumId',
+      path: '/forum-home/:forumId',
       builder: (context, state) =>
-          ForumListScreen(forumId: state.pathParameters['forumId']!),
+          ForumHomeScreen(forumId: state.pathParameters['forumId']!),
     ),
     GoRoute(
       path: '/messages/conversations',

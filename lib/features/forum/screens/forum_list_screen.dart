@@ -6,14 +6,17 @@ import '../../../core/network/api_client.dart';
 import '../models/forum_post_model.dart';
 import '../widgets/post_card.dart';
 
-const _primary = Color(0xFF6366F1);
-
-// 后端论坛分「论坛」和「帖子」两层：GET /auth/forums 列出论坛，
-// GET /auth/forums/:forumId/posts 列出某个论坛的帖子。这里先只做帖子列表，
-// forumId 由路由传入；论坛选择页后续再做
+// 现在是 ForumHomeScreen 的 TabBarView 子项（精华/最新/最热三个 tab
+// 各拿一个 sort 值），不再是独立路由页——AppBar/分类标签/排序按钮/发帖
+// FAB 都交给 ForumHomeScreen 统一管理，这里只负责按 sort 拉一屏帖子列表
 class ForumListScreen extends ConsumerStatefulWidget {
   final String forumId;
-  const ForumListScreen({super.key, required this.forumId});
+  final String sort; // 'latest' / 'hot' / 'featured'
+  const ForumListScreen({
+    super.key,
+    required this.forumId,
+    this.sort = 'latest',
+  });
 
   @override
   ConsumerState<ForumListScreen> createState() => _ForumListScreenState();
@@ -22,12 +25,6 @@ class ForumListScreen extends ConsumerStatefulWidget {
 class _ForumListScreenState extends ConsumerState<ForumListScreen> {
   List<ForumPost> _posts = [];
   bool _loading = true;
-  String _sort = 'latest';
-  String? _selectedTag;
-
-  // 分类标签不再写死全局分类，改成从该论坛帖子里实际用到的标签动态提取，
-  // '全部' 恒为第一个；没有帖子/没有标签时就只有 '全部'
-  List<String> _tags = ['全部'];
 
   @override
   void initState() {
@@ -36,33 +33,28 @@ class _ForumListScreenState extends ConsumerState<ForumListScreen> {
   }
 
   Future<void> _load() async {
+    // 后端 getPosts 只认识 sort/tag 两个查询参数，'featured' 不是它认识的
+    // 排序值——精华 tab 老实按 'latest' 去拉最近 50 条（后端 LIMIT 50），
+    // 再在客户端过滤 is_featured。这意味着精华帖如果不在最近50条创建的
+    // 帖子里就不会出现在这个 tab，是当前这版的已知局限，不是漏了处理
+    final effectiveSort = widget.sort == 'featured' ? 'latest' : widget.sort;
     final res = await ref
         .read(apiClientProvider)
         .get(
           '/auth/forums/${widget.forumId}/posts',
-          queryParameters: {
-            'sort': _sort,
-            if (_selectedTag != null && _selectedTag != '全部')
-              'tag': _selectedTag,
-          },
+          queryParameters: {'sort': effectiveSort},
         );
     if (!mounted) return;
     if (res.success && res.data is Map) {
       final list = ((res.data as Map)['posts'] as List?) ?? const [];
-      final posts = list
+      var posts = list
           .map((p) => ForumPost.fromJson(Map<String, dynamic>.from(p as Map)))
           .toList();
+      if (widget.sort == 'featured') {
+        posts = posts.where((p) => p.isFeatured).toList();
+      }
       setState(() {
         _posts = posts;
-        // 只在"全部"（未按标签过滤）时重算分类标签——否则选了某个标签后
-        // 帖子集被服务端过滤，标签会跟着缩水到只剩当前那一个
-        if (_selectedTag == null) {
-          final tags = <String>{};
-          for (final p in posts) {
-            tags.addAll(p.tags);
-          }
-          _tags = ['全部', ...tags];
-        }
         _loading = false;
       });
     } else {
@@ -72,151 +64,20 @@ class _ForumListScreenState extends ConsumerState<ForumListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 18),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text(
-          '论坛',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-      ),
-      body: Column(
-        children: [
-          // 分类标签横滑
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: _tags.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 6),
-              itemBuilder: (ctx, i) {
-                final tag = _tags[i];
-                final isOn = tag == '全部'
-                    ? _selectedTag == null
-                    : _selectedTag == tag;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() => _selectedTag = tag == '全部' ? null : tag);
-                    _load();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 4,
-                    ),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isOn
-                          ? const Color(0xFFEEF0FF)
-                          : (isDark
-                                ? Colors.white.withValues(alpha: 0.05)
-                                : Colors.white),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: isOn
-                            ? _primary
-                            : (isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : const Color(0xFFEBEBEB)),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Text(
-                      tag,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isOn ? FontWeight.w500 : FontWeight.w400,
-                        color: isOn
-                            ? _primary
-                            : (isDark
-                                  ? Colors.white.withValues(alpha: 0.5)
-                                  : Colors.grey[600]),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // 排序行
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : const Color(0xFFEBEBEB),
-                  width: 0.5,
-                ),
+    return _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _posts.isEmpty
+        ? _buildEmpty()
+        : RefreshIndicator(
+            onRefresh: _load,
+            child: ListView.builder(
+              itemCount: _posts.length,
+              itemBuilder: (ctx, i) => PostCard(
+                post: _posts[i],
+                onTap: () => context.push('/forum/post/${_posts[i].id}'),
               ),
             ),
-            child: Row(
-              children: [
-                _SortBtn(
-                  label: '最新',
-                  selected: _sort == 'latest',
-                  onTap: () {
-                    setState(() => _sort = 'latest');
-                    _load();
-                  },
-                ),
-                const SizedBox(width: 12),
-                _SortBtn(
-                  label: '最热',
-                  selected: _sort == 'hot',
-                  onTap: () {
-                    setState(() => _sort = 'hot');
-                    _load();
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // 帖子列表
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _posts.isEmpty
-                ? _buildEmpty()
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView.builder(
-                      itemCount: _posts.length,
-                      itemBuilder: (ctx, i) => PostCard(
-                        post: _posts[i],
-                        onTap: () =>
-                            context.push('/forum/post/${_posts[i].id}'),
-                      ),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-
-      // 发帖 FAB——发完回来刷新列表
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await context.push(
-            '/forum/create',
-            extra: {'forumId': widget.forumId},
           );
-          _load();
-        },
-        backgroundColor: _primary,
-        child: const Icon(Icons.edit, color: Colors.white),
-      ),
-    );
   }
 
   Widget _buildEmpty() => Center(
@@ -226,7 +87,7 @@ class _ForumListScreenState extends ConsumerState<ForumListScreen> {
         Icon(Icons.forum_outlined, size: 40, color: Colors.grey[300]),
         const SizedBox(height: 12),
         Text(
-          '还没有帖子',
+          widget.sort == 'featured' ? '还没有精华帖' : '还没有帖子',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
@@ -236,30 +97,6 @@ class _ForumListScreenState extends ConsumerState<ForumListScreen> {
         const SizedBox(height: 6),
         Text('来发第一篇吧', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
       ],
-    ),
-  );
-}
-
-class _SortBtn extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _SortBtn({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Text(
-      label,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-        color: selected ? _primary : Colors.grey[400],
-      ),
     ),
   );
 }

@@ -161,7 +161,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
     final following = _following.contains(forum.id);
 
     return GestureDetector(
-      onTap: () => context.push('/forum/${forum.id}'),
+      onTap: () => context.push('/forum-home/${forum.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
