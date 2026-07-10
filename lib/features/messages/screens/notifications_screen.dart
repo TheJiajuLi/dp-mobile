@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../auth/auth_service.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
 import '../utils/message_avatar.dart';
@@ -71,6 +72,211 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     });
   }
 
+  // group_invite 通知复用 tutorial_id 这个字段存 group_id（跟
+  // invite_answer/answer_posted 是同一个FK槽位复用套路）。标记已读走的
+  // 是页面级的 _markAllRead()，这里不用再单独标一次
+  Future<void> _handleGroupInvite(AppNotification n) async {
+    final groupId = n.tutorialId;
+    if (groupId == null) return;
+
+    final res = await ref.read(apiClientProvider).get('/auth/groups/$groupId');
+    if (!mounted) return;
+    if (!res.success || res.data is! Map) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('群组不存在或已解散')));
+      return;
+    }
+
+    final data = res.data as Map;
+    final group = Map<String, dynamic>.from(data['group'] as Map? ?? {});
+    final members = ((data['members'] as List?) ?? [])
+        .map((m) => Map<String, dynamic>.from(m as Map))
+        .toList();
+    final myId = ref.read(currentUserProvider)?.id;
+    final alreadyJoined = members.any((m) => m['user_id']?.toString() == myId);
+
+    if (alreadyJoined) {
+      context.push(
+        '/group/$groupId',
+        extra: {
+          'name': group['name'],
+          'memberCount': (group['member_count'] as num?)?.toInt(),
+        },
+      );
+    } else {
+      _showJoinGroupSheet(group);
+    }
+  }
+
+  void _showJoinGroupSheet(Map<String, dynamic> group) {
+    final groupId = group['id']?.toString() ?? '';
+    final name = group['name'] as String? ?? '';
+    final description = group['description'] as String?;
+    final memberCount = (group['member_count'] as num?)?.toInt() ?? 0;
+    final isPublic = group['is_public'] == 1 || group['is_public'] == true;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 3,
+                margin: const EdgeInsets.only(top: 10, bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(
+                  child: Text(
+                    name.isNotEmpty ? name.substring(0, 1) : '群',
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$memberCount 名成员 · ${isPublic ? "公开群" : "私密群"}',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.4)
+                      : Colors.grey[500],
+                ),
+              ),
+              if (description?.isNotEmpty ?? false) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    description!,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await _joinAndEnterGroup(groupId, name, memberCount);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          '加入并进入群聊',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.grey.withValues(alpha: 0.08),
+                          foregroundColor: Colors.grey[600],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('忽略', style: TextStyle(fontSize: 14)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: MediaQuery.of(ctx).padding.bottom + 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 后端 group.routes.ts 目前只有 invite/leave/disband，没有"自己申请
+  // 加入"这个接口（跟搜索页群组Tab那个"加入"按钮是同一个缺口）——真调用
+  // 真实但目前会失败的 POST /:id/join，失败给明确提示，不假装加入成功
+  Future<void> _joinAndEnterGroup(
+    String groupId,
+    String name,
+    int memberCount,
+  ) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .post('/auth/groups/$groupId/join');
+    if (!mounted) return;
+    if (!res.success) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '加入失败，请稍后重试')));
+      return;
+    }
+    context.push(
+      '/group/$groupId',
+      extra: {'name': name, 'memberCount': memberCount + 1},
+    );
+  }
+
   Color _typeColor(String type) {
     switch (type) {
       case 'like':
@@ -79,6 +285,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         return kMessagesPrimary;
       case 'follow':
         return const Color(0xFF34C759);
+      case 'group_invite':
+        return const Color(0xFF6366F1);
       default:
         return Colors.orange;
     }
@@ -92,6 +300,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         return Icons.chat_bubble;
       case 'follow':
         return Icons.person_add;
+      case 'group_invite':
+        return Icons.groups;
       default:
         return Icons.notifications;
     }
@@ -253,28 +463,57 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     AppLocalizations l10n,
     AppNotification n,
   ) {
+    final isGroupInvite = n.type == 'group_invite';
+
     return Container(
       color: n.isRead ? null : kMessagesPrimary.withValues(alpha: 0.07),
       child: ListTile(
-        // answer_posted 复用 tutorialId 这个字段传 questionId（后端
-        // createAnswer 目前发通知时还没传这个参数，没传的话这里点了
-        //也没地方可跳，是待后端补的一环）
-        onTap: n.type == 'answer_posted' && n.tutorialId != null
+        // answer_posted 复用 tutorialId 传 questionId（后端 createAnswer
+        // 目前发通知时还没传这个参数，没传的话这里点了也没地方可跳，是
+        // 待后端补的一环）；group_invite 复用 tutorialId 传 group_id
+        onTap: isGroupInvite && n.tutorialId != null
+            ? () => _handleGroupInvite(n)
+            : n.type == 'answer_posted' && n.tutorialId != null
             ? () => context.push('/questions/${n.tutorialId}')
             : null,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: GestureDetector(
-          onTap: (n.fromUsername?.isNotEmpty ?? false)
+          onTap: isGroupInvite
+              ? null
+              : (n.fromUsername?.isNotEmpty ?? false)
               ? () => context.push('/users/${n.fromUsername}')
               : null,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              buildMessageAvatar(
-                n.fromAvatar,
-                n.fromUsername ?? l10n.systemNotificationInitial,
-                radius: 22,
-              ),
+              // 群邀请通知没有群名字段可用（后端目前只塞了固定文案，
+              // 没有把群名一起存进 content），先用一个通用的群组渐变头像
+              // 占位，不展示邀请人头像——邀请人身份不是这条通知的重点，
+              // "邀请你加入哪个群"才是
+              if (isGroupInvite)
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.groups,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                )
+              else
+                buildMessageAvatar(
+                  n.fromAvatar,
+                  n.fromUsername ?? l10n.systemNotificationInitial,
+                  radius: 22,
+                ),
               Positioned(
                 top: -2,
                 right: -2,
@@ -305,7 +544,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           messageTimeAgo(l10n, n.createdAt),
           style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
-        trailing: n.tutorialId != null
+        trailing: isGroupInvite
+            ? Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.groups_outlined,
+                  color: Color(0xFF6366F1),
+                  size: 20,
+                ),
+              )
+            : n.tutorialId != null
             ? Container(
                 width: 44,
                 height: 44,
