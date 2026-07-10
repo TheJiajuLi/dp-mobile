@@ -60,6 +60,14 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   late GroupModel _group;
   String _myRole = 'member';
 
+  // 群内消息搜索
+  bool _searchMode = false;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+  List<int> _matchIndices = []; // 命中消息在 _messages 里的下标
+  int _currentMatchIdx = 0; // 当前定位到第几条命中（_matchIndices 的下标）
+  final Map<int, GlobalKey> _itemKeys = {}; // 每条消息一个 key，用于滚动定位
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +98,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   void dispose() {
     _pollTimer?.cancel();
     _inputCtrl.dispose();
+    _searchCtrl.dispose();
     _scrollCtrl.dispose();
     _focusNode.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -485,7 +494,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: _buildAppBar(isDark),
+      appBar: _searchMode ? _buildSearchBar(isDark) : _buildAppBar(isDark),
       body: GestureDetector(
         onTap: _focusNode.unfocus,
         child: Column(
@@ -513,12 +522,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         ),
       ),
     );
-  }
-
-  void _comingSoon(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   PreferredSizeWidget _buildAppBar(bool isDark) {
@@ -553,7 +556,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       actions: [
         IconButton(
           icon: const Icon(Icons.search, size: 20),
-          onPressed: () => _comingSoon('搜索消息即将上线'),
+          onPressed: () => setState(() => _searchMode = true),
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined, size: 20),
@@ -564,6 +567,143 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         ),
       ],
     );
+  }
+
+  PreferredSizeWidget _buildSearchBar(bool isDark) {
+    return AppBar(
+      backgroundColor: isDark ? const Color(0xFF0A0A1A) : Colors.white,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios, size: 18),
+        onPressed: _exitSearch,
+      ),
+      title: TextField(
+        controller: _searchCtrl,
+        autofocus: true,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: '搜索消息...',
+          hintStyle: TextStyle(
+            fontSize: 14,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.3)
+                : Colors.grey[400],
+          ),
+          border: InputBorder.none,
+        ),
+        style: TextStyle(
+          fontSize: 14,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.9)
+              : const Color(0xFF1A1A1A),
+        ),
+        onChanged: (v) {
+          setState(() {
+            _searchQuery = v.trim();
+            _updateMatches();
+          });
+        },
+      ),
+      actions: [
+        if (_matchIndices.isNotEmpty) ...[
+          Center(
+            child: Text(
+              '${_currentMatchIdx + 1}/${_matchIndices.length}',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.5)
+                    : Colors.grey[500],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_up, size: 20),
+            onPressed: _prevMatch,
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+            onPressed: _nextMatch,
+          ),
+        ] else if (_searchQuery.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Center(
+              child: Text(
+                '无结果',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : Colors.grey[400],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _exitSearch() {
+    setState(() {
+      _searchMode = false;
+      _searchQuery = '';
+      _searchCtrl.clear();
+      _matchIndices = [];
+      _currentMatchIdx = 0;
+    });
+  }
+
+  // 只算命中集合并定位到最后一条（最新），不自己 setState——调用方负责刷新
+  void _updateMatches() {
+    if (_searchQuery.isEmpty) {
+      _matchIndices = [];
+      _currentMatchIdx = 0;
+      return;
+    }
+    final q = _searchQuery.toLowerCase();
+    final indices = <int>[];
+    for (var i = 0; i < _messages.length; i++) {
+      if (_messages[i].content.toLowerCase().contains(q)) indices.add(i);
+    }
+    _matchIndices = indices;
+    _currentMatchIdx = indices.isNotEmpty ? indices.length - 1 : 0;
+    if (indices.isNotEmpty) _scrollToIndex(indices.last);
+  }
+
+  void _nextMatch() {
+    if (_matchIndices.isEmpty) return;
+    setState(() {
+      _currentMatchIdx = (_currentMatchIdx + 1) % _matchIndices.length;
+    });
+    _scrollToIndex(_matchIndices[_currentMatchIdx]);
+  }
+
+  void _prevMatch() {
+    if (_matchIndices.isEmpty) return;
+    setState(() {
+      _currentMatchIdx =
+          (_currentMatchIdx - 1 + _matchIndices.length) % _matchIndices.length;
+    });
+    _scrollToIndex(_matchIndices[_currentMatchIdx]);
+  }
+
+  GlobalKey _keyForIndex(int index) =>
+      _itemKeys.putIfAbsent(index, () => GlobalKey());
+
+  // ensureVisible 只能定位已经 build 出来的 item（可见/临近可见），群聊消息
+  // 不多时够用。放到下一帧执行，保证刚 setState 出来的 key 已经挂上 context
+  void _scrollToIndex(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _itemKeys[index]?.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: 0.3,
+      );
+    });
   }
 
   Widget _buildMessageList(bool isDark) {
@@ -580,12 +720,27 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
             !msg.isMe &&
             (prev == null || prev.senderId != msg.senderId || showDate);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (showDate) _buildDateDivider(msg.createdAt, isDark),
-            _buildMsgRow(msg, showSender, isDark),
-          ],
+        final isMatch = _searchQuery.isNotEmpty && _matchIndices.contains(i);
+        final isCurrent =
+            _matchIndices.isNotEmpty &&
+            _currentMatchIdx < _matchIndices.length &&
+            _matchIndices[_currentMatchIdx] == i;
+
+        return Container(
+          key: _keyForIndex(i),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (showDate) _buildDateDivider(msg.createdAt, isDark),
+              _buildMsgRow(
+                msg,
+                showSender,
+                isDark,
+                isMatch: isMatch,
+                isCurrent: isCurrent,
+              ),
+            ],
+          ),
         );
       },
     );
@@ -629,7 +784,13 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
-  Widget _buildMsgRow(GroupMessage msg, bool showSender, bool isDark) {
+  Widget _buildMsgRow(
+    GroupMessage msg,
+    bool showSender,
+    bool isDark, {
+    bool isMatch = false,
+    bool isCurrent = false,
+  }) {
     if (msg.senderId == 'system') {
       return Center(
         child: Container(
@@ -663,14 +824,26 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         crossAxisAlignment: CrossAxisAlignment.end,
         children: msg.isMe
             ? [
-                _buildMsgContent(msg, showSender, isDark),
+                _buildMsgContent(
+                  msg,
+                  showSender,
+                  isDark,
+                  isMatch: isMatch,
+                  isCurrent: isCurrent,
+                ),
                 const SizedBox(width: 8),
                 _buildAvatar(msg, isDark),
               ]
             : [
                 _buildAvatar(msg, isDark),
                 const SizedBox(width: 8),
-                _buildMsgContent(msg, showSender, isDark),
+                _buildMsgContent(
+                  msg,
+                  showSender,
+                  isDark,
+                  isMatch: isMatch,
+                  isCurrent: isCurrent,
+                ),
               ],
       ),
     );
@@ -720,7 +893,13 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
-  Widget _buildMsgContent(GroupMessage msg, bool showSender, bool isDark) {
+  Widget _buildMsgContent(
+    GroupMessage msg,
+    bool showSender,
+    bool isDark, {
+    bool isMatch = false,
+    bool isCurrent = false,
+  }) {
     return Column(
       crossAxisAlignment: msg.isMe
           ? CrossAxisAlignment.end
@@ -745,7 +924,12 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
             maxWidth: MediaQuery.of(context).size.width * 0.68,
           ),
           child: msg.type == GroupMessageType.text
-              ? _buildTextBubble(msg, isDark)
+              ? _buildTextBubble(
+                  msg,
+                  isDark,
+                  isMatch: isMatch,
+                  isCurrent: isCurrent,
+                )
               : _buildShareCard(msg, isDark),
         ),
         Padding(
@@ -768,37 +952,104 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
-  Widget _buildTextBubble(GroupMessage msg, bool isDark) {
+  Widget _buildTextBubble(
+    GroupMessage msg,
+    bool isDark, {
+    bool isMatch = false,
+    bool isCurrent = false,
+  }) {
     final isMe = msg.isMe;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: isMe
-            ? _primary
-            : isDark
-            ? Colors.white.withValues(alpha: 0.1)
-            : Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(14),
-          topRight: const Radius.circular(14),
-          bottomLeft: isMe
-              ? const Radius.circular(14)
-              : const Radius.circular(4),
-          bottomRight: isMe
-              ? const Radius.circular(4)
-              : const Radius.circular(14),
-        ),
-        boxShadow: isMe
-            ? null
-            : [
+    final radius = BorderRadius.only(
+      topLeft: const Radius.circular(14),
+      topRight: const Radius.circular(14),
+      bottomLeft: isMe ? const Radius.circular(14) : const Radius.circular(4),
+      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(14),
+    );
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      // 当前定位到的命中气泡加一圈发光描边
+      decoration: isCurrent
+          ? BoxDecoration(
+              borderRadius: radius,
+              boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
+                  color: _primary.withValues(alpha: 0.45),
+                  blurRadius: 8,
+                  spreadRadius: 1,
                 ),
               ],
+            )
+          : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: isMe
+              ? _primary
+              : isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : Colors.white,
+          borderRadius: radius,
+          boxShadow: isMe || isCurrent
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+        ),
+        child: _searchQuery.isNotEmpty && isMatch
+            ? _buildHighlightedText(msg.content, isMe, isDark)
+            : _buildRichText(msg.content, isMe, isDark),
       ),
-      child: _buildRichText(msg.content, isMe, isDark),
+    );
+  }
+
+  // 把命中的关键词底色标出来；其余文字按普通气泡文字色走
+  Widget _buildHighlightedText(String text, bool isMe, bool isDark) {
+    final q = _searchQuery.toLowerCase();
+    final lower = text.toLowerCase();
+    final spans = <InlineSpan>[];
+    var start = 0;
+    while (true) {
+      final idx = lower.indexOf(q, start);
+      if (idx < 0) {
+        spans.add(TextSpan(text: text.substring(start)));
+        break;
+      }
+      if (idx > start) {
+        spans.add(TextSpan(text: text.substring(start, idx)));
+      }
+      spans.add(
+        TextSpan(
+          text: text.substring(idx, idx + q.length),
+          style: TextStyle(
+            backgroundColor: isMe
+                ? Colors.white.withValues(alpha: 0.3)
+                : const Color(0xFFFFF176),
+            color: isMe ? Colors.white : const Color(0xFF1A1A1A),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+      start = idx + q.length;
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontSize: 13,
+          height: 1.5,
+          color: isMe
+              ? Colors.white
+              : isDark
+              ? Colors.white.withValues(alpha: 0.9)
+              : const Color(0xFF1A1A1A),
+        ),
+        children: spans,
+      ),
     );
   }
 
