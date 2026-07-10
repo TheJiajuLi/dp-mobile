@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/utils/membership_utils.dart';
-import '../../../core/widgets/pro_gate.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/premium_button.dart';
 import '../../../shared/utils/topic_badge.dart';
@@ -162,40 +160,34 @@ class PublishMetaSection extends StatelessWidget {
                               ),
                             )
                           else if (summaryController.text.isEmpty)
-                            ProGate(
-                              check: MembershipUtils.canUseXmeng,
-                              featureName: '小梦 AI',
-                              child: PressableScale(
-                                onTap: onAiGenerateSummary,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 4),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: premiumPillDecoration(
-                                      radius: 7,
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.auto_awesome,
-                                          size: 10,
+                            PressableScale(
+                              onTap: onAiGenerateSummary,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: premiumPillDecoration(radius: 7),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.auto_awesome,
+                                        size: 10,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        '小梦生成',
+                                        style: TextStyle(
+                                          fontSize: 10,
                                           color: Colors.white,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                        SizedBox(width: 3),
-                                        Text(
-                                          '小梦生成',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
