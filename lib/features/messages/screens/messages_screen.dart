@@ -317,16 +317,21 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             const SizedBox(height: 14),
             // 邀请回答的汇总卡放在消息首页最显眼的位置，不再只藏在"最近
             // 通知"整页里靠 count>0 才出现——这是找不到入口反馈最多的
-            // 地方，常驻在这里保证一进消息 Tab 就能看到
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: InviteSummaryCard(
-                count: _invites.length,
-                invites: _invites,
-                onTap: () => context.push('/invite-list'),
+            // 地方，常驻在这里保证一进消息 Tab 就能看到。但"邀请回答"跟
+            // 评论/点赞/关注这几个筛选没有语义关系（它既不是评论也不是
+            // 点赞），只在"全部"和"回答"下显示，切到评论/点赞/关注时收起
+            if (_filter == _PreviewFilter.all ||
+                _filter == _PreviewFilter.answer) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: InviteSummaryCard(
+                  count: _invites.length,
+                  invites: _invites,
+                  onTap: () => context.push('/invite-list'),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
+            ],
 
             if (previewNotifs.isNotEmpty) ...[
               _SectionHeader(
