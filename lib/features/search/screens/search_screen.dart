@@ -15,6 +15,7 @@ import '../../../shared/models/user_model.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
 import '../../community/community_provider.dart';
+import '../../groups/models/group_model.dart';
 
 // 首页顶部原来的"推荐关注/为你推荐"两段搬过来了——本质是"你可能感兴趣
 // 的内容/人"，跟搜索页"还没输入关键词时给点探索性内容"的空状态场景比
@@ -37,8 +38,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   Color get _ink => _isDark ? Colors.white : const Color(0xFF1A1A1A);
-  Color get _bg =>
-      _isDark ? Theme.of(context).scaffoldBackgroundColor : const Color(0xFFFAFAF8);
+  Color get _bg => _isDark
+      ? Theme.of(context).scaffoldBackgroundColor
+      : const Color(0xFFFAFAF8);
   Color get _cardBg => Theme.of(context).cardColor;
   Color get _border => Theme.of(context).dividerColor;
   Color get _muted => _isDark ? Colors.white54 : const Color(0xFF999999);
@@ -57,6 +59,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   List<TutorialModel> _tutorials = [];
   List<UserModel> _users = [];
   List<dynamic> _tags = [];
+  // 后端 GET /auth/search 目前只有 tutorials/users/tags 三种 type，没有
+  // groups 分支——这里先把UI搭好，真调用真实（暂时会失败的）接口，
+  // 失败/空结果就走下面 _buildNoResult 的空状态，不编一份假数据撑场面。
+  // 后端把 type=groups 加上之后，这里不需要再改一行代码
+  List<GroupModel> _groups = [];
   // 推荐关注按钮的乐观本地状态——跟原来首页那份是同一套逻辑
   final Set<String> _followingIds = {};
   List<dynamic> _hotTags = [];
@@ -69,7 +76,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     super.initState();
     _ctrl = TextEditingController(text: widget.initialQuery ?? '');
     _focusNode = FocusNode();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
     _tabCtrl.addListener(() {
       if (_tabCtrl.indexIsChanging) return;
       setState(() {});
@@ -193,10 +200,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     }
 
     try {
-      final res = await ref
-          .read(apiClientProvider)
-          .get('/auth/search', queryParameters: {'q': query});
-      if (res.success && mounted) {
+      final results = await Future.wait([
+        ref
+            .read(apiClientProvider)
+            .get('/auth/search', queryParameters: {'q': query}),
+        ref
+            .read(apiClientProvider)
+            .get(
+              '/auth/search',
+              queryParameters: {'q': query, 'type': 'groups'},
+            ),
+      ]);
+      final res = results[0];
+      final groupsRes = results[1];
+      if (!mounted) return;
+      if (res.success) {
         final data = res.data as Map?;
         setState(() {
           _tutorials = ((data?['tutorials'] as List?) ?? [])
@@ -211,11 +229,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               )
               .toList();
           _tags = data?['tags'] as List? ?? [];
-          _loading = false;
         });
-      } else if (mounted) {
-        setState(() => _loading = false);
       }
+      // type=groups 接口后端还没有，failure 时 _groups 保持空列表，走
+      // _buildNoResult 空状态——不是拿假数据填一个"看起来有结果"的假象
+      if (groupsRes.success) {
+        final groupsData = groupsRes.data as Map?;
+        setState(() {
+          _groups = ((groupsData?['groups'] as List?) ?? [])
+              .map(
+                (g) => GroupModel.fromJson(Map<String, dynamic>.from(g as Map)),
+              )
+              .toList();
+        });
+      } else {
+        setState(() => _groups = []);
+      }
+      if (mounted) setState(() => _loading = false);
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
@@ -251,6 +281,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                               _buildTutorialResults(),
                               _buildUserResults(),
                               _buildTagResults(),
+                              _buildGroupResults(),
                             ],
                           ),
                         ),
@@ -349,10 +380,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   Widget _buildEmptyState() {
     final l10n = AppLocalizations.of(context)!;
     final discoverState = ref.watch(communityProvider);
-    final rankList =
-        ([...discoverState.filtered]..sort((a, b) => b.views.compareTo(a.views)))
-            .take(5)
-            .toList();
+    final rankList = ([
+      ...discoverState.filtered,
+    ]..sort((a, b) => b.views.compareTo(a.views))).take(5).toList();
     final seenAuthors = <String>{};
     final suggestedAuthors = <TutorialModel>[];
     for (final t in discoverState.tutorials) {
@@ -532,9 +562,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.zero,
                       backgroundColor: following ? null : _primary,
-                      side: BorderSide(
-                        color: following ? _border : _primary,
-                      ),
+                      side: BorderSide(color: following ? _border : _primary),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(99),
                       ),
@@ -577,10 +605,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           return GestureDetector(
             onTap: () => context.push('/tutorial/${t.id}'),
             child: Padding(
-              padding: EdgeInsets.only(
-                top: index == 0 ? 0 : 7,
-                bottom: 7,
-              ),
+              padding: EdgeInsets.only(top: index == 0 ? 0 : 7, bottom: 7),
               child: Row(
                 children: [
                   SizedBox(
@@ -630,9 +655,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       child: CircleAvatar(
         radius: radius,
         backgroundColor: _primary.withValues(alpha: 0.15),
-        backgroundImage: hasAvatar
-            ? CachedNetworkImageProvider(avatar!)
-            : null,
+        backgroundImage: hasAvatar ? CachedNetworkImageProvider(avatar!) : null,
         child: !hasAvatar
             ? Text(
                 username.isNotEmpty ? username.substring(0, 1) : '?',
@@ -649,8 +672,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   Widget _buildTabBar() {
     final l10n = AppLocalizations.of(context)!;
-    final counts = [_tutorials.length, _users.length, _tags.length];
-    final labels = [l10n.searchTutorials, l10n.searchUsers, l10n.searchTags];
+    // "群组"暂时没有对应的 l10n key（后端 type=groups 分支还没有，先
+    // 硬编码文案，等后端接上再按需要补 arb 词条）
+    final counts = [
+      _tutorials.length,
+      _users.length,
+      _tags.length,
+      _groups.length,
+    ];
+    final labels = [
+      l10n.searchTutorials,
+      l10n.searchUsers,
+      l10n.searchTags,
+      '群组',
+    ];
 
     return Container(
       color: _cardBg,
@@ -665,7 +700,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         ),
         indicatorColor: _primary,
         indicatorWeight: 2,
-        tabs: List.generate(3, (i) {
+        tabs: List.generate(4, (i) {
           return Tab(
             text: counts[i] > 0 ? '${labels[i]} ${counts[i]}' : labels[i],
           );
@@ -759,6 +794,79 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 ),
               ),
               Text('粉丝', style: TextStyle(fontSize: 11, color: _muted)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGroupResults() {
+    if (_groups.isEmpty) return _buildNoResult('群组');
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: _groups.length,
+      separatorBuilder: (_, _) => Divider(
+        height: 0.5,
+        thickness: 0.5,
+        indent: 72,
+        endIndent: 16,
+        color: _border,
+      ),
+      itemBuilder: (ctx, i) {
+        final g = _groups[i];
+        return ListTile(
+          onTap: () => context.push(
+            '/group/${g.id}',
+            extra: {'name': g.name, 'memberCount': g.memberCount},
+          ),
+          leading: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFEEF0FF), Color(0xFFDDD6FE)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                g.name.isNotEmpty ? g.name.substring(0, 1) : '群',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: _primary,
+                ),
+              ),
+            ),
+          ),
+          title: Text(
+            g.name,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: _ink,
+            ),
+          ),
+          subtitle: Text(
+            g.isPublic ? '公开群' : '私密群',
+            style: TextStyle(fontSize: 12, color: _muted),
+          ),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${g.memberCount}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: _ink,
+                ),
+              ),
+              Text('成员', style: TextStyle(fontSize: 11, color: _muted)),
             ],
           ),
         );
