@@ -525,9 +525,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               const Color(0xFFFFF7E6),
               () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.createForumComingSoon)),
-                );
+                context.push('/forum/create-forum');
               },
             ),
             const SizedBox(height: 20),

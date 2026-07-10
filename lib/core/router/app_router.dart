@@ -26,6 +26,7 @@ import '../../features/groups/screens/group_list_screen.dart';
 import '../../features/forum/screens/forum_home_screen.dart';
 import '../../features/forum/screens/post_detail_screen.dart';
 import '../../features/forum/screens/create_post_screen.dart';
+import '../../features/forum/screens/create_forum_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/jisuo/screens/answer_question_screen.dart';
 import '../../features/jisuo/screens/jisuo_screen.dart';
@@ -294,6 +295,10 @@ final appRouter = GoRouter(
       path: '/forum/post/:postId',
       builder: (context, state) =>
           PostDetailScreen(postId: state.pathParameters['postId']!),
+    ),
+    GoRoute(
+      path: '/forum/create-forum',
+      builder: (context, state) => const CreateForumScreen(),
     ),
     // 论坛主页——ForumListScreen 不再是独立路由页（现在是 ForumHomeScreen
     // 里 TabBarView 的子项，靠外层 Scaffold/AppBar，自己没有导航壳），
