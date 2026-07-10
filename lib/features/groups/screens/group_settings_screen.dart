@@ -487,9 +487,10 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       confirmLabel: '解散',
     );
     if (!ok || !mounted) return;
-    // TODO(接口上线): DELETE /auth/groups/:id，成功后退出到消息页
+    // TODO(接口上线): DELETE /auth/groups/:id
     _snack('已解散群组');
-    context.pop();
+    // 解散后群聊已不存在，直接回到消息 Tab，不再 pop 回那个空群聊页
+    context.go('/messages');
   }
 
   Future<void> _onExit() async {
@@ -499,9 +500,10 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       confirmLabel: '退出',
     );
     if (!ok || !mounted) return;
-    // TODO(接口上线): POST /auth/groups/:id/leave，成功后退出到消息页
+    // TODO(接口上线): POST /auth/groups/:id/leave
     _snack('已退出群组');
-    context.pop();
+    // 退出后不再回到那个已离开的群聊页，直接回消息 Tab
+    context.go('/messages');
   }
 
   // ---- 通用弹窗/提示 ----
