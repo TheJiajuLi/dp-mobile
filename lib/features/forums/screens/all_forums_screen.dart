@@ -3,19 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/rounded_list_card.dart';
 import '../models/forum_model.dart';
 
 const _primary = Color(0xFF6366F1);
 
-// 论坛的"选坛页"——后端论坛分两层：GET /auth/forums 列出所有论坛，
-// GET /auth/forums/:forumId/posts 列出某个论坛内的帖子。帖子列表/详情/
-// 发帖/回复/点赞那一整套已经在 lib/features/forum/（单数）里做好了，
-// 但那边的 ForumListScreen 其实是"某个论坛内的帖子列表"，需要外部传入
-// forumId，它自己的注释也写明"论坛选择页后续再做"——这个文件就是那个
-// 后续，选中一个论坛后 push 到 /forum/:forumId 进已有的帖子列表页
+// 消息页论坛Tab——只显示"我关注的论坛"，不再是浏览全部论坛的入口。
+// GET /auth/forums 目前唯一支持的排序是 post_count DESC，也没有
+// "只返回我关注的" 这个过滤参数，所以还是拉全量列表，在客户端按
+// is_following 筛出关注的这几个——量级上可以接受（论坛数量远小于用户/
+// 帖子数量），比让后端专门加一个新接口划算
 //
-// GET /auth/forums 现在会返回 is_following（0/1），关注按钮的初始状态直接用
-// 它来定；点击后按 toggle 接口返回的 following 字段更新，请求失败则回滚
+// 关注按钮挪掉了：这个页面现在是纯只读的"我的论坛"列表，取消关注要去
+// 论坛主页（ForumHomeScreen）操作，取消后下次回到这个列表会因为
+// is_following 变化自动被过滤掉，不需要另外处理"移除"逻辑
 class AllForumsScreen extends ConsumerStatefulWidget {
   const AllForumsScreen({super.key});
 
@@ -24,8 +25,7 @@ class AllForumsScreen extends ConsumerStatefulWidget {
 }
 
 class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
-  List<ForumModel> _forums = [];
-  final Set<String> _following = {};
+  List<ForumModel> _followedForums = [];
   bool _loading = true;
 
   @override
@@ -36,54 +36,16 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
 
   Future<void> _loadForums() async {
     if (!mounted) return;
-    if (_forums.isEmpty) setState(() => _loading = true);
+    if (_followedForums.isEmpty) setState(() => _loading = true);
     final res = await ref.read(apiClientProvider).get('/auth/forums');
     if (!mounted) return;
     setState(() {
       _loading = false;
       if (res.success && res.data != null) {
-        _forums = ((res.data['forums'] as List?) ?? [])
+        final all = ((res.data['forums'] as List?) ?? [])
             .map((f) => ForumModel.fromJson(Map<String, dynamic>.from(f as Map)))
             .toList();
-        // 用后端返回的 is_following 初始化/刷新关注态，服务端为准
-        _following
-          ..clear()
-          ..addAll(_forums.where((f) => f.isFollowing).map((f) => f.id));
-      }
-    });
-  }
-
-  Future<void> _toggleFollow(ForumModel forum) async {
-    final wasFollowing = _following.contains(forum.id);
-    // 乐观更新，真实请求失败再翻回去——跟这个项目其它点赞/关注类交互
-    // 的处理方式一致
-    setState(() {
-      if (wasFollowing) {
-        _following.remove(forum.id);
-      } else {
-        _following.add(forum.id);
-      }
-    });
-    final res = await ref
-        .read(apiClientProvider)
-        .post('/auth/forums/${forum.id}/follow');
-    if (!mounted) return;
-    if (!res.success) {
-      setState(() {
-        if (wasFollowing) {
-          _following.add(forum.id);
-        } else {
-          _following.remove(forum.id);
-        }
-      });
-      return;
-    }
-    final following = res.data?['following'] == true;
-    setState(() {
-      if (following) {
-        _following.add(forum.id);
-      } else {
-        _following.remove(forum.id);
+        _followedForums = all.where((f) => f.isFollowing).toList();
       }
     });
   }
@@ -116,18 +78,33 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : _forums.isEmpty
+                  : _followedForums.isEmpty
                   ? _buildEmptyState(isDark)
                   : RefreshIndicator(
                       onRefresh: _loadForums,
-                      child: ListView.builder(
+                      child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        itemCount: _forums.length,
-                        itemBuilder: (ctx, i) => _forumCard(_forums[i], isDark),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        children: [
+                          RoundedListCard(
+                            children: _followedForums
+                                .map((f) => _forumTile(f, isDark))
+                                .toList(),
+                          ),
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              '取消关注后自动从此处移除',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.3)
+                                    : Colors.grey[400],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
             ),
@@ -145,11 +122,36 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
           Icon(Icons.forum_outlined, size: 48, color: Colors.grey[300]),
           const SizedBox(height: 12),
           Text(
-            '还没有任何论坛',
+            '还没有关注任何论坛',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '去搜索页发现感兴趣的论坛',
+            style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            // search_screen.dart 目前只有 教程/用户/话题/群组 四个Tab，
+            // 没有论坛Tab，也没有论坛搜索功能——这里老实跳转到搜索页本身，
+            // 不假装能自动切到一个还不存在的论坛Tab
+            onPressed: () => context.push('/search'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            child: const Text(
+              '去搜索',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -157,118 +159,50 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
     );
   }
 
-  Widget _forumCard(ForumModel forum, bool isDark) {
-    final following = _following.contains(forum.id);
-
-    return GestureDetector(
-      onTap: () => context.push('/forum-home/${forum.id}'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
+  Widget _forumTile(ForumModel forum, bool isDark) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      leading: Container(
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : const Color(0xFFEBEBEB),
-            width: 0.5,
+          gradient: const LinearGradient(
+            colors: [Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(
+            forum.name.isNotEmpty ? forum.name.substring(0, 1) : '论',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0891B2),
+            ),
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  forum.name.isNotEmpty ? forum.name.substring(0, 1) : '论',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0891B2),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    forum.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    (forum.description?.isNotEmpty ?? false)
-                        ? forum.description!
-                        : '暂无简介',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.4)
-                          : Colors.grey[500],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${forum.followerCount} 人关注 · ${forum.postCount} 个帖子',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.35)
-                          : Colors.grey[400],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _toggleFollow(forum),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: following
-                      ? (isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : const Color(0xFFF2F2F2))
-                      : _primary,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  following ? '已关注' : '关注',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: following
-                        ? (isDark ? Colors.white70 : Colors.grey[600])
-                        : Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
+      ),
+      title: Text(
+        forum.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        '${forum.postCount} 帖子 · ${forum.followerCount} 成员',
+        style: TextStyle(
+          fontSize: 12,
+          color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.grey[500],
         ),
       ),
+      trailing: Icon(
+        Icons.chevron_right,
+        size: 20,
+        color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.grey[300],
+      ),
+      onTap: () => context.push('/forum-home/${forum.id}'),
     );
   }
 }
