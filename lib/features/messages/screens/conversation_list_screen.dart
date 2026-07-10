@@ -7,16 +7,11 @@ import '../models/conversation_model.dart';
 import '../providers/messages_provider.dart';
 import '../utils/message_avatar.dart';
 
-sealed class _Row {}
-
-class _DateRow extends _Row {
+// 同一天的会话归到一张大圆角卡片里，卡片上方是灰色日期标签
+class _DateGroup {
   final DateTime day;
-  _DateRow(this.day);
-}
-
-class _ConvRow extends _Row {
-  final Conversation conv;
-  _ConvRow(this.conv);
+  final List<Conversation> convs = [];
+  _DateGroup(this.day);
 }
 
 class ConversationListScreen extends ConsumerStatefulWidget {
@@ -49,9 +44,8 @@ class _ConversationListScreenState
 
   // 会话本身没有"置顶"/"在线"这类字段，唯一能真实做的分组只有按最后
   // 一条消息的日期——跟聊天页的日期分隔用的是同一套口径
-  List<_Row> _buildRows(List<Conversation> conversations) {
-    final rows = <_Row>[];
-    DateTime? lastDay;
+  List<_DateGroup> _buildGroups(List<Conversation> conversations) {
+    final groups = <_DateGroup>[];
     for (final conv in conversations) {
       final ts = conv.lastMessageAt;
       final day = ts == null
@@ -61,13 +55,12 @@ class _ConversationListScreenState
               DateTime.fromMillisecondsSinceEpoch(ts).month,
               DateTime.fromMillisecondsSinceEpoch(ts).day,
             );
-      if (lastDay == null || day != lastDay) {
-        rows.add(_DateRow(day));
-        lastDay = day;
+      if (groups.isEmpty || groups.last.day != day) {
+        groups.add(_DateGroup(day));
       }
-      rows.add(_ConvRow(conv));
+      groups.last.convs.add(conv);
     }
-    return rows;
+    return groups;
   }
 
   void _comingSoon(String message) {
@@ -89,7 +82,7 @@ class _ConversationListScreenState
                 ),
               )
               .toList();
-    final rows = _buildRows(conversations);
+    final groups = _buildGroups(conversations);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -176,100 +169,112 @@ class _ConversationListScreenState
                       ),
                     )
                   : ListView.builder(
-                      itemCount: rows.length,
-                      itemBuilder: (ctx, i) {
-                        final row = rows[i];
-                        return switch (row) {
-                          _DateRow(:final day) => Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                            child: Text(
-                              _dateLabel(context, day),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          _ConvRow(:final conv) => ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 6,
-                            ),
-                            onTap: () => context.push(
-                              '/messages/chat/${conv.id}',
-                              extra: conv,
-                            ),
-                            leading: buildMessageAvatar(
-                              conv.otherAvatar,
-                              conv.otherUsername,
-                            ),
-                            title: Row(
-                              children: [
-                                Text(
-                                  conv.otherUsername,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  conv.lastMessageAt == null
-                                      ? ''
-                                      : messageTimeAgo(
-                                          l10n,
-                                          conv.lastMessageAt!,
-                                        ),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            subtitle: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    conv.lastMessage ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (conv.unreadCount > 0)
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 8),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                    child: Text(
-                                      '${conv.unreadCount}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        };
-                      },
+                      padding: const EdgeInsets.only(top: 4, bottom: 16),
+                      itemCount: groups.length,
+                      itemBuilder: (ctx, i) => _buildGroupCard(groups[i], l10n),
                     ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // 一个日期分组 = 灰色日期标签 + 一张大圆角卡片，卡片里放当天的全部会话，
+  // 会话之间用一条缩进分隔线隔开
+  Widget _buildGroupCard(_DateGroup group, AppLocalizations l10n) {
+    final tiles = <Widget>[];
+    for (var i = 0; i < group.convs.length; i++) {
+      if (i > 0) {
+        tiles.add(
+          Divider(
+            height: 0.5,
+            thickness: 0.5,
+            indent: 72,
+            endIndent: 16,
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+          ),
+        );
+      }
+      tiles.add(_convTile(group.convs[i], l10n));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 16, 6),
+          child: Text(
+            _dateLabel(context, group.day),
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: tiles),
+        ),
+      ],
+    );
+  }
+
+  Widget _convTile(Conversation conv, AppLocalizations l10n) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      onTap: () =>
+          context.push('/messages/chat/${conv.id}', extra: conv),
+      leading: buildMessageAvatar(conv.otherAvatar, conv.otherUsername),
+      title: Row(
+        children: [
+          Text(
+            conv.otherUsername,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          ),
+          const Spacer(),
+          Text(
+            conv.lastMessageAt == null
+                ? ''
+                : messageTimeAgo(l10n, conv.lastMessageAt!),
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+      subtitle: Row(
+        children: [
+          Expanded(
+            child: Text(
+              conv.lastMessage ?? '',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (conv.unreadCount > 0)
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                '${conv.unreadCount}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

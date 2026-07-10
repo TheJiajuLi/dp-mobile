@@ -10,6 +10,8 @@ import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/topic_badge.dart';
+import '../../../shared/widgets/mention_input/mention_popup.dart';
+import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
@@ -107,6 +109,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   bool _submitting = false;
   final _commentCtrl = TextEditingController();
   final _commentFocusNode = FocusNode();
+  // @ 提及：纯逻辑对象，操作的是上面这份 _commentCtrl，不额外持有 controller。
+  // _mentionQuery == null 表示当前不在 @ 输入态，浮层不显示。
+  final _mention = MentionQuery();
+  String? _mentionQuery;
   String? _replyToId;
   String? _replyToUsername;
   String _commentSort = 'hot';
@@ -183,6 +189,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
 
     if (res.success) {
       _commentCtrl.clear();
+      // clear() 是程序化改文本，不会触发 onChanged，若发送时 @ 浮层还开着，
+      // _mentionQuery 会残留导致浮层不消失——这里手动复位
+      _mentionQuery = null;
+      _mention.reset();
       _replyToId = null;
       _replyToUsername = null;
       _commentFocusNode.unfocus();
@@ -194,6 +204,15 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       );
     }
     if (mounted) setState(() => _submitting = false);
+    sheetSetState?.call(() {});
+  }
+
+  // 输入变化时只做一件事：判断当前是否在 @ 输入态、更新浮层查询词。
+  // 完全不碰 _commentCtrl 的文本，也不动提交/回复/焦点逻辑。
+  void _onCommentChanged(StateSetter? sheetSetState) {
+    final query = _mention.detect(_commentCtrl);
+    if (query == _mentionQuery) return;
+    setState(() => _mentionQuery = query);
     sheetSetState?.call(() {});
   }
 
@@ -1354,6 +1373,16 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // @ 提及浮层——只在输入 @ 时出现，选中后回填到 _commentCtrl
+          if (_mentionQuery != null)
+            MentionPopup(
+              query: _mentionQuery!,
+              onSelect: (username) {
+                _mention.insert(_commentCtrl, username);
+                setState(() => _mentionQuery = null);
+                sheetSetState?.call(() {});
+              },
+            ),
           if (_replyToUsername != null)
             Container(
               width: double.infinity,
@@ -1431,6 +1460,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     style: const TextStyle(fontSize: 14),
                     maxLines: null,
                     textInputAction: TextInputAction.send,
+                    onChanged: (_) => _onCommentChanged(sheetSetState),
                     onSubmitted: (_) =>
                         _submitComment(sheetSetState: sheetSetState),
                   ),

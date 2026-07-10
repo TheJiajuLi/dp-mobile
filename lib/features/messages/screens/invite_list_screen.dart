@@ -155,43 +155,66 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
           ? _buildEmpty()
           : RefreshIndicator(
               onRefresh: _load,
-              child: ListView.builder(
+              // 全部邀请归到一张大圆角卡片里，卡片内每条邀请之间用
+              // _InviteItem 自带的底部分隔线隔开——跟私信/通知列表统一
+              child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: _invites.length + 1,
-                itemBuilder: (ctx, i) {
-                  if (i == _invites.length) {
-                    if (pendingCount == 0) return const SizedBox.shrink();
-                    return GestureDetector(
-                      onTap: _clearAll,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFEBEBEB),
-                              width: 0.5,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(16),
+                      border: isDark
+                          ? Border.all(color: Theme.of(context).dividerColor, width: 0.5)
+                          : null,
+                      boxShadow: isDark
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < _invites.length; i++)
+                          _InviteItem(
+                            invite: _invites[i],
+                            isDark: isDark,
+                            onAccept: () => _accept(_invites[i], i),
+                            onIgnore: () => _ignore(_invites[i], i),
+                          ),
+                        if (pendingCount > 0)
+                          GestureDetector(
+                            onTap: _clearAll,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(
+                                    color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFEBEBEB),
+                                    width: 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.delete_outline, size: 16, color: Color(0xFFEF4444)),
+                                  SizedBox(width: 6),
+                                  Text('一键忽略所有邀请', style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.delete_outline, size: 16, color: Color(0xFFEF4444)),
-                            SizedBox(width: 6),
-                            Text('一键忽略所有邀请', style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  final invite = _invites[i];
-                  return _InviteItem(
-                    invite: invite,
-                    isDark: isDark,
-                    onAccept: () => _accept(invite, i),
-                    onIgnore: () => _ignore(invite, i),
-                  );
-                },
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
     );
