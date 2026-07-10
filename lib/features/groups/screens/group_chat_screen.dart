@@ -10,6 +10,7 @@ import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../auth/auth_service.dart';
 import '../../home/providers/home_feed_provider.dart';
 import '../models/group_message_model.dart';
+import '../models/group_model.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -56,12 +57,27 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   final _mention = MentionQuery();
   String? _mentionQuery;
 
+  // 群详情 + 当前用户在群里的角色，用于「群设置」页
+  late GroupModel _group;
+  String _myRole = 'member';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _groupName = widget.groupName ?? '群组';
     _memberCount = widget.initialMemberCount ?? 0;
+    // 先用上一页带过来的参数兜底，_loadGroupData 拿到真实/演示数据再覆盖
+    _group = GroupModel(
+      id: widget.groupId,
+      name: _groupName,
+      ownerId: '',
+      isPublic: false,
+      joinType: 'invite',
+      memberCount: _memberCount,
+      tags: const [],
+      createdAt: 0,
+    );
     _loadGroupData();
     _loadMessages();
     _pollTimer = Timer.periodic(
@@ -144,24 +160,55 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
           .toList();
       setState(() {
         if (group is Map) {
-          _groupName = (group['name'] as String?) ?? _groupName;
-          _memberCount =
-              (group['member_count'] as num?)?.toInt() ?? _memberCount;
+          _group = GroupModel.fromJson(Map<String, dynamic>.from(group));
+          _groupName = _group.name;
+          _memberCount = _group.memberCount;
         }
-        if (members.isNotEmpty) _members = members;
+        if (members.isNotEmpty) {
+          _members = members;
+          _myRole = _roleOf(_myId, members, _group.ownerId);
+        }
       });
       return;
     }
-    setState(() => _members = _mockMembers());
+    // 群详情接口还不存在——演示数据里把自己当群主，方便先把群主管理界面过一遍
+    setState(() {
+      _members = _mockMembers();
+      _myRole = 'owner';
+    });
   }
 
-  // 演示成员——用跟 _mockMessages 里出现的发言人一致的名字，@ 起来更真实
-  List<Map<String, dynamic>> _mockMembers() => const [
-    {'username': '宇宙观测员'},
-    {'username': '生科研究员'},
-    {'username': '小梦'},
-    {'username': '大兔兔'},
-  ];
+  // 从成员列表里找当前用户的角色；找不到就看是不是群主，再兜底 member
+  String _roleOf(
+    String uid,
+    List<Map<String, dynamic>> members,
+    String ownerId,
+  ) {
+    for (final m in members) {
+      if ((m['id'] ?? m['user_id'] ?? '').toString() == uid) {
+        return '${m['role'] ?? 'member'}';
+      }
+    }
+    return uid.isNotEmpty && uid == ownerId ? 'owner' : 'member';
+  }
+
+  // 演示成员——名字跟 _mockMessages 里的发言人一致，@ 起来更真实；
+  // 顺带带上 role/头像，「群设置」页的角色标签才有东西显示
+  List<Map<String, dynamic>> _mockMembers() {
+    final me = ref.read(currentUserProvider);
+    return [
+      {
+        'id': _myId,
+        'username': me?.username ?? '我',
+        'avatar': me?.avatar,
+        'role': 'owner',
+      },
+      {'id': 'u1', 'username': '宇宙观测员', 'role': 'admin'},
+      {'id': 'u2', 'username': '生科研究员', 'role': 'member'},
+      {'id': 'u3', 'username': '小梦', 'role': 'member'},
+      {'id': 'u4', 'username': '大兔兔', 'role': 'member'},
+    ];
+  }
 
   Future<void> _pollMessages() async {
     if (!mounted) return;
@@ -518,7 +565,14 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined, size: 20),
-          onPressed: () => _comingSoon('群设置即将上线'),
+          onPressed: () => context.push(
+            '/group/${widget.groupId}/settings',
+            extra: {
+              'group': _group,
+              'members': _members,
+              'myRole': _myRole,
+            },
+          ),
         ),
       ],
     );

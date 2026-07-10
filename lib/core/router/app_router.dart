@@ -19,6 +19,8 @@ import '../../features/creator/screens/creator_center_screen.dart';
 import '../../features/creator/screens/works_screen.dart';
 import '../../features/groups/screens/create_group_screen.dart';
 import '../../features/groups/screens/group_chat_screen.dart';
+import '../../features/groups/screens/group_settings_screen.dart';
+import '../../features/groups/models/group_model.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/jisuo/screens/answer_question_screen.dart';
 import '../../features/jisuo/screens/jisuo_screen.dart';
@@ -240,6 +242,22 @@ final appRouter = GoRouter(
           groupId: state.pathParameters['id']!,
           groupName: extra?['name'] as String?,
           initialMemberCount: extra?['memberCount'] as int?,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/group/:id/settings',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? const {};
+        final members = (extra['members'] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            const <Map<String, dynamic>>[];
+        return GroupSettingsScreen(
+          groupId: state.pathParameters['id']!,
+          group: extra['group'] as GroupModel?,
+          members: members,
+          myRole: (extra['myRole'] as String?) ?? 'member',
         );
       },
     ),
