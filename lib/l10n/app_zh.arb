@@ -71,7 +71,7 @@
   "articlesCountWithValue": "{count} 篇文章",
   "enterTopicAction": "进入专题",
   "searchTutorialsHint": "搜索教程、作者...",
-  "searchHint": "搜索教程、用户、话题...",
+  "searchHint": "搜索文章、群组、@用户名或ID...",
   "searchCancel": "取消",
   "searchHistory": "最近搜索",
   "searchClear": "清除",

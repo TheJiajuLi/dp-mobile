@@ -85,7 +85,7 @@
   },
   "enterTopicAction": "Enter Topic",
   "searchTutorialsHint": "Search tutorials, authors...",
-  "searchHint": "Search tutorials, users, tags...",
+  "searchHint": "Search articles, groups, @username or ID...",
   "searchCancel": "Cancel",
   "searchHistory": "Recent Searches",
   "searchClear": "Clear",

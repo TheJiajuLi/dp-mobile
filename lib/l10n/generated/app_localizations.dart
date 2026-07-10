@@ -527,7 +527,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchHint.
   ///
   /// In en, this message translates to:
-  /// **'Search tutorials, users, tags...'**
+  /// **'Search articles, groups, @username or ID...'**
   String get searchHint;
 
   /// No description provided for @searchCancel.

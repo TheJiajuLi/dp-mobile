@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
@@ -64,6 +65,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   // 失败/空结果就走下面 _buildNoResult 的空状态，不编一份假数据撑场面。
   // 后端把 type=groups 加上之后，这里不需要再改一行代码
   List<GroupModel> _groups = [];
+  // 群组搜索结果的"加入"按钮要知道当前用户是不是已经在群里——搜索接口
+  // 本身不带这个信息，用已有的真实接口 GET /auth/groups（我加入的群组）
+  // 交叉比对，不是编一个假的会员状态
+  Set<String> _myGroupIds = {};
+  final Set<String> _joiningGroupIds = {};
   // 推荐关注按钮的乐观本地状态——跟原来首页那份是同一套逻辑
   final Set<String> _followingIds = {};
   List<dynamic> _hotTags = [];
@@ -83,6 +89,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     });
 
     _loadHistory();
+    _loadMyGroups();
 
     if (widget.initialQuery?.isNotEmpty == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -111,6 +118,38 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     if (userId == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(AppConstants.keySearchHistory(userId), _history);
+  }
+
+  Future<void> _loadMyGroups() async {
+    final res = await ref.read(apiClientProvider).get('/auth/groups');
+    if (!mounted || !res.success || res.data == null) return;
+    final groups = ((res.data['groups'] as List?) ?? []).map(
+      (g) => Map<String, dynamic>.from(g as Map),
+    );
+    setState(() {
+      _myGroupIds = groups.map((g) => g['id'].toString()).toSet();
+    });
+  }
+
+  // 后端 group.routes.ts 目前只有 invite/leave/disband，没有"自己申请
+  // 加入"这个接口——真调用真实（暂时会 404）的 POST /:id/join，失败给
+  // 明确的错误提示，不假装加入成功。接口上线后这里不用再改
+  Future<void> _joinGroup(GroupModel g) async {
+    if (_joiningGroupIds.contains(g.id)) return;
+    setState(() => _joiningGroupIds.add(g.id));
+    final res = await ref
+        .read(apiClientProvider)
+        .post('/auth/groups/${g.id}/join');
+    if (!mounted) return;
+    setState(() {
+      _joiningGroupIds.remove(g.id);
+      if (res.success) _myGroupIds = {..._myGroupIds, g.id};
+    });
+    if (!res.success) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '加入失败，请稍后重试')));
+    }
   }
 
   Future<void> _toggleFollow(String? userId) async {
@@ -157,6 +196,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       });
       return;
     }
+    // 输入以 @ 开头时默认就是在找人，提前切到"用户"Tab——真正的结果还是
+    // 等提交搜索（_search）才会拉，这里只是先把用户想看的位置摆对
+    if (q.trim().startsWith('@') && _tabCtrl.index != 1) {
+      _tabCtrl.animateTo(1);
+    }
     setState(() => _showSuggestions = true);
     _debounce = Timer(const Duration(milliseconds: 300), () {
       _fetchSuggestions(q.trim());
@@ -199,16 +243,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       unawaited(_saveHistory());
     }
 
+    // 后端 users LIKE 匹配的是 username/handle 本身，不含 @ 前缀——
+    // 展示/历史记录保留用户敲的原文，实际发给接口的关键词去掉这个前缀
+    final apiQuery = query.startsWith('@') ? query.substring(1) : query;
+
     try {
       final results = await Future.wait([
         ref
             .read(apiClientProvider)
-            .get('/auth/search', queryParameters: {'q': query}),
+            .get('/auth/search', queryParameters: {'q': apiQuery}),
         ref
             .read(apiClientProvider)
             .get(
               '/auth/search',
-              queryParameters: {'q': query, 'type': 'groups'},
+              queryParameters: {'q': apiQuery, 'type': 'groups'},
             ),
       ]);
       final res = results[0];
@@ -735,7 +783,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   Widget _buildUserResults() {
     final l10n = AppLocalizations.of(context)!;
-    if (_users.isEmpty) return _buildNoResult(l10n.searchUsers);
+    if (_users.isEmpty) {
+      return _buildNoResult(
+        l10n.searchUsers,
+        title: '没有找到该用户',
+        subtitle: '试试搜索 @用户名',
+      );
+    }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _users.length,
@@ -749,6 +803,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       itemBuilder: (ctx, i) {
         final u = _users[i];
         final hasAvatar = (u.avatar ?? '').isNotEmpty;
+        final following = _followingIds.contains(u.id);
         return ListTile(
           onTap: () => context.push('/users/${u.handle ?? u.username}'),
           leading: CircleAvatar(
@@ -767,13 +822,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   )
                 : null,
           ),
-          title: Text(
-            u.username,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: _ink,
-            ),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  u.username,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _ink,
+                  ),
+                ),
+              ),
+              if (u.isAuroraCreator) const AuroraBadgeSmall(),
+            ],
           ),
           subtitle: u.handle != null
               ? Text(
@@ -781,20 +844,41 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   style: const TextStyle(fontSize: 12, color: _primary),
                 )
               : null,
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${u.followerCount}',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _ink,
+          trailing: SizedBox(
+            width: 68,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${u.followerCount} 粉丝',
+                  style: TextStyle(fontSize: 10.5, color: _muted),
                 ),
-              ),
-              Text('粉丝', style: TextStyle(fontSize: 11, color: _muted)),
-            ],
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 26,
+                  child: OutlinedButton(
+                    onPressed: () => _toggleFollow(u.id),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      backgroundColor: following ? null : _primary,
+                      side: BorderSide(color: following ? _border : _primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    child: Text(
+                      following ? '已关注' : '关注',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: following ? _muted : Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -802,7 +886,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   Widget _buildGroupResults() {
-    if (_groups.isEmpty) return _buildNoResult('群组');
+    if (_groups.isEmpty) {
+      return _buildNoResult('群组', title: '没有找到相关群组', subtitle: '试试搜索群组名称或ID');
+    }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _groups.length,
@@ -815,6 +901,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       ),
       itemBuilder: (ctx, i) {
         final g = _groups[i];
+        final joined = _myGroupIds.contains(g.id);
+        final joining = _joiningGroupIds.contains(g.id);
         return ListTile(
           onTap: () => context.push(
             '/group/${g.id}',
@@ -851,23 +939,47 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
           ),
           subtitle: Text(
-            g.isPublic ? '公开群' : '私密群',
+            '${g.memberCount} 成员 · ${g.isPublic ? "公开" : "私密"}',
             style: TextStyle(fontSize: 12, color: _muted),
           ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${g.memberCount}',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _ink,
+          trailing: SizedBox(
+            width: 76,
+            height: 28,
+            child: OutlinedButton(
+              onPressed: joining
+                  ? null
+                  : joined
+                  ? () => context.push(
+                      '/group/${g.id}',
+                      extra: {'name': g.name, 'memberCount': g.memberCount},
+                    )
+                  : () => _joinGroup(g),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                backgroundColor: joined ? null : _primary,
+                side: BorderSide(color: joined ? _border : _primary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(99),
                 ),
               ),
-              Text('成员', style: TextStyle(fontSize: 11, color: _muted)),
-            ],
+              child: joining
+                  ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: joined ? _muted : Colors.white,
+                      ),
+                    )
+                  : Text(
+                      joined ? '进入群聊' : '加入',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: joined ? _muted : Colors.white,
+                      ),
+                    ),
+            ),
           ),
         );
       },
@@ -994,7 +1106,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     );
   }
 
-  Widget _buildNoResult(String type) {
+  // 用户/群组两个Tab的空状态文案换成更具体的引导（怎么搜更容易搜到），
+  // 不是套用"没有找到 XX 的结果，换个关键词试试"这句所有Tab通用的话
+  Widget _buildNoResult(String type, {String? title, String? subtitle}) {
     final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
@@ -1007,12 +1121,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            l10n.searchNoResult(type),
+            title ?? l10n.searchNoResult(type),
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: _muted),
           ),
           const SizedBox(height: 6),
           Text(
-            l10n.searchTryOther,
+            subtitle ?? l10n.searchTryOther,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
               color: _isDark ? Colors.white30 : Colors.grey.shade400,

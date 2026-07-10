@@ -232,7 +232,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchTutorialsHint => 'Search tutorials, authors...';
 
   @override
-  String get searchHint => 'Search tutorials, users, tags...';
+  String get searchHint => 'Search articles, groups, @username or ID...';
 
   @override
   String get searchCancel => 'Cancel';

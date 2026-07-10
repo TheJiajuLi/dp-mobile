@@ -226,7 +226,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchTutorialsHint => '搜索教程、作者...';
 
   @override
-  String get searchHint => '搜索教程、用户、话题...';
+  String get searchHint => '搜索文章、群组、@用户名或ID...';
 
   @override
   String get searchCancel => '取消';
