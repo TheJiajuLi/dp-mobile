@@ -21,6 +21,7 @@ import '../../features/groups/screens/create_group_screen.dart';
 import '../../features/groups/screens/group_chat_screen.dart';
 import '../../features/groups/screens/group_settings_screen.dart';
 import '../../features/groups/models/group_model.dart';
+import '../../features/groups/screens/group_list_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/jisuo/screens/answer_question_screen.dart';
 import '../../features/jisuo/screens/jisuo_screen.dart';
@@ -229,6 +230,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/messages/mentions',
       builder: (context, state) => const MentionsScreen(),
+    ),
+    GoRoute(
+      path: '/messages/groups',
+      builder: (context, state) => const GroupListScreen(),
     ),
     GoRoute(
       path: '/groups/create',

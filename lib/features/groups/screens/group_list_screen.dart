@@ -1,0 +1,288 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/network/api_client.dart';
+
+const _primary = Color(0xFF6366F1);
+
+// 我加入的群组列表——GET /auth/groups 已经真实上线了（跟建群/群聊页
+// 那两步同一批后端接口）。这个接口目前只返回 unread_count，没有
+// last_message/last_message_at 这两个字段，卡片上的"最后一条消息预览"
+// 因此没法显示真实内容，统一走"暂无消息，点击开始聊天"这个占位文案，
+// 时间戳退而求其次显示建群时间——想要真预览的话后端需要在
+// getMyGroups 的 SQL 里 JOIN 一下每个群最新的一条 group_messages
+class GroupListScreen extends ConsumerStatefulWidget {
+  const GroupListScreen({super.key});
+
+  @override
+  ConsumerState<GroupListScreen> createState() => _GroupListScreenState();
+}
+
+class _GroupListScreenState extends ConsumerState<GroupListScreen> {
+  List<Map<String, dynamic>> _groups = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGroups();
+  }
+
+  Future<void> _loadGroups() async {
+    setState(() => _loading = true);
+    final res = await ref.read(apiClientProvider).get('/auth/groups');
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (res.success && res.data != null) {
+        _groups = ((res.data['groups'] as List?) ?? [])
+            .map((g) => Map<String, dynamic>.from(g as Map))
+            .toList();
+      }
+    });
+  }
+
+  void _openGroup(Map<String, dynamic> g) {
+    context.push(
+      '/group/${g['id']}',
+      extra: {
+        'name': g['name'],
+        'memberCount': (g['member_count'] as num?)?.toInt(),
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.arrow_back_ios, size: 18),
+                  ),
+                  const Text(
+                    '群组',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => context.push('/groups/create'),
+                    icon: const Icon(Icons.add, size: 22),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _groups.isEmpty
+                  ? _buildEmptyState(isDark)
+                  : RefreshIndicator(
+                      onRefresh: _loadGroups,
+                      child: ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        itemCount: _groups.length,
+                        itemBuilder: (ctx, i) => _groupCard(_groups[i], isDark),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.groups_outlined, size: 48, color: Colors.grey[300]),
+          const SizedBox(height: 12),
+          Text(
+            '还没有加入任何群组',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => context.push('/groups/create'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            child: const Text(
+              '创建群组',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _groupCard(Map<String, dynamic> g, bool isDark) {
+    final name = g['name'] as String? ?? '';
+    final memberCount = (g['member_count'] as num?)?.toInt() ?? 1;
+    final unreadCount = (g['unread_count'] as num?)?.toInt() ?? 0;
+    final createdAt = (g['created_at'] as num?)?.toInt() ?? 0;
+
+    return GestureDetector(
+      onTap: () => _openGroup(g),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFEBEBEB),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFEEF0FF), Color(0xFFDDD6FE)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      name.isNotEmpty ? name.substring(0, 1) : '群',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: _primary,
+                      ),
+                    ),
+                  ),
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    top: -3,
+                    right: -3,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).cardColor,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _formatDate(createdAt),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.35)
+                              : Colors.grey[400],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '暂无消息，点击开始聊天',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.4)
+                                : Colors.grey[500],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$memberCount 人',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.35)
+                              : Colors.grey[400],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(int tsSeconds) {
+    if (tsSeconds == 0) return '';
+    final d = DateTime.fromMillisecondsSinceEpoch(tsSeconds * 1000);
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    }
+    return '${d.month}/${d.day}';
+  }
+}

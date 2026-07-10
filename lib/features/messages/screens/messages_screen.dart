@@ -121,12 +121,6 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
 
   bool get _isComingSoonFilter => _filter == _PreviewFilter.ai;
 
-  void _comingSoon(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -289,8 +283,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       iconColor: const Color(0xFFD97706),
                       iconBg: const Color(0xFFFFF7E6),
                       label: l10n.tabGroups,
-                      subtitle: l10n.comingSoonStayTuned,
-                      onTap: () => _comingSoon(l10n.createGroupComingSoon),
+                      subtitle: '查看已加入的群组',
+                      onTap: () => context.push('/messages/groups'),
                     ),
                   ),
                 ],

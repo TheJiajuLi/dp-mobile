@@ -8,7 +8,7 @@ class GroupModel {
   final String joinType; // free/approve/invite
   final int memberCount;
   final List<String> tags;
-  final int createdAt;
+  final int createdAt; // 毫秒
 
   const GroupModel({
     required this.id,
@@ -33,6 +33,7 @@ class GroupModel {
     joinType: j['join_type']?.toString() ?? 'free',
     memberCount: (j['member_count'] as num?)?.toInt() ?? 1,
     tags: List<String>.from((j['tags'] as List?) ?? const []),
-    createdAt: (j['created_at'] as num?)?.toInt() ?? 0,
+    // 后端时间戳是秒级，×1000 转毫秒——跟这个项目其它模型的约定一致
+    createdAt: ((j['created_at'] as num?) ?? 0).toInt() * 1000,
   );
 }
