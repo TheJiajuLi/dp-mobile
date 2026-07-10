@@ -26,6 +26,7 @@ import '../../features/messages/screens/chat_screen.dart';
 import '../../features/messages/screens/conversation_list_screen.dart';
 import '../../features/messages/screens/friend_list_screen.dart';
 import '../../features/messages/screens/messages_screen.dart';
+import '../../features/messages/screens/invite_list_screen.dart';
 import '../../features/messages/screens/notifications_screen.dart';
 import '../../features/notebook/screens/notebook_editor_screen.dart';
 import '../../features/notebook/screens/notebook_home_screen.dart';
@@ -215,10 +216,11 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/messages/notifications',
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return NotificationsScreen(initialTab: extra?['initialTab'] as String?);
-      },
+      builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/invite-list',
+      builder: (context, state) => const InviteListScreen(),
     ),
     GoRoute(
       path: '/messages/conversations',

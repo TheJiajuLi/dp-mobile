@@ -111,7 +111,13 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
     final dmUnread = conversations.fold<int>(0, (s, c) => s + c.unreadCount);
     final previewNotifs = _isComingSoonFilter
         ? const <AppNotification>[]
-        : _filteredPreview(notifications).take(4).toList();
+        // invite_answer 现在有自己的汇总卡（消息首页那张，见下方），
+        // answer_posted 靠通知本身跳问题详情——都不该在这个通用预览里
+        // 再原样出现一遍
+        : _filteredPreview(notifications)
+            .where((n) => n.type != 'invite_answer' && n.type != 'answer_posted')
+            .take(4)
+            .toList();
     final previewConvs = conversations.take(3).toList();
 
     return Scaffold(
@@ -270,20 +276,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                     .map(
                       (n) => _NotifPreviewTile(
                         notification: n,
-                        onTap: () {
-                          if (n.type == 'invite_answer') {
-                            context.push(
-                              '/messages/notifications',
-                              extra: {'initialTab': 'invites'},
-                            );
-                          } else if (n.type == 'answer_posted') {
-                            if (n.tutorialId?.isNotEmpty ?? false) {
-                              context.push('/questions/${n.tutorialId}');
-                            }
-                          } else if (n.fromUsername?.isNotEmpty ?? false) {
-                            context.push('/users/${n.fromUsername}');
-                          }
-                        },
+                        onTap: (n.fromUsername?.isNotEmpty ?? false)
+                            ? () => context.push('/users/${n.fromUsername}')
+                            : null,
                       ),
                     )
                     .toList(),
