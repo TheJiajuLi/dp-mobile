@@ -270,9 +270,20 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                     .map(
                       (n) => _NotifPreviewTile(
                         notification: n,
-                        onTap: (n.fromUsername?.isNotEmpty ?? false)
-                            ? () => context.push('/users/${n.fromUsername}')
-                            : null,
+                        onTap: () {
+                          if (n.type == 'invite_answer') {
+                            context.push(
+                              '/messages/notifications',
+                              extra: {'initialTab': 'invites'},
+                            );
+                          } else if (n.type == 'answer_posted') {
+                            if (n.tutorialId?.isNotEmpty ?? false) {
+                              context.push('/questions/${n.tutorialId}');
+                            }
+                          } else if (n.fromUsername?.isNotEmpty ?? false) {
+                            context.push('/users/${n.fromUsername}');
+                          }
+                        },
                       ),
                     )
                     .toList(),

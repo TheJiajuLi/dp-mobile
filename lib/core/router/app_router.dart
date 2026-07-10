@@ -215,7 +215,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/messages/notifications',
-      builder: (context, state) => const NotificationsScreen(),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return NotificationsScreen(initialTab: extra?['initialTab'] as String?);
+      },
     ),
     GoRoute(
       path: '/messages/conversations',

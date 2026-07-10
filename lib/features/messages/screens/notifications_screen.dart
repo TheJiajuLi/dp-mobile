@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
@@ -16,7 +17,8 @@ import '../utils/message_avatar.dart';
 enum _NotifFilter { comment, like, inviteAnswer, system }
 
 class NotificationsScreen extends ConsumerStatefulWidget {
-  const NotificationsScreen({super.key});
+  final String? initialTab;
+  const NotificationsScreen({super.key, this.initialTab});
   @override
   ConsumerState<NotificationsScreen> createState() =>
       _NotificationsScreenState();
@@ -29,10 +31,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   List<Map<String, dynamic>> _invites = [];
   bool _loadingInvites = false;
 
+  // Tab 顺序跟 TabBar/TabBarView 里手写的四个 Tab 一一对应：
+  // 0=评论 1=点赞 2=邀请回答 3=系统
+  static const _tabIndexByName = {
+    'comment': 0,
+    'like': 1,
+    'invites': 2,
+    'system': 3,
+  };
+
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 4, vsync: this);
+    _tabCtrl = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: _tabIndexByName[widget.initialTab] ?? 0,
+    );
     _loadInvites();
   }
 
@@ -44,7 +59,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
 
   Future<void> _loadInvites() async {
     setState(() => _loadingInvites = true);
+    debugPrint('[invites] current user id: ${ref.read(currentUserProvider)?.id}');
     final res = await ref.read(apiClientProvider).get('/auth/questions/invites');
+    debugPrint('[invites] success=${res.success} statusCode=${res.statusCode} message=${res.message}');
+    debugPrint('[invites] raw data: ${res.data}');
     if (!mounted) return;
     setState(() {
       _loadingInvites = false;
@@ -54,6 +72,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
             .toList();
       }
     });
+    debugPrint('[invites] parsed count: ${_invites.length}');
   }
 
   Future<void> _respondInvite(Map<String, dynamic> inv, String action) async {
@@ -117,7 +136,19 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
       case _NotifFilter.inviteAnswer:
         return const [];
       case _NotifFilter.system:
-        return all.where((n) => n.type != 'comment' && n.type != 'like').toList();
+        // invite_answer/answer_posted 分别有自己的专属展示位置（邀请回答
+        // Tab 用的是 question_invites 那份独立数据源，answer_posted 靠
+        // 通知本身跳问题详情）——系统Tab是给没有专属去处的类型兜底，这两种
+        // 不该在这也重复出现一遍
+        return all
+            .where(
+              (n) =>
+                  n.type != 'comment' &&
+                  n.type != 'like' &&
+                  n.type != 'invite_answer' &&
+                  n.type != 'answer_posted',
+            )
+            .toList();
     }
   }
 
@@ -238,6 +269,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   }
 
   Widget _inviteAnswerTab(AppLocalizations l10n) {
+    debugPrint('[invites] render: loading=$_loadingInvites isEmpty=${_invites.isEmpty} _invites=$_invites');
     if (_loadingInvites && _invites.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
