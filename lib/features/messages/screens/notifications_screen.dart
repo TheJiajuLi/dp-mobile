@@ -432,10 +432,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     List<AppNotification> items,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final radius = BorderRadius.circular(16);
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: radius,
         border: isDark
             ? Border.all(color: Theme.of(context).dividerColor, width: 0.5)
             : null,
@@ -449,19 +449,28 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 ),
               ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            if (i > 0)
-              Divider(
-                height: 0.5,
-                indent: 68,
-                color: Theme.of(context).dividerColor,
-              ),
-            _notificationTile(context, l10n, items[i]),
-          ],
-        ],
+      // 卡片圆角之前靠 Container.clipBehavior 裁——单条通知（尤其是这次
+      // group_invite 新加的、内容更高的那种）行高一旦跟其它行不一致，
+      // 偶发会看到圆角被撑成直角。换成 ClipRRect 直接包一层，裁剪逻辑
+      // 更明确，不依赖 Container 内部那套 clipBehavior 实现细节
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Container(
+          color: Theme.of(context).cardColor,
+          child: Column(
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 0.5,
+                    indent: 68,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                _notificationTile(context, l10n, items[i]),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
