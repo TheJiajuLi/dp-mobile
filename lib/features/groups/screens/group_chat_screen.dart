@@ -140,15 +140,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
           .post('/auth/groups/${widget.groupId}/read');
       return;
     }
-    // 后端接口还不存在——种一批本地演示消息，覆盖文字/分享文章卡/
-    // 分享问题卡/@提及/系统消息这几种视觉样式，方便先看UI
-    final mock = _mockMessages();
-    setState(() {
-      _messages.addAll(mock);
-      _loading = false;
-      _lastMsgId = mock.last.id;
-    });
-    _scrollToBottom(animated: false);
+    // 消息接口拉取失败（比如 /auth/groups/:id/messages 还没上线）——不再兜底
+    // 塞演示消息，否则真实群里会冒出不在群里的假人；直接结束 loading，
+    // 交给空状态提示。接口上线后 res.success 为 true，自动走上面的真实分支
+    if (mounted) setState(() => _loading = false);
   }
 
   // 拉群详情主要是为了拿成员列表给 @ 选择器做本地候选（名字/成员数已经
@@ -417,62 +412,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
-  List<GroupMessage> _mockMessages() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    Map<String, dynamic> base(
-      String id,
-      String senderId,
-      String senderName,
-      String content, {
-      String type = 'text',
-      String? refId,
-      String? refTitle,
-      String? refMeta,
-      int offsetMinutes = 0,
-    }) => {
-      'id': id,
-      'group_id': widget.groupId,
-      'sender_id': senderId,
-      'sender_name': senderName,
-      'type': type,
-      'content': content,
-      'ref_id': refId,
-      'ref_title': refTitle,
-      'ref_meta': refMeta,
-      'created_at': (now / 1000).floor() + offsetMinutes * 60,
-    };
-
-    final raw = [
-      base('m1', 'system', 'system', '$_groupName 创建成功', offsetMinutes: -30),
-      base('m2', 'u1', '宇宙观测员', '大家好！终于有个地方可以一起讨论了 😄', offsetMinutes: -25),
-      base('m3', 'u2', '生科研究员', '欢迎欢迎，我最近在研究这方面的问题', offsetMinutes: -20),
-      base(
-        'm4',
-        'u1',
-        '宇宙观测员',
-        '推荐一篇文章给大家',
-        type: 'share_tutorial',
-        refId: '0',
-        refTitle: '贝叶斯定理：用一个例子彻底理解「先验」和「后验」',
-        refMeta: '小梦 · 1.2k 阅读',
-        offsetMinutes: -15,
-      ),
-      base('m5', 'u2', '生科研究员', '@宇宙观测员 这篇文章里的方法部分我还有点困惑', offsetMinutes: -10),
-      base(
-        'm6',
-        'u1',
-        '宇宙观测员',
-        '正好我也想分享一个极索里的问题',
-        type: 'share_question',
-        refId: '0',
-        refTitle: '先验分布应该怎么选？有没有系统性的方法？',
-        refMeta: '数学 · 2 个回答',
-        offsetMinutes: -5,
-      ),
-    ];
-    return raw.map((j) => GroupMessage.fromJson(j, _myId)).toList();
-  }
-
   void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollCtrl.hasClients) return;
@@ -502,6 +441,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
+                  : _messages.isEmpty
+                  ? _buildEmptyMessages(isDark)
                   : _buildMessageList(isDark),
             ),
             // @ 提及浮层——群成员本地过滤，选中后回填到 _inputCtrl
@@ -747,6 +688,29 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         alignment: 0.3,
       );
     });
+  }
+
+  Widget _buildEmptyMessages(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 48,
+            color: isDark ? Colors.white24 : Colors.grey.shade300,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '还没有消息，快来说点什么吧',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.white38 : Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMessageList(bool isDark) {
