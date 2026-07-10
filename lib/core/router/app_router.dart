@@ -17,6 +17,8 @@ import '../../features/creator/screens/aurora_screen.dart';
 import '../../features/creator/screens/columns_screen.dart';
 import '../../features/creator/screens/creator_center_screen.dart';
 import '../../features/creator/screens/works_screen.dart';
+import '../../features/groups/screens/create_group_screen.dart';
+import '../../features/groups/screens/group_chat_placeholder_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/jisuo/screens/answer_question_screen.dart';
 import '../../features/jisuo/screens/jisuo_screen.dart';
@@ -225,6 +227,15 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/messages/mentions',
       builder: (context, state) => const MentionsScreen(),
+    ),
+    GoRoute(
+      path: '/groups/create',
+      builder: (context, state) => const CreateGroupScreen(),
+    ),
+    GoRoute(
+      path: '/group/:id',
+      builder: (context, state) =>
+          GroupChatPlaceholderScreen(groupId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/messages/conversations',

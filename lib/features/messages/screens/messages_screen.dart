@@ -490,9 +490,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               const Color(0xFFE8F8F0),
               () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.createGroupComingSoon)),
-                );
+                context.push('/groups/create');
               },
             ),
             const SizedBox(height: 12),
