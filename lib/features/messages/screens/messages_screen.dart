@@ -11,6 +11,7 @@ import '../models/conversation_model.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
 import '../utils/message_avatar.dart';
+import '../widgets/invite_summary_card.dart';
 
 const _primary = kMessagesPrimary;
 
@@ -30,6 +31,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
   Timer? _pollTimer;
   _PreviewFilter _filter = _PreviewFilter.all;
   int? _friendsCount;
+  List<Map<String, dynamic>> _invites = [];
 
   @override
   void initState() {
@@ -60,6 +62,16 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     if (res.success && res.data != null && mounted) {
       ref.read(unreadCountProvider.notifier).state =
           (res.data['unread'] as num?)?.toInt() ?? 0;
+    }
+    final invitesRes = await ref
+        .read(apiClientProvider)
+        .get('/auth/questions/invites');
+    if (invitesRes.success && invitesRes.data != null && mounted) {
+      setState(() {
+        _invites = ((invitesRes.data['invites'] as List?) ?? [])
+            .map((i) => Map<String, dynamic>.from(i as Map))
+            .toList();
+      });
     }
   }
 
@@ -126,9 +138,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         // answer_posted 靠通知本身跳问题详情——都不该在这个通用预览里
         // 再原样出现一遍
         : _filteredPreview(notifications)
-            .where((n) => n.type != 'invite_answer' && n.type != 'answer_posted')
-            .take(4)
-            .toList();
+              .where(
+                (n) => n.type != 'invite_answer' && n.type != 'answer_posted',
+              )
+              .take(4)
+              .toList();
     final previewConvs = conversations.take(3).toList();
 
     return Scaffold(
@@ -267,7 +281,19 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
+            // 邀请回答的汇总卡放在消息首页最显眼的位置，不再只藏在"最近
+            // 通知"整页里靠 count>0 才出现——这是找不到入口反馈最多的
+            // 地方，常驻在这里保证一进消息 Tab 就能看到
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: InviteSummaryCard(
+                count: _invites.length,
+                invites: _invites,
+                onTap: () => context.push('/invite-list'),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             if (_isComingSoonFilter)
               Padding(
@@ -793,7 +819,10 @@ class _PreviewCard extends StatelessWidget {
               ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Material(color: Colors.transparent, child: Column(children: rows)),
+      child: Material(
+        color: Colors.transparent,
+        child: Column(children: rows),
+      ),
     );
   }
 }

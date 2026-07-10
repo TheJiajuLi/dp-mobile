@@ -7,15 +7,20 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../models/notification_model.dart';
 import '../providers/messages_provider.dart';
 import '../utils/message_avatar.dart';
+import '../widgets/invite_summary_card.dart';
 
 // 之前是评论/点赞/邀请回答/系统四个Tab，邀请回答现在改成汇总卡+专属
 // 列表页（invite_list_screen.dart）单独承接，这个页面收窄成"最近通知"：
-// 顶部"需要你处理"（邀请汇总卡，count>0才显示）+"最新动态"（除
-// invite_answer 外的普通通知，扁平列表，不分type）
+// 顶部"需要你处理"（邀请汇总卡）+"最新动态"（除 invite_answer 外的
+// 普通通知，扁平列表，不分type）。汇总卡之前只在 count>0 时才渲染，
+// 结果是没有待处理邀请时整块入口直接从页面消失——找不到"查看所有
+// 邀请回答"的入口正是这个原因，现在改成常驻显示（count==0 时是空态
+// 提示），保证入口位置固定
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
@@ -26,11 +31,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   void initState() {
     super.initState();
     _loadInvites();
+    _markAllRead();
+  }
+
+  // 后端标记已读接口一直都在（POST /auth/notifications/read），但之前
+  // 只有消息首页"全部已读"按钮会调用它——用户点进"最近通知"整页浏览完
+  // 并不代表点了那个按钮，红点因此一直不消——本地先乐观置 0，
+  // 不等接口返回，体验更顺
+  Future<void> _markAllRead() async {
+    ref.read(unreadCountProvider.notifier).state = 0;
+    final notifs = ref.read(notificationsProvider);
+    if (notifs.any((n) => !n.isRead)) {
+      await ref.read(notificationsProvider.notifier).markAllRead();
+    }
   }
 
   Future<void> _loadInvites() async {
     setState(() => _loadingInvites = true);
-    final res = await ref.read(apiClientProvider).get('/auth/questions/invites');
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/questions/invites');
     if (!mounted) return;
     setState(() {
       _loadingInvites = false;
@@ -93,7 +113,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   ),
                   Text(
                     l10n.recentNotificationsTitle,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -106,12 +129,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 ]),
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   children: [
-                    if (!_loadingInvites && _invites.isNotEmpty) ...[
+                    if (!_loadingInvites) ...[
                       _sectionLabel('需要你处理'),
                       const SizedBox(height: 6),
-                      _InviteSummaryCard(
+                      InviteSummaryCard(
                         count: _invites.length,
                         invites: _invites,
                         onTap: () => context.push('/invite-list'),
@@ -126,11 +152,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         child: Center(
                           child: Column(
                             children: [
-                              const Icon(Icons.notifications_none, size: 56, color: Colors.grey),
+                              const Icon(
+                                Icons.notifications_none,
+                                size: 56,
+                                color: Colors.grey,
+                              ),
                               const SizedBox(height: 12),
                               Text(
                                 l10n.noNotificationsYet,
-                                style: const TextStyle(color: Colors.grey, fontSize: 15),
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 15,
+                                ),
                               ),
                             ],
                           ),
@@ -152,7 +185,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     padding: const EdgeInsets.symmetric(horizontal: 4),
     child: Text(
       text,
-      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500]),
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: Colors.grey[500],
+      ),
     ),
   );
 
@@ -169,7 +206,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: isDark ? Border.all(color: Theme.of(context).dividerColor, width: 0.5) : null,
+        border: isDark
+            ? Border.all(color: Theme.of(context).dividerColor, width: 0.5)
+            : null,
         boxShadow: isDark
             ? null
             : [
@@ -184,7 +223,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       child: Column(
         children: [
           for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) Divider(height: 0.5, indent: 68, color: Theme.of(context).dividerColor),
+            if (i > 0)
+              Divider(
+                height: 0.5,
+                indent: 68,
+                color: Theme.of(context).dividerColor,
+              ),
             _notificationTile(context, l10n, items[i]),
           ],
         ],
@@ -192,7 +236,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  Widget _notificationTile(BuildContext context, AppLocalizations l10n, AppNotification n) {
+  Widget _notificationTile(
+    BuildContext context,
+    AppLocalizations l10n,
+    AppNotification n,
+  ) {
     return Container(
       color: n.isRead ? null : kMessagesPrimary.withValues(alpha: 0.07),
       child: ListTile(
@@ -210,7 +258,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              buildMessageAvatar(n.fromAvatar, n.fromUsername ?? l10n.systemNotificationInitial, radius: 22),
+              buildMessageAvatar(
+                n.fromAvatar,
+                n.fromUsername ?? l10n.systemNotificationInitial,
+                radius: 22,
+              ),
               Positioned(
                 top: -2,
                 right: -2,
@@ -230,7 +282,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ),
         title: Text(
           n.content ?? n.title ?? '',
-          style: TextStyle(fontSize: 14, fontWeight: n.isRead ? FontWeight.w400 : FontWeight.w500),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: n.isRead ? FontWeight.w400 : FontWeight.w500,
+          ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -246,146 +301,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   color: kMessagesPrimary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.article_outlined, color: kMessagesPrimary, size: 20),
+                child: const Icon(
+                  Icons.article_outlined,
+                  color: kMessagesPrimary,
+                  size: 20,
+                ),
               )
             : n.isRead
             ? null
             : Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(color: kMessagesPrimary, shape: BoxShape.circle),
-              ),
-      ),
-    );
-  }
-}
-
-// 邀请回答汇总卡——点击进 /invite-list 专属列表页，不在这个页面里直接
-// 接受/忽略
-class _InviteSummaryCard extends StatelessWidget {
-  final int count;
-  final List<Map<String, dynamic>> invites;
-  final VoidCallback onTap;
-
-  const _InviteSummaryCard({required this.count, required this.invites, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (count == 0) return const SizedBox.shrink();
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFEBEBEB),
-            width: 0.5,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-              child: Row(
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFEEF0FF), Color(0xFFE0E7FF)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.question_answer_outlined, size: 20, color: Color(0xFF6366F1)),
-                      ),
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: Container(
-                          constraints: const BoxConstraints(minWidth: 18),
-                          height: 18,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444),
-                            borderRadius: BorderRadius.circular(99),
-                            border: Border.all(
-                              color: isDark ? const Color(0xFF0A0A1A) : Colors.white,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$count',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('邀请回答', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '有 $count 个问题等待你的见解',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.grey[500],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 18,
-                    color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey[400],
-                  ),
-                ],
-              ),
-            ),
-            if (invites.isNotEmpty)
-              SizedBox(
-                height: 30,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-                  itemCount: invites.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 6),
-                  itemBuilder: (ctx, i) {
-                    final q = (invites[i]['question_text'] as String?) ?? '';
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(99),
-                        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.2), width: 0.5),
-                      ),
-                      child: Text(
-                        q.length > 14 ? '${q.substring(0, 14)}...' : q,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF6366F1)),
-                      ),
-                    );
-                  },
+                decoration: const BoxDecoration(
+                  color: kMessagesPrimary,
+                  shape: BoxShape.circle,
                 ),
               ),
-            const SizedBox(height: 12),
-          ],
-        ),
       ),
     );
   }
