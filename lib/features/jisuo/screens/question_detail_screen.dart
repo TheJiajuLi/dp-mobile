@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../features/auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
 import 'jisuo_screen.dart' show jisuoDomainBg, jisuoDomainColor;
 
@@ -71,15 +72,16 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
           padding: const EdgeInsets.all(14),
           children: [
             if (q != null) _questionHeader(q, isDark),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
-              _loading ? '加载中…' : '${_answers.length} 个回答',
+              _loading ? '加载中…' : '回答（${_answers.length}）',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[400],
+                color: Colors.grey[500],
               ),
             ),
+            const SizedBox(height: 6),
             if (_loading)
               const Padding(
                 padding: EdgeInsets.only(top: 60),
@@ -106,6 +108,10 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
   Widget _questionHeader(Map<String, dynamic> q, bool isDark) {
     final domain = q['domain'] as String? ?? '';
     final text = q['text'] as String? ?? '';
+    final viewCount = (q['view_count'] as num?)?.toInt();
+    final askerId = q['asker_id']?.toString();
+    final isOwnQuestion = askerId != null && askerId == ref.watch(currentUserProvider)?.id;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
@@ -117,31 +123,57 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (domain.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: jisuoDomainBg(domain),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                domain,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: jisuoDomainColor(domain),
+          Row(
+            children: [
+              if (domain.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: jisuoDomainBg(domain),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    domain,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: jisuoDomainColor(domain),
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              const Spacer(),
+              if (isOwnQuestion)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A0E2E),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    '我的提问',
+                    style: TextStyle(fontSize: 9, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 8),
           Text(
             text,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.4),
           ),
+          if (viewCount != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '$_answersCountLabel · $viewCount 次浏览',
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  String get _answersCountLabel => '${_answers.length} 个回答';
 }
 
 class _AnswerCard extends ConsumerStatefulWidget {

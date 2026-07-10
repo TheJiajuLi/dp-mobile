@@ -72,11 +72,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final notifications = ref.watch(notificationsProvider);
-    // invite_answer 有自己的汇总卡+专属列表页；answer_posted 靠这条通知
-    // 本身跳问题详情，两种都不该在"最新动态"这个通用兜底列表里再出现一遍
-    final feed = notifications
-        .where((n) => n.type != 'invite_answer' && n.type != 'answer_posted')
-        .toList();
+    // invite_answer 有自己专属的汇总卡+列表页，不在这重复出现；
+    // answer_posted 没有专属入口，得留在"最新动态"里，点击跳问题详情
+    // （之前重构成汇总卡布局时误把它也一起过滤掉了，导致这类通知完全
+    // 找不到地方点开——2026-07-10 修复）
+    final feed = notifications.where((n) => n.type != 'invite_answer').toList();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -196,6 +196,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return Container(
       color: n.isRead ? null : kMessagesPrimary.withValues(alpha: 0.07),
       child: ListTile(
+        // answer_posted 复用 tutorialId 这个字段传 questionId（后端
+        // createAnswer 目前发通知时还没传这个参数，没传的话这里点了
+        //也没地方可跳，是待后端补的一环）
+        onTap: n.type == 'answer_posted' && n.tutorialId != null
+            ? () => context.push('/questions/${n.tutorialId}')
+            : null,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: GestureDetector(
           onTap: (n.fromUsername?.isNotEmpty ?? false)

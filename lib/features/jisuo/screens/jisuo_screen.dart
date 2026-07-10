@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/jisuo_refresh_signal.dart';
 import '../../../core/network/api_client.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
@@ -113,6 +114,11 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         _reloadingForAccountChange = false;
       });
     }
+    // 发布回答会让某个问题的 answer_count 变化，但极索是常驻分支不会
+    // 自动重新拉——跟 profile_refresh_signal.dart 同一个套路
+    ref.listen<int>(jisuoRefreshSignalProvider, (prev, next) {
+      if (prev != next) _loadHotQuestions();
+    });
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(

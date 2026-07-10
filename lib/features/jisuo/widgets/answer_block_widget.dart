@@ -95,7 +95,15 @@ class AnswerBlockWidget extends StatelessWidget {
   }
 }
 
-class _TextBlock extends StatelessWidget {
+// 下面几个编辑类 block 之前是 StatelessWidget，TextField 的 controller
+// 直接在 build() 里 new TextEditingController(...)——每次父级 setState
+// （比如输入一个字触发 onChanged）都会重新创建一个新的 Controller 实例，
+// 这会打断中文输入法的 composing 状态：候选词还没上屏，Controller 就被
+// 换掉了，表现就是拼音字母直接原样上屏，打不出汉字。改成 StatefulWidget，
+// Controller 在 initState 里只创建一次，父级重建时靠 State 复用，不会
+// 重新 new，composing 状态不会被打断
+
+class _TextBlock extends StatefulWidget {
   final AnswerBlock block;
   final bool isDark;
   final ValueChanged<String> onChanged;
@@ -115,27 +123,40 @@ class _TextBlock extends StatelessWidget {
   });
 
   @override
+  State<_TextBlock> createState() => _TextBlockState();
+}
+
+class _TextBlockState extends State<_TextBlock> {
+  late final _ctrl = TextEditingController(text: widget.block.content)
+    ..selection = TextSelection.collapsed(offset: widget.block.content.length);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
       child: TextField(
-        focusNode: focusNode,
-        controller: TextEditingController(text: block.content)
-          ..selection = TextSelection.collapsed(offset: block.content.length),
+        focusNode: widget.focusNode,
+        controller: _ctrl,
         maxLines: null,
-        onChanged: onChanged,
+        onChanged: widget.onChanged,
         style: TextStyle(
-          fontSize: fontSize,
-          fontWeight: fontWeight,
+          fontSize: widget.fontSize,
+          fontWeight: widget.fontWeight,
           height: 1.7,
-          color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1A1A1A),
+          color: widget.isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1A1A1A),
         ),
         decoration: InputDecoration(
-          hintText: hint,
+          hintText: widget.hint,
           hintStyle: TextStyle(
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.grey[400],
+            fontSize: widget.fontSize,
+            fontWeight: widget.fontWeight,
+            color: widget.isDark ? Colors.white.withValues(alpha: 0.25) : Colors.grey[400],
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -153,7 +174,7 @@ class _TextBlock extends StatelessWidget {
   }
 }
 
-class _QuoteBlock extends StatelessWidget {
+class _QuoteBlock extends StatefulWidget {
   final AnswerBlock block;
   final bool isDark;
   final ValueChanged<String> onChanged;
@@ -167,7 +188,22 @@ class _QuoteBlock extends StatelessWidget {
   });
 
   @override
+  State<_QuoteBlock> createState() => _QuoteBlockState();
+}
+
+class _QuoteBlockState extends State<_QuoteBlock> {
+  late final _ctrl = TextEditingController(text: widget.block.content)
+    ..selection = TextSelection.collapsed(offset: widget.block.content.length);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDark;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
@@ -179,11 +215,10 @@ class _QuoteBlock extends StatelessWidget {
         ),
       ),
       child: TextField(
-        focusNode: focusNode,
-        controller: TextEditingController(text: block.content)
-          ..selection = TextSelection.collapsed(offset: block.content.length),
+        focusNode: widget.focusNode,
+        controller: _ctrl,
         maxLines: null,
-        onChanged: onChanged,
+        onChanged: widget.onChanged,
         style: TextStyle(
           fontSize: 14,
           fontStyle: FontStyle.italic,
@@ -204,7 +239,7 @@ class _QuoteBlock extends StatelessWidget {
   }
 }
 
-class _FormulaBlock extends StatelessWidget {
+class _FormulaBlock extends StatefulWidget {
   final AnswerBlock block;
   final bool isDark;
   final ValueChanged<String> onChanged;
@@ -218,7 +253,22 @@ class _FormulaBlock extends StatelessWidget {
   });
 
   @override
+  State<_FormulaBlock> createState() => _FormulaBlockState();
+}
+
+class _FormulaBlockState extends State<_FormulaBlock> {
+  late final _ctrl = TextEditingController(text: widget.block.content)
+    ..selection = TextSelection.collapsed(offset: widget.block.content.length);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDark;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       padding: const EdgeInsets.all(12),
@@ -241,11 +291,10 @@ class _FormulaBlock extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           TextField(
-            focusNode: focusNode,
-            controller: TextEditingController(text: block.content)
-              ..selection = TextSelection.collapsed(offset: block.content.length),
+            focusNode: widget.focusNode,
+            controller: _ctrl,
             maxLines: null,
-            onChanged: onChanged,
+            onChanged: widget.onChanged,
             style: const TextStyle(fontSize: 14, fontFamily: 'Georgia', fontStyle: FontStyle.italic, color: Color(0xFF4C1D95)),
             decoration: const InputDecoration(
               hintText: 'f(x) = ...',
@@ -260,7 +309,7 @@ class _FormulaBlock extends StatelessWidget {
   }
 }
 
-class _CodeBlock extends StatelessWidget {
+class _CodeBlock extends StatefulWidget {
   final AnswerBlock block;
   final bool isDark;
   final ValueChanged<String> onChanged;
@@ -274,7 +323,22 @@ class _CodeBlock extends StatelessWidget {
   });
 
   @override
+  State<_CodeBlock> createState() => _CodeBlockState();
+}
+
+class _CodeBlockState extends State<_CodeBlock> {
+  late final _ctrl = TextEditingController(text: widget.block.content)
+    ..selection = TextSelection.collapsed(offset: widget.block.content.length);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDark;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
@@ -305,7 +369,7 @@ class _CodeBlock extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  block.language ?? 'Python',
+                  widget.block.language ?? 'Python',
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -324,11 +388,10 @@ class _CodeBlock extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(10),
             child: TextField(
-              focusNode: focusNode,
-              controller: TextEditingController(text: block.content)
-                ..selection = TextSelection.collapsed(offset: block.content.length),
+              focusNode: widget.focusNode,
+              controller: _ctrl,
               maxLines: null,
-              onChanged: onChanged,
+              onChanged: widget.onChanged,
               style: TextStyle(
                 fontSize: 12,
                 fontFamily: 'Menlo',
@@ -353,7 +416,7 @@ class _CodeBlock extends StatelessWidget {
   }
 }
 
-class _ImageBlock extends StatelessWidget {
+class _ImageBlock extends StatefulWidget {
   final AnswerBlock block;
   final bool isDark;
   final ValueChanged<String> onChanged;
@@ -361,7 +424,22 @@ class _ImageBlock extends StatelessWidget {
   const _ImageBlock({required this.block, required this.isDark, required this.onChanged});
 
   @override
+  State<_ImageBlock> createState() => _ImageBlockState();
+}
+
+class _ImageBlockState extends State<_ImageBlock> {
+  late final _ctrl = TextEditingController(text: widget.block.content)
+    ..selection = TextSelection.collapsed(offset: widget.block.content.length);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDark;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
@@ -406,9 +484,8 @@ class _ImageBlock extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             child: TextField(
-              onChanged: onChanged,
-              controller: TextEditingController(text: block.content)
-                ..selection = TextSelection.collapsed(offset: block.content.length),
+              controller: _ctrl,
+              onChanged: widget.onChanged,
               style: TextStyle(
                 fontSize: 12,
                 color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.grey[500],

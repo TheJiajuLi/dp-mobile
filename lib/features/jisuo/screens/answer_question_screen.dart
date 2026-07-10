@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/jisuo_refresh_signal.dart';
 import '../../../core/network/api_client.dart';
 import '../models/answer_block.dart';
 import '../widgets/answer_block_widget.dart';
@@ -65,6 +66,7 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
         .post('/auth/questions/${widget.questionId}/answers', data: {'content': content});
     if (!mounted) return;
     if (res.success) {
+      notifyJisuoShouldRefresh(ref);
       setState(() {
         _submitting = false;
         _done = true;
@@ -281,15 +283,23 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: () => context.pop(),
+                onPressed: () => context.pushReplacement(
+                  '/questions/${widget.questionId}',
+                  extra: {'text': widget.questionText, 'domain': widget.domain},
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('完成', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                child: const Text('查看我的回答', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => context.go('/jisuo'),
+              child: Text('返回极索', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
             ),
           ],
         ),

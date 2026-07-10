@@ -25,7 +25,8 @@ class MessagesScreen extends ConsumerStatefulWidget {
   ConsumerState<MessagesScreen> createState() => _MessagesScreenState();
 }
 
-class _MessagesScreenState extends ConsumerState<MessagesScreen> {
+class _MessagesScreenState extends ConsumerState<MessagesScreen>
+    with WidgetsBindingObserver {
   Timer? _pollTimer;
   _PreviewFilter _filter = _PreviewFilter.all;
   int? _friendsCount;
@@ -33,12 +34,21 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadData();
     _loadFriendsCount();
     _pollTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _loadData(),
     );
+  }
+
+  // 30秒轮询期间App被切到后台等再回来，正好卡在两次轮询中间的话未读数
+  // 会有最多30秒的延迟——回答者发布回答之类的场景不想让提问者等这么久
+  // 才看到消息Tab红点更新，App从后台恢复时主动补一次
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadData();
   }
 
   Future<void> _loadData() async {
@@ -73,6 +83,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
     super.dispose();
   }
