@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/mention_input/mention_popup.dart';
+import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../auth/auth_service.dart';
 import '../../home/providers/home_feed_provider.dart';
 import '../models/group_message_model.dart';
@@ -49,12 +51,18 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   late String _groupName;
   late int _memberCount;
 
+  // @ 提及：群成员本地候选 + 纯逻辑对象（操作 _inputCtrl，不额外持有 controller）
+  List<Map<String, dynamic>> _members = [];
+  final _mention = MentionQuery();
+  String? _mentionQuery;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _groupName = widget.groupName ?? '群组';
     _memberCount = widget.initialMemberCount ?? 0;
+    _loadGroupData();
     _loadMessages();
     _pollTimer = Timer.periodic(
       const Duration(seconds: 3),
@@ -119,6 +127,42 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     _scrollToBottom(animated: false);
   }
 
+  // 拉群详情主要是为了拿成员列表给 @ 选择器做本地候选（名字/成员数已经
+  // 从上一页参数带过来了，这里拿到真实值就顺手覆盖）。跟 _loadMessages 一样，
+  // 群详情接口 /auth/groups/:id 后端还没有——失败时本地种一批演示成员，
+  // 保证 @ 选择器有东西可选；接口一旦真的存在，res.success 变 true 自动走真实分支
+  Future<void> _loadGroupData() async {
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/groups/${widget.groupId}');
+    if (!mounted) return;
+    if (res.success && res.data is Map) {
+      final data = res.data as Map;
+      final group = data['group'];
+      final members = ((data['members'] as List?) ?? [])
+          .map((m) => Map<String, dynamic>.from(m as Map))
+          .toList();
+      setState(() {
+        if (group is Map) {
+          _groupName = (group['name'] as String?) ?? _groupName;
+          _memberCount =
+              (group['member_count'] as num?)?.toInt() ?? _memberCount;
+        }
+        if (members.isNotEmpty) _members = members;
+      });
+      return;
+    }
+    setState(() => _members = _mockMembers());
+  }
+
+  // 演示成员——用跟 _mockMessages 里出现的发言人一致的名字，@ 起来更真实
+  List<Map<String, dynamic>> _mockMembers() => const [
+    {'username': '宇宙观测员'},
+    {'username': '生科研究员'},
+    {'username': '小梦'},
+    {'username': '大兔兔'},
+  ];
+
   Future<void> _pollMessages() async {
     if (!mounted) return;
     final res = await ref
@@ -154,7 +198,12 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     final text = _inputCtrl.text.trim();
     if (text.isEmpty || _sending) return;
     _inputCtrl.clear();
-    setState(() => _sending = true);
+    // clear() 不会触发 onChanged，若发送时 @ 浮层还开着要手动复位，否则残留不消
+    _mention.reset();
+    setState(() {
+      _sending = true;
+      _mentionQuery = null;
+    });
 
     final res = await ref
         .read(apiClientProvider)
@@ -407,6 +456,19 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                   : _buildMessageList(isDark),
             ),
             if (_showPlus) _buildPlusSheet(isDark),
+            // @ 提及浮层——群成员本地过滤，选中后回填到 _inputCtrl
+            if (_mentionQuery != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 4),
+                child: MentionPopup(
+                  query: _mentionQuery!,
+                  candidates: _members,
+                  onSelect: (username) {
+                    _mention.insert(_inputCtrl, username);
+                    setState(() => _mentionQuery = null);
+                  },
+                ),
+              ),
             _buildInputBar(isDark),
           ],
         ),
@@ -1015,6 +1077,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                 maxLines: null,
                 textInputAction: TextInputAction.newline,
                 onTap: () => setState(() => _showPlus = false),
+                onChanged: (_) =>
+                    setState(() => _mentionQuery = _mention.detect(_inputCtrl)),
                 decoration: InputDecoration(
                   hintText: '发消息...',
                   hintStyle: TextStyle(

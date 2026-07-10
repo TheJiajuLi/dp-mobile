@@ -5,19 +5,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 
-/// @ 提及的用户搜索浮层。走全站搜索接口 GET /auth/search（返回 tutorials +
-/// users + tags），这里只取 data['users']，最多展示 6 个。
+/// @ 提及的用户搜索浮层，两种数据来源：
+/// - [candidates] == null（评论场景）：走全站搜索接口 GET /auth/search
+///   （返回 tutorials + users + tags），这里只取 data['users']；
+/// - [candidates] != null（群聊场景）：直接对传入的成员列表本地过滤，
+///   不发任何网络请求，query 为空时展示前几个成员。
+/// 两种模式都最多展示 6 个。
 ///
 /// 自身不碰输入框：命中的用户名通过 [onSelect] 回调交给外部，由外部用
 /// MentionQuery.insert 写回它自己的 controller。
 class MentionPopup extends ConsumerStatefulWidget {
   final String query;
   final void Function(String username) onSelect;
+  // 本地候选（群成员）。传了就走本地过滤，不打接口
+  final List<Map<String, dynamic>>? candidates;
 
   const MentionPopup({
     super.key,
     required this.query,
     required this.onSelect,
+    this.candidates,
   });
 
   @override
@@ -41,11 +48,16 @@ class _MentionPopupState extends ConsumerState<MentionPopup> {
   void didUpdateWidget(MentionPopup old) {
     super.didUpdateWidget(old);
     if (old.query != widget.query) {
-      _debounce?.cancel();
-      _debounce = Timer(
-        const Duration(milliseconds: 200),
-        () => _search(widget.query),
-      );
+      // 本地候选无需 debounce，直接即时过滤；只有走网络的全站搜索才防抖
+      if (widget.candidates != null) {
+        _search(widget.query);
+      } else {
+        _debounce?.cancel();
+        _debounce = Timer(
+          const Duration(milliseconds: 200),
+          () => _search(widget.query),
+        );
+      }
     }
   }
 
@@ -56,6 +68,24 @@ class _MentionPopupState extends ConsumerState<MentionPopup> {
   }
 
   Future<void> _search(String q) async {
+    // 群成员等本地候选：不打接口，直接按用户名过滤（q 为空时展示前几个）
+    final candidates = widget.candidates;
+    if (candidates != null) {
+      final lower = q.toLowerCase();
+      if (!mounted) return;
+      setState(() {
+        _results = candidates
+            .where(
+              (u) => ((u['username'] as String?) ?? '')
+                  .toLowerCase()
+                  .contains(lower),
+            )
+            .take(6)
+            .toList();
+        _loading = false;
+      });
+      return;
+    }
     // 刚敲下 @ 还没输入任何字符时不打接口，浮层留空
     if (q.isEmpty) {
       if (mounted) setState(() => _results = []);
