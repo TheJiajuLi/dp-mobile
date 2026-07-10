@@ -443,9 +443,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
   PreferredSizeWidget _buildAppBar(bool isDark) {
     return AppBar(
-      backgroundColor: isDark
-          ? const Color(0xFF0A0A1A).withValues(alpha: 0.95)
-          : Colors.white.withValues(alpha: 0.95),
+      // 跟搜索栏 AppBar / 输入栏统一用 cardColor——原来这里写死的 0xFF0A0A1A
+      // 深色下偏蓝黑，跟 scaffold 中性灰的正文和 cardColor 的输入栏不是一套
+      backgroundColor: Theme.of(context).cardColor,
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, size: 18),
