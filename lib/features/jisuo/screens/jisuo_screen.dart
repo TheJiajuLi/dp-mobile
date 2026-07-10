@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,8 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/jisuo_refresh_signal.dart';
 import '../../../core/network/api_client.dart';
 import '../../../features/auth/auth_service.dart';
-import '../../../shared/utils/topic_badge.dart';
-import '../../home/providers/home_feed_provider.dart';
 import '../../messages/utils/message_avatar.dart';
 
 // 提问领域配色——提问 Sheet 的领域选择跟热门提问卡片的领域标签共用同一套
@@ -41,6 +38,11 @@ class JisuoScreen extends ConsumerStatefulWidget {
 class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final _inputCtrl = TextEditingController();
   List<Map<String, dynamic>> _hotQuestions = [];
+  // "为你推荐"是"精选优质匹配提问"，跟热门提问一样都是真实问题——不是
+  // 文章列表。后端 GET /auth/questions 没有真正意义上"跟当前用户匹配"
+  // 的打分能力，这里退而求其次：拿热门提问之外的下一批问题（同一个
+  // 接口用 offset 翻页），按 id 去重，保证不会跟上面热门提问重复
+  List<Map<String, dynamic>> _recommendedQuestions = [];
 
   // 极索是底部导航的常驻分支（跟"我的" tab 一样，切账号只是 goBranch
   // 跳回首页，不会重新 initState），热门提问只在 initState 拉过一次，
@@ -90,6 +92,21 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           .map((q) => Map<String, dynamic>.from(q as Map))
           .toList();
     });
+    unawaited(_loadRecommendedQuestions());
+  }
+
+  Future<void> _loadRecommendedQuestions() async {
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/questions', queryParameters: {'limit': 10, 'offset': 10});
+    if (!mounted || !res.success || res.data == null) return;
+    final hotIds = _hotQuestions.map((q) => q['id'].toString()).toSet();
+    setState(() {
+      _recommendedQuestions = ((res.data['questions'] as List?) ?? [])
+          .map((q) => Map<String, dynamic>.from(q as Map))
+          .where((q) => !hotIds.contains(q['id'].toString()))
+          .toList();
+    });
   }
 
   Future<Map<String, dynamic>> _postQuestion(
@@ -128,6 +145,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       if (!mounted) return;
       setState(() {
         _hotQuestions.removeWhere((q) => q['id'].toString() == id);
+        _recommendedQuestions.removeWhere((q) => q['id'].toString() == id);
         _removingQuestionIds.remove(id);
       });
     });
@@ -726,102 +744,18 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   // 精选内容——同样是静态占位（见上面热门提问的注释），后续接
   // tutorialsProvider 真实数据
-  // 之前是3条写死的假文章——跟极索首页共用同一个 homeFeedProvider
-  // （首页Feed本来就一直保持热的，这里不用再单独拉一次接口），取最新
-  // 已发布教程的前3条，跟"热门提问"错开展示，不强行区分"个性化推荐"
-  // 算法，后端也没有这个能力
+  // "为你推荐"是精选优质匹配提问——跟热门提问一样是真实问题卡片，不是
+  // 文章列表（之前误做成了教程列表，2026-07-10 改回问题）。复用同一个
+  // _hotQuestionCard，数据来自 _loadRecommendedQuestions() 拉到的下一批
+  // 问题，已经在 _loadHotQuestions 里按 id 去重过，不会跟热门提问重复
   Widget _buildPickedContent() {
-    final tutorials = ref.watch(homeFeedProvider).tutorials.take(3).toList();
-    if (tutorials.isEmpty) return const SizedBox.shrink();
-
+    if (_recommendedQuestions.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(
-        children: tutorials.asMap().entries.map((e) {
-          final i = e.key;
-          final t = e.value;
-          final domainLabel = topicCategoryLabelFor(t.tags) ?? '';
-          final (bg, fg) = topicBadgeStyleFor(
-            t.tags.isNotEmpty ? t.tags.first : '',
-          );
-          return GestureDetector(
-            onTap: () => context.push('/tutorial/${t.id}'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: i < tutorials.length - 1
-                      ? BorderSide(
-                          color: Colors.grey.withValues(alpha: 0.1),
-                          width: 0.5,
-                        )
-                      : BorderSide.none,
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          t.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${t.username} · ${t.views}浏览${domainLabel.isNotEmpty ? ' · $domainLabel' : ''}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 72,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: bg,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: (t.coverImage?.isNotEmpty ?? false)
-                        ? CachedNetworkImage(
-                            imageUrl: t.coverImage!,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, _, _) => Center(
-                              child: Icon(
-                                Icons.article_outlined,
-                                color: fg,
-                                size: 22,
-                              ),
-                            ),
-                          )
-                        : Center(
-                            child: Icon(
-                              Icons.article_outlined,
-                              color: fg,
-                              size: 22,
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
+        children: _recommendedQuestions
+            .map((q) => _hotQuestionCard(q))
+            .toList(),
       ),
     );
   }
