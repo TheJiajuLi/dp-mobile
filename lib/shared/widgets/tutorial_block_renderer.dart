@@ -204,33 +204,46 @@ Widget buildTutorialBlockWidget(
 
     case 'callout':
       final variant = block['variant'] as String? ?? 'info';
-      final colors = {
-        'tip': const Color(0xFF16A34A),
-        'warning': const Color(0xFFD97706),
-        'info': _primary,
-      };
-      final bgColors = {
-        'tip': const Color(0xFFE8F8F0),
-        'warning': const Color(0xFFFFF7E6),
-        'info': const Color(0xFFEEF0FF),
-      };
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      // 背景色深色下改成对应色相的极深底，不再是浅色块贴在暗色页上
+      final bgColors = isDark
+          ? const {
+              'tip': Color(0xFF0F1F18),
+              'warning': Color(0xFF1F1A0F),
+              'info': Color(0xFF1A1829),
+            }
+          : const {
+              'tip': Color(0xFFE8F8F0),
+              'warning': Color(0xFFFFF7E6),
+              'info': Color(0xFFEEF0FF),
+            };
+      // 文字 + 左侧竖条共用这套强调色，深色下用调淡的色，浅色下保持原样
+      final accentColors = isDark
+          ? const {
+              'tip': Color(0xFF5BC48A),
+              'warning': Color(0xFFD4A842),
+              'info': Color(0xFF9B9EF8),
+            }
+          : const {
+              'tip': Color(0xFF16A34A),
+              'warning': Color(0xFFD97706),
+              'info': _primary,
+            };
+      final bg = bgColors[variant] ?? bgColors['info']!;
+      final accent = accentColors[variant] ?? accentColors['info']!;
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: bgColors[variant] ?? const Color(0xFFEEF0FF),
+          color: bg,
           borderRadius: BorderRadius.circular(10),
           border: Border(
-            left: BorderSide(color: colors[variant] ?? _primary, width: 3),
+            left: BorderSide(color: accent, width: 3),
           ),
         ),
         child: Text(
           content,
-          style: TextStyle(
-            fontSize: 14,
-            color: colors[variant] ?? _primary,
-            height: 1.5,
-          ),
+          style: TextStyle(fontSize: 14, color: accent, height: 1.5),
         ),
       );
 

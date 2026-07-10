@@ -981,28 +981,32 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: Wrap(
                       spacing: 6,
-                      children: tags
-                          .map(
-                            (tag) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEEF0FF),
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                              child: Text(
-                                tag,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF4F46E5),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                      children: tags.map((tag) {
+                        final isDark =
+                            Theme.of(context).brightness == Brightness.dark;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : const Color(0xFFEEF0FF),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            tag,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? const Color(0xFF9B9EF8)
+                                  : const Color(0xFF4F46E5),
+                              fontWeight: FontWeight.w500,
                             ),
-                          )
-                          .toList(),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
               ],
@@ -1362,6 +1366,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   }
 
   Widget _buildCommentInputBar({StateSetter? sheetSetState}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       color: Theme.of(context).cardColor,
       padding: EdgeInsets.fromLTRB(
@@ -1389,7 +1394,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               margin: const EdgeInsets.only(bottom: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF0FF),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFEEF0FF),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -1398,7 +1405,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     AppLocalizations.of(
                       context,
                     )!.replyingToLabel(_replyToUsername!),
-                    style: const TextStyle(fontSize: 12, color: _primary),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? const Color(0xFF9B9EF8) : _primary,
+                    ),
                   ),
                   const Spacer(),
                   GestureDetector(
