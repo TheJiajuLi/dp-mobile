@@ -25,7 +25,9 @@ class _ForumListScreenState extends ConsumerState<ForumListScreen> {
   String _sort = 'latest';
   String? _selectedTag;
 
-  final _tags = ['全部', '数学', '编程', 'AI', '数据分析', '物理'];
+  // 分类标签不再写死全局分类，改成从该论坛帖子里实际用到的标签动态提取，
+  // '全部' 恒为第一个；没有帖子/没有标签时就只有 '全部'
+  List<String> _tags = ['全部'];
 
   @override
   void initState() {
@@ -47,10 +49,20 @@ class _ForumListScreenState extends ConsumerState<ForumListScreen> {
     if (!mounted) return;
     if (res.success && res.data is Map) {
       final list = ((res.data as Map)['posts'] as List?) ?? const [];
+      final posts = list
+          .map((p) => ForumPost.fromJson(Map<String, dynamic>.from(p as Map)))
+          .toList();
       setState(() {
-        _posts = list
-            .map((p) => ForumPost.fromJson(Map<String, dynamic>.from(p as Map)))
-            .toList();
+        _posts = posts;
+        // 只在"全部"（未按标签过滤）时重算分类标签——否则选了某个标签后
+        // 帖子集被服务端过滤，标签会跟着缩水到只剩当前那一个
+        if (_selectedTag == null) {
+          final tags = <String>{};
+          for (final p in posts) {
+            tags.addAll(p.tags);
+          }
+          _tags = ['全部', ...tags];
+        }
         _loading = false;
       });
     } else {
