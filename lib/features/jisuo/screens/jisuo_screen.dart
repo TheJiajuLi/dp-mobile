@@ -47,6 +47,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   // 补一次重新加载
   String? _loadedForUserId;
   bool _reloadingForAccountChange = false;
+  final Set<String> _removingQuestionIds = {};
 
   @override
   void initState() {
@@ -61,7 +62,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   }
 
   void _placeholderSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showAskSheet() {
@@ -91,15 +94,40 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     String domain,
     bool anon,
   ) async {
-    final res = await ref.read(apiClientProvider).post(
-      '/auth/questions',
-      data: {'text': text, 'domain': domain, 'isAnonymous': anon},
-    );
+    final res = await ref
+        .read(apiClientProvider)
+        .post(
+          '/auth/questions',
+          data: {'text': text, 'domain': domain, 'isAnonymous': anon},
+        );
     if (!res.success || res.data == null) {
       throw Exception(res.message ?? '发布失败，请稍后重试');
     }
     unawaited(_loadHotQuestions());
     return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  // 问题详情页删除问题成功后 pop 一个 {'deleted': true, 'questionId': ...}
+  // 回来——先淡出对应卡片再从列表移除，同时 jisuoRefreshSignalProvider
+  // 也会被通知到，覆盖不是从这里直接跳转过去的删除场景（比如从通知点进详情页）
+  Future<void> _openQuestion(Map<String, dynamic> q) async {
+    final result = await context.push('/questions/${q['id']}', extra: q);
+    if (!mounted) return;
+    if (result is Map && result['deleted'] == true) {
+      final id = result['questionId']?.toString();
+      if (id != null) _removeQuestionCard(id);
+    }
+  }
+
+  void _removeQuestionCard(String id) {
+    setState(() => _removingQuestionIds.add(id));
+    Future.delayed(const Duration(milliseconds: 220), () {
+      if (!mounted) return;
+      setState(() {
+        _hotQuestions.removeWhere((q) => q['id'].toString() == id);
+        _removingQuestionIds.remove(id);
+      });
+    });
   }
 
   @override
@@ -228,10 +256,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           GestureDetector(
             onTap: _openXiaoMeng,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(22),
@@ -281,36 +306,35 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children:
-                  ['泊松分布怎么理解？', 'Python数据清洗', '黑洞是什么', '线性回归推导']
-                      .map(
-                        (t) => GestureDetector(
-                          onTap: () => _askXiaoMeng(t),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 6),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 11,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.07),
-                              borderRadius: BorderRadius.circular(99),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.12),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              t,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.white.withValues(alpha: 0.6),
-                              ),
-                            ),
+              children: ['泊松分布怎么理解？', 'Python数据清洗', '黑洞是什么', '线性回归推导']
+                  .map(
+                    (t) => GestureDetector(
+                      onTap: () => _askXiaoMeng(t),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            width: 0.5,
                           ),
                         ),
-                      )
-                      .toList(),
+                        child: Text(
+                          t,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ],
@@ -374,12 +398,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         'bg': const Color(0xFFFFF7ED),
         'color': const Color(0xFFEA580C),
       },
-      {
-        'name': '更多',
-        'icon': Icons.grid_view,
-        'bg': null,
-        'color': Colors.grey,
-      },
+      {'name': '更多', 'icon': Icons.grid_view, 'bg': null, 'color': Colors.grey},
     ];
 
     return Column(
@@ -466,10 +485,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: const Color(0xFFEEF0FF),
                 borderRadius: BorderRadius.circular(99),
@@ -541,117 +557,165 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     final viewCount = (q['view_count'] as num?)?.toInt() ?? 0;
     final invitedCount = (q['invited_count'] as num?)?.toInt() ?? 0;
     final avatarCount = answerCount < 3 ? answerCount : 3;
+    final questionId = q['id'].toString();
+    final askerId = q['asker_id']?.toString();
+    final isOwn =
+        askerId != null && askerId == ref.watch(currentUserProvider)?.id;
+    final removing = _removingQuestionIds.contains(questionId);
 
-    return GestureDetector(
-      onTap: () => context.push('/questions/${q['id']}', extra: q),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.withValues(alpha: 0.1), width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: jisuoDomainBg(domain),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    domain,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                      color: jisuoDomainColor(domain),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    q['text'] as String,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      height: 1.45,
-                    ),
-                  ),
-                ),
-              ],
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 220),
+      opacity: removing ? 0 : 1,
+      child: GestureDetector(
+        onTap: () => _openQuestion(q),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.grey.withValues(alpha: 0.1),
+              width: 0.5,
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                SizedBox(
-                  width: avatarCount * 14.0 + 4,
-                  height: 20,
-                  child: Stack(
-                    children: List.generate(
-                      avatarCount,
-                      (i) => Positioned(
-                        left: i * 14.0,
-                        child: CircleAvatar(
-                          radius: 9,
-                          backgroundColor: Colors.white,
-                          child: CircleAvatar(
-                            radius: 8,
-                            backgroundColor: _avatarColors[i % _avatarColors.length],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '$answerCount 个回答',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.remove_red_eye_outlined, size: 12, color: Colors.grey[400]),
-                const SizedBox(width: 3),
-                Text(
-                  '$viewCount',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                ),
-                const Spacer(),
-                if (invitedCount > 0)
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                        width: 0.5,
+                      color: jisuoDomainBg(domain),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      domain,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: jisuoDomainColor(domain),
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.phone_in_talk, size: 10, color: Color(0xFFF59E0B)),
-                        const SizedBox(width: 3),
-                        Text(
-                          '已邀请 $invitedCount 位专家',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFFF59E0B),
-                            fontWeight: FontWeight.w500,
-                          ),
+                  ),
+                  if (isOwn) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A0E2E),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        '我的',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFF59E0B),
                         ),
-                      ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      q['text'] as String,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.45,
+                      ),
                     ),
                   ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  SizedBox(
+                    width: avatarCount * 14.0 + 4,
+                    height: 20,
+                    child: Stack(
+                      children: List.generate(
+                        avatarCount,
+                        (i) => Positioned(
+                          left: i * 14.0,
+                          child: CircleAvatar(
+                            radius: 9,
+                            backgroundColor: Colors.white,
+                            child: CircleAvatar(
+                              radius: 8,
+                              backgroundColor:
+                                  _avatarColors[i % _avatarColors.length],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$answerCount 个回答',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.remove_red_eye_outlined,
+                    size: 12,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    '$viewCount',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  ),
+                  const Spacer(),
+                  if (invitedCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.phone_in_talk,
+                            size: 10,
+                            color: Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '已邀请 $invitedCount 位专家',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFFF59E0B),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -793,7 +857,12 @@ class _AuroraIconPainter extends CustomPainter {
 }
 
 class _AskSheet extends StatefulWidget {
-  final Future<Map<String, dynamic>> Function(String text, String domain, bool anon) onPost;
+  final Future<Map<String, dynamic>> Function(
+    String text,
+    String domain,
+    bool anon,
+  )
+  onPost;
   const _AskSheet({required this.onPost});
 
   @override
@@ -834,9 +903,7 @@ class _AskSheetState extends State<_AskSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _posting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -847,7 +914,9 @@ class _AskSheetState extends State<_AskSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: _done ? _buildSuccess() : _buildForm(),
     );
   }
@@ -1058,7 +1127,10 @@ class _AskSheetState extends State<_AskSheet> {
                 if (isAurora) ...[
                   const SizedBox(width: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(3),
@@ -1076,7 +1148,10 @@ class _AskSheetState extends State<_AskSheet> {
                 const SizedBox(width: 6),
                 Text(
                   '$articleCount篇相关内容',
-                  style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4)),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white.withValues(alpha: 0.4),
+                  ),
                 ),
               ],
             ),
@@ -1116,7 +1191,11 @@ class _AskSheetState extends State<_AskSheet> {
                 ? '极索已根据问题领域\n自动邀请该领域最活跃的创作者为你解答'
                 : '暂时还没有该领域的创作者可邀请\n你的问题已经发布，其他人也能看到',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Colors.grey[400], height: 1.6),
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[400],
+              height: 1.6,
+            ),
           ),
           if (_invitedCount > 0) ...[
             const SizedBox(height: 16),
