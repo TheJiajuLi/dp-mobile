@@ -1628,6 +1628,36 @@ abstract class AppLocalizations {
   /// **'Friends'**
   String get friendsQuickLabel;
 
+  /// No description provided for @mentionsQuickLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Mentions'**
+  String get mentionsQuickLabel;
+
+  /// No description provided for @noMentionsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No mentions yet'**
+  String get noMentionsYet;
+
+  /// No description provided for @mentionsPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mentions'**
+  String get mentionsPageTitle;
+
+  /// No description provided for @mentionsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When someone @mentions you in a comment\nit will show up here'**
+  String get mentionsEmptyHint;
+
+  /// No description provided for @mentionedYouInComment.
+  ///
+  /// In en, this message translates to:
+  /// **'mentioned you in a comment'**
+  String get mentionedYouInComment;
+
   /// No description provided for @friendsCountLabel.
   ///
   /// In en, this message translates to:

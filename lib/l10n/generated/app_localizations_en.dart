@@ -834,6 +834,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get friendsQuickLabel => 'Friends';
 
   @override
+  String get mentionsQuickLabel => 'Mentions';
+
+  @override
+  String get noMentionsYet => 'No mentions yet';
+
+  @override
+  String get mentionsPageTitle => 'Mentions';
+
+  @override
+  String get mentionsEmptyHint =>
+      'When someone @mentions you in a comment\nit will show up here';
+
+  @override
+  String get mentionedYouInComment => 'mentioned you in a comment';
+
+  @override
   String friendsCountLabel(int count) {
     return '$count friends';
   }

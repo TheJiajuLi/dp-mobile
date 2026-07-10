@@ -388,6 +388,11 @@
   "inviteAnswerEmpty": "No answer invitations yet",
   "inviteAnswerFooter": "Invitations are matched to your creator domains automatically\nAnswering earns bonus Aurora points",
   "friendsQuickLabel": "Friends",
+  "mentionsQuickLabel": "Mentions",
+  "noMentionsYet": "No mentions yet",
+  "mentionsPageTitle": "Mentions",
+  "mentionsEmptyHint": "When someone @mentions you in a comment\nit will show up here",
+  "mentionedYouInComment": "mentioned you in a comment",
   "friendsCountLabel": "{count} friends",
   "@friendsCountLabel": {
     "placeholders": {

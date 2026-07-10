@@ -1,12 +1,13 @@
 class AppNotification {
   final String id;
-  final String type; // like / comment / follow / system
+  final String type; // like / comment / follow / mention / system
   final String? title;
   final String? content;
   final String? fromUsername;
   final String? fromAvatar;
   final String? tutorialTitle;
   final String? tutorialId;
+  final String? commentId;
   bool isRead;
   final int createdAt; // 毫秒
 
@@ -19,6 +20,7 @@ class AppNotification {
     this.fromAvatar,
     this.tutorialTitle,
     this.tutorialId,
+    this.commentId,
     required this.isRead,
     required this.createdAt,
   });
@@ -32,6 +34,7 @@ class AppNotification {
     fromAvatar: j['from_avatar']?.toString(),
     tutorialTitle: j['tutorial_title']?.toString(),
     tutorialId: j['tutorial_id']?.toString(),
+    commentId: j['comment_id']?.toString(),
     isRead: j['is_read'] == 1 || j['is_read'] == true,
     // 后端时间戳是秒级，×1000 转毫秒
     createdAt: ((j['created_at'] as num?) ?? 0).toInt() * 1000,

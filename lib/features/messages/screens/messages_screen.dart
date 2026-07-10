@@ -16,9 +16,11 @@ import '../widgets/invite_summary_card.dart';
 const _primary = kMessagesPrimary;
 
 // 通知过滤跟 notifications_screen.dart 用的是同一套口径（评论/点赞/关注
-// 真实存在，@提及/AI 后端完全没有对应类型），这里只用来决定"最近通知"
-// 预览区显示哪几条，不是一个独立页面，选中态不需要跨页面保留
-enum _PreviewFilter { all, comment, like, follow, mention, ai }
+// 真实存在，AI 后端没有对应类型）——只用来决定"最近通知"预览区显示哪几
+// 条，不是一个独立页面，选中态不需要跨页面保留。@提及以前也在这个筛选
+// 器里、点了显示"即将上线"，现在已经有独立的"提及"入口+专属页面了，
+// 这里的筛选项就撤掉，不然点进去还会显示过时的"即将上线"提示
+enum _PreviewFilter { all, comment, like, follow, ai }
 
 class MessagesScreen extends ConsumerStatefulWidget {
   const MessagesScreen({super.key});
@@ -62,6 +64,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     if (res.success && res.data != null && mounted) {
       ref.read(unreadCountProvider.notifier).state =
           (res.data['unread'] as num?)?.toInt() ?? 0;
+      ref.read(mentionUnreadCountProvider.notifier).state =
+          (res.data['mention'] as num?)?.toInt() ?? 0;
     }
     final invitesRes = await ref
         .read(apiClientProvider)
@@ -110,14 +114,12 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         return all.where((n) => n.type == 'like').toList();
       case _PreviewFilter.follow:
         return all.where((n) => n.type == 'follow').toList();
-      case _PreviewFilter.mention:
       case _PreviewFilter.ai:
         return const [];
     }
   }
 
-  bool get _isComingSoonFilter =>
-      _filter == _PreviewFilter.mention || _filter == _PreviewFilter.ai;
+  bool get _isComingSoonFilter => _filter == _PreviewFilter.ai;
 
   void _comingSoon(String message) {
     ScaffoldMessenger.of(
@@ -131,15 +133,19 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     final notifications = ref.watch(notificationsProvider);
     final conversations = ref.watch(conversationsProvider);
     final unread = ref.watch(unreadCountProvider);
+    final mentionUnread = ref.watch(mentionUnreadCountProvider);
     final dmUnread = conversations.fold<int>(0, (s, c) => s + c.unreadCount);
     final previewNotifs = _isComingSoonFilter
         ? const <AppNotification>[]
-        // invite_answer 现在有自己的汇总卡（消息首页那张，见下方），
+        // invite_answer 有自己的汇总卡，mention 有自己的提及Tab入口，
         // answer_posted 靠通知本身跳问题详情——都不该在这个通用预览里
         // 再原样出现一遍
         : _filteredPreview(notifications)
               .where(
-                (n) => n.type != 'invite_answer' && n.type != 'answer_posted',
+                (n) =>
+                    n.type != 'invite_answer' &&
+                    n.type != 'answer_posted' &&
+                    n.type != 'mention',
               )
               .take(4)
               .toList();
@@ -216,7 +222,6 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                   _filterChip(l10n.notifFilterComments, _PreviewFilter.comment),
                   _filterChip(l10n.notifFilterLikes, _PreviewFilter.like),
                   _filterChip(l10n.notifFilterFollows, _PreviewFilter.follow),
-                  _filterChip(l10n.notifFilterMentions, _PreviewFilter.mention),
                   _filterChip(l10n.notifFilterAi, _PreviewFilter.ai),
                 ],
               ),
@@ -252,6 +257,19 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                           ? l10n.unreadCountLabel(dmUnread)
                           : l10n.noDirectMessagesYet,
                       onTap: () => context.push('/messages/conversations'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _quickTile(
+                      icon: Icons.alternate_email,
+                      iconColor: const Color(0xFF8B5CF6),
+                      iconBg: const Color(0xFFF3E8FF),
+                      label: l10n.mentionsQuickLabel,
+                      subtitle: mentionUnread > 0
+                          ? l10n.unreadCountLabel(mentionUnread)
+                          : l10n.noMentionsYet,
+                      onTap: () => context.push('/messages/mentions'),
                     ),
                   ),
                   const SizedBox(width: 10),

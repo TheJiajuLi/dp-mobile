@@ -6,11 +6,12 @@ import '../models/conversation_model.dart';
 import '../models/notification_model.dart';
 
 final unreadCountProvider = StateProvider<int>((ref) => 0);
+final mentionUnreadCountProvider = StateProvider<int>((ref) => 0);
 
 final notificationsProvider =
     StateNotifierProvider<NotificationsNotifier, List<AppNotification>>((ref) {
-  return NotificationsNotifier(ref.read(apiClientProvider));
-});
+      return NotificationsNotifier(ref.read(apiClientProvider));
+    });
 
 class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
   final ApiClient _api;
@@ -43,12 +44,29 @@ class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
     }
     state = [...state];
   }
+
+  // 之前 markAllRead 一直传 ids:[]（后端语义是"全标已读"）——提及Tab
+  // 这种只想标记某一类通知已读、不想连带把其它未读通知也清掉的场景，
+  // 需要真的传具体 ids 这个参数
+  Future<void> markRead(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final res = await _api.post('/auth/notifications/read', data: {'ids': ids});
+    if (!res.success) {
+      debugPrint('[notifications] markRead(ids) error: ${res.message}');
+      return;
+    }
+    final idSet = ids.toSet();
+    for (final n in state) {
+      if (idSet.contains(n.id)) n.isRead = true;
+    }
+    state = [...state];
+  }
 }
 
 final conversationsProvider =
     StateNotifierProvider<ConversationsNotifier, List<Conversation>>((ref) {
-  return ConversationsNotifier(ref);
-});
+      return ConversationsNotifier(ref);
+    });
 
 class ConversationsNotifier extends StateNotifier<List<Conversation>> {
   final Ref _ref;

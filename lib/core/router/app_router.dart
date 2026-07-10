@@ -27,6 +27,7 @@ import '../../features/messages/screens/conversation_list_screen.dart';
 import '../../features/messages/screens/friend_list_screen.dart';
 import '../../features/messages/screens/messages_screen.dart';
 import '../../features/messages/screens/invite_list_screen.dart';
+import '../../features/messages/screens/mentions_screen.dart';
 import '../../features/messages/screens/notifications_screen.dart';
 import '../../features/notebook/screens/notebook_editor_screen.dart';
 import '../../features/notebook/screens/notebook_home_screen.dart';
@@ -67,9 +68,8 @@ final appRouter = GoRouter(
     // 本身自带 query 参数，两条路都从 state.uri 读，逻辑统一
     GoRoute(
       path: '/reset-password',
-      builder: (context, state) => ResetPasswordScreen(
-        token: state.uri.queryParameters['token'] ?? '',
-      ),
+      builder: (context, state) =>
+          ResetPasswordScreen(token: state.uri.queryParameters['token'] ?? ''),
     ),
     GoRoute(
       path: '/switch-account',
@@ -223,13 +223,22 @@ final appRouter = GoRouter(
       builder: (context, state) => const InviteListScreen(),
     ),
     GoRoute(
+      path: '/messages/mentions',
+      builder: (context, state) => const MentionsScreen(),
+    ),
+    GoRoute(
       path: '/messages/conversations',
       builder: (context, state) => const ConversationListScreen(),
     ),
     GoRoute(
       path: '/tutorial/:id',
-      builder: (context, state) =>
-          TutorialDetailScreen(tutorialId: state.pathParameters['id']!),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return TutorialDetailScreen(
+          tutorialId: state.pathParameters['id']!,
+          scrollToCommentId: extra?['scrollToCommentId'] as String?,
+        );
+      },
     ),
     GoRoute(
       path: '/columns/:id',

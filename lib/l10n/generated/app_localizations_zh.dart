@@ -819,6 +819,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get friendsQuickLabel => '好友';
 
   @override
+  String get mentionsQuickLabel => '提及';
+
+  @override
+  String get noMentionsYet => '暂无提及';
+
+  @override
+  String get mentionsPageTitle => '提及我的';
+
+  @override
+  String get mentionsEmptyHint => '当有人在评论里@你时\n会在这里显示';
+
+  @override
+  String get mentionedYouInComment => '在评论里@了你';
+
+  @override
   String friendsCountLabel(int count) {
     return '$count 位好友';
   }

@@ -92,11 +92,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final notifications = ref.watch(notificationsProvider);
-    // invite_answer 有自己专属的汇总卡+列表页，不在这重复出现；
-    // answer_posted 没有专属入口，得留在"最新动态"里，点击跳问题详情
-    // （之前重构成汇总卡布局时误把它也一起过滤掉了，导致这类通知完全
-    // 找不到地方点开——2026-07-10 修复）
-    final feed = notifications.where((n) => n.type != 'invite_answer').toList();
+    // invite_answer 有自己专属的汇总卡+列表页，mention 有消息主页的"提及"
+    // 入口+专属页，都不在这重复出现；answer_posted 没有专属入口，得留在
+    // "最新动态"里，点击跳问题详情（之前重构成汇总卡布局时误把
+    // invite_answer/answer_posted 一起过滤掉了，导致 answer_posted 完全
+    // 找不到地方点开——2026-07-10 修复，只过滤 invite_answer 一个）
+    final feed = notifications
+        .where((n) => n.type != 'invite_answer' && n.type != 'mention')
+        .toList();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

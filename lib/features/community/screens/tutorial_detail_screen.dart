@@ -78,7 +78,15 @@ class TutorialComment {
 
 class TutorialDetailScreen extends ConsumerStatefulWidget {
   final String tutorialId;
-  const TutorialDetailScreen({super.key, required this.tutorialId});
+  // 从"提及"通知点进来时带上，定位并高亮评论区里被 @ 的那条评论——
+  // 评论目前是在底部弹出的 Sheet 里展示的（正文页只露 2 条预览），所以
+  // 收到这个参数时会自动把 Sheet 打开再滚动定位，不是在正文页里找
+  final String? scrollToCommentId;
+  const TutorialDetailScreen({
+    super.key,
+    required this.tutorialId,
+    this.scrollToCommentId,
+  });
 
   @override
   ConsumerState<TutorialDetailScreen> createState() =>
@@ -107,11 +115,21 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   // 刷新/重进页面就会丢失，等后端补上真实点赞接口后再换成真调用
   final Set<String> _locallyLikedCommentIds = {};
 
+  final Map<String, GlobalKey> _commentKeys = {};
+  String? _highlightedCommentId;
+
+  GlobalKey _keyFor(String commentId) =>
+      _commentKeys.putIfAbsent(commentId, () => GlobalKey());
+
   @override
   void initState() {
     super.initState();
     _load();
-    _loadComments();
+    _loadComments().then((_) {
+      if (widget.scrollToCommentId != null) {
+        _openCommentSheetAndScrollTo(widget.scrollToCommentId!);
+      }
+    });
   }
 
   @override
@@ -435,189 +453,206 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final isOwn = c.userId.isNotEmpty && c.userId == currentUserId;
     final isAuthor = c.userId.isNotEmpty && c.userId == _tutorial?['user_id'];
     final commentLiked = _locallyLikedCommentIds.contains(c.id);
+    final isHighlighted = _highlightedCommentId == c.id;
 
-    return Padding(
-      padding: EdgeInsets.only(left: isReply ? 52 : 16, right: 16, bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: c.username.isEmpty
-                ? null
-                : () => context.push('/users/${c.username}'),
-            child: _buildAuthorAvatar(
-              c.avatar,
-              c.username,
-              radius: isReply ? 14 : 18,
-              isFoundingCreator: c.isFoundingCreator,
-              isAuroraCreator: c.isAuroraCreator,
+    return Container(
+      key: _keyFor(c.id),
+      decoration: BoxDecoration(
+        color: isHighlighted ? const Color(0xFFFFF8E6) : null,
+        border: isHighlighted
+            ? const Border(left: BorderSide(color: _primary, width: 3))
+            : null,
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: isReply ? 52 : 16,
+          right: 16,
+          bottom: 12,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: c.username.isEmpty
+                  ? null
+                  : () => context.push('/users/${c.username}'),
+              child: _buildAuthorAvatar(
+                c.avatar,
+                c.username,
+                radius: isReply ? 14 : 18,
+                isFoundingCreator: c.isFoundingCreator,
+                isAuroraCreator: c.isAuroraCreator,
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      c.username,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        c.username,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    if (c.isFoundingCreator) const FoundingBadgeSmall(),
-                    if (c.isAuroraCreator) const AuroraBadgeSmall(),
-                    if (isAuthor) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          l10n.authorLabel,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: _primary,
-                            fontWeight: FontWeight.w600,
+                      if (c.isFoundingCreator) const FoundingBadgeSmall(),
+                      if (c.isAuroraCreator) const AuroraBadgeSmall(),
+                      if (isAuthor) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            l10n.authorLabel,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: _primary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                    if (c.handle != null) ...[
-                      const SizedBox(width: 4),
+                      ],
+                      if (c.handle != null) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          '@${c.handle}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
                       Text(
-                        '@${c.handle}',
+                        messageTimeAgo(l10n, c.createdAt * 1000),
                         style: const TextStyle(
                           fontSize: 11,
                           color: Colors.grey,
                         ),
                       ),
                     ],
-                    const Spacer(),
-                    Text(
-                      messageTimeAgo(l10n, c.createdAt * 1000),
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  c.content,
-                  style: const TextStyle(fontSize: 14, height: 1.5),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => _toggleCommentLike(c.id, sheetSetState),
-                      child: Row(
-                        children: [
-                          Icon(
-                            commentLiked
-                                ? Icons.favorite
-                                : Icons.favorite_outline,
-                            size: 14,
-                            color: commentLiked ? Colors.red : Colors.grey,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${_displayLikes(c)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _replyToId = c.id;
-                          _replyToUsername = c.username;
-                        });
-                        sheetSetState?.call(() {});
-                        _commentFocusNode.requestFocus();
-                      },
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.reply_outlined,
-                            size: 14,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            l10n.replyAction,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isOwn) ...[
-                      const SizedBox(width: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    c.content,
+                    style: const TextStyle(fontSize: 14, height: 1.5),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
                       GestureDetector(
-                        onTap: () => _confirmDeleteComment(
-                          c.id,
-                          sheetSetState: sheetSetState,
-                        ),
+                        onTap: () => _toggleCommentLike(c.id, sheetSetState),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.delete_outline,
+                            Icon(
+                              commentLiked
+                                  ? Icons.favorite
+                                  : Icons.favorite_outline,
                               size: 14,
-                              color: Color(0xFFDC2626),
+                              color: commentLiked ? Colors.red : Colors.grey,
                             ),
                             const SizedBox(width: 3),
                             Text(
-                              l10n.deleteAction,
+                              '${_displayLikes(c)}',
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFFDC2626),
+                                color: Colors.grey,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ],
-                ),
-                if (c.replies.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  ...c.replies.map((r) {
-                    final replyIsAuthor = r.userId == _tutorial?['user_id'];
-                    final reply = _buildComment(
-                      r,
-                      isReply: true,
-                      sheetSetState: sheetSetState,
-                    );
-                    if (!replyIsAuthor) return reply;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAF8),
-                        borderRadius: BorderRadius.circular(10),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _replyToId = c.id;
+                            _replyToUsername = c.username;
+                          });
+                          sheetSetState?.call(() {});
+                          _commentFocusNode.requestFocus();
+                        },
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.reply_outlined,
+                              size: 14,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              l10n.replyAction,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: reply,
-                    );
-                  }),
+                      if (isOwn) ...[
+                        const SizedBox(width: 16),
+                        GestureDetector(
+                          onTap: () => _confirmDeleteComment(
+                            c.id,
+                            sheetSetState: sheetSetState,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.delete_outline,
+                                size: 14,
+                                color: Color(0xFFDC2626),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                l10n.deleteAction,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (c.replies.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    ...c.replies.map((r) {
+                      final replyIsAuthor = r.userId == _tutorial?['user_id'];
+                      final reply = _buildComment(
+                        r,
+                        isReply: true,
+                        sheetSetState: sheetSetState,
+                      );
+                      if (!replyIsAuthor) return reply;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAFAF8),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: reply,
+                      );
+                    }),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1142,7 +1177,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   style: const TextStyle(fontSize: 11, color: _primary),
                 ),
                 Text(
-                  _tutorial?['column_name'] as String? ?? l10n.untitledColumnLabel,
+                  _tutorial?['column_name'] as String? ??
+                      l10n.untitledColumnLabel,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1166,6 +1202,45 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         builder: (ctx, setModalState) => _buildCommentSheet(ctx, setModalState),
       ),
     );
+  }
+
+  // 从"提及"通知跳进来定位某条评论——评论只在这个 Sheet 里完整展示，
+  // 所以先把 Sheet 打开，等它展开动画+首帧渲染完（GlobalKey 才有
+  // currentContext）再滚动定位+高亮
+  Future<void> _openCommentSheetAndScrollTo(String commentId) async {
+    StateSetter? capturedSetModalState;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          capturedSetModalState = setModalState;
+          return _buildCommentSheet(ctx, setModalState);
+        },
+      ),
+    );
+    await Future.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+    _scrollToComment(commentId, sheetSetState: capturedSetModalState);
+  }
+
+  void _scrollToComment(String commentId, {StateSetter? sheetSetState}) {
+    final targetContext = _commentKeys[commentId]?.currentContext;
+    if (targetContext == null) return;
+    Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      alignment: 0.3,
+    );
+    setState(() => _highlightedCommentId = commentId);
+    sheetSetState?.call(() {});
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() => _highlightedCommentId = null);
+      sheetSetState?.call(() {});
+    });
   }
 
   Widget _buildCommentSheet(BuildContext ctx, StateSetter setModalState) {
