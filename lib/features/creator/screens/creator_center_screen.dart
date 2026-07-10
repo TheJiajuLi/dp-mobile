@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
+import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
+import '../../notebook/services/notebook_service.dart';
 import '../widgets/aurora_entry_card.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -32,11 +35,22 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
   int _totalLikes = 0;
   int _columnCount = 0;
   int _columnSubscribers = 0;
+  // "继续创作"从首页Feed末尾（逛到底才看得到）挪过来放在创作中心底部——
+  // 跟首页当初用的是同一份数据源（NotebookService.getRecentList），不是
+  // 编个假的完成度百分比，这些 Notebook 本来就没有"完成度"这个概念
+  List<Map<String, dynamic>> _recentNotebooks = [];
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadRecentNotebooks();
+  }
+
+  Future<void> _loadRecentNotebooks() async {
+    final userId = ref.read(currentUserProvider)?.id ?? 'guest';
+    final list = await NotebookService(userId).getRecentList();
+    if (mounted) setState(() => _recentNotebooks = list);
   }
 
   Future<void> _load() async {
@@ -176,9 +190,110 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                           : '/creator/aurora',
                     ),
                   ),
+                  if (_recentNotebooks.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _buildContinueCreating(context, isDark),
+                  ],
                 ],
               ),
       ),
+    );
+  }
+
+  // 继续创作——真实的本地最近 Notebook 列表，不编完成度百分比（这些
+  // Notebook 本来就没有这个概念），只展示真实的 cell 数和更新时间
+  Widget _buildContinueCreating(BuildContext context, bool isDark) {
+    final l10n = AppLocalizations.of(context)!;
+    final items = _recentNotebooks.take(4).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.continueCreatingTitle,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final nb = items[index];
+              final name = nb['name'] as String? ?? '';
+              final cellCount = nb['cellCount'] as int? ?? 0;
+              final updatedAt = (nb['updatedAt'] as num?)?.toInt() ?? 0;
+              return GestureDetector(
+                onTap: () => context.push('/notebook/${nb['id']}'),
+                child: Container(
+                  width: 168,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : const Color(0xFFF5F5F7),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFEBEBEB),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: _primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.description_outlined,
+                          size: 15,
+                          color: _primary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF1A1A1A),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${l10n.notebookCellsCount(cellCount)} · ${messageTimeAgo(l10n, updatedAt * 1000)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.4)
+                              : Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -399,5 +514,4 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
       ),
     );
   }
-
 }

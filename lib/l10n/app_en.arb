@@ -263,6 +263,8 @@
   "viewsCountLabel": "Reads",
   "creationStreakDays": "{days}-day creation streak",
   "creationStreakSubtitle": "Keep it up, your creative journey never stops!",
+  "creatorCenterEntryLabel": "Creator Center",
+  "creatorCenterEntrySubtitle": "View your stats, start your first piece",
   "continueCreatingTitle": "Continue Creating",
   "trendingTopicsTitle": "Trending Topics",
   "recommendedArticlesTitle": "Recommended",

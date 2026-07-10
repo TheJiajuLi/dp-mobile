@@ -564,6 +564,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Keep it up, your creative journey never stops!';
 
   @override
+  String get creatorCenterEntryLabel => 'Creator Center';
+
+  @override
+  String get creatorCenterEntrySubtitle =>
+      'View your stats, start your first piece';
+
+  @override
   String get continueCreatingTitle => 'Continue Creating';
 
   @override

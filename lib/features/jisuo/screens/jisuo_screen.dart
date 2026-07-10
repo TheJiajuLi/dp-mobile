@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/jisuo_refresh_signal.dart';
 import '../../../core/network/api_client.dart';
 import '../../../features/auth/auth_service.dart';
+import '../../../shared/utils/topic_badge.dart';
+import '../../home/providers/home_feed_provider.dart';
 import '../../messages/utils/message_avatar.dart';
 
 // 提问领域配色——提问 Sheet 的领域选择跟热门提问卡片的领域标签共用同一套
@@ -723,85 +726,99 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   // 精选内容——同样是静态占位（见上面热门提问的注释），后续接
   // tutorialsProvider 真实数据
+  // 之前是3条写死的假文章——跟极索首页共用同一个 homeFeedProvider
+  // （首页Feed本来就一直保持热的，这里不用再单独拉一次接口），取最新
+  // 已发布教程的前3条，跟"热门提问"错开展示，不强行区分"个性化推荐"
+  // 算法，后端也没有这个能力
   Widget _buildPickedContent() {
-    final items = [
-      {
-        'title': '微积分基本定理的几何直觉与严格证明',
-        'meta': '数学星人 · 856浏览 · 数学',
-        'emoji': '📐',
-        'bg': const Color(0xFFFEF3C7),
-      },
-      {
-        'title': 'RFM客户分层模型：从零实现到业务落地',
-        'meta': '数据老王 · 891浏览 · 编程',
-        'emoji': '📊',
-        'bg': const Color(0xFFEEF0FF),
-      },
-      {
-        'title': 'CRISPR基因编辑：2026年最新突破全解读',
-        'meta': '生科研究员 · 445浏览 · 生命科学',
-        'emoji': '🧬',
-        'bg': const Color(0xFFDCFCE7),
-      },
-    ];
+    final tutorials = ref.watch(homeFeedProvider).tutorials.take(3).toList();
+    if (tutorials.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(
-        children: items.asMap().entries.map((e) {
+        children: tutorials.asMap().entries.map((e) {
           final i = e.key;
-          final item = e.value;
-          return Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: i < items.length - 1
-                    ? BorderSide(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        width: 0.5,
-                      )
-                    : BorderSide.none,
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['title'] as String,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item['meta'] as String,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                      ),
-                    ],
-                  ),
+          final t = e.value;
+          final domainLabel = topicCategoryLabelFor(t.tags) ?? '';
+          final (bg, fg) = topicBadgeStyleFor(
+            t.tags.isNotEmpty ? t.tags.first : '',
+          );
+          return GestureDetector(
+            onTap: () => context.push('/tutorial/${t.id}'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: i < tutorials.length - 1
+                      ? BorderSide(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          width: 0.5,
+                        )
+                      : BorderSide.none,
                 ),
-                const SizedBox(width: 10),
-                Container(
-                  width: 72,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: item['bg'] as Color,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      item['emoji'] as String,
-                      style: const TextStyle(fontSize: 24),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${t.username} · ${t.views}浏览${domainLabel.isNotEmpty ? ' · $domainLabel' : ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 72,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: (t.coverImage?.isNotEmpty ?? false)
+                        ? CachedNetworkImage(
+                            imageUrl: t.coverImage!,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => Center(
+                              child: Icon(
+                                Icons.article_outlined,
+                                color: fg,
+                                size: 22,
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Icon(
+                              Icons.article_outlined,
+                              color: fg,
+                              size: 22,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
             ),
           );
         }).toList(),

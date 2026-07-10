@@ -555,6 +555,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get creationStreakSubtitle => '继续加油，创作之路永不止步！';
 
   @override
+  String get creatorCenterEntryLabel => '创作中心';
+
+  @override
+  String get creatorCenterEntrySubtitle => '查看创作数据，开启你的第一篇作品';
+
+  @override
   String get continueCreatingTitle => '继续创作';
 
   @override

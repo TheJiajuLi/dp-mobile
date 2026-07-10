@@ -12,8 +12,6 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
-import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
-import '../../notebook/services/notebook_service.dart';
 import '../providers/home_feed_provider.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -36,10 +34,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   final _scrollCtrl = ScrollController();
-  // "继续创作"用的是本地最近 Notebook 列表（NotebookService.getRecentList，
-  // 跟个人主页 Notebook tab 同一份数据源），不是编个假的完成度百分比——
-  // 这些 Notebook 本来就没有"完成度"这个概念，只有真实的 cell 数/更新时间
-  List<Map<String, dynamic>> _recentNotebooks = [];
 
   // 顶部推荐轮播用的状态
   final _heroCtrl = PageController(viewportFraction: 0.88);
@@ -52,7 +46,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollCtrl.addListener(_onScroll);
-    _loadRecentNotebooks();
     _refreshTimer = Timer.periodic(
       const Duration(minutes: 30),
       (_) => _refreshAll(),
@@ -78,12 +71,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _refreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  Future<void> _loadRecentNotebooks() async {
-    final userId = ref.read(currentUserProvider)?.id ?? 'guest';
-    final list = await NotebookService(userId).getRecentList();
-    if (mounted) setState(() => _recentNotebooks = list);
   }
 
   void _onScroll() {
@@ -304,8 +291,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // "推荐文章"顶部沿用大卡轮播的滚动式样式（原来发现页搬过来的那套
     // PageView+圆点），取当前已加载列表的前5条；剩下的才是宫格瀑布流。
-    // 继续创作挪到 Feed 末尾当"逛完还有更多"的附加区块，只在 Feed 翻到
-    // 底（!hasMore）时才接上
+    // "继续创作"以前挂在 Feed 翻到底之后，得先划过一堆推荐内容才能看到，
+    // 现在挪到创作中心页面底部了（creator_center_screen.dart），不在
+    // 这里重复展示
     final all = state.filtered;
     final carouselItems = all.take(5).toList();
     // 宫格不排除轮播里已经出现过的前5条——账号内容不多时（比如只有5篇）
@@ -316,18 +304,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // 的宫格瀑布流本来就允许重复，不是两份互斥的数据
     final gridItems = all;
     final showEmpty = all.isEmpty;
-
-    final bottomSuffix = <Widget>[
-      if (_recentNotebooks.isNotEmpty) ...[
-        _buildContinueCreating(context, l10n, isDarkMode),
-        const SizedBox(height: 20),
-      ],
-    ];
-    final showSuffix =
-        !showEmpty &&
-        !state.hasMore &&
-        !state.isLoadingMore &&
-        bottomSuffix.isNotEmpty;
 
     return CustomScrollView(
       controller: _scrollCtrl,
@@ -403,13 +379,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ),
-        if (showSuffix)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            sliver: SliverToBoxAdapter(child: Column(children: bottomSuffix)),
-          )
-        else
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
       ],
     );
   }
@@ -592,91 +562,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // 继续创作——真实的本地最近 Notebook 列表，不编完成度百分比（这些
-  // Notebook 本来就没有这个概念），只展示真实的 cell 数和更新时间
-  Widget _buildContinueCreating(
-    BuildContext context,
-    AppLocalizations l10n,
-    bool isDarkMode,
-  ) {
-    final items = _recentNotebooks.take(4).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(title: l10n.continueCreatingTitle),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 96,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final nb = items[index];
-              final name = nb['name'] as String? ?? '';
-              final cellCount = nb['cellCount'] as int? ?? 0;
-              final updatedAt = (nb['updatedAt'] as num?)?.toInt() ?? 0;
-              return GestureDetector(
-                onTap: () => context.push('/notebook/${nb['id']}'),
-                child: Container(
-                  width: 168,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Theme.of(context).dividerColor,
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: _primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.description_outlined,
-                          size: 15,
-                          color: _primary,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${l10n.notebookCellsCount(cellCount)} · ${messageTimeAgo(l10n, updatedAt * 1000)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Theme.of(context).textTheme.bodySmall?.color,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildRecommendedHeader(
     BuildContext context,
     AppLocalizations l10n,
@@ -854,7 +739,9 @@ class _GridCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context).textTheme.bodySmall?.color,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.color,
                             ),
                           ),
                         ),

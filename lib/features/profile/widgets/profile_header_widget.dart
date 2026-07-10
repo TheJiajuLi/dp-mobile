@@ -362,10 +362,7 @@ class ProfileHeaderWidget extends StatelessWidget {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                ZodiacIcon(
-                                  sign: displayZodiacSign!,
-                                  size: 12,
-                                ),
+                                ZodiacIcon(sign: displayZodiacSign!, size: 12),
                                 const SizedBox(width: 3),
                                 Text(
                                   zodiacDisplayName(l10n, displayZodiacSign!),
@@ -440,10 +437,8 @@ class ProfileHeaderWidget extends StatelessWidget {
                 const SizedBox(height: 16),
                 if (isSelfView) ...[
                   _buildStatsRow(context, l10n),
-                  if (creationStreak > 0) ...[
-                    const SizedBox(height: 14),
-                    _buildStreakCard(context, l10n),
-                  ],
+                  const SizedBox(height: 14),
+                  _buildStreakCard(context, l10n),
                 ],
                 // 给下面圆角"卡片沿"留出空间——内容到这里为止，圆角沿贴在
                 // 正下方，不会互相压着
@@ -595,13 +590,17 @@ class ProfileHeaderWidget extends StatelessWidget {
     );
   }
 
-  // 连续创作天数卡片——真实计算（见 _creationStreak），streak 为 0 时
-  // 上层已经不渲染这个 widget 了。原来头图区右上角另有一个独立的"创作者
-  // 中心"图标按钮，跟这张卡片功能重叠——去掉那个图标，改成直接点这张卡
-  // 进创作者中心，只有自己看自己主页时才能点（看别人主页也可能显示这张
-  // 卡，但点进去应该是打开自己的创作者中心，不是对方的，容易误解，所以
-  // 干脆不给点）
+  // 创作中心入口——原来头图区右上角另有一个独立的"创作者中心"图标按钮，
+  // 跟这张卡片功能重叠，去掉那个图标改成直接点这张卡进创作者中心，只有
+  // 自己看自己主页时才能点（看别人主页也可能显示这张卡，但点进去应该是
+  // 打开自己的创作者中心，不是对方的，容易误解，所以干脆不给点）。
+  // 之前这张卡在 creationStreak == 0 时上层完全不渲染——连续创作天数是
+  // 0 在没有天天发布内容的账号上其实是常态而不是例外，导致"创作中心"
+  // 这个入口经常直接从主页消失、根本摸不到，跟之前极索页邀请回答汇总卡
+  // count==0 就整块消失是同一类问题——现在改成 streak==0 时也照样渲染，
+  // 只是换成不带🔥文案的朴素版本，保证入口常在
   Widget _buildStreakCard(BuildContext context, AppLocalizations l10n) {
+    final hasStreak = creationStreak > 0;
     return GestureDetector(
       onTap: isSelfView ? () => context.push('/creator') : null,
       child: Container(
@@ -612,14 +611,16 @@ class ProfileHeaderWidget extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Text('🔥', style: TextStyle(fontSize: 20)),
+            Text(hasStreak ? '🔥' : '✍️', style: const TextStyle(fontSize: 20)),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n.creationStreakDays(creationStreak),
+                    hasStreak
+                        ? l10n.creationStreakDays(creationStreak)
+                        : l10n.creatorCenterEntryLabel,
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -628,21 +629,16 @@ class ProfileHeaderWidget extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    l10n.creationStreakSubtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.white60,
-                    ),
+                    hasStreak
+                        ? l10n.creationStreakSubtitle
+                        : l10n.creatorCenterEntrySubtitle,
+                    style: const TextStyle(fontSize: 11, color: Colors.white60),
                   ),
                 ],
               ),
             ),
             if (isSelfView)
-              const Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: Colors.white54,
-              ),
+              const Icon(Icons.chevron_right, size: 18, color: Colors.white54),
           ],
         ),
       ),

@@ -1130,6 +1130,18 @@ abstract class AppLocalizations {
   /// **'Keep it up, your creative journey never stops!'**
   String get creationStreakSubtitle;
 
+  /// No description provided for @creatorCenterEntryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Creator Center'**
+  String get creatorCenterEntryLabel;
+
+  /// No description provided for @creatorCenterEntrySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'View your stats, start your first piece'**
+  String get creatorCenterEntrySubtitle;
+
   /// No description provided for @continueCreatingTitle.
   ///
   /// In en, this message translates to:

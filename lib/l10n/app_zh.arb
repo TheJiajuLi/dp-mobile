@@ -172,6 +172,8 @@
   "viewsCountLabel": "阅读",
   "creationStreakDays": "连续创作 {days} 天",
   "creationStreakSubtitle": "继续加油，创作之路永不止步！",
+  "creatorCenterEntryLabel": "创作中心",
+  "creatorCenterEntrySubtitle": "查看创作数据，开启你的第一篇作品",
   "continueCreatingTitle": "继续创作",
   "trendingTopicsTitle": "热门话题",
   "recommendedArticlesTitle": "推荐文章",
