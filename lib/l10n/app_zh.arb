@@ -249,6 +249,7 @@
   "notifFilterFollows": "关注",
   "notifFilterMentions": "@提及",
   "notifFilterAi": "AI",
+  "notifFilterAnswer": "回答",
   "notifFilterInviteAnswer": "邀请回答",
   "notifFilterSystem": "系统",
   "notifFilterComingSoonMessage": "该分类的通知即将上线",

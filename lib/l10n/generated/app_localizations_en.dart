@@ -815,6 +815,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifFilterAi => 'AI';
 
   @override
+  String get notifFilterAnswer => 'Answers';
+
+  @override
   String get notifFilterInviteAnswer => 'Invited';
 
   @override

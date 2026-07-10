@@ -1592,6 +1592,12 @@ abstract class AppLocalizations {
   /// **'AI'**
   String get notifFilterAi;
 
+  /// No description provided for @notifFilterAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Answers'**
+  String get notifFilterAnswer;
+
   /// No description provided for @notifFilterInviteAnswer.
   ///
   /// In en, this message translates to:

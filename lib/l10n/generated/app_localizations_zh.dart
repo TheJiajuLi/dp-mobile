@@ -801,6 +801,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notifFilterAi => 'AI';
 
   @override
+  String get notifFilterAnswer => '回答';
+
+  @override
   String get notifFilterInviteAnswer => '邀请回答';
 
   @override

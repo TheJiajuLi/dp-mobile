@@ -382,6 +382,7 @@
   "notifFilterFollows": "Follows",
   "notifFilterMentions": "@Mentions",
   "notifFilterAi": "AI",
+  "notifFilterAnswer": "Answers",
   "notifFilterInviteAnswer": "Invited",
   "notifFilterSystem": "System",
   "notifFilterComingSoonMessage": "This notification category is coming soon",

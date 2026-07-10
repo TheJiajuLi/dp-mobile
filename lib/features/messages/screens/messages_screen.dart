@@ -16,12 +16,14 @@ import '../widgets/invite_summary_card.dart';
 
 const _primary = kMessagesPrimary;
 
-// 通知过滤跟 notifications_screen.dart 用的是同一套口径（评论/点赞/关注
-// 真实存在，AI 后端没有对应类型）——只用来决定"最近通知"预览区显示哪几
-// 条，不是一个独立页面，选中态不需要跨页面保留。@提及以前也在这个筛选
-// 器里、点了显示"即将上线"，现在已经有独立的"提及"入口+专属页面了，
-// 这里的筛选项就撤掉，不然点进去还会显示过时的"即将上线"提示
-enum _PreviewFilter { all, comment, like, follow, ai }
+// 通知过滤——只用来决定"最近通知"预览区显示哪几条，不是一个独立页面，
+// 选中态不需要跨页面保留。@提及以前也在这个筛选器里、点了显示"即将上线"，
+// 现在已经有独立的"提及"入口+专属页面了，这里的筛选项就撤掉，不然点进去
+// 还会显示过时的"即将上线"提示。原来的 AI 筛选项后端没有对应类型，一直是
+// 点了就显示"即将上线"的占位——2026-07-11 换成"回答"，映射真实存在的
+// answer_posted 类型（question.controller.ts createNotification 调用里
+// 确认过），不再是假占位
+enum _PreviewFilter { all, comment, like, follow, answer }
 
 class MessagesScreen extends ConsumerStatefulWidget {
   const MessagesScreen({super.key});
@@ -118,12 +120,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         return all.where((n) => n.type == 'like').toList();
       case _PreviewFilter.follow:
         return all.where((n) => n.type == 'follow').toList();
-      case _PreviewFilter.ai:
-        return const [];
+      case _PreviewFilter.answer:
+        return all.where((n) => n.type == 'answer_posted').toList();
     }
   }
-
-  bool get _isComingSoonFilter => _filter == _PreviewFilter.ai;
 
   @override
   Widget build(BuildContext context) {
@@ -133,16 +133,14 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     final unread = ref.watch(unreadCountProvider);
     final mentionUnread = ref.watch(mentionUnreadCountProvider);
     final dmUnread = conversations.fold<int>(0, (s, c) => s + c.unreadCount);
-    final previewNotifs = _isComingSoonFilter
-        ? const <AppNotification>[]
-        // 评论/点赞/关注三个筛选chip各自严格按 type 精确匹配，互不重叠——
-        // 只有"全部"才是真的"全部"，不该再额外排除 invite_answer/mention/
-        // answer_posted 这几个类型（之前排除是想避免跟邀请回答汇总卡/
-        // 提及入口重复展示，但"全部"筛选项的字面意思不该被打折扣，两者
-        // 冲突时以"全部"的语义为准——2026-07-10 改回不过滤）
-        : _filteredPreview(notifications).take(4).toList();
+    // 评论/点赞/关注/回答四个筛选chip各自严格按 type 精确匹配，互不重叠——
+    // 只有"全部"才是真的"全部"，不该再额外排除 invite_answer/mention/
+    // answer_posted 这几个类型（之前排除是想避免跟邀请回答汇总卡/
+    // 提及入口重复展示，但"全部"筛选项的字面意思不该被打折扣，两者
+    // 冲突时以"全部"的语义为准——2026-07-10 改回不过滤）
+    final previewNotifs = _filteredPreview(notifications).take(4).toList();
     final previewConvs = conversations.take(3).toList();
-    // 私信只属于"全部"，在评论/点赞/关注/AI 这些通知筛选下不该出现
+    // 私信只属于"全部"，在评论/点赞/关注/回答这些通知筛选下不该出现
     final showDms = _filter == _PreviewFilter.all && previewConvs.isNotEmpty;
 
     return Scaffold(
@@ -204,8 +202,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             ),
             const SizedBox(height: 14),
 
-            // 通知类型过滤——只决定下面"最近通知"预览显示哪几条，
-            // @提及/AI 后端没有对应类型，选中后走"即将上线"提示
+            // 通知类型过滤——只决定下面"最近通知"预览显示哪几条
             SizedBox(
               height: 32,
               child: ListView(
@@ -216,7 +213,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                   _filterChip(l10n.notifFilterComments, _PreviewFilter.comment),
                   _filterChip(l10n.notifFilterLikes, _PreviewFilter.like),
                   _filterChip(l10n.notifFilterFollows, _PreviewFilter.follow),
-                  _filterChip(l10n.notifFilterAi, _PreviewFilter.ai),
+                  _filterChip(l10n.notifFilterAnswer, _PreviewFilter.answer),
                 ],
               ),
             ),
@@ -331,14 +328,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             ),
             const SizedBox(height: 16),
 
-            if (_isComingSoonFilter)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _ComingSoonInline(
-                  message: l10n.notifFilterComingSoonMessage,
-                ),
-              )
-            else if (previewNotifs.isNotEmpty) ...[
+            if (previewNotifs.isNotEmpty) ...[
               _SectionHeader(
                 title: l10n.recentNotificationsTitle,
                 actionLabel: l10n.viewAllAction,
@@ -383,7 +373,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               ),
             ],
 
-            if (previewNotifs.isEmpty && !showDms && !_isComingSoonFilter)
+            if (previewNotifs.isEmpty && !showDms)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 60),
                 child: Column(
@@ -860,34 +850,6 @@ class _PreviewCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Column(children: rows),
-      ),
-    );
-  }
-}
-
-class _ComingSoonInline extends StatelessWidget {
-  final String message;
-  const _ComingSoonInline({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.hourglass_top_outlined, color: _primary, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(fontSize: 13, color: _primary),
-            ),
-          ),
-        ],
       ),
     );
   }
