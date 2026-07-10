@@ -9,11 +9,9 @@ import '../../../core/network/api_client.dart';
 const _primary = Color(0xFF6366F1);
 
 // 我加入的群组列表——GET /auth/groups 已经真实上线了（跟建群/群聊页
-// 那两步同一批后端接口）。这个接口目前只返回 unread_count，没有
-// last_message/last_message_at 这两个字段，卡片上的"最后一条消息预览"
-// 因此没法显示真实内容，统一走"暂无消息，点击开始聊天"这个占位文案，
-// 时间戳退而求其次显示建群时间——想要真预览的话后端需要在
-// getMyGroups 的 SQL 里 JOIN 一下每个群最新的一条 group_messages
+// 那两步同一批后端接口）。getMyGroups 现在已经在 SQL 里 LEFT JOIN 了
+// 每个群最新一条 group_messages，返回 last_message/last_message_type/
+// last_message_at，卡片预览走真实的最后一条消息内容，不是写死的占位文案
 class GroupListScreen extends ConsumerStatefulWidget {
   const GroupListScreen({super.key});
 
@@ -176,6 +174,7 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen>
     final memberCount = (g['member_count'] as num?)?.toInt() ?? 1;
     final unreadCount = (g['unread_count'] as num?)?.toInt() ?? 0;
     final createdAt = (g['created_at'] as num?)?.toInt() ?? 0;
+    final lastMessageAt = (g['last_message_at'] as num?)?.toInt();
 
     return GestureDetector(
       onTap: () => _openGroup(g),
@@ -268,7 +267,7 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen>
                         ),
                       ),
                       Text(
-                        _formatDate(createdAt),
+                        _formatDate(lastMessageAt ?? createdAt),
                         style: TextStyle(
                           fontSize: 11,
                           color: isDark
@@ -283,7 +282,7 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen>
                     children: [
                       Expanded(
                         child: Text(
-                          '暂无消息，点击开始聊天',
+                          _buildPreview(g),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -313,6 +312,24 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen>
         ),
       ),
     );
+  }
+
+  // last_message 为空但 unread_count > 0 理论上不该发生（有未读消息
+  // 就该有一条对应的最新消息记录），真出现这种数据不一致的情况就老实
+  // 说"有 N 条新消息"，不要跟"暂无消息"这个真正空群的文案混在一起
+  String _buildPreview(Map<String, dynamic> g) {
+    final lastMsg = g['last_message'] as String?;
+    final unread = (g['unread_count'] as num?)?.toInt() ?? 0;
+
+    if (lastMsg == null || lastMsg.isEmpty) {
+      if (unread > 0) return '有 $unread 条新消息';
+      return '暂无消息，点击开始聊天';
+    }
+
+    final type = g['last_message_type'] as String? ?? 'text';
+    if (type == 'share_tutorial') return '📄 分享了一篇文章';
+    if (type == 'share_question') return '❓ 分享了一个问题';
+    return lastMsg.length > 30 ? '${lastMsg.substring(0, 30)}...' : lastMsg;
   }
 
   String _formatDate(int tsSeconds) {
