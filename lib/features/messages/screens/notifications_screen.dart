@@ -36,11 +36,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   // 后端标记已读接口一直都在（POST /auth/notifications/read），但之前
   // 只有消息首页"全部已读"按钮会调用它——用户点进"最近通知"整页浏览完
-  // 并不代表点了那个按钮，红点因此一直不消——本地先乐观置 0，
+  // 并不代表点了那个按钮，红点因此一直不消——本地先乐观清零，
   // 不等接口返回，体验更顺
   Future<void> _markAllRead() async {
-    ref.read(unreadCountProvider.notifier).state = 0;
     final notifs = ref.read(notificationsProvider);
+    // 消息Tab红点现在是"通知+群组消息"的合计（total字段），这里只标记
+    // 通知已读，不能直接把整个红点清零——不然还没读的群消息也会被
+    // 一起隐藏，等下一次轮询才会"诡异地"重新冒出来。只减掉通知未读的
+    // 那一部分，群消息的部分保留
+    final unreadNotifCount = notifs.where((n) => !n.isRead).length;
+    if (unreadNotifCount > 0) {
+      final current = ref.read(unreadCountProvider);
+      ref.read(unreadCountProvider.notifier).state =
+          (current - unreadNotifCount).clamp(0, current);
+    }
     if (notifs.any((n) => !n.isRead)) {
       await ref.read(notificationsProvider.notifier).markAllRead();
     }

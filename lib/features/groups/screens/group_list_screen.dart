@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,18 +21,40 @@ class GroupListScreen extends ConsumerStatefulWidget {
   ConsumerState<GroupListScreen> createState() => _GroupListScreenState();
 }
 
-class _GroupListScreenState extends ConsumerState<GroupListScreen> {
+class _GroupListScreenState extends ConsumerState<GroupListScreen>
+    with WidgetsBindingObserver {
   List<Map<String, dynamic>> _groups = [];
   bool _loading = true;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadGroups();
+    // 群卡片右上角的未读数是进列表时的快照，群聊页标记已读之后这个页面
+    // 不会自动知道——轮询兜底，跟消息主页/私信页同一套节奏
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadGroups(),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadGroups();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadGroups() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    if (_groups.isEmpty) setState(() => _loading = true);
     final res = await ref.read(apiClientProvider).get('/auth/groups');
     if (!mounted) return;
     setState(() {
@@ -43,14 +67,18 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen> {
     });
   }
 
-  void _openGroup(Map<String, dynamic> g) {
-    context.push(
+  // 从群聊页退回来之后立即补拉一次——比等30秒轮询更及时，进群聊时
+  // 已经真实调用过 POST /:id/read，这里只是让列表把最新的
+  // unread_count 显示出来，不是另外发起一次标记已读
+  Future<void> _openGroup(Map<String, dynamic> g) async {
+    await context.push(
       '/group/${g['id']}',
       extra: {
         'name': g['name'],
         'memberCount': (g['member_count'] as num?)?.toInt(),
       },
     );
+    _loadGroups();
   }
 
   @override
@@ -196,14 +224,25 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen> {
                     top: -3,
                     right: -3,
                     child: Container(
-                      width: 16,
+                      constraints: const BoxConstraints(minWidth: 16),
                       height: 16,
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEF4444),
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(99),
                         border: Border.all(
                           color: Theme.of(context).cardColor,
                           width: 1.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),

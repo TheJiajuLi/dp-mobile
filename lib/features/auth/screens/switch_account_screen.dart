@@ -17,7 +17,8 @@ class SwitchAccountScreen extends ConsumerStatefulWidget {
   const SwitchAccountScreen({super.key});
 
   @override
-  ConsumerState<SwitchAccountScreen> createState() => _SwitchAccountScreenState();
+  ConsumerState<SwitchAccountScreen> createState() =>
+      _SwitchAccountScreenState();
 }
 
 class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
@@ -77,17 +78,22 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
       _accounts.removeWhere((e) => e['id'] == userId);
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.loginExpiredPleaseRelogin)),
+      SnackBar(
+        content: Text(AppLocalizations.of(context)!.loginExpiredPleaseRelogin),
+      ),
     );
   }
 
   // 底部导航消息 tab 的未读角标数——跟 MessagesScreen._loadData() 里查的
-  // 是同一个接口，换完账号主动查一次，不用等消息 tab 那边 30 秒轮询
+  // 是同一个接口，换完账号主动查一次，不用等消息 tab 那边 30 秒轮询。
+  // 'total' 是通知+群组消息未读之和，跟 messages_screen.dart 保持同一个字段
   Future<void> _refreshUnreadCount() async {
-    final res = await ref.read(apiClientProvider).get('/auth/notifications/unread-count');
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/notifications/unread-count');
     if (res.success && res.data != null) {
       ref.read(unreadCountProvider.notifier).state =
-          (res.data['unread'] as num?)?.toInt() ?? 0;
+          (res.data['total'] as num?)?.toInt() ?? 0;
     }
   }
 
@@ -110,7 +116,10 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       IconButton(
@@ -136,7 +145,9 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                           _managing ? l10n.done : l10n.manage,
                           style: TextStyle(
                             fontSize: 15,
-                            color: _accounts.length <= 1 ? Colors.grey : _primary,
+                            color: _accounts.length <= 1
+                                ? Colors.grey
+                                : _primary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -145,7 +156,9 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                   ),
                 ),
                 if (_loading)
-                  const Expanded(child: Center(child: CircularProgressIndicator()))
+                  const Expanded(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
                 else
                   Expanded(
                     child: ListView(
@@ -158,7 +171,8 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                             isCurrent: a['id']?.toString() == currentUserId,
                             managing: _managing,
                             switching: _switchingId == a['id']?.toString(),
-                            onSwitch: () => _switchTo(a['id']?.toString() ?? ''),
+                            onSwitch: () =>
+                                _switchTo(a['id']?.toString() ?? ''),
                             onRemove: () => _remove(a['id']?.toString() ?? ''),
                           ),
                         ),
@@ -168,7 +182,9 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                             height: 44,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Theme.of(context).inputDecorationTheme.fillColor,
+                              color: Theme.of(
+                                context,
+                              ).inputDecorationTheme.fillColor,
                             ),
                             child: const Icon(Icons.add, color: _primary),
                           ),
@@ -184,7 +200,9 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                             l10n.maxAccountsSupported,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).textTheme.bodySmall?.color,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.color,
                             ),
                           ),
                         ),
@@ -211,7 +229,10 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                         SizedBox(
                           width: 36,
                           height: 36,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: _primary),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: _primary,
+                          ),
                         ),
                         SizedBox(height: 16),
                         Text(
@@ -279,7 +300,10 @@ class _AccountRow extends StatelessWidget {
       backgroundColor: _primary,
       child: Text(
         (username.isNotEmpty ? username[0] : '?').toUpperCase(),
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -300,7 +324,10 @@ class _AccountRow extends StatelessWidget {
                 ? null
                 : GestureDetector(
                     onTap: onRemove,
-                    child: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                    child: const Icon(
+                      Icons.remove_circle_outline,
+                      color: Colors.red,
+                    ),
                   ))
           : isCurrent
           ? Container(
