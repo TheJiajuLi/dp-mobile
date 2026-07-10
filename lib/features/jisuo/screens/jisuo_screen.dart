@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../features/auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
 
 // 提问领域配色——提问 Sheet 的领域选择跟热门提问卡片的领域标签共用同一套
@@ -37,6 +38,15 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final _inputCtrl = TextEditingController();
   List<Map<String, dynamic>> _hotQuestions = [];
 
+  // 极索是底部导航的常驻分支（跟"我的" tab 一样，切账号只是 goBranch
+  // 跳回首页，不会重新 initState），热门提问只在 initState 拉过一次，
+  // 不会跟着账号切换自动刷新——用户切完账号如果又点回极索 tab，看到的
+  // 可能还是上一个账号在时拉到的数据。跟 user_profile_screen.dart 里
+  // "我的" tab 同一个套路：build() 里发现 currentUserProvider 变了就
+  // 补一次重新加载
+  String? _loadedForUserId;
+  bool _reloadingForAccountChange = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +73,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   }
 
   Future<void> _loadHotQuestions() async {
+    _loadedForUserId = ref.read(currentUserProvider)?.id;
     final res = await ref
         .read(apiClientProvider)
         .get('/auth/questions', queryParameters: {'limit': 10});
@@ -92,6 +103,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUserId = ref.watch(currentUserProvider)?.id;
+    if (!_reloadingForAccountChange &&
+        currentUserId != null &&
+        currentUserId != _loadedForUserId) {
+      _reloadingForAccountChange = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (mounted) await _loadHotQuestions();
+        _reloadingForAccountChange = false;
+      });
+    }
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(

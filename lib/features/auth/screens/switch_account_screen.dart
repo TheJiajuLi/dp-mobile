@@ -104,93 +104,131 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios),
-                    onPressed: () => context.pop(),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios),
+                        onPressed: () => context.pop(),
+                      ),
+                      Expanded(
+                        child: Text(
+                          l10n.switchAccount,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _accounts.length <= 1
+                            ? null
+                            : () => setState(() => _managing = !_managing),
+                        child: Text(
+                          _managing ? l10n.done : l10n.manage,
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: _accounts.length <= 1 ? Colors.grey : _primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                if (_loading)
+                  const Expanded(child: Center(child: CircularProgressIndicator()))
+                else
                   Expanded(
-                    child: Text(
-                      l10n.switchAccount,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
+                    child: ListView(
+                      children: [
+                        ..._accounts.map(
+                          (a) => _AccountRow(
+                            id: a['id']?.toString() ?? '',
+                            username: a['username']?.toString() ?? '',
+                            avatar: a['avatar']?.toString(),
+                            isCurrent: a['id']?.toString() == currentUserId,
+                            managing: _managing,
+                            switching: _switchingId == a['id']?.toString(),
+                            onSwitch: () => _switchTo(a['id']?.toString() ?? ''),
+                            onRemove: () => _remove(a['id']?.toString() ?? ''),
+                          ),
+                        ),
+                        ListTile(
+                          leading: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Theme.of(context).inputDecorationTheme.fillColor,
+                            ),
+                            child: const Icon(Icons.add, color: _primary),
+                          ),
+                          title: Text(
+                            l10n.addOtherAccount,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          onTap: () => context.push('/login'),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                          child: Text(
+                            l10n.maxAccountsSupported,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).textTheme.bodySmall?.color,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  TextButton(
-                    onPressed: _accounts.length <= 1
-                        ? null
-                        : () => setState(() => _managing = !_managing),
-                    child: Text(
-                      _managing ? l10n.done : l10n.manage,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: _accounts.length <= 1 ? Colors.grey : _primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
-            if (_loading)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
-            else
-              Expanded(
-                child: ListView(
-                  children: [
-                    ..._accounts.map(
-                      (a) => _AccountRow(
-                        id: a['id']?.toString() ?? '',
-                        username: a['username']?.toString() ?? '',
-                        avatar: a['avatar']?.toString(),
-                        isCurrent: a['id']?.toString() == currentUserId,
-                        managing: _managing,
-                        switching: _switchingId == a['id']?.toString(),
-                        onSwitch: () => _switchTo(a['id']?.toString() ?? ''),
-                        onRemove: () => _remove(a['id']?.toString() ?? ''),
-                      ),
-                    ),
-                    ListTile(
-                      leading: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Theme.of(context).inputDecorationTheme.fillColor,
+          ),
+          // 切换过程中盖一层遮罩，避免用户看到"点了没反应"再到"内容突然
+          // 换了"这种割裂感——只在真正发起切换后才显示，行内那个小
+          // spinner(switching:)已经够表示"这一行在处理"，这层遮罩解决的
+          // 是"整个过渡期间"的观感，不是重复同一个状态
+          if (_switchingId != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: false,
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: _primary),
                         ),
-                        child: const Icon(Icons.add, color: _primary),
-                      ),
-                      title: Text(
-                        l10n.addOtherAccount,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      onTap: () => context.push('/login'),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                      child: Text(
-                        l10n.maxAccountsSupported,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        SizedBox(height: 16),
+                        Text(
+                          '切换账号中...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
