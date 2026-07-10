@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/rounded_list_card.dart';
 import '../../auth/auth_service.dart';
 import '../../profile/models/user_profile_model.dart';
 import '../models/conversation_model.dart';
@@ -532,28 +533,35 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
         child: Text(emptyTitle, style: const TextStyle(color: Colors.grey)),
       );
     }
-    return ListView.separated(
-      itemCount: users.length,
-      separatorBuilder: (_, _) => const Divider(height: 0.5, indent: 76),
-      itemBuilder: (ctx, i) {
-        final u = users[i];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 6,
-          ),
-          leading: buildMessageAvatar(u.avatar, u.username),
-          title: Text(
-            u.username,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: u.handle != null
-              ? Text('@${u.handle}', style: const TextStyle(fontSize: 12))
-              : null,
-          trailing: trailingBuilder?.call(u),
-          onTap: () => context.push('/users/${u.handle ?? u.username}'),
-        );
-      },
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        RoundedListCard(
+          children: users
+              .map(
+                (u) => ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  leading: buildMessageAvatar(u.avatar, u.username),
+                  title: Text(
+                    u.username,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: u.handle != null
+                      ? Text(
+                          '@${u.handle}',
+                          style: const TextStyle(fontSize: 12),
+                        )
+                      : null,
+                  trailing: trailingBuilder?.call(u),
+                  onTap: () => context.push('/users/${u.handle ?? u.username}'),
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 
@@ -707,72 +715,74 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
             ),
           )
         else
-          ...friends.map((f) {
-            final username = f['username']?.toString() ?? '';
-            final unread = (f['unread_count'] as num?)?.toInt() ?? 0;
-            final userId = f['id']?.toString() ?? '';
-            return ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 6,
-              ),
-              leading: buildMessageAvatar(f['avatar']?.toString(), username),
-              title: Text(
-                username,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              subtitle: f['last_message'] != null
-                  ? Text(
-                      f['last_message'].toString(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
-                    )
-                  : const Text(
-                      '发消息打招呼',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (unread > 0)
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: kMessagesPrimary,
-                        shape: BoxShape.circle,
+          RoundedListCard(
+            children: friends.map((f) {
+              final username = f['username']?.toString() ?? '';
+              final unread = (f['unread_count'] as num?)?.toInt() ?? 0;
+              final userId = f['id']?.toString() ?? '';
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                leading: buildMessageAvatar(f['avatar']?.toString(), username),
+                title: Text(
+                  username,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: f['last_message'] != null
+                    ? Text(
+                        f['last_message'].toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      )
+                    : const Text(
+                        '发消息打招呼',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
-                      child: Text(
-                        '$unread',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.white,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (unread > 0)
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: kMessagesPrimary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$unread',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
+                    GestureDetector(
+                      onTap: () => _openChat(f),
+                      child: const Icon(
+                        Icons.chat_bubble_outline,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
                     ),
-                  GestureDetector(
-                    onTap: () => _openChat(f),
-                    child: const Icon(
-                      Icons.chat_bubble_outline,
-                      size: 18,
-                      color: Colors.grey,
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => _showFriendMenu(f, username, userId),
+                      child: const Icon(
+                        Icons.more_horiz,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _showFriendMenu(f, username, userId),
-                    child: const Icon(
-                      Icons.more_horiz,
-                      size: 18,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-              onTap: () => _openChat(f),
-            );
-          }),
+                  ],
+                ),
+                onTap: () => _openChat(f),
+              );
+            }).toList(),
+          ),
       ],
     );
   }

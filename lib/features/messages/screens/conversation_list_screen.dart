@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/rounded_list_card.dart';
 import '../models/conversation_model.dart';
 import '../providers/messages_provider.dart';
 import '../utils/message_avatar.dart';
@@ -180,25 +181,10 @@ class _ConversationListScreenState
     );
   }
 
-  // 一个日期分组 = 灰色日期标签 + 一张大圆角卡片，卡片里放当天的全部会话，
-  // 会话之间用一条缩进分隔线隔开
+  // 一个日期分组 = 灰色日期标签 + 一张大圆角卡片，卡片里放当天的全部会话——
+  // 跟消息主页/通知页/群组列表同一套 RoundedListCard 配方，不是自己另起
+  // 一份卡片样式
   Widget _buildGroupCard(_DateGroup group, AppLocalizations l10n) {
-    final tiles = <Widget>[];
-    for (var i = 0; i < group.convs.length; i++) {
-      if (i > 0) {
-        tiles.add(
-          Divider(
-            height: 0.5,
-            thickness: 0.5,
-            indent: 72,
-            endIndent: 16,
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-          ),
-        );
-      }
-      tiles.add(_convTile(group.convs[i], l10n));
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -213,14 +199,8 @@ class _ConversationListScreenState
             ),
           ),
         ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(children: tiles),
+        RoundedListCard(
+          children: group.convs.map((c) => _convTile(c, l10n)).toList(),
         ),
       ],
     );
@@ -229,8 +209,7 @@ class _ConversationListScreenState
   Widget _convTile(Conversation conv, AppLocalizations l10n) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      onTap: () =>
-          context.push('/messages/chat/${conv.id}', extra: conv),
+      onTap: () => context.push('/messages/chat/${conv.id}', extra: conv),
       leading: buildMessageAvatar(conv.otherAvatar, conv.otherUsername),
       title: Row(
         children: [
