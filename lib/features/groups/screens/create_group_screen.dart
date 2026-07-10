@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../auth/auth_service.dart';
@@ -49,6 +52,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
   bool _submitting = false;
   GroupModel? _createdGroup;
+
+  // 群头像——本地选中的文件。群头像上传接口还没有，这里只做本地预览，
+  // 建群 payload 暂不带 avatar；接口就绪后先上传拿 URL 再一起提交
+  File? _avatarFile;
 
   bool get _step1Valid => _nameCtrl.text.trim().length >= 2;
 
@@ -103,6 +110,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     setState(() => _submitting = true);
     final api = ref.read(apiClientProvider);
 
+    // TODO(文件上传接口就绪): 先把 _avatarFile 上传拿到 URL，再加进下面的
+    // data['avatar']；目前群头像只本地预览，不随建群提交
     final res = await api.post(
       '/auth/groups',
       data: {
@@ -140,6 +149,228 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       _submitting = false;
       _createdGroup = group;
     });
+  }
+
+  Future<void> _pickAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _avatarFile = File(picked.path));
+  }
+
+  Widget _buildAvatar() {
+    return GestureDetector(
+      onTap: _pickAvatar,
+      child: Container(
+        width: 76,
+        height: 76,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: _avatarFile == null
+              ? const LinearGradient(
+                  colors: [Color(0xFFEEF0FF), Color(0xFFE0E7FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          image: _avatarFile != null
+              ? DecorationImage(
+                  image: FileImage(_avatarFile!),
+                  fit: BoxFit.cover,
+                )
+              : null,
+          border: Border.all(
+            color: _primary.withValues(alpha: 0.3),
+            width: 2,
+            strokeAlign: BorderSide.strokeAlignOutside,
+          ),
+        ),
+        child: Stack(
+          children: [
+            if (_avatarFile == null)
+              const Center(
+                child: Icon(
+                  Icons.groups_outlined,
+                  size: 30,
+                  color: _primary,
+                ),
+              ),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                  color: _primary,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.edit, size: 12, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 话题标签：预设标签 + 自定义添加 + 点选中的可删除，最多 5 个
+  Widget _buildTagSection(bool isDark, Color labelColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _fieldLabel('话题标签（最多5个）', labelColor),
+        // 已选标签——点一下即删除
+        if (_selectedTags.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _selectedTags.map((tag) {
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedTags.remove(tag)),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(10, 5, 6, 5),
+                    decoration: BoxDecoration(
+                      color: _primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(color: _primary, width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          tag,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: _primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.close, size: 13, color: _primary),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        // 预设（未选的）+「自定义」按钮
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            ..._allTags.where((t) => !_selectedTags.contains(t)).map((tag) {
+              return GestureDetector(
+                onTap: () {
+                  if (_selectedTags.length >= 5) return;
+                  setState(() => _selectedTags.add(tag));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : const Color(0xFFEBEBEB),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    tag,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : Colors.grey[600],
+                    ),
+                  ),
+                ),
+              );
+            }),
+            if (_selectedTags.length < 5)
+              GestureDetector(
+                onTap: _addCustomTag,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                      color: _primary.withValues(alpha: 0.4),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 13, color: _primary),
+                      SizedBox(width: 3),
+                      Text(
+                        '自定义',
+                        style: TextStyle(fontSize: 12, color: _primary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addCustomTag() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('添加自定义标签'),
+        content: TextField(
+          controller: ctrl,
+          maxLength: 10,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '输入标签名称',
+            counterText: '',
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('添加'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (result != null &&
+        result.isNotEmpty &&
+        !_selectedTags.contains(result) &&
+        _selectedTags.length < 5) {
+      setState(() => _selectedTags.add(result));
+    }
   }
 
   @override
@@ -377,56 +608,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Column(
               children: [
-                GestureDetector(
-                  onTap: () => ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('群头像上传即将上线'))),
-                  child: Container(
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFEEF0FF), Color(0xFFE0E7FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _primary.withValues(alpha: 0.3),
-                        width: 2,
-                        strokeAlign: BorderSide.strokeAlignOutside,
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        const Center(
-                          child: Icon(
-                            Icons.groups_outlined,
-                            size: 30,
-                            color: _primary,
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: const BoxDecoration(
-                              color: _primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.edit,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildAvatar(),
                 const SizedBox(height: 8),
                 Text(
                   '点击设置群头像（可选）',
@@ -506,52 +688,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 ],
               ),
               const SizedBox(height: 14),
-              _fieldLabel('话题标签（最多3个）', labelColor),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: _allTags.map((tag) {
-                  final isOn = _selectedTags.contains(tag);
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (isOn) {
-                          _selectedTags.remove(tag);
-                        } else if (_selectedTags.length < 3) {
-                          _selectedTags.add(tag);
-                        }
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isOn ? const Color(0xFFEEF0FF) : fieldBg,
-                        borderRadius: BorderRadius.circular(99),
-                        border: Border.all(
-                          color: isOn ? _primary : borderColor,
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        tag,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isOn ? FontWeight.w500 : FontWeight.w400,
-                          color: isOn
-                              ? _primary
-                              : isDark
-                              ? Colors.white.withValues(alpha: 0.5)
-                              : Colors.grey[600]!,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
+              _buildTagSection(isDark, labelColor),
             ],
           ),
         ),

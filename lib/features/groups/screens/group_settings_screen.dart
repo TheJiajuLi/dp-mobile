@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
 import '../models/group_model.dart';
@@ -37,11 +38,24 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   late String _name;
   late String _desc;
   late String _avatar;
+  late List<String> _tags;
   late List<Map<String, dynamic>> _members;
 
   bool get _isOwner => widget.myRole == 'owner';
   bool get _isAdmin => widget.myRole == 'admin' || _isOwner;
   String get _myId => ref.read(currentUserProvider)?.id ?? '';
+
+  // 跟建群页同一套预设标签
+  static const _presetTags = [
+    '数学',
+    '编程',
+    '天体物理',
+    '经济',
+    '生命科学',
+    '科普',
+    '数据分析',
+    'AI',
+  ];
 
   @override
   void initState() {
@@ -49,6 +63,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     _name = widget.group?.name ?? '群组';
     _desc = widget.group?.description ?? '';
     _avatar = widget.group?.avatar ?? '';
+    _tags = List<String>.from(widget.group?.tags ?? const []);
     // 拷一份可变副本，本页的踢人/设管理员直接改它，不动传入的原始列表
     _members = widget.members
         .map((m) => Map<String, dynamic>.from(m))
@@ -182,7 +197,67 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               onSave: (v) => setState(() => _desc = v),
             ),
           ),
+          Divider(height: 0.5, indent: 16, color: Theme.of(context).dividerColor),
+          _tagsRow(isDark),
         ],
+      ),
+    );
+  }
+
+  // 话题标签行——群主可点进去增删（本地），非群主只读展示
+  Widget _tagsRow(bool isDark) {
+    return InkWell(
+      onTap: _isOwner ? _editTags : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 64,
+              child: Text(
+                '话题标签',
+                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _tags.isEmpty
+                  ? Text(
+                      '未设置',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                    )
+                  : Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _tags.map((t) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            t,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ),
+            if (_isOwner) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, size: 18, color: Colors.grey[400]),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -480,6 +555,236 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     _snack('已将「$username」移出群聊');
   }
 
+  // 群主编辑话题标签——底部弹层里增删，最多 5 个，本地生效
+  Future<void> _editTags() async {
+    final working = List<String>.from(_tags);
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            void toggle(String t) {
+              if (working.contains(t)) {
+                setSheet(() => working.remove(t));
+              } else if (working.length < 5) {
+                setSheet(() => working.add(t));
+              }
+            }
+
+            // 预设 + 已选里的自定义标签，去重后统一渲染成可点选的 chip
+            final all = <String>[..._presetTags];
+            for (final t in working) {
+              if (!all.contains(t)) all.add(t);
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        '话题标签',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${working.length}/5',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '点击选择，再次点击移除；最多 5 个',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ...all.map((t) {
+                        final on = working.contains(t);
+                        return GestureDetector(
+                          onTap: () => toggle(t),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: on
+                                  ? _primary.withValues(alpha: 0.12)
+                                  : (isDark
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : Colors.white),
+                              borderRadius: BorderRadius.circular(99),
+                              border: Border.all(
+                                color: on
+                                    ? _primary
+                                    : (isDark
+                                          ? Colors.white.withValues(alpha: 0.1)
+                                          : const Color(0xFFEBEBEB)),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  t,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: on
+                                        ? FontWeight.w500
+                                        : FontWeight.w400,
+                                    color: on
+                                        ? _primary
+                                        : (isDark
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.6,
+                                                )
+                                              : Colors.grey[600]),
+                                  ),
+                                ),
+                                if (on) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.close,
+                                    size: 13,
+                                    color: _primary,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                      if (working.length < 5)
+                        GestureDetector(
+                          onTap: () async {
+                            final tag = await _promptCustomTag();
+                            if (tag != null &&
+                                tag.isNotEmpty &&
+                                !working.contains(tag) &&
+                                working.length < 5) {
+                              setSheet(() => working.add(tag));
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(99),
+                              border: Border.all(
+                                color: _primary.withValues(alpha: 0.4),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, size: 13, color: _primary),
+                                SizedBox(width: 3),
+                                Text(
+                                  '自定义',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: _primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () {
+                      // TODO(接口上线): PATCH /auth/groups/:id { tags }
+                      setState(() => _tags = working);
+                      Navigator.pop(ctx);
+                      _snack('已更新话题标签');
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      decoration: BoxDecoration(
+                        color: _primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        '完成',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<String?> _promptCustomTag() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('添加自定义标签'),
+        content: TextField(
+          controller: ctrl,
+          maxLength: 10,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '输入标签名称',
+            counterText: '',
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('添加'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    return result;
+  }
+
   Future<void> _onDissolve() async {
     final ok = await _confirm(
       title: '解散群组',
@@ -487,10 +792,20 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       confirmLabel: '解散',
     );
     if (!ok || !mounted) return;
-    // TODO(接口上线): DELETE /auth/groups/:id
-    _snack('已解散群组');
-    // 解散后群聊已不存在，直接回到消息 Tab，不再 pop 回那个空群聊页
-    context.go('/messages');
+    // ApiClient 把 DioException 吞成 ApiResponse.error，不会抛异常——成功与否
+    // 看 res.success。接口还没上线时会走到 else 分支给出失败提示，不会崩；
+    // 后端补上 DELETE /auth/groups/:id 后自动生效，前端不用改
+    final res = await ref
+        .read(apiClientProvider)
+        .delete('/auth/groups/${widget.groupId}');
+    if (!mounted) return;
+    if (res.success) {
+      _snack('群组已解散');
+      // 解散后群聊已不存在，回到消息 Tab，不再 pop 回那个空群聊页
+      context.go('/messages');
+    } else {
+      _snack('解散失败：${res.message ?? '请稍后重试'}');
+    }
   }
 
   Future<void> _onExit() async {
@@ -500,10 +815,17 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       confirmLabel: '退出',
     );
     if (!ok || !mounted) return;
-    // TODO(接口上线): POST /auth/groups/:id/leave
-    _snack('已退出群组');
-    // 退出后不再回到那个已离开的群聊页，直接回消息 Tab
-    context.go('/messages');
+    final res = await ref
+        .read(apiClientProvider)
+        .post('/auth/groups/${widget.groupId}/leave', data: {});
+    if (!mounted) return;
+    if (res.success) {
+      _snack('已退出群组');
+      // 退出后不再回到那个已离开的群聊页，直接回消息 Tab
+      context.go('/messages');
+    } else {
+      _snack('退出失败：${res.message ?? '请稍后重试'}');
+    }
   }
 
   // ---- 通用弹窗/提示 ----
