@@ -38,8 +38,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   // 后端标记已读接口一直都在（POST /auth/notifications/read），但之前
   // 只有消息首页"全部已读"按钮会调用它——用户点进"最近通知"整页浏览完
   // 并不代表点了那个按钮，红点因此一直不消——本地先乐观清零，
-  // 不等接口返回，体验更顺
+  // 不等接口返回，体验更顺。
+  // 这里必须先 fetch 一次拿到最新列表再算未读数——之前直接
+  // ref.read(notificationsProvider) 读的是当前缓存，如果用户点进这个
+  // 页面时 MessagesScreen 自己那次 fetch 还没返回（网络慢/手速快），
+  // 缓存是空的，算出来的未读数是0，不但本地红点不会减，连下面真实的
+  // POST /auth/notifications/read 也不会触发——这条通知会一直卡在
+  // "未读"状态，不是单纯的显示延迟
   Future<void> _markAllRead() async {
+    await ref.read(notificationsProvider.notifier).fetch();
+    if (!mounted) return;
     final notifs = ref.read(notificationsProvider);
     // 消息Tab红点现在是"通知+群组消息"的合计（total字段），这里只标记
     // 通知已读，不能直接把整个红点清零——不然还没读的群消息也会被
