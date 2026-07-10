@@ -144,6 +144,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         // 冲突时以"全部"的语义为准——2026-07-10 改回不过滤）
         : _filteredPreview(notifications).take(4).toList();
     final previewConvs = conversations.take(3).toList();
+    // 私信只属于"全部"，在评论/点赞/关注/AI 这些通知筛选下不该出现
+    final showDms =
+        _filter == _PreviewFilter.all && previewConvs.isNotEmpty;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -335,7 +338,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               const SizedBox(height: 12),
             ],
 
-            if (previewConvs.isNotEmpty) ...[
+            if (showDms) ...[
               _SectionHeader(
                 title: l10n.tabDirectMessages,
                 actionLabel: l10n.viewMoreAction,
@@ -354,9 +357,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               ),
             ],
 
-            if (previewNotifs.isEmpty &&
-                previewConvs.isEmpty &&
-                !_isComingSoonFilter)
+            if (previewNotifs.isEmpty && !showDms && !_isComingSoonFilter)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 60),
                 child: Column(
