@@ -223,12 +223,17 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
 
             // 快捷入口——通知/私信数字都是真实未读数；好友是真实好友总数
             // （没有"在线"这个概念）；群组列表有真实的 unread_count，但这个
-            // 快捷方块的副标题先不接聚合未读数，只是个静态入口提示
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+            // 快捷方块的副标题先不接聚合未读数，只是个静态入口提示。
+            // 加了"论坛"之后是6个方块，固定宽度的 Row 会挤得每块都装不下
+            // 文字，改成横向可滚动，每块保持原来 Expanded 时差不多的宽度
+            SizedBox(
+              height: 76,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  Expanded(
+                  SizedBox(
+                    width: 72,
                     child: _quickTile(
                       icon: Icons.notifications,
                       iconColor: Colors.red,
@@ -240,8 +245,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       onTap: () => context.push('/messages/notifications'),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
+                  const SizedBox(width: 14),
+                  SizedBox(
+                    width: 72,
                     child: _quickTile(
                       icon: Icons.chat_bubble,
                       iconColor: _primary,
@@ -253,8 +259,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       onTap: () => context.push('/messages/conversations'),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
+                  const SizedBox(width: 14),
+                  SizedBox(
+                    width: 72,
                     child: _quickTile(
                       icon: Icons.alternate_email,
                       iconColor: const Color(0xFF8B5CF6),
@@ -266,8 +273,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       onTap: () => context.push('/messages/mentions'),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
+                  const SizedBox(width: 14),
+                  SizedBox(
+                    width: 72,
                     child: _quickTile(
                       icon: Icons.people,
                       iconColor: const Color(0xFF16A34A),
@@ -279,8 +287,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       onTap: () => context.push('/friends'),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
+                  const SizedBox(width: 14),
+                  SizedBox(
+                    width: 72,
                     child: _quickTile(
                       icon: Icons.groups,
                       iconColor: const Color(0xFFD97706),
@@ -288,6 +297,18 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       label: l10n.tabGroups,
                       subtitle: '查看已加入的群组',
                       onTap: () => context.push('/messages/groups'),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  SizedBox(
+                    width: 72,
+                    child: _quickTile(
+                      icon: Icons.forum,
+                      iconColor: const Color(0xFF0891B2),
+                      iconBg: const Color(0xFFE0F2FE),
+                      label: '论坛',
+                      subtitle: '发现感兴趣的论坛',
+                      onTap: () => context.push('/messages/forums'),
                     ),
                   ),
                 ],
