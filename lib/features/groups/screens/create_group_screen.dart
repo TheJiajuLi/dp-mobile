@@ -948,6 +948,10 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         child: ElevatedButton(
                           onPressed: () => context.pushReplacement(
                             '/group/${_createdGroup!.id}',
+                            extra: {
+                              'name': _createdGroup!.name,
+                              'memberCount': _createdGroup!.memberCount,
+                            },
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _primary,

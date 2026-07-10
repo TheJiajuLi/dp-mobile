@@ -18,7 +18,7 @@ import '../../features/creator/screens/columns_screen.dart';
 import '../../features/creator/screens/creator_center_screen.dart';
 import '../../features/creator/screens/works_screen.dart';
 import '../../features/groups/screens/create_group_screen.dart';
-import '../../features/groups/screens/group_chat_placeholder_screen.dart';
+import '../../features/groups/screens/group_chat_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/jisuo/screens/answer_question_screen.dart';
 import '../../features/jisuo/screens/jisuo_screen.dart';
@@ -234,8 +234,14 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/group/:id',
-      builder: (context, state) =>
-          GroupChatPlaceholderScreen(groupId: state.pathParameters['id']!),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return GroupChatScreen(
+          groupId: state.pathParameters['id']!,
+          groupName: extra?['name'] as String?,
+          initialMemberCount: extra?['memberCount'] as int?,
+        );
+      },
     ),
     GoRoute(
       path: '/messages/conversations',
