@@ -254,7 +254,8 @@ final appRouter = GoRouter(
       path: '/group/:id/settings',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>? ?? const {};
-        final members = (extra['members'] as List?)
+        final members =
+            (extra['members'] as List?)
                 ?.map((e) => Map<String, dynamic>.from(e as Map))
                 .toList() ??
             const <Map<String, dynamic>>[];

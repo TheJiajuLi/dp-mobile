@@ -139,8 +139,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         : _filteredPreview(notifications).take(4).toList();
     final previewConvs = conversations.take(3).toList();
     // 私信只属于"全部"，在评论/点赞/关注/AI 这些通知筛选下不该出现
-    final showDms =
-        _filter == _PreviewFilter.all && previewConvs.isNotEmpty;
+    final showDms = _filter == _PreviewFilter.all && previewConvs.isNotEmpty;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -220,7 +219,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             const SizedBox(height: 14),
 
             // 快捷入口——通知/私信数字都是真实未读数；好友是真实好友总数
-            // （没有"在线"这个概念）；群组功能本身还没做，不编一个未读数
+            // （没有"在线"这个概念）；群组列表有真实的 unread_count，但这个
+            // 快捷方块的副标题先不接聚合未读数，只是个静态入口提示
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
