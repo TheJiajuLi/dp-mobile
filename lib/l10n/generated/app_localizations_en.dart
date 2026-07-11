@@ -119,7 +119,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statusStayTuned => 'Stay tuned';
 
   @override
-  String get appAriaAssistant => 'ARIA Assistant';
+  String get appAriaAssistant => 'Xiaomeng Assistant';
 
   @override
   String get appDataGrid => 'Data Grid';
@@ -1588,14 +1588,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickStartImage => 'Upload Image';
 
   @override
-  String get quickStartAria => 'Ask Xiaomeng for Help';
+  String get quickStartXiaomeng => 'Ask Xiaomeng for Help';
 
   @override
   String get todaysInspirationLabel => 'Today\'s Inspiration';
 
   @override
   String get ariaWritingAssistantComingSoon =>
-      'ARIA writing assistant coming soon';
+      'Xiaomeng writing assistant coming soon';
 
   @override
   String get joinColumnAction => 'Join Column';

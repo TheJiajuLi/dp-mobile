@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/ai/screens/xiaomeng_screen.dart';
 import '../../features/ai/screens/xiaomeng_chat_screen.dart';
 import '../../features/ai/screens/xiaomeng_history_screen.dart';
-import '../../features/aria/screens/aria_screen.dart';
+import '../../features/xiaomeng_legacy/screens/xiaomeng_placeholder_screen.dart';
 import '../../features/aurora/screens/aurora_progress_screen.dart';
 import '../../features/auth/auth_service.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
@@ -148,7 +148,12 @@ final appRouter = GoRouter(
           NotebookEditorScreen(nbId: state.pathParameters['id']!),
     ),
     // ARIA 不再是底部导航的一个 tab，改由首页九宫格 push 进来
-    GoRoute(path: '/aria', builder: (context, state) => const AriaScreen()),
+    // 没有任何地方链到这个路由了——真实的"问问小梦"入口是 /xiaomeng，
+    // 这个只是保留没删的旧占位屏（见 xiaomeng_placeholder_screen.dart）
+    GoRoute(
+      path: '/aria',
+      builder: (context, state) => const XiaomengPlaceholderScreen(),
+    ),
     GoRoute(
       path: '/xiaomeng',
       builder: (context, state) => const XiaomengScreen(),

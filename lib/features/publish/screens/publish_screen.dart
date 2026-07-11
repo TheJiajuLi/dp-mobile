@@ -989,7 +989,7 @@ result
                     ),
                     _QuickStartBtn(
                       icon: Icons.auto_awesome_outlined,
-                      label: l10n.quickStartAria,
+                      label: l10n.quickStartXiaomeng,
                       color: const Color(0xFFD97706),
                       bg: const Color(0xFFFFF7E6),
                       onTap: _askXmeng,

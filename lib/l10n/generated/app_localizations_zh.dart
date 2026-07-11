@@ -114,7 +114,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get statusStayTuned => '敬请期待';
 
   @override
-  String get appAriaAssistant => 'ARIA 分析助手';
+  String get appAriaAssistant => '小梦分析助手';
 
   @override
   String get appDataGrid => '数据网格 Grid';
@@ -1550,13 +1550,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get quickStartImage => '上传图片';
 
   @override
-  String get quickStartAria => '小梦帮我写';
+  String get quickStartXiaomeng => '小梦帮我写';
 
   @override
   String get todaysInspirationLabel => '今日灵感';
 
   @override
-  String get ariaWritingAssistantComingSoon => 'ARIA 写作助手即将上线';
+  String get ariaWritingAssistantComingSoon => '小梦写作助手即将上线';
 
   @override
   String get joinColumnAction => '加入专栏';

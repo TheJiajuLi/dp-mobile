@@ -311,7 +311,7 @@ abstract class AppLocalizations {
   /// No description provided for @appAriaAssistant.
   ///
   /// In en, this message translates to:
-  /// **'ARIA Assistant'**
+  /// **'Xiaomeng Assistant'**
   String get appAriaAssistant;
 
   /// No description provided for @appDataGrid.
@@ -2972,11 +2972,11 @@ abstract class AppLocalizations {
   /// **'Upload Image'**
   String get quickStartImage;
 
-  /// No description provided for @quickStartAria.
+  /// No description provided for @quickStartXiaomeng.
   ///
   /// In en, this message translates to:
   /// **'Ask Xiaomeng for Help'**
-  String get quickStartAria;
+  String get quickStartXiaomeng;
 
   /// No description provided for @todaysInspirationLabel.
   ///
@@ -2987,7 +2987,7 @@ abstract class AppLocalizations {
   /// No description provided for @ariaWritingAssistantComingSoon.
   ///
   /// In en, this message translates to:
-  /// **'ARIA writing assistant coming soon'**
+  /// **'Xiaomeng writing assistant coming soon'**
   String get ariaWritingAssistantComingSoon;
 
   /// No description provided for @joinColumnAction.
