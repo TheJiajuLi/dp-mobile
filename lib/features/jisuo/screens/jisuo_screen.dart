@@ -175,6 +175,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             SliverToBoxAdapter(child: _buildTopBar()),
             SliverToBoxAdapter(child: _buildXiaoMeng()),
             SliverToBoxAdapter(child: _buildAppsSection()),
+            SliverToBoxAdapter(child: _buildXiaomengEntry()),
             SliverToBoxAdapter(child: _buildJmDivider('社区精选')),
             SliverToBoxAdapter(child: _buildHotQuestions()),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
@@ -206,7 +207,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           IconButton(
             icon: const Icon(Icons.history, size: 20),
             color: Colors.grey[500],
-            onPressed: () => _placeholderSnack('搜索历史即将上线'),
+            onPressed: () => context.push('/xiaomeng/history'),
           ),
           GestureDetector(
             onTap: _showAskSheet,
@@ -364,6 +365,56 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     return CustomPaint(
       size: Size(size, size * 0.85),
       painter: _AuroraIconPainter(),
+    );
+  }
+
+  // 问题列表顶部的"问问小梦"入口条——跟页面最上面 _buildXiaoMeng() 那个
+  // 输入框卡片是两个不同位置的入口，都指向同一个真实的 /xiaomeng
+  Widget _buildXiaomengEntry() {
+    return GestureDetector(
+      onTap: () => context.push('/xiaomeng'),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEEF0FF),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(
+                color: Color(0xFF6366F1),
+                shape: BoxShape.circle,
+              ),
+              child: const Center(
+                child: Text(
+                  '梦',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                '问问小梦，AI 直接给你答案',
+                style: TextStyle(fontSize: 13, color: Color(0xFF4F46E5)),
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF6366F1)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -739,14 +790,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  // ARIA 页面目前本身也还是"开发中"占位屏，但它是这个功能真实存在的
-  // 路由，比单纯弹一个toast更诚实——用户点进去至少能看到"这个功能在做了"
-  // 而不是点了没反应
-  void _openXiaoMeng() => context.push('/aria');
+  // 之前这里跳的是 /aria——那是个纯占位屏，没有真的对话能力。小梦对话
+  // 页（/xiaomeng）已经真实做完了，这两个入口改跳过去，不然同一个页面
+  // 顶部"问问小梦"输入框/快捷问题点了还是假的，跟下面页面里新加的"问问
+  // 小梦"入口条一真一假，观感很割裂
+  void _openXiaoMeng() => context.push('/xiaomeng');
 
-  // AriaScreen 目前是无参数的占位屏，还没有能接收预填问题的能力，先跳
-  // 转过去，预填问题这部分等 ARIA 真正有输入框了再接
-  void _askXiaoMeng(String question) => context.push('/aria');
+  void _askXiaoMeng(String question) => context.push(
+    '/xiaomeng/chat',
+    extra: {'initialMessage': question},
+  );
 }
 
 // 极光Icon画笔

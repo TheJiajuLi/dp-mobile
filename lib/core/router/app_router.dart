@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../features/ai/screens/xiaomeng_screen.dart';
+import '../../features/ai/screens/xiaomeng_chat_screen.dart';
+import '../../features/ai/screens/xiaomeng_history_screen.dart';
 import '../../features/aria/screens/aria_screen.dart';
 import '../../features/aurora/screens/aurora_progress_screen.dart';
 import '../../features/auth/auth_service.dart';
@@ -146,6 +149,24 @@ final appRouter = GoRouter(
     ),
     // ARIA 不再是底部导航的一个 tab，改由首页九宫格 push 进来
     GoRoute(path: '/aria', builder: (context, state) => const AriaScreen()),
+    GoRoute(
+      path: '/xiaomeng',
+      builder: (context, state) => const XiaomengScreen(),
+    ),
+    GoRoute(
+      path: '/xiaomeng/chat',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return XiaomengChatScreen(
+          conversationId: extra?['conversationId'] as String?,
+          initialMessage: extra?['initialMessage'] as String?,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/xiaomeng/history',
+      builder: (context, state) => const XiaomengHistoryScreen(),
+    ),
     GoRoute(
       path: '/answer-question',
       builder: (context, state) {
