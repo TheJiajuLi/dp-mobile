@@ -37,12 +37,12 @@ class JisuoScreen extends ConsumerStatefulWidget {
 
 class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final _inputCtrl = TextEditingController();
+  // "社区精选"/"为你推荐"之前是两个独立分区，但其实是同一个接口
+  // （GET /auth/questions，按 view_count DESC, created_at DESC 排序）
+  // 翻两页拉出来的——后端没有真正意义上"跟当前用户匹配"的打分能力，
+  // "为你推荐"名不副实，合并成一个列表更诚实：第二页只是按 id 去重后
+  // 追加在第一页后面，不是另一种排序/来源
   List<Map<String, dynamic>> _hotQuestions = [];
-  // "为你推荐"是"精选优质匹配提问"，跟热门提问一样都是真实问题——不是
-  // 文章列表。后端 GET /auth/questions 没有真正意义上"跟当前用户匹配"
-  // 的打分能力，这里退而求其次：拿热门提问之外的下一批问题（同一个
-  // 接口用 offset 翻页），按 id 去重，保证不会跟上面热门提问重复
-  List<Map<String, dynamic>> _recommendedQuestions = [];
 
   // 极索是底部导航的常驻分支（跟"我的" tab 一样，切账号只是 goBranch
   // 跳回首页，不会重新 initState），热门提问只在 initState 拉过一次，
@@ -100,13 +100,13 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         .read(apiClientProvider)
         .get('/auth/questions', queryParameters: {'limit': 10, 'offset': 10});
     if (!mounted || !res.success || res.data == null) return;
-    final hotIds = _hotQuestions.map((q) => q['id'].toString()).toSet();
-    setState(() {
-      _recommendedQuestions = ((res.data['questions'] as List?) ?? [])
-          .map((q) => Map<String, dynamic>.from(q as Map))
-          .where((q) => !hotIds.contains(q['id'].toString()))
-          .toList();
-    });
+    final existingIds = _hotQuestions.map((q) => q['id'].toString()).toSet();
+    final more = ((res.data['questions'] as List?) ?? [])
+        .map((q) => Map<String, dynamic>.from(q as Map))
+        .where((q) => !existingIds.contains(q['id'].toString()))
+        .toList();
+    if (more.isEmpty) return;
+    setState(() => _hotQuestions.addAll(more));
   }
 
   Future<Map<String, dynamic>> _postQuestion(
@@ -145,7 +145,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       if (!mounted) return;
       setState(() {
         _hotQuestions.removeWhere((q) => q['id'].toString() == id);
-        _recommendedQuestions.removeWhere((q) => q['id'].toString() == id);
         _removingQuestionIds.remove(id);
       });
     });
@@ -178,8 +177,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             SliverToBoxAdapter(child: _buildAppsSection()),
             SliverToBoxAdapter(child: _buildJmDivider('社区精选')),
             SliverToBoxAdapter(child: _buildHotQuestions()),
-            SliverToBoxAdapter(child: _buildJmDivider('为你推荐')),
-            SliverToBoxAdapter(child: _buildPickedContent()),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         ),
@@ -738,24 +735,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  // 精选内容——同样是静态占位（见上面热门提问的注释），后续接
-  // tutorialsProvider 真实数据
-  // "为你推荐"是精选优质匹配提问——跟热门提问一样是真实问题卡片，不是
-  // 文章列表（之前误做成了教程列表，2026-07-10 改回问题）。复用同一个
-  // _hotQuestionCard，数据来自 _loadRecommendedQuestions() 拉到的下一批
-  // 问题，已经在 _loadHotQuestions 里按 id 去重过，不会跟热门提问重复
-  Widget _buildPickedContent() {
-    if (_recommendedQuestions.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Column(
-        children: _recommendedQuestions
-            .map((q) => _hotQuestionCard(q))
-            .toList(),
       ),
     );
   }
