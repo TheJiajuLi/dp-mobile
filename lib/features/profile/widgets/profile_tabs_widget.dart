@@ -23,6 +23,8 @@ class ColumnsTabView extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onCreateColumn;
   final void Function(ColumnModel column) onColumnTap;
+  // 点击 Tab 时才闪现数量，随后收起——由父级 user_profile_screen 控制
+  final bool showCount;
 
   const ColumnsTabView({
     super.key,
@@ -32,6 +34,7 @@ class ColumnsTabView extends StatelessWidget {
     required this.onRefresh,
     required this.onCreateColumn,
     required this.onColumnTap,
+    this.showCount = true,
   });
 
   @override
@@ -42,7 +45,11 @@ class ColumnsTabView extends StatelessWidget {
         onRefresh: onRefresh,
         child: Column(
           children: [
-            _tabCountHeader(context, l10n.columnsCountHeader(columns.length)),
+            _tabCountHeader(
+              context,
+              l10n.columnsCountHeader(columns.length),
+              showCount: showCount,
+            ),
             Expanded(
               child: _refreshableCenter(
                 key: const PageStorageKey('profile-tab-columns-empty'),
@@ -63,7 +70,11 @@ class ColumnsTabView extends StatelessWidget {
       onRefresh: onRefresh,
       child: Column(
         children: [
-          _tabCountHeader(context, l10n.columnsCountHeader(columns.length)),
+          _tabCountHeader(
+            context,
+            l10n.columnsCountHeader(columns.length),
+            showCount: showCount,
+          ),
           Expanded(
             child: ListView.builder(
               key: const PageStorageKey('profile-tab-columns'),
@@ -137,17 +148,30 @@ Widget _refreshableCenter({required Key key, required Widget child}) {
 // 的要求一样改成不带 pill 底色的纯文字，内嵌在各自 Tab 内容最上面——
 // 自己/别人主页都会显示（这几个数字本来就是公开信息，隐私设置目前
 // 还没有覆盖到"是否隐藏内容数量"这一项）
-Widget _tabCountHeader(BuildContext context, String text) {
+// showCount=false 时用 AnimatedSize 把高度收成 0，不长期占位——跟
+// user_profile_screen 里文章/文件 tab 的 _tabCountHeader 同款"点击闪现"行为
+Widget _tabCountHeader(
+  BuildContext context,
+  String text, {
+  bool showCount = true,
+}) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(12, 12, 12, 2),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: 12,
-        color: isDark ? Colors.white38 : Colors.grey[500],
-      ),
-    ),
+  return AnimatedSize(
+    duration: const Duration(milliseconds: 220),
+    curve: Curves.easeOut,
+    alignment: Alignment.topCenter,
+    child: !showCount
+        ? const SizedBox(width: double.infinity)
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 2),
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.white38 : Colors.grey[500],
+              ),
+            ),
+          ),
   );
 }
 
@@ -275,7 +299,11 @@ class NotebookListItem extends StatelessWidget {
   final Map<String, dynamic> notebook;
   final VoidCallback onTap;
 
-  const NotebookListItem({super.key, required this.notebook, required this.onTap});
+  const NotebookListItem({
+    super.key,
+    required this.notebook,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {

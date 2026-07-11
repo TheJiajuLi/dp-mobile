@@ -1211,6 +1211,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         l10n: l10n,
                         isSelfView: isSelfView,
                         columns: _columns,
+                        showCount: _showTabCount,
                         onRefresh: _onRefresh,
                         onCreateColumn: () => showCreateColumnSheet(
                           context,
