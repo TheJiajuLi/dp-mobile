@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -38,31 +40,62 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   // 后端标记已读接口一直都在（POST /auth/notifications/read），但之前
   // 只有消息首页"全部已读"按钮会调用它——用户点进"最近通知"整页浏览完
-  // 并不代表点了那个按钮，红点因此一直不消——本地先乐观清零，
-  // 不等接口返回，体验更顺。
-  // 这里必须先 fetch 一次拿到最新列表再算未读数——之前直接
-  // ref.read(notificationsProvider) 读的是当前缓存，如果用户点进这个
-  // 页面时 MessagesScreen 自己那次 fetch 还没返回（网络慢/手速快），
-  // 缓存是空的，算出来的未读数是0，不但本地红点不会减，连下面真实的
-  // POST /auth/notifications/read 也不会触发——这条通知会一直卡在
-  // "未读"状态，不是单纯的显示延迟
+  // 并不代表点了那个按钮，红点因此一直不消。
+  //
+  // 之前这里第一行就是 await ...fetch()，注释说"本地先乐观清零"但代码
+  // 其实是等网络请求真正返回才会去改 unreadCountProvider——网络越慢，
+  // 红点消失得越慢，这才是"已读后红点有明显延迟"的真实原因，不是单纯
+  // 的显示问题。现在改成先用手头已经缓存着的通知列表算一次未读数、
+  // 立刻改红点，不等新请求；缓存这时候如果还是空的（比如 MessagesScreen
+  // 自己那次 fetch 还没回来）就先不减，等下一次 30 秒轮询用后端真实的
+  // total 字段纠正，不会永久卡住
   Future<void> _markAllRead() async {
+    _applyUnreadDelta(ref.read(notificationsProvider));
+    unawaited(_syncMarkAllRead());
+  }
+
+  // 真正的已读标记必须先老老实实 fetch 一次拿到服务端当前的真实数据，
+  // 不能直接信本地缓存——缓存为空/滞后时用它判断"有没有未读"，算出来的
+  // 结果会是假的"没有未读"，markAllRead() 根本不会被调用，这条通知会
+  // 永久卡在服务端"未读"状态，这是之前真实出现过的 bug，不是单纯的
+  // 显示延迟，所以这一步还是得等一次网络请求，只是不再拿它来卡本地红点
+  Future<void> _syncMarkAllRead() async {
     await ref.read(notificationsProvider.notifier).fetch();
     if (!mounted) return;
     final notifs = ref.read(notificationsProvider);
-    // 消息Tab红点现在是"通知+群组消息"的合计（total字段），这里只标记
-    // 通知已读，不能直接把整个红点清零——不然还没读的群消息也会被
-    // 一起隐藏，等下一次轮询才会"诡异地"重新冒出来。只减掉通知未读的
-    // 那一部分，群消息的部分保留
-    final unreadNotifCount = notifs.where((n) => !n.isRead).length;
-    if (unreadNotifCount > 0) {
-      final current = ref.read(unreadCountProvider);
-      ref.read(unreadCountProvider.notifier).state =
-          (current - unreadNotifCount).clamp(0, current);
-    }
     if (notifs.any((n) => !n.isRead)) {
       await ref.read(notificationsProvider.notifier).markAllRead();
     }
+  }
+
+  // 消息Tab红点现在是"通知+群组消息"的合计（total字段），这里只减掉
+  // 通知未读的那一部分，不能直接把整个红点清零——不然还没读的群消息也
+  // 会被一起隐藏，等下一次轮询才会"诡异地"重新冒出来
+  void _applyUnreadDelta(List<AppNotification> notifs) {
+    final unreadCount = notifs.where((n) => !n.isRead).length;
+    if (unreadCount == 0) return;
+    final current = ref.read(unreadCountProvider);
+    ref.read(unreadCountProvider.notifier).state =
+        (current - unreadCount).clamp(0, current);
+  }
+
+  // 点开单条通知顺手标记这一条已读——之前全项目只有"全部已读"一个入口
+  // 会真的调后端标记接口，点单条通知除了群邀请（走专属的
+  // _handleGroupInvite）以外都不会标记已读，红点会一直卡着，
+  // group_message_mention/forum_reply 这两类之前连跳转都没有，点了
+  // 完全没反应就更不用说已读了
+  void _openNotification(AppNotification n) {
+    if (!n.isRead) {
+      // 本地先乐观标记，红点/这一条的高亮立刻消失，不等网络——真正的
+      // 已读请求在后台异步发，跟 _markAllRead() 是同一个思路
+      setState(() => n.isRead = true);
+      final current = ref.read(unreadCountProvider);
+      if (current > 0) {
+        ref.read(unreadCountProvider.notifier).state = current - 1;
+      }
+      unawaited(ref.read(notificationsProvider.notifier).markRead([n.id]));
+    }
+    openNotificationTarget(context, n);
   }
 
   Future<void> _loadInvites() async {
@@ -296,6 +329,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         return const Color(0xFF34C759);
       case 'group_invite':
         return const Color(0xFF6366F1);
+      case 'group_message_mention':
+        return const Color(0xFF0891B2);
+      case 'forum_reply':
+        return const Color(0xFF6366F1);
       default:
         return Colors.orange;
     }
@@ -311,6 +348,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         return Icons.person_add;
       case 'group_invite':
         return Icons.groups;
+      case 'group_message_mention':
+        return Icons.alternate_email;
+      case 'forum_reply':
+        return Icons.forum_outlined;
       default:
         return Icons.notifications;
     }
@@ -486,12 +527,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return Container(
       color: n.isRead ? null : kMessagesPrimary.withValues(alpha: 0.07),
       child: ListTile(
-        // group_invite 复用 tutorialId 传 group_id，走专属的加群流程；
-        // 其余（评论/提及跳文章定位评论、点赞/收藏跳文章、回答跳问题、
-        // 关注跳主页）统一交给 openNotificationTarget 处理
+        // group_invite 复用 tutorialId 传 group_id，走专属的加群流程，
+        // 已读交给页面级 _markAllRead()；其余类型点开顺手标记这一条已读
+        // 再跳转，不用非得点"全部已读"才能清（群聊@提及/论坛回复这两类
+        // 之前连跳转都没有，点了完全没反应，也从没被标记过已读）
         onTap: isGroupInvite && n.tutorialId != null
             ? () => _handleGroupInvite(n)
-            : () => openNotificationTarget(context, n),
+            : () => _openNotification(n),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: GestureDetector(
           onTap: isGroupInvite

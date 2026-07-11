@@ -54,6 +54,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   bool _loading = true;
   bool _sending = false;
   bool _sendingMedia = false;
+  // 代码/公式弹窗各自的发送按钮——跟正文的 _sending 分开，两个弹窗都是
+  // showModalBottomSheet 独立的 BuildContext，共用一个标志位会导致其中
+  // 一个弹窗还在发送时另一个弹窗的按钮却误判成"空闲"
+  bool _sendingRich = false;
   bool _attachPanelOpen = false;
   String? _lastMsgId;
   Timer? _pollTimer;
@@ -541,17 +545,25 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () {
-                    final code = codeCtrl.text.trim();
-                    if (code.isEmpty) return;
-                    Navigator.pop(ctx);
-                    _sendGroupMessage(
-                      type: GroupMessageType.code,
-                      typeStr: 'code',
-                      content: code,
-                      metadata: {'language': selectedLanguage},
-                    );
-                  },
+                  // setSheetState 让按钮在点下的一瞬间就变禁用，挡住手速快
+                  // 造成的连续两次 onPressed；_sendingRich 是真正的守卫——
+                  // 就算按钮视觉上没能立刻变灰，闭包一开头的判断也会拦住
+                  // 第二次调用，不会真的发出两条重复消息
+                  onPressed: _sendingRich
+                      ? null
+                      : () async {
+                          final code = codeCtrl.text.trim();
+                          if (code.isEmpty || _sendingRich) return;
+                          setSheetState(() => _sendingRich = true);
+                          Navigator.pop(ctx);
+                          await _sendGroupMessage(
+                            type: GroupMessageType.code,
+                            typeStr: 'code',
+                            content: code,
+                            metadata: {'language': selectedLanguage},
+                          );
+                          if (mounted) setState(() => _sendingRich = false);
+                        },
                   child: const Text(
                     '发送',
                     style: TextStyle(color: Colors.white),
@@ -571,64 +583,73 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '发送公式',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: latexCtrl,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: '例如：E = mc^2',
-                filled: true,
-                fillColor: Theme.of(ctx).inputDecorationTheme.fillColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '发送公式',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary,
-                  shape: RoundedRectangleBorder(
+              const SizedBox(height: 12),
+              TextField(
+                controller: latexCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '例如：E = mc^2',
+                  filled: true,
+                  fillColor: Theme.of(ctx).inputDecorationTheme.fillColor,
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
                   ),
                 ),
-                onPressed: () {
-                  final latex = latexCtrl.text.trim();
-                  if (latex.isEmpty) return;
-                  Navigator.pop(ctx);
-                  _sendGroupMessage(
-                    type: GroupMessageType.formula,
-                    typeStr: 'formula',
-                    content: latex,
-                  );
-                },
-                child: const Text('发送', style: TextStyle(color: Colors.white)),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _sendingRich
+                      ? null
+                      : () async {
+                          final latex = latexCtrl.text.trim();
+                          if (latex.isEmpty || _sendingRich) return;
+                          setSheetState(() => _sendingRich = true);
+                          Navigator.pop(ctx);
+                          await _sendGroupMessage(
+                            type: GroupMessageType.formula,
+                            typeStr: 'formula',
+                            content: latex,
+                          );
+                          if (mounted) setState(() => _sendingRich = false);
+                        },
+                  child: const Text(
+                    '发送',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1511,15 +1532,20 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       child: Container(
         width: 220,
         decoration: BoxDecoration(
+          // isMe 之前是纯白透明度叠加，卡片本身就是整条消息气泡（没有像
+          // 文字气泡那样再套一层 _primary 底色），结果是白字配白底/浅色
+          // 背景，几乎看不清——换成实色调低透明度的靛蓝底，跟文字气泡
+          // "我发的"用 _primary 系是同一个色系，但不会跟浅色页面背景
+          // 融在一起
           color: isMe
-              ? Colors.white.withValues(alpha: 0.15)
+              ? const Color(0xFF4F46E5).withValues(alpha: 0.15)
               : isDark
               ? Colors.white.withValues(alpha: 0.06)
               : const Color(0xFFF9F9FB),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isMe
-                ? Colors.white.withValues(alpha: 0.2)
+                ? Colors.white.withValues(alpha: 0.3)
                 : isDark
                 ? Colors.white.withValues(alpha: 0.08)
                 : const Color(0xFFE0E0E8),
@@ -1608,7 +1634,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                     style: TextStyle(
                       fontSize: 10,
                       color: isMe
-                          ? Colors.white.withValues(alpha: 0.55)
+                          ? Colors.white.withValues(alpha: 0.6)
                           : isDark
                           ? Colors.white.withValues(alpha: 0.4)
                           : Colors.grey[500],

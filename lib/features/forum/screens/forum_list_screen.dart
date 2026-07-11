@@ -12,10 +12,15 @@ import '../widgets/post_card.dart';
 class ForumListScreen extends ConsumerStatefulWidget {
   final String forumId;
   final String sort; // 'latest' / 'hot' / 'featured'
+  // ForumHomeScreen 发帖成功后用它广播"重新拉一次"——三个 tab 各自是
+  // 独立的 State，只有自己的 initState 会拉数据，发完帖回到这个页面不会
+  // 自动感知，得靠外面主动通知
+  final ValueNotifier<int>? refreshSignal;
   const ForumListScreen({
     super.key,
     required this.forumId,
     this.sort = 'latest',
+    this.refreshSignal,
   });
 
   @override
@@ -30,6 +35,17 @@ class _ForumListScreenState extends ConsumerState<ForumListScreen> {
   void initState() {
     super.initState();
     _load();
+    widget.refreshSignal?.addListener(_onRefreshSignal);
+  }
+
+  @override
+  void dispose() {
+    widget.refreshSignal?.removeListener(_onRefreshSignal);
+    super.dispose();
+  }
+
+  void _onRefreshSignal() {
+    if (mounted) _load();
   }
 
   Future<void> _load() async {

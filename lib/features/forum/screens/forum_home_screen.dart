@@ -27,6 +27,12 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
   bool _loading = true;
   bool _following = false;
   late TabController _tabCtrl;
+  // 发帖成功后不能只刷新论坛主页自己的元信息（_loadForum 只拉
+  // post_count/pinnedPosts 这些汇总数据）——精华/最新/最热三个 tab 各是
+  // 独立的 ForumListScreen 实例，各自拿着自己上次拉到的 _posts，不会因为
+  // 主页刷新一次就跟着重新拉。用这个信号广播给三个 tab，让它们各自重新
+  // 拉一次自己的帖子列表
+  final _refreshSignal = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -38,6 +44,7 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _refreshSignal.dispose();
     super.dispose();
   }
 
@@ -141,9 +148,21 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
               body: TabBarView(
                 controller: _tabCtrl,
                 children: [
-                  ForumListScreen(forumId: widget.forumId, sort: 'featured'),
-                  ForumListScreen(forumId: widget.forumId, sort: 'latest'),
-                  ForumListScreen(forumId: widget.forumId, sort: 'hot'),
+                  ForumListScreen(
+                    forumId: widget.forumId,
+                    sort: 'featured',
+                    refreshSignal: _refreshSignal,
+                  ),
+                  ForumListScreen(
+                    forumId: widget.forumId,
+                    sort: 'latest',
+                    refreshSignal: _refreshSignal,
+                  ),
+                  ForumListScreen(
+                    forumId: widget.forumId,
+                    sort: 'hot',
+                    refreshSignal: _refreshSignal,
+                  ),
                 ],
               ),
             ),
@@ -156,6 +175,7 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
               'forumTags': List<String>.from(_forum?['tags'] ?? const []),
             },
           );
+          _refreshSignal.value++;
           _loadForum();
         },
         backgroundColor: _primary,
