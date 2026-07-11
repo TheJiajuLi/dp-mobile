@@ -545,14 +545,12 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
     );
   }
 
+  // 公式块之前用一块靛蓝底色卡片装着，跟文字气泡的纯背景不是一个视觉
+  // 语言，看着像单独的高亮框——按老规矩去掉底色，跟页面背景统一，公式
+  // 本身照样保留字号/颜色区分，不需要靠一块底色去区分
   Widget _formulaBubble(String tex, bool isDark, {bool isDisplay = true}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? _primary.withValues(alpha: 0.12) : const Color(0xFFEEF0FF),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Math.tex(
         tex.trim(),
         mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
