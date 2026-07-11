@@ -91,6 +91,14 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     }
   }
 
+  // 从消息页 push 出去查看消息（通知/私信/提及/群聊/邀请），返回后主动刷新
+  // 未读红点——不用等 30 秒轮询，也不用手动下拉。查看时子页面已在服务端
+  // 标记已读，回来重新拉一次 unread-count 就是最新的
+  Future<void> _openThenRefresh(String path, {Object? extra}) async {
+    await context.push(path, extra: extra);
+    if (mounted) _loadData();
+  }
+
   Future<void> _loadFriendsCount() async {
     final res = await ref.read(apiClientProvider).get('/auth/friends');
     if (!mounted) return;
@@ -207,7 +215,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                     ),
                   const SizedBox(width: 12),
                   GestureDetector(
-                    onTap: () => context.push('/messages/conversations'),
+                    onTap: () => _openThenRefresh('/messages/conversations'),
                     child: const Icon(Icons.search, size: 22),
                   ),
                   const SizedBox(width: 12),
@@ -268,7 +276,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       subtitle: unread > 0
                           ? l10n.newNotificationsCountLabel(unread)
                           : l10n.noNotificationsYet,
-                      onTap: () => context.push('/messages/notifications'),
+                      onTap: () => _openThenRefresh('/messages/notifications'),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -282,7 +290,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       subtitle: dmUnread > 0
                           ? l10n.unreadCountLabel(dmUnread)
                           : l10n.noDirectMessagesYet,
-                      onTap: () => context.push('/messages/conversations'),
+                      onTap: () => _openThenRefresh('/messages/conversations'),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -296,7 +304,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       subtitle: mentionUnread > 0
                           ? l10n.unreadCountLabel(mentionUnread)
                           : l10n.noMentionsYet,
-                      onTap: () => context.push('/messages/mentions'),
+                      onTap: () => _openThenRefresh('/messages/mentions'),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -325,7 +333,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                           ? '你有 $groupUnread 条未读消息'
                           : '去搜索发现更多群组 →',
                       subtitleColor: groupUnread > 0 ? _primary : null,
-                      onTap: () => context.push('/messages/groups'),
+                      onTap: () => _openThenRefresh('/messages/groups'),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -359,7 +367,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                 child: InviteSummaryCard(
                   count: _invites.length,
                   invites: _invites,
-                  onTap: () => context.push('/invite-list'),
+                  onTap: () => _openThenRefresh('/invite-list'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -369,7 +377,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               _SectionHeader(
                 title: l10n.recentNotificationsTitle,
                 actionLabel: l10n.viewAllAction,
-                onAction: () => context.push('/messages/notifications'),
+                onAction: () => _openThenRefresh('/messages/notifications'),
               ),
               _PreviewCard(
                 children: previewNotifs
@@ -395,7 +403,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               _SectionHeader(
                 title: l10n.tabDirectMessages,
                 actionLabel: l10n.viewMoreAction,
-                onAction: () => context.push('/messages/conversations'),
+                onAction: () => _openThenRefresh('/messages/conversations'),
               ),
               _PreviewCard(
                 children: previewConvs
@@ -403,7 +411,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       (c) => _ConvPreviewTile(
                         conversation: c,
                         onTap: () =>
-                            context.push('/messages/chat/${c.id}', extra: c),
+                            _openThenRefresh('/messages/chat/${c.id}', extra: c),
                       ),
                     )
                     .toList(),
