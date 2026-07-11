@@ -1,4 +1,4 @@
-enum GroupMessageType { text, shareTutorial, shareQuestion }
+enum GroupMessageType { text, shareTutorial, shareQuestion, image, file, code, latex }
 
 class GroupMessage {
   final String id;
@@ -36,6 +36,10 @@ class GroupMessage {
     final type = switch (typeStr) {
       'share_tutorial' => GroupMessageType.shareTutorial,
       'share_question' => GroupMessageType.shareQuestion,
+      'image' => GroupMessageType.image,
+      'file' => GroupMessageType.file,
+      'code' => GroupMessageType.code,
+      'latex' => GroupMessageType.latex,
       _ => GroupMessageType.text,
     };
     final senderId = j['sender_id']?.toString() ?? '';

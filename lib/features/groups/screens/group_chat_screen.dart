@@ -1,10 +1,21 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/membership_utils.dart';
+import '../../../core/widgets/pro_gate.dart';
+import '../../../shared/utils/storage_checker.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../auth/auth_service.dart';
@@ -44,8 +55,12 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
   bool _loading = true;
   bool _sending = false;
+  bool _sendingMedia = false;
+  bool _attachPanelOpen = false;
   String? _lastMsgId;
   Timer? _pollTimer;
+
+  static const _codeLanguages = ['Python', 'JavaScript', 'SQL', 'Text'];
 
   late String _groupName;
   late int _memberCount;
@@ -294,6 +309,389 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     _scrollToBottom();
   }
 
+  // 图片/文件/代码/公式共用的发送收尾——POST 真实接口，优先用响应里的
+  // 真实消息对象，响应里没有（比如网络抖动但请求其实成功了）才退回本地
+  // 构造的乐观消息，跟 _sendText/_shareContent 是同一套收尾逻辑
+  Future<void> _sendGroupMessage({
+    required GroupMessageType type,
+    required String typeStr,
+    required String content,
+    String? refId,
+    String? refTitle,
+    String? refMeta,
+  }) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .post(
+          '/auth/groups/${widget.groupId}/messages',
+          data: {
+            'type': typeStr,
+            'content': content,
+            if (refId != null) 'ref_id': refId,
+            if (refTitle != null) 'ref_title': refTitle,
+            if (refMeta != null) 'ref_meta': refMeta,
+          },
+        );
+    if (!mounted) return;
+    final msg = res.success && res.data?['message'] != null
+        ? GroupMessage.fromJson(
+            Map<String, dynamic>.from(res.data['message'] as Map),
+            _myId,
+          )
+        : _localMessage(
+            type: type,
+            content: content,
+            refId: refId,
+            refTitle: refTitle,
+            refMeta: refMeta,
+          );
+    setState(() {
+      _messages.add(msg);
+      _lastMsgId = msg.id;
+    });
+    _scrollToBottom();
+  }
+
+  Future<void> _sendImage({ImageSource source = ImageSource.gallery}) async {
+    if (_sendingMedia) return;
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 80,
+    );
+    if (file == null) return;
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    final ok = await StorageChecker.checkAndPrompt(
+      context,
+      ref,
+      estimatedBytes: bytes.length,
+    );
+    if (!ok) return;
+    if (!mounted) return;
+
+    setState(() => _sendingMedia = true);
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: 'img_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          contentType: DioMediaType('image', 'jpeg'),
+        ),
+      });
+      final uploadRes = await ref
+          .read(apiClientProvider)
+          .post('/auth/files/upload', data: formData);
+      if (!uploadRes.success) {
+        throw Exception(uploadRes.message ?? '上传失败，请稍后重试');
+      }
+      final imageUrl = (uploadRes.data as Map)['url'] as String?;
+      if (imageUrl == null) throw Exception('上传失败，请稍后重试');
+      await _sendGroupMessage(
+        type: GroupMessageType.image,
+        typeStr: 'image',
+        content: imageUrl,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('发送失败：${e.toString().replaceAll('Exception: ', '')}'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingMedia = false);
+    }
+  }
+
+  // 通用文件——复用图片走的同一个 /auth/files/upload。group_messages 表
+  // 没有私信 message_model.dart 那种通用 metadata JSON 列，只有
+  // ref_id/ref_title/ref_meta 三个通用字符串字段（share_tutorial/
+  // share_question 本来就在借用它们放标题/副标题）——这里借用同样的字段
+  // 放文件名/字节数，不是照搬私信的 metadata 实现，但效果一致
+  Future<void> _sendFile() async {
+    if (_sendingMedia) return;
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty) return;
+    final picked = result.files.first;
+    final bytes = picked.bytes;
+    if (bytes == null || !mounted) return;
+
+    final ok = await StorageChecker.checkAndPrompt(
+      context,
+      ref,
+      estimatedBytes: bytes.length,
+    );
+    if (!ok) return;
+    if (!mounted) return;
+
+    setState(() => _sendingMedia = true);
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: picked.name),
+      });
+      final uploadRes = await ref
+          .read(apiClientProvider)
+          .post('/auth/files/upload', data: formData);
+      if (!uploadRes.success) {
+        throw Exception(uploadRes.message ?? '上传失败，请稍后重试');
+      }
+      final fileUrl = (uploadRes.data as Map)['url'] as String?;
+      if (fileUrl == null) throw Exception('上传失败，请稍后重试');
+      await _sendGroupMessage(
+        type: GroupMessageType.file,
+        typeStr: 'file',
+        content: fileUrl,
+        refTitle: picked.name,
+        refMeta: bytes.length.toString(),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('发送失败：${e.toString().replaceAll('Exception: ', '')}'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingMedia = false);
+    }
+  }
+
+  void _showCodeInput() {
+    final codeCtrl = TextEditingController();
+    var selectedLanguage = _codeLanguages.first;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '发送代码',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                children: _codeLanguages.map((lang) {
+                  final selected = lang == selectedLanguage;
+                  return ChoiceChip(
+                    label: Text(lang, style: const TextStyle(fontSize: 12)),
+                    selected: selected,
+                    onSelected: (_) =>
+                        setSheetState(() => selectedLanguage = lang),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1C1E),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: TextField(
+                  controller: codeCtrl,
+                  maxLines: 6,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
+                  decoration: const InputDecoration(
+                    filled: false,
+                    border: InputBorder.none,
+                    hintText: '# 输入代码...',
+                    hintStyle: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    final code = codeCtrl.text.trim();
+                    if (code.isEmpty) return;
+                    Navigator.pop(ctx);
+                    _sendGroupMessage(
+                      type: GroupMessageType.code,
+                      typeStr: 'code',
+                      content: code,
+                      refTitle: selectedLanguage,
+                    );
+                  },
+                  child: const Text(
+                    '发送',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showLatexInput() {
+    final latexCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '发送公式',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: latexCtrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: '例如：E = mc^2',
+                filled: true,
+                fillColor: Theme.of(ctx).inputDecorationTheme.fillColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  final latex = latexCtrl.text.trim();
+                  if (latex.isEmpty) return;
+                  Navigator.pop(ctx);
+                  _sendGroupMessage(
+                    type: GroupMessageType.latex,
+                    typeStr: 'latex',
+                    content: latex,
+                  );
+                },
+                child: const Text('发送', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showImagePreview(String url) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          body: Center(
+            child: InteractiveViewer(child: CachedNetworkImage(imageUrl: url)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCodeMessageMenu(String code) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: const Text('复制'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Clipboard.setData(ClipboardData(text: code));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLink(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
   // 分享文章——取跟极索首页共用的 homeFeedProvider（真实已发布教程，
   // 本来就一直保持热的，不用再单独拉一次接口）
   Future<Map<String, String>?> _pickTutorial() {
@@ -435,6 +833,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                 ),
               ),
             _buildInputBar(isDark),
+            _buildAttachPanel(isDark),
           ],
         ),
       ),
@@ -906,14 +1305,27 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.68,
           ),
-          child: msg.type == GroupMessageType.text
-              ? _buildTextBubble(
-                  msg,
-                  isDark,
-                  isMatch: isMatch,
-                  isCurrent: isCurrent,
-                )
-              : _buildShareCard(msg, isDark),
+          // is_recalled 这一列后端已经建好了，但撤回接口还在部署——现在
+          // 永远是 false，这个分支先摆着，接口一上线不用再改这里
+          child: msg.isRecalled
+              ? _buildRecalledBubble(isDark)
+              : switch (msg.type) {
+                  GroupMessageType.text => _buildTextBubble(
+                    msg,
+                    isDark,
+                    isMatch: isMatch,
+                    isCurrent: isCurrent,
+                  ),
+                  GroupMessageType.image => _buildImageBubble(msg),
+                  GroupMessageType.file => _buildFileBubble(msg, isDark),
+                  GroupMessageType.code => _buildCodeBubble(msg),
+                  GroupMessageType.latex => _buildLatexBubble(msg, isDark),
+                  GroupMessageType.shareTutorial ||
+                  GroupMessageType.shareQuestion => _buildShareCard(
+                    msg,
+                    isDark,
+                  ),
+                },
         ),
         Padding(
           padding: EdgeInsets.only(
@@ -1200,47 +1612,313 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
-  // "+"菜单——跟私信页 chat_screen.dart 的 _showAttachMenu 同一套视觉
-  // 语言：真正的 showModalBottomSheet（不是内嵌在 Column 里临时插一块），
-  // 拖拽把手+cardColor+圆角+图标格子横排，不是自己另起一套卡片/边框风格
-  void _showPlusMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+  Widget _buildRecalledBubble(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Text(
+        '此消息已撤回',
+        style: TextStyle(
+          fontSize: 12,
+          fontStyle: FontStyle.italic,
+          color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey[400],
         ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  Widget _buildImageBubble(GroupMessage msg) {
+    return GestureDetector(
+      onTap: () => _showImagePreview(msg.content),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: CachedNetworkImage(
+          imageUrl: msg.content,
+          width: 200,
+          fit: BoxFit.cover,
+          placeholder: (ctx, url) => Container(
+            width: 200,
+            height: 150,
+            color: Colors.grey[200],
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          errorWidget: (ctx, url, error) => Container(
+            width: 200,
+            height: 100,
+            color: Colors.grey[200],
+            child: const Icon(Icons.broken_image, color: Colors.grey),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLatexBubble(GroupMessage msg, bool isDark) {
+    final isMe = msg.isMe;
+    final tex = msg.content
+        .replaceAll(r'$$', '')
+        .replaceAll(r'\[', '')
+        .replaceAll(r'\]', '')
+        .trim();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isMe ? _primary : Theme.of(context).cardColor,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(14),
+          topRight: const Radius.circular(14),
+          bottomLeft: Radius.circular(isMe ? 14 : 4),
+          bottomRight: Radius.circular(isMe ? 4 : 14),
+        ),
+        border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Math.tex(
+        tex,
+        textStyle: TextStyle(
+          fontSize: 16,
+          color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+        onErrorFallback: (err) => Text(
+          msg.content,
+          style: TextStyle(fontSize: 13, color: isMe ? Colors.white : Colors.red),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCodeBubble(GroupMessage msg) {
+    final language = msg.refTitle ?? 'text';
+    final lines = msg.content.split('\n');
+    final sizeLabel = _formatBytes(utf8.encode(msg.content).length);
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.code_rounded, size: 15, color: _primary),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '$language · $sizeLabel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _showCodeMessageMenu(msg.content),
+                  child: const Icon(Icons.more_horiz, size: 18, color: Colors.white54),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Colors.white12),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < lines.length; i++)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: Colors.white30,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          lines[i],
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: Colors.white,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _attachBtn(Icons.article_outlined, '分享极梦文章', () {
-                  Navigator.pop(ctx);
-                  _shareContent('share_tutorial');
-                }),
-                _attachBtn(Icons.help_outline, '分享极索问题', () {
-                  Navigator.pop(ctx);
-                  _shareContent('share_question');
-                }),
-              ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileBubble(GroupMessage msg, bool isDark) {
+    final isMe = msg.isMe;
+    final filename = msg.refTitle ?? '文件';
+    final size = int.tryParse(msg.refMeta ?? '') ?? 0;
+    return GestureDetector(
+      onTap: () => _openLink(msg.content),
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isMe ? _primary : Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(14),
+          border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: (isMe ? Colors.white : _primary).withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(
+                Icons.insert_drive_file_outlined,
+                size: 18,
+                color: isMe ? Colors.white : _primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    filename,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  Text(
+                    _formatBytes(size),
+                    style: TextStyle(fontSize: 11, color: isMe ? Colors.white70 : Colors.grey),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // "+"面板——旧版是 showModalBottomSheet 弹窗，改成跟输入框同屏内联展开/
+  // 收起（"+"图标本身旋转45度变"×"，不换图标），点面板里任意一项立即
+  // 收起面板+发送，跟私信页 chat_screen.dart 的弹窗式菜单是两种不同交互，
+  // 这里改用户体验反馈重做过
+  void _closeAttachPanel() {
+    if (_attachPanelOpen) setState(() => _attachPanelOpen = false);
+  }
+
+  void _toggleAttachPanel() {
+    _focusNode.unfocus();
+    setState(() => _attachPanelOpen = !_attachPanelOpen);
+  }
+
+  Widget _buildAttachPanel(bool isDark) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+      child: !_attachPanelOpen
+          ? const SizedBox(width: double.infinity)
+          : Container(
+              width: double.infinity,
+              color: Theme.of(context).cardColor,
+              // 面板现在是输入栏下面的内联区块，不再是输入栏 SafeArea 里的
+              // 弹窗——自己得再包一层 SafeArea(top:false)，不然最下面一排
+              // 图标会被 iPhone 底部 Home 指示条盖住
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                  child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _attachBtn(Icons.image, '图片', () {
+                        _closeAttachPanel();
+                        _sendImage();
+                      }),
+                      _attachBtn(Icons.camera_alt_outlined, '拍照', () {
+                        _closeAttachPanel();
+                        _sendImage(source: ImageSource.camera);
+                      }),
+                      _attachBtn(Icons.insert_drive_file_outlined, '文件', () {
+                        _closeAttachPanel();
+                        _sendFile();
+                      }),
+                      ProGate(
+                        check: MembershipUtils.canSendCodeInChat,
+                        featureName: '群聊发送代码',
+                        child: _attachBtn(Icons.code, '代码', () {
+                          _closeAttachPanel();
+                          _showCodeInput();
+                        }),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      ProGate(
+                        check: MembershipUtils.canSendCodeInChat,
+                        featureName: '群聊发送代码',
+                        child: _attachBtn(Icons.functions, '公式', () {
+                          _closeAttachPanel();
+                          _showLatexInput();
+                        }),
+                      ),
+                      _attachBtn(Icons.article_outlined, '文章', () {
+                        _closeAttachPanel();
+                        _shareContent('share_tutorial');
+                      }),
+                      _attachBtn(Icons.help_outline, '问题', () {
+                        _closeAttachPanel();
+                        _shareContent('share_question');
+                      }),
+                    ],
+                  ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
     );
   }
 
@@ -1278,13 +1956,17 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               GestureDetector(
-                onTap: _showPlusMenu,
-                child: const Padding(
-                  padding: EdgeInsets.only(bottom: 5),
-                  child: Icon(
-                    Icons.add_circle_outline,
-                    size: 26,
-                    color: Colors.grey,
+                onTap: _toggleAttachPanel,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: AnimatedRotation(
+                    turns: _attachPanelOpen ? 0.125 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.add_circle_outline,
+                      size: 26,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
               ),
