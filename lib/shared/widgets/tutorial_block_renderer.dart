@@ -339,7 +339,16 @@ class _TutorialCodeBlockState extends State<TutorialCodeBlock> {
       case 'image':
         try {
           final raw = content.contains(',') ? content.split(',').last : content;
-          return Image.memory(base64Decode(raw));
+          // matplotlib 生成的图自带一圈很细的黑色描边（savefig 默认的
+          // figure 边框），这一层出自远程加载的 compiler.js（不在这个
+          // 仓库里，改不了生成逻辑）——用轻微放大+裁切把这圈边框裁掉，
+          // 属于视觉层面的规避，不是从根上解决
+          return ClipRect(
+            child: Transform.scale(
+              scale: 1.03,
+              child: Image.memory(base64Decode(raw)),
+            ),
+          );
         } catch (_) {
           return Text(
             content,
