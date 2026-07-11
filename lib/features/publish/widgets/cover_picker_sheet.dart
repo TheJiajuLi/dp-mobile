@@ -177,6 +177,7 @@ Future<void> aiGenerateCover(
 
     showCoverPickerSheet(
       context,
+      ref,
       urls,
       onSelect: onCoverSelected,
       onRegenerate: () => aiGenerateCover(
@@ -201,138 +202,204 @@ Future<void> aiGenerateCover(
   }
 }
 
+// 生成接口现在只返回上游临时URL（24小时后失效，不落COS）——选中哪张
+// 之前是直接把这个临时URL存进 _coverImageUrl，教程发布后过一段时间
+// 封面图就会失效变成 broken image。选中时先调
+// POST /auth/xmeng/confirm-image 把这一张转存到 COS，拿真正永久的URL
+// 再回填，另外没被选中的临时URL就放着过期，不用管
 void showCoverPickerSheet(
   BuildContext context,
+  WidgetRef ref,
   List<String> urls, {
   required void Function(String url) onSelect,
   required VoidCallback onRegenerate,
 }) {
+  // 必须声明在 StatefulBuilder 的 builder 函数外面——builder 每次
+  // setSheetState 都会重新执行一遍，声明在里面的话每次 rebuild 都会被
+  // 重新初始化成 null，"正在确认第几张"这个状态就保不住
+  int? confirmingIndex;
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (ctx) => Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setSheetState) {
+        Future<void> confirmAndSelect(int i) async {
+          if (confirmingIndex != null) return;
+          setSheetState(() => confirmingIndex = i);
+          final res = await ref
+              .read(apiClientProvider)
+              .post(
+                '/auth/xmeng/confirm-image',
+                data: {'url': urls[i], 'type': 'cover'},
+              );
+          if (!context.mounted) return;
+          if (!res.success || res.data?['url'] == null) {
+            setSheetState(() => confirmingIndex = null);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(res.message ?? '保存失败，请重试')),
+            );
+            return;
+          }
+          final permanentUrl = (res.data as Map)['url'] as String;
+          onSelect(permanentUrl);
+          Navigator.pop(ctx);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('封面已应用'),
+              backgroundColor: Color(0xFF16A34A),
+              duration: Duration(seconds: 2),
             ),
+          );
+        }
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          Row(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF0FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_outlined,
-                  size: 14,
-                  color: Color(0xFF6366F1),
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(width: 8),
-              const Text(
-                '选择一张封面',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '点击即可应用',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 16 / 9,
-            ),
-            itemCount: urls.length,
-            itemBuilder: (ctx, i) => GestureDetector(
-              onTap: () {
-                onSelect(urls[i]);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('封面已应用'),
-                    backgroundColor: Color(0xFF16A34A),
-                    duration: Duration(seconds: 2),
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF0FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_outlined,
+                      size: 14,
+                      color: Color(0xFF6366F1),
+                    ),
                   ),
-                );
-              },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  urls[i],
-                  fit: BoxFit.cover,
-                  loadingBuilder: (ctx, child, progress) => progress == null
-                      ? child
-                      : Container(
-                          color: Colors.grey[100],
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: Color(0xFF6366F1),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '选择一张封面',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '点击即可应用',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 14),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 16 / 9,
+                ),
+                itemCount: urls.length,
+                itemBuilder: (ctx, i) => GestureDetector(
+                  onTap: () => confirmAndSelect(i),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          urls[i],
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          loadingBuilder: (ctx, child, progress) =>
+                              progress == null
+                              ? child
+                              : Container(
+                                  color: Colors.grey[100],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                ),
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Colors.grey[100],
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.grey,
                             ),
                           ),
                         ),
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey[100],
-                    child: const Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.grey,
+                      ),
+                      if (confirmingIndex == i)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ProGate(
+                check: MembershipUtils.canUseXmeng,
+                featureName: '小梦 AI',
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      onRegenerate();
+                    },
+                    icon: const Icon(
+                      Icons.refresh,
+                      size: 16,
+                      color: Color(0xFF6366F1),
+                    ),
+                    label: const Text(
+                      '重新生成',
+                      style: TextStyle(color: Color(0xFF6366F1)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF6366F1)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 12),
-          ProGate(
-            check: MembershipUtils.canUseXmeng,
-            featureName: '小梦 AI',
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  onRegenerate();
-                },
-                icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF6366F1)),
-                label: const Text(
-                  '重新生成',
-                  style: TextStyle(color: Color(0xFF6366F1)),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF6366F1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     ),
   );
 }

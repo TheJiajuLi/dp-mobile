@@ -20,6 +20,7 @@ class StorageScreen extends ConsumerStatefulWidget {
 class _StorageScreenState extends ConsumerState<StorageScreen> {
   Map<String, dynamic>? _data;
   bool _loading = true;
+  bool _cleaningUp = false;
   String? _expandedCategory;
 
   @override
@@ -445,6 +446,34 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     }
   }
 
+  // 清理未使用文件——POST /auth/storage/cleanup-orphans 是真实接口：后端
+  // 拿 user_files 里所有非头像的记录，跟 tutorials.cover_image / users.
+  // avatar 实际引用的 cos_key 比对，凡是没被任何地方引用到的就真删（COS+
+  // 数据库记录都删），不是只改本地展示。小梦 AI 生成封面/头像那 2-3 张
+  // 候选图里没被选中的那些就是典型的"孤儿文件"，这个按钮就是给这种场景
+  // 兜底清掉，不用等它们自然占满配额才发现
+  Future<void> _cleanupOrphans() async {
+    if (_cleaningUp) return;
+    setState(() => _cleaningUp = true);
+    final res = await ref
+        .read(apiClientProvider)
+        .post('/auth/storage/cleanup-orphans', data: {});
+    if (!mounted) return;
+    if (res.success) {
+      await _load();
+      if (!mounted) return;
+    }
+    setState(() => _cleaningUp = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          res.success ? (res.data?['message'] as String? ?? '清理完成') : '清理失败，请稍后重试',
+        ),
+        backgroundColor: res.success ? const Color(0xFF16A34A) : null,
+      ),
+    );
+  }
+
   Future<void> _confirmDeleteAll(String categoryKey, List files) async {
     final l10n = AppLocalizations.of(context)!;
     // 只统计真的能删（反推得出 id）的文件，跟实际会执行的删除数量对得上
@@ -642,6 +671,33 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _cleaningUp ? null : _cleanupOrphans,
+                    icon: _cleaningUp
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: Colors.grey,
+                            ),
+                          )
+                        : const Icon(Icons.cleaning_services, size: 16),
+                    label: Text(_cleaningUp ? '正在清理...' : '清理未使用文件'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[100],
+                      foregroundColor: Colors.grey[700],
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
