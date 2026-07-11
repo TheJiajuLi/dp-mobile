@@ -15,7 +15,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
-import '../../../shared/utils/storage_checker.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
@@ -362,16 +361,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final bytes = await file.readAsBytes();
     if (!mounted) return;
 
-    // 存储检查放在拿到文件字节之后——发送前才知道这张图实际多大，
-    // 挑图之前根本没有 estimatedBytes 可用
-    final ok = await StorageChecker.checkAndPrompt(
-      context,
-      ref,
-      estimatedBytes: bytes.length,
-    );
-    if (!ok) return;
-    if (!mounted) return;
-
     setState(() => _sendingImage = true);
     try {
       final formData = FormData.fromMap({
@@ -425,14 +414,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final picked = result.files.first;
     final bytes = picked.bytes;
     if (bytes == null || !mounted) return;
-
-    final ok = await StorageChecker.checkAndPrompt(
-      context,
-      ref,
-      estimatedBytes: bytes.length,
-    );
-    if (!ok) return;
-    if (!mounted) return;
 
     setState(() => _sendingImage = true);
     try {

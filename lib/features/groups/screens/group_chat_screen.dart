@@ -13,7 +13,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../shared/utils/storage_checker.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../auth/auth_service.dart';
@@ -370,13 +369,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
     final bytes = await file.readAsBytes();
     if (!mounted) return;
-    final ok = await StorageChecker.checkAndPrompt(
-      context,
-      ref,
-      estimatedBytes: bytes.length,
-    );
-    if (!ok) return;
-    if (!mounted) return;
 
     setState(() => _sendingMedia = true);
     try {
@@ -426,14 +418,6 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     final picked = result.files.first;
     final bytes = picked.bytes;
     if (bytes == null || !mounted) return;
-
-    final ok = await StorageChecker.checkAndPrompt(
-      context,
-      ref,
-      estimatedBytes: bytes.length,
-    );
-    if (!ok) return;
-    if (!mounted) return;
 
     setState(() => _sendingMedia = true);
     try {
