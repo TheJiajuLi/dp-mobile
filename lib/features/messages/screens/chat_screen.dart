@@ -16,6 +16,7 @@ import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/online_status.dart';
+import '../../../shared/widgets/formula_error.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
@@ -1462,20 +1463,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ? null
               : Border.all(color: Theme.of(context).dividerColor),
         ),
-        child: Math.tex(
-          tex,
-          textStyle: TextStyle(
-            fontSize: 16,
-            color: isMe
-                ? Colors.white
-                : Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-          onErrorFallback: (err) => Text(
-            msg.content,
-            style: TextStyle(
-              fontSize: 13,
-              color: isMe ? Colors.white : Colors.red,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Math.tex(
+            tex,
+            textStyle: TextStyle(
+              fontSize: 16,
+              color: isMe
+                  ? Colors.white
+                  : Theme.of(context).textTheme.bodyLarge?.color,
             ),
+            onErrorFallback: (err) => const FormulaErrorPlaceholder(),
           ),
         ),
       );

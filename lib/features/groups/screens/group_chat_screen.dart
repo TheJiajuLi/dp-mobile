@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/formula_error.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../auth/auth_service.dart';
@@ -1695,15 +1696,17 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         ),
         border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Math.tex(
-        tex,
-        textStyle: TextStyle(
-          fontSize: 16,
-          color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
-        ),
-        onErrorFallback: (err) => Text(
-          msg.content,
-          style: TextStyle(fontSize: 13, color: isMe ? Colors.white : Colors.red),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Math.tex(
+          tex,
+          textStyle: TextStyle(
+            fontSize: 16,
+            color: isMe
+                ? Colors.white
+                : Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+          onErrorFallback: (err) => const FormulaErrorPlaceholder(),
         ),
       ),
     );

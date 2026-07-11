@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart' show DioException, Options, ResponseBody, ResponseType;
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/formula_error.dart';
 import '../../auth/auth_service.dart';
 import '../../notebook/models/notebook_model.dart';
 import '../../notebook/services/notebook_service.dart';
@@ -551,16 +552,19 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
   Widget _formulaBubble(String tex, bool isDark, {bool isDisplay = true}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Math.tex(
-        tex.trim(),
-        mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
-        textStyle: TextStyle(
-          fontSize: isDisplay ? 16 : 14,
-          color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1A1A1A),
-        ),
-        onErrorFallback: (err) => Text(
-          tex,
-          style: const TextStyle(fontSize: 13, color: Color(0xFFDC2626)),
+      // 宽公式（长中文标签的分式等）横向滚动，不再撑破容器溢出
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Math.tex(
+          tex.trim(),
+          mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
+          textStyle: TextStyle(
+            fontSize: isDisplay ? 16 : 14,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.9)
+                : const Color(0xFF1A1A1A),
+          ),
+          onErrorFallback: (err) => const FormulaErrorPlaceholder(),
         ),
       ),
     );
