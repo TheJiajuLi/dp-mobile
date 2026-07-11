@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart' show DioException, Options, ResponseBody, ResponseType;
 
 import '../../../core/network/api_client.dart';
+import '../../auth/auth_service.dart';
+import '../../notebook/models/notebook_model.dart';
+import '../../notebook/services/notebook_service.dart';
 import '../models/ai_message_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -504,7 +508,12 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
       }
       if (m.group(2) != null) {
         final lang = (m.group(1) ?? '').trim();
-        widgets.add(_codeBubble(m.group(2) ?? '', lang.isEmpty ? 'code' : lang));
+        final code = m.group(2) ?? '';
+        widgets.add(_codeBubble(code, lang.isEmpty ? 'code' : lang));
+        final cellType = _notebookCellType(lang);
+        if (cellType != null) {
+          widgets.add(_runInNotebookButton(code, cellType));
+        }
       } else {
         final formula = m.group(3) ?? m.group(4) ?? m.group(5) ?? m.group(6) ?? '';
         final isDisplay = m.group(3) != null || m.group(5) != null;
@@ -621,6 +630,80 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 代码块「运行」——聊天页没有可复用的独立执行服务（Notebook 的 Python
+  // 执行是绑死在 NotebookEditorScreen 一个 State 里的 WebView+Pyodide
+  // JS桥接，不是能抽出来直接调的 service），与其在这里重新糊一套执行
+  // 环境，不如把这段代码存成一个新 Notebook 并跳转过去，用 Notebook
+  // 现成的环境跑——Python/SQL 跳过去是真的能运行，R/Julia 跳过去后跟
+  // 用户在 Notebook 首页自己新建一个 R/Julia cell 看到的一样，还是
+  // 「即将上线」，不会显得比原来更假
+  String? _notebookCellType(String lang) {
+    switch (lang.toLowerCase()) {
+      case 'python':
+      case 'py':
+        return 'python';
+      case 'sql':
+        return 'sql';
+      case 'r':
+        return 'r';
+      case 'julia':
+        return 'julia';
+      case 'javascript':
+      case 'js':
+        return 'javascript';
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _runInNotebook(String code, String cellType) async {
+    final user = ref.read(currentUserProvider);
+    final svc = NotebookService(user?.id ?? 'guest');
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final nb = Notebook(
+      id: 'nb_$now',
+      name: '小梦生成的代码',
+      lang: cellType == 'python' ? 'python' : 'mixed',
+      cells: [NotebookCell(id: 'cell_$now', type: cellType, code: code)],
+      createdAt: now ~/ 1000,
+      updatedAt: now ~/ 1000,
+    );
+    await svc.save(nb);
+    if (!mounted) return;
+    context.push('/notebook/${nb.id}');
+  }
+
+  Widget _runInNotebookButton(String code, String cellType) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: GestureDetector(
+        onTap: () => _runInNotebook(code, cellType),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: _primary,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.play_arrow, size: 14, color: Colors.white),
+              SizedBox(width: 4),
+              Text(
+                '在 Notebook 中运行',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
