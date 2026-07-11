@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +18,8 @@ import '../../features/auth/screens/switch_account_screen.dart';
 import '../../features/community/screens/community_screen.dart';
 import '../../features/column/screens/column_detail_screen.dart';
 import '../../features/community/screens/tutorial_detail_screen.dart';
+import '../../features/community/screens/tutorial_export_preview_screen.dart';
+import '../../features/community/screens/tutorial_export_progress_screen.dart';
 import '../../features/creator/screens/aurora_screen.dart';
 import '../../features/creator/screens/columns_screen.dart';
 import '../../features/creator/screens/creator_center_screen.dart';
@@ -345,6 +349,27 @@ final appRouter = GoRouter(
         return TutorialDetailScreen(
           tutorialId: state.pathParameters['id']!,
           scrollToCommentId: extra?['scrollToCommentId'] as String?,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/tutorial/export/progress',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>;
+        return TutorialExportProgressScreen(
+          tutorial: extra['tutorial'] as Map<String, dynamic>,
+          blocks: extra['blocks'] as List<dynamic>,
+          style: extra['style'] as String,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/tutorial/export/preview',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>;
+        return TutorialExportPreviewScreen(
+          bytes: extra['bytes'] as Uint8List,
+          title: extra['title'] as String,
         );
       },
     ),

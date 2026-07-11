@@ -15,6 +15,7 @@ import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
+import '../widgets/tutorial_export_sheet.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -356,6 +357,48 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
       );
     }
+  }
+
+  // "···"之前是纯占位 toast——顶部这一排本来就已经有收藏（真实）/分享
+  // （占位）两个独立按钮，这里不重复塞一遍，只加真正落地的"导出 PDF"，
+  // 不为了凑活截图 Demo 里的四项菜单去编一个不存在的"举报"功能
+  void _showMoreMenu() {
+    final tutorial = _tutorial;
+    if (tutorial == null) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(
+                  Icons.picture_as_pdf_outlined,
+                  color: _primary,
+                ),
+                title: const Text('导出 PDF'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showTutorialExportSheet(
+                    context,
+                    tutorial: tutorial,
+                    blocks: _blocks,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _toggleCommentLike(String commentId, StateSetter? sheetSetState) {
@@ -759,9 +802,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.more_horiz),
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.comingSoonStayTuned)),
-                ),
+                onPressed: _showMoreMenu,
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
