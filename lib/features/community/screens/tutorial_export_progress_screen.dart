@@ -38,12 +38,18 @@ class _TutorialExportProgressScreenState
   int _step = 0;
   bool _cancelled = false;
   Timer? _timer;
-  late final Future<Uint8List> _generateFuture;
+  Future<Uint8List>? _generateFuture;
 
   @override
   void initState() {
     super.initState();
-    _generateFuture = _generate();
+    // 关键：不要在 initState（build 阶段）里同步启动 _generate——它会往
+    // Overlay 里插一层离屏公式渲染，而在 build 阶段动 Overlay 会抛
+    // "setState()/markNeedsBuild() called during build"。推到首帧构建
+    // 结束后再启动，此刻框架已脱离 build 阶段，插 Overlay 安全
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _generateFuture ??= _generate();
+    });
     _timer = Timer.periodic(const Duration(milliseconds: 600), _onTick);
   }
 
@@ -81,7 +87,9 @@ class _TutorialExportProgressScreenState
   Future<void> _finish() async {
     Uint8List? bytes;
     try {
-      bytes = await _generateFuture;
+      // 正常情况下 postFrameCallback 早已把 _generateFuture 赋好；兜底一下
+      // 万一还没赋（极端时序），这里再启动一次
+      bytes = await (_generateFuture ??= _generate());
     } catch (e) {
       if (!mounted || _cancelled) return;
       ScaffoldMessenger.of(
