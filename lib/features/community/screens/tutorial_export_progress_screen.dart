@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../services/latex_image_renderer.dart';
 import '../services/tutorial_export_service.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -42,12 +43,25 @@ class _TutorialExportProgressScreenState
   @override
   void initState() {
     super.initState();
-    _generateFuture = buildTutorialPdfBytes(
+    _generateFuture = _generate();
+    _timer = Timer.periodic(const Duration(milliseconds: 600), _onTick);
+  }
+
+  // 先在当前 UI 上下文（有 Overlay）把公式离屏渲染成真实排版图片，再交给
+  // buildTutorialPdfBytes 嵌进 PDF。公式渲染必须有 Overlay/RepaintBoundary，
+  // 没法塞进纯后台的 buildTutorialPdfBytes 里，所以在这里先跑
+  Future<Uint8List> _generate() async {
+    final latexImages = await renderTutorialLatexImages(
+      context,
+      widget.blocks,
+      isDark: widget.style == 'dark',
+    );
+    return buildTutorialPdfBytes(
       tutorial: widget.tutorial,
       blocks: widget.blocks,
       style: widget.style,
+      latexImages: latexImages,
     );
-    _timer = Timer.periodic(const Duration(milliseconds: 600), _onTick);
   }
 
   @override

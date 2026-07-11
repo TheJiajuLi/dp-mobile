@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -79,10 +80,58 @@ Future<Map<String, Uint8List>> _preloadImages(List<dynamic> blocks) async {
   return result;
 }
 
+// 一块代码框（左细线+浅色底）。pdf 的 Container 不是 SpanningWidget，装不下
+// 当前页剩余空间时 MultiPage 会整块挪到下一页（keep-together）；但如果单块
+// 高度超过一整页，pdf 会直接抛 PdfException。所以调用方把长代码按行切成多
+// 块，每块都保证不超过一页——既不跨页截断、每页也都带完整样式、还不会崩
+pw.Widget _codeBox({
+  required String code,
+  required String language,
+  required bool isDark,
+  required PdfColor accentColor,
+  required pw.Font font,
+  required pw.Font boldFont,
+  required pw.EdgeInsets margin,
+}) {
+  return pw.Container(
+    margin: margin,
+    padding: const pw.EdgeInsets.fromLTRB(10, 8, 10, 8),
+    width: double.infinity,
+    decoration: pw.BoxDecoration(
+      color: isDark ? PdfColor.fromHex('1A1A2E') : PdfColor.fromHex('F8F8F8'),
+      border: pw.Border(left: pw.BorderSide(color: accentColor, width: 3)),
+    ),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        if (language.isNotEmpty) ...[
+          pw.Text(
+            language.toUpperCase(),
+            style: pw.TextStyle(font: boldFont, fontSize: 8, color: accentColor),
+          ),
+          pw.SizedBox(height: 4),
+        ],
+        pw.Text(
+          code,
+          style: pw.TextStyle(
+            font: font,
+            fontSize: 9,
+            color: isDark
+                ? PdfColor.fromHex('E0E0FF')
+                : PdfColor.fromHex('1A1A1A'),
+            lineSpacing: 3,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 Future<Uint8List> buildTutorialPdfBytes({
   required Map<String, dynamic> tutorial,
   required List<dynamic> blocks,
   required String style,
+  Map<String, Uint8List> latexImages = const {},
 }) async {
   final pdf = pw.Document();
   final isDark = style == 'dark';
@@ -171,80 +220,95 @@ Future<Uint8List> buildTutorialPdfBytes({
               break;
 
             case 'code':
-              // content 是空的话之前会画出一个只有语言标签、没有代码的空
-              // 深色框——看着像渲染坏了，其实是这个 block 本身就没有代码
-              // 内容，直接跳过不画，不留一个看着莫名其妙的空框
-              if (content.trim().isEmpty) break;
-              final language = block['language'] as String? ?? '';
-              // 去掉大面积深色底，改成左边细线+浅色底（深色页面下换成
-              // 更深一档的底色），更适合打印、更轻——跟公式块/quote/
-              // callout 用的是同一套"左边线强调"视觉语言，不再是单独一套
-              widgets.add(
-                pw.Container(
-                  margin: const pw.EdgeInsets.symmetric(vertical: 8),
-                  padding: const pw.EdgeInsets.fromLTRB(10, 8, 10, 8),
-                  width: double.infinity,
-                  decoration: pw.BoxDecoration(
-                    color: isDark
-                        ? PdfColor.fromHex('1A1A2E')
-                        : PdfColor.fromHex('F8F8F8'),
-                    border: pw.Border(
-                      left: pw.BorderSide(color: accentColor, width: 3),
-                    ),
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      if (language.isNotEmpty) ...[
-                        pw.Text(
-                          language.toUpperCase(),
-                          style: pw.TextStyle(
-                            font: boldFont,
-                            fontSize: 8,
-                            color: accentColor,
-                          ),
-                        ),
-                        pw.SizedBox(height: 4),
-                      ],
-                      pw.Text(
-                        content,
-                        style: pw.TextStyle(
-                          font: font,
-                          fontSize: 9,
-                          color: isDark
-                              ? PdfColor.fromHex('E0E0FF')
-                              : PdfColor.fromHex('1A1A1A'),
-                          lineSpacing: 3,
-                        ),
+              {
+                // content 是空的话之前会画出一个只有语言标签、没有代码的空
+                // 深色框——看着像渲染坏了，其实是这个 block 本身就没有代码
+                // 内容，直接跳过不画，不留一个看着莫名其妙的空框
+                if (content.trim().isEmpty) break;
+                final language = block['language'] as String? ?? '';
+                // keep-together：pdf 的 Container 不跨页，但单块超过一整页会
+                // 抛异常。按行切成每块 ≤40 行（远小于一页），每块都不跨页、
+                // 都带完整的"左细线+浅色底"样式，长代码自然分成连续几块流下
+                // 去，既不会截断成空框、也不会崩
+                final lines = content.split('\n');
+                const chunkSize = 40;
+                for (var start = 0; start < lines.length; start += chunkSize) {
+                  final end = math.min(start + chunkSize, lines.length);
+                  final isFirst = start == 0;
+                  final isLast = end >= lines.length;
+                  widgets.add(
+                    _codeBox(
+                      code: lines.sublist(start, end).join('\n'),
+                      // 只有第一块显示语言标签，后续续块不重复标签
+                      language: isFirst ? language : '',
+                      isDark: isDark,
+                      accentColor: accentColor,
+                      font: font,
+                      boldFont: boldFont,
+                      margin: pw.EdgeInsets.only(
+                        top: isFirst ? 8 : 0,
+                        bottom: isLast ? 8 : 0,
                       ),
-                    ],
-                  ),
-                ),
-              );
-              break;
+                    ),
+                  );
+                }
+                break;
+              }
 
             case 'latex':
-              // 去掉公式块的底色/边框——只剩纯文字，居中斜体，读起来更
-              // 纯净，不再是一块单独强调的高亮框。pdf 包没有 LaTeX 排版
-              // 引擎，画不出真正的数学公式，这里摆的还是公式原始文本
-              widgets.add(
-                pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 8),
-                  child: pw.Center(
-                    child: pw.Text(
-                      _stripLatexDelimiters(content),
-                      textAlign: pw.TextAlign.center,
-                      style: pw.TextStyle(
-                        font: font,
-                        fontSize: 12,
-                        color: isDark ? PdfColors.white : PdfColor.fromHex('4F46E5'),
-                        fontStyle: pw.FontStyle.italic,
+              {
+                // 优先用离屏渲染好的真实公式图片（renderTutorialLatexImages
+                // 里用 flutter_math_fork 排版成 PNG）——pdf 包没有 TeX 引擎，
+                // 这是唯一能得到真公式的路子。渲染失败/没有图时退回纯文本斜体
+                final rawLatex = block['content'] as String? ?? '';
+                final formulaBytes = latexImages[rawLatex];
+                if (formulaBytes != null) {
+                  final img = pw.MemoryImage(formulaBytes);
+                  final iw = img.width;
+                  final ih = img.height;
+                  if (iw != null && ih != null && iw > 0 && ih > 0) {
+                    // 图片像素 = 逻辑尺寸 × pixelRatio(3)，再按 96→72dpi 换成
+                    // PDF point；太宽就等比缩到正文宽度内（A4 减页边距 ≈515pt）
+                    var w = iw / 3.0 * 0.75;
+                    var h = ih / 3.0 * 0.75;
+                    const maxW = 515.0;
+                    if (w > maxW) {
+                      final s = maxW / w;
+                      w *= s;
+                      h *= s;
+                    }
+                    widgets.add(
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 8),
+                        child: pw.Center(
+                          child: pw.Image(img, width: w, height: h),
+                        ),
+                      ),
+                    );
+                    break;
+                  }
+                }
+                widgets.add(
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(vertical: 8),
+                    child: pw.Center(
+                      child: pw.Text(
+                        _stripLatexDelimiters(content),
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 12,
+                          color: isDark
+                              ? PdfColors.white
+                              : PdfColor.fromHex('4F46E5'),
+                          fontStyle: pw.FontStyle.italic,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-              break;
+                );
+                break;
+              }
 
             case 'image':
               final imageUrl = block['imageUrl'] as String? ?? '';
