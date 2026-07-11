@@ -659,11 +659,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 整页背景直接用 cardColor（纯白/深色卡片色），跟顶部条和内容区一致——
+      // 之前用 scaffoldBackgroundColor（偏灰），上下拉过头 overscroll 时会露出
+      // 一截灰色，跟白色内容割裂
+      backgroundColor: Theme.of(context).cardColor,
       // 顶部条不套 SafeArea，改成手动加状态栏高度的 padding——SafeArea
-      // 会把整个 Column 往下推，露出状态栏那一截 scaffoldBackgroundColor
-      // （偏灰）跟下面 cardColor（纯白）的顶部条不是同一个颜色，看起来
-      // 像多了一条灰边。让 cardColor 背景直接铺到最顶上，只把内容往下推
+      // 会把整个 Column 往下推。现在背景统一成 cardColor，顶部/底部 overscroll
+      // 都是同一个颜色，不会再出现灰边
       body: !_loaded
           ? const Center(child: CircularProgressIndicator(color: _primary))
           : Column(
