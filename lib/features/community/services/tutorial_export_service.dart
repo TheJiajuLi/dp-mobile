@@ -14,14 +14,6 @@ import 'package:share_plus/share_plus.dart' show Share;
 // callout 这几种真实值（不是 header/math/formula/paragraph 这些猜的）。
 // 这里的渲染分支照抄阅读视角那份的 switch，保证导出效果跟正式阅读页
 // 看到的一致，不会各画各的
-class TutorialPdfStyle {
-  final String key; // clean / dark / brand
-  const TutorialPdfStyle(this.key);
-
-  bool get isDark => key == 'dark';
-  bool get isBrand => key == 'brand';
-}
-
 List<dynamic> parseTutorialBlocks(dynamic raw) {
   if (raw is String) {
     try {
@@ -94,13 +86,12 @@ Future<Uint8List> buildTutorialPdfBytes({
 }) async {
   final pdf = pw.Document();
   final isDark = style == 'dark';
-  final isBrand = style == 'brand';
 
   final bgColor = isDark ? PdfColor.fromHex('0A0A1A') : PdfColors.white;
   final textColor = isDark ? PdfColors.white : PdfColor.fromHex('1A1A1A');
   final mutedColor = isDark ? PdfColors.grey400 : PdfColors.grey600;
-  // 简洁样式不带品牌紫色，用中性灰；深色/极梦都保留紫色强调色（深色底下
-  // 紫色本来就是唯一亮色，不能去掉，不然公式框/代码语言标签没法跟正文
+  // 简洁样式不带紫色，用中性灰；深色样式保留紫色强调色（深色底下紫色
+  // 本来就是唯一亮色，不能去掉，不然代码块左边线/语言标签没法跟正文
   // 区分开）
   final accentColor = style == 'clean'
       ? PdfColors.grey700
@@ -133,33 +124,6 @@ Future<Uint8List> buildTutorialPdfBytes({
       ),
       build: (context) {
         final widgets = <pw.Widget>[];
-
-        // 极梦品牌头部——紫色线 + Logo 文案，只在"极梦"样式下出现；
-        // 简洁/深色样式不带这条，避免三种样式看起来都一样
-        if (isBrand) {
-          widgets.add(
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  '极梦 DreamingPolar',
-                  style: pw.TextStyle(
-                    font: boldFont,
-                    fontSize: 10,
-                    color: accentColor,
-                  ),
-                ),
-                pw.Text(
-                  '第 ${context.pageNumber} 页 / 共 ${context.pagesCount} 页',
-                  style: pw.TextStyle(font: font, fontSize: 8, color: mutedColor),
-                ),
-              ],
-            ),
-          );
-          widgets.add(pw.SizedBox(height: 10));
-          widgets.add(pw.Divider(color: accentColor, thickness: 1.5));
-          widgets.add(pw.SizedBox(height: 14));
-        }
 
         widgets.add(
           pw.Text(
@@ -212,103 +176,71 @@ Future<Uint8List> buildTutorialPdfBytes({
               // 内容，直接跳过不画，不留一个看着莫名其妙的空框
               if (content.trim().isEmpty) break;
               final language = block['language'] as String? ?? '';
-              // 头部（语言标签）和代码正文拆成两个独立 Container，不再
-              // 用一个大 Container 把两者包一起——注意：这不代表代码块
-              // 从此能在 MultiPage 里跨页续接。查过 pdf 包源码
-              // （multi_page.dart）：Container 没有实现 SpanningWidget，
-              // 一个非 spanning widget 放不下当前页剩余空间时，是整体
-              // 挪到下一页重排（或者高度超过整页直接抛异常），不是被截断
-              // 一半。所以之前截图里"第1页空代码框、第2页代码变成纯文字"
-              // 的现象，更可能是这篇文章的 blocks 数据本身就有一个内容
-              // 为空的 code block，后面紧跟着一个把代码当纯文字存的
-              // text block——不是分页机制的问题，拆两个 Container 解决
-              // 不了这一类数据问题，只是让排版结构更干净
+              // 去掉大面积深色底，改成左边细线+浅色底（深色页面下换成
+              // 更深一档的底色），更适合打印、更轻——跟公式块/quote/
+              // callout 用的是同一套"左边线强调"视觉语言，不再是单独一套
               widgets.add(
                 pw.Container(
-                  margin: const pw.EdgeInsets.only(top: 6),
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  margin: const pw.EdgeInsets.symmetric(vertical: 8),
+                  padding: const pw.EdgeInsets.fromLTRB(10, 8, 10, 8),
                   width: double.infinity,
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('1E1E2E'),
-                    borderRadius: const pw.BorderRadius.only(
-                      topLeft: pw.Radius.circular(6),
-                      topRight: pw.Radius.circular(6),
+                    color: isDark
+                        ? PdfColor.fromHex('1A1A2E')
+                        : PdfColor.fromHex('F8F8F8'),
+                    border: pw.Border(
+                      left: pw.BorderSide(color: accentColor, width: 3),
                     ),
                   ),
-                  child: pw.Text(
-                    language.isEmpty ? 'CODE' : language,
-                    style: pw.TextStyle(
-                      font: font,
-                      fontSize: 8,
-                      color: PdfColor.fromHex('9B9EF8'),
-                    ),
-                  ),
-                ),
-              );
-              widgets.add(
-                pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 6),
-                  padding: const pw.EdgeInsets.all(10),
-                  width: double.infinity,
-                  color: PdfColor.fromHex('282840'),
-                  child: pw.Text(
-                    content,
-                    style: pw.TextStyle(
-                      font: font,
-                      fontSize: 9,
-                      color: PdfColor.fromHex('E0E0FF'),
-                      lineSpacing: 3,
-                    ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      if (language.isNotEmpty) ...[
+                        pw.Text(
+                          language.toUpperCase(),
+                          style: pw.TextStyle(
+                            font: boldFont,
+                            fontSize: 8,
+                            color: accentColor,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                      ],
+                      pw.Text(
+                        content,
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 9,
+                          color: isDark
+                              ? PdfColor.fromHex('E0E0FF')
+                              : PdfColor.fromHex('1A1A1A'),
+                          lineSpacing: 3,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
               break;
 
             case 'latex':
+              // 去掉公式块的底色/边框——只剩纯文字，居中斜体，读起来更
+              // 纯净，不再是一块单独强调的高亮框。pdf 包没有 LaTeX 排版
+              // 引擎，画不出真正的数学公式，这里摆的还是公式原始文本
               widgets.add(
-                pw.Container(
-                  margin: const pw.EdgeInsets.symmetric(vertical: 6),
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  width: double.infinity,
-                  // pdf 包的 BoxDecoration 不允许非均匀 border（只设左边框）
-                  // 同时给 borderRadius——两个一起会在渲染时断言失败
-                  // "A borderRadius can only be given for a uniform Border"，
-                  // 保留左边框设计，去掉圆角
-                  decoration: pw.BoxDecoration(
-                    color: isDark
-                        ? PdfColor.fromHex('1A1829')
-                        : PdfColor.fromHex('F5F5FF'),
-                    border: pw.Border(
-                      left: pw.BorderSide(color: accentColor, width: 3),
+                pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 8),
+                  child: pw.Center(
+                    child: pw.Text(
+                      _stripLatexDelimiters(content),
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        font: font,
+                        fontSize: 12,
+                        color: isDark ? PdfColors.white : PdfColor.fromHex('4F46E5'),
+                        fontStyle: pw.FontStyle.italic,
+                      ),
                     ),
-                  ),
-                  // pdf 包没有 LaTeX 排版引擎，画不出真正的数学公式，
-                  // 只能把公式原始文本摆出来——加一行"[ 数学公式 ]"标签
-                  // 说明这是公式的文字表示，不是没渲染成功
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        '[ 数学公式 ]',
-                        style: pw.TextStyle(
-                          font: boldFont,
-                          fontSize: 8,
-                          color: accentColor,
-                        ),
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        _stripLatexDelimiters(content),
-                        textAlign: pw.TextAlign.center,
-                        style: pw.TextStyle(font: font, fontSize: 11, color: accentColor),
-                      ),
-                    ],
                   ),
                 ),
               );

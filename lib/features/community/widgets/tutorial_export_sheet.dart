@@ -29,7 +29,7 @@ class _ExportSheet extends StatefulWidget {
 
 class _ExportSheetState extends State<_ExportSheet> {
   String _format = 'pdf';
-  String _style = 'brand';
+  String _style = 'clean';
 
   @override
   Widget build(BuildContext context) {
@@ -119,13 +119,6 @@ class _ExportSheetState extends State<_ExportSheet> {
                   color: const Color(0xFF1A1A2E),
                   selected: _style == 'dark',
                   onTap: () => setState(() => _style = 'dark'),
-                ),
-                const SizedBox(width: 8),
-                _StyleOpt(
-                  name: '极梦',
-                  color: const Color(0xFF6366F1),
-                  selected: _style == 'brand',
-                  onTap: () => setState(() => _style = 'brand'),
                 ),
               ],
             ),
