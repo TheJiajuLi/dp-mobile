@@ -16,6 +16,7 @@ import '../../../shared/widgets/tutorial_block_renderer.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
 import '../widgets/tutorial_export_sheet.dart';
+import '../widgets/tutorial_share_sheet.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -359,9 +360,18 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     }
   }
 
+  // 顶部/底部两处"分享"图标之前都是占位 toast，现在都指向同一个真实的
+  // 分享 Sheet
+  void _showShare() {
+    final tutorial = _tutorial;
+    if (tutorial == null) return;
+    showTutorialShareSheet(context, tutorial);
+  }
+
   // "···"之前是纯占位 toast——顶部这一排本来就已经有收藏（真实）/分享
-  // （占位）两个独立按钮，这里不重复塞一遍，只加真正落地的"导出 PDF"，
-  // 不为了凑活截图 Demo 里的四项菜单去编一个不存在的"举报"功能
+  // （现在也真实了）两个独立按钮，这里不重复塞一遍，只加真正落地的
+  // "导出 PDF"，不为了凑活截图 Demo 里的四项菜单去编一个不存在的
+  // "举报"功能
   void _showMoreMenu() {
     final tutorial = _tutorial;
     if (tutorial == null) return;
@@ -796,9 +806,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.share_outlined),
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.comingSoonStayTuned)),
-                ),
+                onPressed: _showShare,
               ),
               IconButton(
                 icon: const Icon(Icons.more_horiz),
@@ -1182,9 +1190,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 ),
                 const SizedBox(width: 16),
                 GestureDetector(
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.comingSoonStayTuned)),
-                  ),
+                  onTap: _showShare,
                   child: const Icon(
                     Icons.share_outlined,
                     color: Colors.grey,

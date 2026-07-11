@@ -44,6 +44,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>极梦需要访问相册以导入图片</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>极梦需要访问相册以保存分享海报</string>
 	<key>NSCameraUsageDescription</key>
 	<string>极梦需要访问相机以拍摄头像</string>
 	<key>LSApplicationQueriesSchemes</key>

@@ -20,6 +20,7 @@ import '../../features/column/screens/column_detail_screen.dart';
 import '../../features/community/screens/tutorial_detail_screen.dart';
 import '../../features/community/screens/tutorial_export_preview_screen.dart';
 import '../../features/community/screens/tutorial_export_progress_screen.dart';
+import '../../features/community/screens/tutorial_poster_screen.dart';
 import '../../features/creator/screens/aurora_screen.dart';
 import '../../features/creator/screens/columns_screen.dart';
 import '../../features/creator/screens/creator_center_screen.dart';
@@ -372,6 +373,12 @@ final appRouter = GoRouter(
           title: extra['title'] as String,
         );
       },
+    ),
+    GoRoute(
+      path: '/tutorial/poster',
+      builder: (context, state) => TutorialPosterScreen(
+        tutorial: state.extra as Map<String, dynamic>,
+      ),
     ),
     GoRoute(
       path: '/columns/:id',

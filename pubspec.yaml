@@ -53,6 +53,7 @@ dependencies:
   video_thumbnail: ^0.5.3
   pdf: ^3.13.0
   printing: ^5.15.0
+  gal: ^2.3.2
 
 dev_dependencies:
   flutter_test:
