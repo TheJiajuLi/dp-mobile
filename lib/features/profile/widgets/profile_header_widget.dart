@@ -171,10 +171,6 @@ class ProfileHeaderWidget extends StatelessWidget {
                         onToggleTheme,
                       ),
                       _heroIconButton(
-                        Icons.people_outline,
-                        () => context.push('/friends'),
-                      ),
-                      _heroIconButton(
                         Icons.settings_outlined,
                         () => context.push('/settings'),
                       ),
