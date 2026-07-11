@@ -1246,8 +1246,14 @@ finally:
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // 顶部栏/底部工具栏之前写死用 cardColor（浅色下是纯白），中间 Cell
+    // 列表画布走的是 Scaffold 自己的 scaffoldBackgroundColor（浅色下是
+    // 偏灰的 #F7F7FB）——两个颜色不一样，顶栏/底栏跟画布之间有一条不易
+    // 察觉但确实存在的接缝，暗色下更明显。跟论坛主页那次一样，统一改用
+    // scaffoldBackgroundColor，不再另起一个颜色
+    final bg = Theme.of(context).scaffoldBackgroundColor;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: bg,
       body: Stack(
         children: [
           SafeArea(
@@ -1255,7 +1261,7 @@ finally:
               children: [
                 // 顶部栏
                 Container(
-                  color: Theme.of(context).cardColor,
+                  color: bg,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 10,
@@ -1386,7 +1392,7 @@ finally:
 
                 // 底部工具栏
                 Container(
-                  color: Theme.of(context).cardColor,
+                  color: bg,
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
