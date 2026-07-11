@@ -366,17 +366,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     // "最新动态"里，点击跳问题详情（之前重构成汇总卡布局时误把
     // invite_answer/answer_posted 一起过滤掉了，导致 answer_posted 完全
     // 找不到地方点开——2026-07-10 修复，只过滤 invite_answer 一个）
-    // group_message_mention/forum_reply 这两类改成只在消息页对应的
-    // 群组/论坛 Tab 里看，通知中心不再重复展示——openNotificationTarget
-    // 和 _typeIcon/_typeColor 里对应的 case 不需要跟着删，消息首页
-    // "最近通知"预览区（messages_screen.dart）读的是同一份
-    // notificationsProvider 缓存，那边仍然可能用到这两个 case
+    // forum_reply（论坛普通回复）过滤掉，只在论坛自己的帖子详情页里看；
+    // group_message_mention 反过来要保留——上一轮连它也过滤掉了，但这个
+    // 类型本来就只在群聊里真的 @ 了你才会触发（不是群里随便一条消息都
+    // 发），属于"该通知"的范畴，跟"群里有新消息但没人@我"不是一回事，
+    // 不应该被当成普通群消息一起滤掉
     final feed = notifications
         .where(
           (n) =>
               n.type != 'invite_answer' &&
               n.type != 'mention' &&
-              n.type != 'group_message_mention' &&
               n.type != 'forum_reply',
         )
         .toList();
