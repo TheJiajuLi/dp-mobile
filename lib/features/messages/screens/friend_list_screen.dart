@@ -363,6 +363,7 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -394,17 +395,41 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: (v) => setState(() => _query = v),
-                decoration: InputDecoration(
-                  hintText: l10n.searchUserPlaceholder,
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  filled: true,
-                  isDense: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+              // filled:true 没配 fillColor，之前一直是吃全局主题的
+              // fillColor（浅色 #F5F5F5），跟这个页面 Scaffold 自己的
+              // scaffoldBackgroundColor（浅色 #F7F7FB）几乎是同一个灰度，
+              // 浅色模式下框和背景快融在一起，看不清——换成跟
+              // search_screen.dart/group_chat_screen.dart 搜索框同一套
+              // 视觉语言：外层 Container 给一个明显更深的灰色胶囊底，
+              // TextField 自己 filled:false 不再吃主题灰
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : const Color(0xFFE8E8ED),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _query = v),
+                  decoration: InputDecoration(
+                    hintText: l10n.searchUserPlaceholder,
+                    hintStyle: TextStyle(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.35)
+                          : Colors.grey[600],
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      size: 20,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : Colors.grey[600],
+                    ),
+                    filled: false,
+                    isDense: true,
+                    border: InputBorder.none,
                   ),
                 ),
               ),
