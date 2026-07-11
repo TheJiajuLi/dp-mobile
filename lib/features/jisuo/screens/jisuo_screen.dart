@@ -369,15 +369,20 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   }
 
   // 问题列表顶部的"问问小梦"入口条——跟页面最上面 _buildXiaoMeng() 那个
-  // 输入框卡片是两个不同位置的入口，都指向同一个真实的 /xiaomeng
+  // 输入框卡片是两个不同位置的入口，都指向同一个真实的 /xiaomeng。之前
+  // 底色/文字是写死的浅色（EEF0FF+靛蓝字），深色模式下变成一块亮卡片
+  // 糊在纯黑页面里，很突兀——按 _buildXiaoMeng() 那张卡片已经定好的深色
+  // 配色（0xFF0D0A1E底+靛蓝描边）在深色模式下同款处理，两处入口才是
+  // 同一套"小梦"视觉语言
   Widget _buildXiaomengEntry() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => context.push('/xiaomeng'),
       child: Container(
         margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFEEF0FF),
+          color: isDark ? const Color(0xFF0D0A1E) : const Color(0xFFEEF0FF),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: const Color(0xFF6366F1).withValues(alpha: 0.3),
@@ -405,13 +410,24 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
                 '问问小梦，AI 直接给你答案',
-                style: TextStyle(fontSize: 13, color: Color(0xFF4F46E5)),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.85)
+                      : const Color(0xFF4F46E5),
+                ),
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF6366F1)),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 12,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.5)
+                  : const Color(0xFF6366F1),
+            ),
           ],
         ),
       ),
@@ -540,7 +556,10 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
+  // 底色同样是写死的浅色，深色模式下也糊成一块亮标签——同 _buildXiaomengEntry()
+  // 一并按 _buildXiaoMeng() 的深色配色处理
   Widget _buildJmDivider(String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       child: Row(
@@ -556,7 +575,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF0FF),
+                color: isDark ? const Color(0xFF0D0A1E) : const Color(0xFFEEF0FF),
                 borderRadius: BorderRadius.circular(99),
                 border: Border.all(
                   color: const Color(0xFF6366F1).withValues(alpha: 0.3),
@@ -569,10 +588,12 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                   const SizedBox(width: 4),
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF6366F1),
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.85)
+                          : const Color(0xFF6366F1),
                     ),
                   ),
                 ],
