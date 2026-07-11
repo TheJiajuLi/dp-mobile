@@ -337,8 +337,13 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
   }
 
   Widget _buildInputBar(bool isDark) {
+    // 底部栏之前用 cardColor，跟 Scaffold 自己的 scaffoldBackgroundColor
+    // 不是一个颜色，页面和底部栏之间有接缝——按老规矩统一成
+    // scaffoldBackgroundColor。输入框内部的胶囊之前吃的是全局主题
+    // inputDecorationTheme.fillColor，跟底部栏原来的 cardColor 太接近，
+    // 灰蒙蒙糊在一起看不清——换成好友页搜索框同款、明显更深一档的胶囊底
     return Container(
-      color: Theme.of(context).cardColor,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -349,7 +354,9 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 100),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).inputDecorationTheme.fillColor,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE8E8ED),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: TextField(
@@ -360,6 +367,7 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                     onSubmitted: (_) => _submitInput(),
                     decoration: const InputDecoration(
                       hintText: '直接开始对话...',
+                      filled: false,
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 14,

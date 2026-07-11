@@ -561,7 +561,7 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
 
   Widget _buildToolbar(bool isDark) {
     return Container(
-      color: Theme.of(context).cardColor,
+      color: Theme.of(context).scaffoldBackgroundColor,
       padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
       child: Row(
         children: [
@@ -594,8 +594,13 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
   }
 
   Widget _buildInputBar(bool isDark) {
+    // 工具栏/输入栏之前都用 cardColor，跟消息列表所在的
+    // scaffoldBackgroundColor 不是一个颜色——按老规矩统一。输入框内部的
+    // 胶囊之前吃全局 inputDecorationTheme.fillColor，跟 cardColor 太接近，
+    // 灰蒙蒙糊在一起，换成好友页搜索框同款更深一档的胶囊底，TextField
+    // 自己要显式 filled:false，不然还是会被全局主题的填充色盖住
     return Container(
-      color: Theme.of(context).cardColor,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -606,7 +611,9 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 100),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).inputDecorationTheme.fillColor,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE8E8ED),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: TextField(
@@ -618,6 +625,7 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
                     onSubmitted: (_) => _send(),
                     decoration: const InputDecoration(
                       hintText: '问小梦任何问题...',
+                      filled: false,
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 14,
