@@ -1,8 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart' show Options;
+import 'package:dio/dio.dart' show DioException, Options, ResponseBody, ResponseType;
 
 import '../../../core/network/api_client.dart';
 import '../models/ai_message_model.dart';
@@ -96,11 +98,18 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
     });
   }
 
+  // 真实接口 POST /auth/xmeng/chat/stream——跟 conversations 系列共用同一张
+  // ai_conversations/ai_messages 表，只是响应换成 SSE：data: {"type":"meta"
+  // |"chunk"|"done"|"error", ...}。用 apiClientProvider 内部现成的 Dio 实例
+  // （ResponseType.stream）发起，不额外引入 http 包——这样 Authorization
+  // 头、cookie、403刷新重试这些拦截器逻辑照样生效，不用像最初的
+  // demo 代码那样自己再手动读一遍 token
   Future<void> _send([String? overrideText]) async {
     final text = (overrideText ?? _inputCtrl.text).trim();
     if (text.isEmpty || _sending) return;
     _inputCtrl.clear();
 
+    const streamingId = 'streaming';
     setState(() {
       _sending = true;
       _messages.add(
@@ -111,49 +120,106 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
           createdAt: DateTime.now().millisecondsSinceEpoch,
         ),
       );
+      _messages.add(
+        const AiMessage(
+          id: streamingId,
+          role: 'assistant',
+          content: '',
+          createdAt: 0,
+        ),
+      );
     });
     _scrollToBottom();
 
-    final path = _conversationId == null
-        ? '/auth/xmeng/conversations'
-        : '/auth/xmeng/conversations/$_conversationId/messages';
-    // 小梦聊天真实耗时经常超过 Dio 默认的 10 秒 receiveTimeout——只给这一
-    // 个请求单独放宽，不动全局默认值影响其它接口，跟 _aiGenerateAvatar
-    // 那次同样的处理
-    final res = await ref
-        .read(apiClientProvider)
-        .post(
-          path,
-          data: {'message': text},
-          options: Options(receiveTimeout: const Duration(seconds: 90)),
-        );
-    if (!mounted) return;
-
-    if (!res.success || res.data is! Map) {
+    void appendChunk(String chunk) {
+      if (!mounted) return;
       setState(() {
-        _messages.removeLast();
+        final i = _messages.indexWhere((m) => m.id == streamingId);
+        if (i == -1) return;
+        _messages[i] = AiMessage(
+          id: streamingId,
+          role: 'assistant',
+          content: _messages[i].content + chunk,
+          createdAt: _messages[i].createdAt,
+        );
+      });
+      _scrollToBottom();
+    }
+
+    void removePlaceholder() {
+      _messages.removeWhere((m) => m.id == streamingId);
+    }
+
+    try {
+      final response = await ref
+          .read(apiClientProvider)
+          .dio
+          .post(
+            '/auth/xmeng/chat/stream',
+            data: {
+              'message': text,
+              if (_conversationId != null) 'conversationId': _conversationId,
+            },
+            options: Options(
+              responseType: ResponseType.stream,
+              receiveTimeout: const Duration(seconds: 120),
+            ),
+          );
+
+      final body = response.data as ResponseBody;
+      final lines = body.stream
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+
+      String? errorMessage;
+      await for (final line in lines) {
+        if (!mounted) return;
+        if (!line.startsWith('data:')) continue;
+        final jsonStr = line.substring(5).trim();
+        if (jsonStr.isEmpty) continue;
+        final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+        switch (data['type']) {
+          case 'meta':
+          case 'done':
+            _conversationId =
+                data['conversationId']?.toString() ?? _conversationId;
+            break;
+          case 'chunk':
+            appendChunk(data['text']?.toString() ?? '');
+            break;
+          case 'error':
+            errorMessage = data['message']?.toString() ?? '小梦暂时休息中，请稍后再试';
+            break;
+        }
+      }
+      if (!mounted) return;
+      if (errorMessage != null) {
+        setState(() {
+          removePlaceholder();
+          _sending = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+        return;
+      }
+      setState(() => _sending = false);
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        removePlaceholder();
         _sending = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res.message ?? '小梦暂时休息中，请稍后再试')),
-      );
-      return;
-    }
-
-    final data = res.data as Map;
-    setState(() {
-      _conversationId = data['conversationId']?.toString() ?? _conversationId;
-      _messages.add(
-        AiMessage(
-          id: 'local-${DateTime.now().microsecondsSinceEpoch}-a',
-          role: 'assistant',
-          content: data['reply']?.toString() ?? '',
-          createdAt: DateTime.now().millisecondsSinceEpoch,
+        SnackBar(
+          content: Text(e.response?.data is Map
+              ? ((e.response!.data as Map)['message']?.toString() ??
+                  '小梦暂时休息中，请稍后再试')
+              : '小梦暂时休息中，请稍后再试'),
         ),
       );
-      _sending = false;
-    });
-    _scrollToBottom();
+    }
   }
 
   void _showMenu() {
@@ -417,8 +483,18 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
   // 渲染，不是整段当纯文字丢进一个气泡。极梦相关文章那种"引用卡片"是
   // Demo 里的装饰性元素，没有对应的真实数据来源（后端回复只有一个纯
   // 文本 reply 字段，没有引用了哪篇文章的结构化信息），没有做
+  // 模型实际回复里公式不止 $$...$$ 一种写法——真实见过 \[...\]（行间）、
+  // \(...\)（行内）、$$...$$（行间）、$...$（行内）四种都在用，只认
+  // $$ 会把另外三种原样漏成文字。$...$ 那条不允许跨行/不允许内容为空，
+  // 是为了不误吞代码块里孤立的美元符号
   List<Widget> _buildContent(String content, bool isDark) {
-    final regex = RegExp(r'```(\w*)\n([\s\S]*?)```|\$\$([\s\S]*?)\$\$');
+    final regex = RegExp(
+      r'```(\w*)\n([\s\S]*?)```'
+      r'|\\\[([\s\S]*?)\\\]'
+      r'|\\\(([\s\S]*?)\\\)'
+      r'|\$\$([\s\S]*?)\$\$'
+      r'|\$([^\$\n]+)\$',
+    );
     final widgets = <Widget>[];
     var last = 0;
     for (final m in regex.allMatches(content)) {
@@ -429,8 +505,10 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
       if (m.group(2) != null) {
         final lang = (m.group(1) ?? '').trim();
         widgets.add(_codeBubble(m.group(2) ?? '', lang.isEmpty ? 'code' : lang));
-      } else if (m.group(3) != null) {
-        widgets.add(_formulaBubble(m.group(3) ?? '', isDark));
+      } else {
+        final formula = m.group(3) ?? m.group(4) ?? m.group(5) ?? m.group(6) ?? '';
+        final isDisplay = m.group(3) != null || m.group(5) != null;
+        widgets.add(_formulaBubble(formula, isDark, isDisplay: isDisplay));
       }
       last = m.end;
     }
@@ -458,7 +536,7 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
     );
   }
 
-  Widget _formulaBubble(String tex, bool isDark) {
+  Widget _formulaBubble(String tex, bool isDark, {bool isDisplay = true}) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(12),
@@ -468,8 +546,9 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
       ),
       child: Math.tex(
         tex.trim(),
+        mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
         textStyle: TextStyle(
-          fontSize: 15,
+          fontSize: isDisplay ? 16 : 14,
           color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1A1A1A),
         ),
         onErrorFallback: (err) => Text(
