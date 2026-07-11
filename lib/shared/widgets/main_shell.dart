@@ -4,7 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/widgets/founding_badge.dart';
 import '../../features/auth/auth_service.dart';
@@ -63,7 +62,10 @@ class MainShell extends ConsumerWidget {
       body: navigationShell,
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : AppColors.bg,
+          // 直接读 scaffoldBackgroundColor（会被 AnimatedTheme 平滑插值），
+          // 跟页面主体用同一个源、同一条动画曲线，切主题时底部栏边缘不再
+          // "慢半拍"snap。稳态值跟原来完全一致：浅色 #F7F7FB / 深色 #1C1C1E
+          color: Theme.of(context).scaffoldBackgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           // 深色模式底部bar跟页面内容看起来是"一体的"（没有阴影），浅色
           // 模式之前留了一圈阴影，页面内容和底部bar之间露出一条看得出来的
@@ -86,7 +88,6 @@ class MainShell extends ConsumerWidget {
                     activeIcon: Icons.explore,
                     label: l10n.navCommunity,
                     selected: navigationShell.currentIndex == 0,
-                    isDark: isDark,
                     onTap: () => _onTap(0),
                   ),
                   // 极索——替代原来发现tab的位置，小梦AI入口+应用宫格+
@@ -96,11 +97,9 @@ class MainShell extends ConsumerWidget {
                         _JisuoIcon(selected: selected),
                     label: '极索',
                     selected: navigationShell.currentIndex == 1,
-                    isDark: isDark,
                     onTap: () => _onTap(1),
                   ),
                   _PublishButton(
-                    isDark: isDark,
                     onTap: () => context.push('/publish'),
                   ),
                   Consumer(
@@ -112,7 +111,6 @@ class MainShell extends ConsumerWidget {
                         label: l10n.messagesTitle,
                         selected: navigationShell.currentIndex == 2,
                         badgeCount: unread,
-                        isDark: isDark,
                         onTap: () => _onTap(2),
                       );
                     },
@@ -122,7 +120,6 @@ class MainShell extends ConsumerWidget {
                     activeIcon: Icons.person,
                     label: l10n.navProfile,
                     selected: navigationShell.currentIndex == 3,
-                    isDark: isDark,
                     onTap: () => _onTap(3),
                   ),
                 ],
@@ -372,7 +369,6 @@ class _NavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final int badgeCount;
-  final bool isDark;
 
   const _NavItem({
     this.icon,
@@ -381,15 +377,16 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    required this.isDark,
     this.badgeCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = isDark
-        ? (selected ? Colors.white : Colors.white38)
-        : (selected ? AppColors.textPrimary : AppColors.textMuted);
+    // 从 ColorScheme 取色而不是用 isDark 二选一硬编码——onSurface 会被
+    // AnimatedTheme 平滑插值（浅色≈近黑 / 深色≈近白），切主题时图标文字
+    // 跟着一起渐变，不再在动画中点突然翻转
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final color = selected ? onSurface : onSurface.withValues(alpha: 0.45);
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
@@ -428,23 +425,24 @@ class _NavItem extends StatelessWidget {
 
 class _PublishButton extends StatelessWidget {
   final VoidCallback onTap;
-  final bool isDark;
-  const _PublishButton({required this.onTap, required this.isDark});
+  const _PublishButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    // 用 ColorScheme 的 primary/onPrimary（会被 AnimatedTheme 平滑插值），
+    // M3 保证两种主题下前景/背景对比度都达标，切主题时按钮跟着一起渐变，
+    // 不再在动画中点硬跳。稳态色由主题色板决定（品牌紫系）
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          // 深色主题下导航条本身已经很暗，继续用近黑色块对比度太低，
-          // 换成品牌紫；浅色主题维持原来的近黑色不变
-          color: isDark ? const Color(0xFF6366F1) : AppColors.textPrimary,
+          color: cs.primary,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(Icons.add, color: Colors.white, size: 24),
+        child: Icon(Icons.add, color: cs.onPrimary, size: 24),
       ),
     );
   }
