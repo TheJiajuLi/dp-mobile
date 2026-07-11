@@ -37,6 +37,20 @@ List<dynamic> parseTutorialBlocks(dynamic raw) {
 String _stripLatexDelimiters(String content) =>
     content.replaceAll(r'$$', '').trim();
 
+// NotoSansSC 和数学符号 fallback 字体都不覆盖 emoji（🌟 这类），渲染时
+// 一样缺字形——不像上标符号那样能找专门字体兜底，emoji 字形本身就没打算
+// 让这两个字体覆盖，直接在渲染前过滤掉。只用在 PDF 导出，Markdown 导出
+// 不受字体限制，不应用这个过滤，emoji 原样保留
+String _stripEmoji(String text) {
+  return text.replaceAll(
+    RegExp(
+      r'[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]',
+      unicode: true,
+    ),
+    '',
+  );
+}
+
 String _formatDate(dynamic ts) {
   if (ts == null) return '';
   final seconds = ts is num ? ts.toInt() : int.tryParse(ts.toString()) ?? 0;
@@ -100,7 +114,7 @@ Future<Uint8List> buildTutorialPdfBytes({
   final mathFont = await PdfGoogleFonts.notoSansMathRegular();
   final images = await _preloadImages(blocks);
 
-  final title = tutorial['title']?.toString() ?? '';
+  final title = _stripEmoji(tutorial['title']?.toString() ?? '');
   final author = tutorial['username']?.toString() ?? '';
   final dateStr = _formatDate(tutorial['created_at']);
 
@@ -172,7 +186,7 @@ Future<Uint8List> buildTutorialPdfBytes({
           if (raw is! Map) continue;
           final block = Map<String, dynamic>.from(raw);
           final type = block['type'] as String? ?? 'text';
-          final content = block['content'] as String? ?? '';
+          final content = _stripEmoji(block['content'] as String? ?? '');
 
           switch (type) {
             case 'heading':
