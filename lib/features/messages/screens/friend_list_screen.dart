@@ -672,21 +672,9 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
         ],
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                l10n.allFriendsCountLabel(friends.length),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                l10n.onlineStatusComingSoon,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ],
+          child: Text(
+            l10n.allFriendsCountLabel(friends.length),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ),
         if (friends.isEmpty)
