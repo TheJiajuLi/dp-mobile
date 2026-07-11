@@ -37,6 +37,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
   _PreviewFilter _filter = _PreviewFilter.all;
   int? _friendsCount;
   List<Map<String, dynamic>> _invites = [];
+  // 论坛这边后端目前没有"我关注的论坛有没有新帖"这种信号，暂时只能退而
+  // 求其次：关注了至少一个论坛就提示"有内容"，跟真正的"有没有新帖"不是
+  // 一回事，是当前这版的已知局限——只在 initState 拉一次，不用跟着
+  // 30秒轮询，关注关系变化不频繁
+  bool _hasFollowedForum = false;
 
   @override
   void initState() {
@@ -44,6 +49,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     WidgetsBinding.instance.addObserver(this);
     _loadData();
     _loadFriendsCount();
+    _loadForumSignal();
     _pollTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _loadData(),
@@ -95,6 +101,20 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     }
   }
 
+  Future<void> _loadForumSignal() async {
+    final res = await ref.read(apiClientProvider).get('/auth/forums');
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      final forums = (res.data['forums'] as List?) ?? [];
+      setState(() {
+        _hasFollowedForum = forums.any((f) {
+          final m = f as Map;
+          return m['is_following'] == 1 || m['is_following'] == true;
+        });
+      });
+    }
+  }
+
   Future<void> _markAllRead() async {
     ref.read(unreadCountProvider.notifier).state = 0;
     final notifs = ref.read(notificationsProvider);
@@ -133,6 +153,12 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     final unread = ref.watch(unreadCountProvider);
     final mentionUnread = ref.watch(mentionUnreadCountProvider);
     final dmUnread = conversations.fold<int>(0, (s, c) => s + c.unreadCount);
+    // unreadCountProvider 的 total 是"通知+群组消息"未读之和（后端算好
+    // 的），减掉通知自己的未读数就是群组消息那一部分——不用再单独拉一次
+    // /auth/groups 自己求和，跟之前"消息页群组Tab未读红点"那次的结论
+    // 一致：信服务端的 total，不在客户端重新算一遍容易跟服务端对不上
+    final notifUnread = notifications.where((n) => !n.isRead).length;
+    final groupUnread = (unread - notifUnread).clamp(0, unread);
     // 评论/点赞/关注/回答四个筛选chip各自严格按 type 精确匹配，互不重叠——
     // 只有"全部"才是真的"全部"，不该再额外排除 invite_answer/mention/
     // answer_posted 这几个类型（之前排除是想避免跟邀请回答汇总卡/
@@ -295,7 +321,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       iconColor: const Color(0xFFD97706),
                       iconBg: const Color(0xFFFFF7E6),
                       label: l10n.tabGroups,
-                      subtitle: '查看已加入的群组',
+                      subtitle: groupUnread > 0
+                          ? '你有 $groupUnread 条未读消息'
+                          : '去搜索发现更多群组 →',
+                      subtitleColor: groupUnread > 0 ? _primary : null,
                       onTap: () => context.push('/messages/groups'),
                     ),
                   ),
@@ -307,7 +336,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       iconColor: const Color(0xFF0891B2),
                       iconBg: const Color(0xFFE0F2FE),
                       label: '论坛',
-                      subtitle: '发现感兴趣的论坛',
+                      subtitle: _hasFollowedForum
+                          ? '点击进入论坛查看最新内容'
+                          : '去搜索发现更多论坛 →',
+                      subtitleColor: _hasFollowedForum ? _primary : null,
                       onTap: () => context.push('/messages/forums'),
                     ),
                   ),
@@ -441,6 +473,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     required String label,
     required String subtitle,
     required VoidCallback onTap,
+    Color? subtitleColor,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -463,7 +496,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, color: Colors.grey),
+            style: TextStyle(fontSize: 10, color: subtitleColor ?? Colors.grey),
           ),
         ],
       ),
