@@ -511,14 +511,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
+            const Padding(
+              padding: EdgeInsets.all(16),
               child: Text(
-                l10n.tutorial,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                '文章',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
             Flexible(
@@ -791,7 +788,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     _showLatexInput();
                   }),
                 ),
-                _attachBtn(Icons.article_outlined, l10n.tutorial, () {
+                _attachBtn(Icons.article_outlined, '文章', () {
                   Navigator.pop(ctx);
                   _showTutorialPicker();
                 }),
