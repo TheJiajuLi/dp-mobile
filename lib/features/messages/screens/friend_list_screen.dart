@@ -275,7 +275,9 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
                     hintText: l10n.searchUserHandleHint,
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
-                    fillColor: Colors.grey[100],
+                    fillColor: Theme.of(ctx).brightness == Brightness.dark
+                        ? const Color(0xFF3A3A3C)
+                        : const Color(0xFFE8E8ED),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,

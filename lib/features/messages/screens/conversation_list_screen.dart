@@ -130,6 +130,11 @@ class _ConversationListScreenState
                   hintText: l10n.searchConversationsHint,
                   prefixIcon: const Icon(Icons.search, size: 20),
                   filled: true,
+                  // 主题默认的 0xFFF5F5F5 太浅、跟背景几乎分不出——加深到跟
+                  // 搜索页搜索框一致的可见灰
+                  fillColor: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF3A3A3C)
+                      : const Color(0xFFE8E8ED),
                   isDense: true,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
