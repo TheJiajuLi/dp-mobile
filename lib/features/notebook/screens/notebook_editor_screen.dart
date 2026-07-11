@@ -1308,14 +1308,14 @@ finally:
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: _primary,
+                            border: Border.all(color: _primary, width: 1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             children: [
                               const Icon(
                                 Icons.play_arrow,
-                                color: Colors.white,
+                                color: _primary,
                                 size: 15,
                               ),
                               const SizedBox(width: 4),
@@ -1323,7 +1323,7 @@ finally:
                                 l10n.runAll,
                                 style: const TextStyle(
                                   fontSize: 12,
-                                  color: Colors.white,
+                                  color: _primary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1609,12 +1609,12 @@ finally:
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: _primary,
+                      border: Border.all(color: _primary, width: 1),
                       borderRadius: BorderRadius.circular(7),
                     ),
                     child: const Icon(
                       Icons.play_arrow,
-                      color: Colors.white,
+                      color: _primary,
                       size: 17,
                     ),
                   ),
