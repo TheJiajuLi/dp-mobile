@@ -112,14 +112,16 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                           margin: const EdgeInsets.only(right: 8),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
+                            // 未选中不再用填充背景（深色下会糊成白块），
+                            // 跟选中态一样只用边框区分
                             color: type == t.$1
                                 ? _primary.withValues(alpha: 0.1)
-                                : Colors.grey[100],
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: type == t.$1
                                   ? _primary
-                                  : Colors.transparent,
+                                  : Colors.grey.withValues(alpha: 0.35),
                             ),
                           ),
                           child: Column(
