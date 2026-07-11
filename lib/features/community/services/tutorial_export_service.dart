@@ -233,11 +233,14 @@ Future<Uint8List> buildTutorialPdfBytes({
                     vertical: 8,
                   ),
                   width: double.infinity,
+                  // pdf 包的 BoxDecoration 不允许非均匀 border（只设左边框）
+                  // 同时给 borderRadius——两个一起会在渲染时断言失败
+                  // "A borderRadius can only be given for a uniform Border"，
+                  // 保留左边框设计，去掉圆角
                   decoration: pw.BoxDecoration(
                     color: isDark
                         ? PdfColor.fromHex('1A1829')
                         : PdfColor.fromHex('F5F5FF'),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                     border: pw.Border(
                       left: pw.BorderSide(color: accentColor, width: 3),
                     ),
