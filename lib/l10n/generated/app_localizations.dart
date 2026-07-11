@@ -1094,6 +1094,36 @@ abstract class AppLocalizations {
   /// **'Likes list coming soon'**
   String get likesListComingSoon;
 
+  /// No description provided for @noSavesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved articles yet'**
+  String get noSavesYet;
+
+  /// No description provided for @noLikesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No liked articles yet'**
+  String get noLikesYet;
+
+  /// No description provided for @savesPrivateMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This user\'s favorites are private'**
+  String get savesPrivateMessage;
+
+  /// No description provided for @savesCountHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} saved'**
+  String savesCountHeader(Object count);
+
+  /// No description provided for @likesCountHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} liked'**
+  String likesCountHeader(Object count);
+
   /// No description provided for @articlesCountLabel.
   ///
   /// In en, this message translates to:

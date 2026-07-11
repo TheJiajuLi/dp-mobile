@@ -243,6 +243,11 @@
   "noNotebooksYet": "No files yet",
   "bookmarksComingSoon": "Bookmarks coming soon",
   "likesListComingSoon": "Likes list coming soon",
+  "noSavesYet": "No saved articles yet",
+  "noLikesYet": "No liked articles yet",
+  "savesPrivateMessage": "This user's favorites are private",
+  "savesCountHeader": "{count} saved",
+  "likesCountHeader": "{count} liked",
   "articlesCountLabel": "Articles",
   "articlesCountHeader": "{count} articles",
   "@articlesCountHeader": {

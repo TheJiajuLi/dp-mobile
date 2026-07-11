@@ -539,6 +539,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get likesListComingSoon => 'Likes list coming soon';
 
   @override
+  String get noSavesYet => 'No saved articles yet';
+
+  @override
+  String get noLikesYet => 'No liked articles yet';
+
+  @override
+  String get savesPrivateMessage => 'This user\'s favorites are private';
+
+  @override
+  String savesCountHeader(Object count) {
+    return '$count saved';
+  }
+
+  @override
+  String likesCountHeader(Object count) {
+    return '$count liked';
+  }
+
+  @override
   String get articlesCountLabel => 'Articles';
 
   @override

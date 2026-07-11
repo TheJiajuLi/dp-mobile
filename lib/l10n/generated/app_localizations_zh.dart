@@ -531,6 +531,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get likesListComingSoon => '点赞列表即将上线';
 
   @override
+  String get noSavesYet => '还没有收藏内容';
+
+  @override
+  String get noLikesYet => '还没有点赞内容';
+
+  @override
+  String get savesPrivateMessage => '该用户的收藏是私密的';
+
+  @override
+  String savesCountHeader(Object count) {
+    return '$count 篇收藏';
+  }
+
+  @override
+  String likesCountHeader(Object count) {
+    return '$count 篇点赞';
+  }
+
+  @override
   String get articlesCountLabel => '文章';
 
   @override

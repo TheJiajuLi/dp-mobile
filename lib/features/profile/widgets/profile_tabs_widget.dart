@@ -25,6 +25,8 @@ class ColumnsTabView extends StatelessWidget {
   final void Function(ColumnModel column) onColumnTap;
   // 点击 Tab 时才闪现数量，随后收起——由父级 user_profile_screen 控制
   final bool showCount;
+  // 只在 isSelfView 时真正传给 ColumnCard，别人主页看不到删除入口
+  final void Function(ColumnModel column) onDeleteColumn;
 
   const ColumnsTabView({
     super.key,
@@ -34,6 +36,7 @@ class ColumnsTabView extends StatelessWidget {
     required this.onRefresh,
     required this.onCreateColumn,
     required this.onColumnTap,
+    required this.onDeleteColumn,
     this.showCount = true,
   });
 
@@ -118,7 +121,11 @@ class ColumnsTabView extends StatelessWidget {
                   );
                 }
                 final col = columns[i];
-                return ColumnCard(column: col, onTap: () => onColumnTap(col));
+                return ColumnCard(
+                  column: col,
+                  onTap: () => onColumnTap(col),
+                  onDelete: isSelfView ? () => onDeleteColumn(col) : null,
+                );
               },
             ),
           ),
@@ -406,8 +413,89 @@ class NotebookListItem extends StatelessWidget {
 class ColumnCard extends StatelessWidget {
   final ColumnModel column;
   final VoidCallback onTap;
+  // 只有自己主页会传（看别人主页不能删对方的专栏），非空时长按才弹删除菜单
+  final VoidCallback? onDelete;
 
-  const ColumnCard({super.key, required this.column, required this.onTap});
+  const ColumnCard({
+    super.key,
+    required this.column,
+    required this.onTap,
+    this.onDelete,
+  });
+
+  void _showActions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Color(0xFFEF4444),
+              ),
+              title: const Text(
+                '删除专栏',
+                style: TextStyle(color: Color(0xFFEF4444)),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '删除专栏',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '删除后，专栏下的文章不会被删除\n但会从专栏中移出，此操作不可撤销',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  onDelete?.call();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('确认删除'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('取消'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   static const _gradients = [
     [Color(0xFF4F46E5), Color(0xFF818CF8)],
@@ -430,6 +518,7 @@ class ColumnCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onDelete != null ? () => _showActions(context) : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),

@@ -82,6 +82,12 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   List<TutorialModel> _tutorials = [];
   List<Map<String, dynamic>> _notebooks = [];
   List<ColumnModel> _columns = [];
+  List<TutorialModel> _saves = [];
+  // 对方把收藏设置成不公开——GET /auth/users/:userId/saves 会 403，跟
+  // _profileBlocked 那套主页整体 403 是两回事：这里主页其它信息都拿得到，
+  // 只是收藏这一项单独被挡
+  bool _savesPrivate = false;
+  List<TutorialModel> _likes = [];
   String? _zodiac;
   List<String> _links = [];
   bool _loading = true;
@@ -181,8 +187,63 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     }
   }
 
-  // 下拉刷新统一入口——_loadProfile 内部已经会连带重新拉教程和专栏
-  // （见下面 isOwnProfile/别人主页两条分支末尾），这里不用再重复调用
+  // 自己走 /auth/me/saves，别人走 /auth/users/:userId/saves——后者受对方
+  // 隐私设置控制，403 不当错误处理，是"对方收藏是私密的"这个正常状态
+  Future<void> _loadSaves(String userId, bool isSelf) async {
+    final api = ref.read(apiClientProvider);
+    final res = await api.get(isSelf ? '/auth/me/saves' : '/auth/users/$userId/saves');
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      final list = ((res.data as Map)['saves'] as List?) ?? [];
+      setState(() {
+        _saves = list
+            .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)))
+            .toList();
+        _savesPrivate = false;
+      });
+    } else if (res.statusCode == 403) {
+      setState(() {
+        _saves = [];
+        _savesPrivate = true;
+      });
+    }
+  }
+
+  // 点赞列表没有隐私开关，自己/别人都是同一个接口
+  Future<void> _loadLikes(String userId) async {
+    final res = await ref.read(apiClientProvider).get('/auth/users/$userId/liked');
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      final list = ((res.data as Map)['tutorials'] as List?) ?? [];
+      setState(() {
+        _likes = list
+            .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)))
+            .toList();
+      });
+    }
+  }
+
+  Future<void> _deleteColumn(String columnId) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .delete('/auth/columns/$columnId');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() {
+        _columns.removeWhere((c) => c.id == columnId);
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('专栏已删除')));
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '删除失败')));
+    }
+  }
+
+  // 下拉刷新统一入口——_loadProfile 内部已经会连带重新拉教程/专栏/收藏/
+  // 点赞（见下面 isOwnProfile/别人主页两条分支末尾），这里不用再重复调用
   Future<void> _onRefresh() async {
     await Future.wait([_loadProfile(), if (_showNotebookTab) _loadNotebooks()]);
   }
@@ -236,6 +297,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       });
       await _loadTutorials(currentUser.id, currentUser.username);
       await _loadColumns(currentUser.id);
+      await _loadSaves(currentUser.id, true);
+      await _loadLikes(currentUser.id);
       return;
     }
 
@@ -308,6 +371,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     });
     await _loadTutorials(profile.id, profile.username);
     await _loadColumns(profile.id);
+    await _loadSaves(profile.id, false);
+    await _loadLikes(profile.id);
   }
 
   // 实测 GET /auth/tutorials?author=xxx 这个后端参数目前不生效——传什么
@@ -1077,6 +1142,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         creationStreak: _creationStreak,
                         totalLikes: _totalLikes,
                         totalViews: _totalViews,
+                        savesCount: _saves.length,
+                        savesPrivate: _savesPrivate,
                         formatCount: _formatCount,
                         links: _allLinks(),
                         avatar: _buildAvatar(radius: 34),
@@ -1221,6 +1288,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ),
                         onColumnTap: (col) =>
                             context.push('/columns/${col.id}'),
+                        onDeleteColumn: (col) => _deleteColumn(col.id),
                       ),
                       if (_showNotebookTab)
                         RefreshIndicator(
@@ -1274,28 +1342,96 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                             ],
                           ),
                         ),
-                      // 收藏（占位）
                       RefreshIndicator(
                         color: _primary,
                         onRefresh: _onRefresh,
-                        child: _refreshableCenter(
-                          key: const PageStorageKey('profile-tab-bookmarks'),
-                          child: Text(
-                            l10n.bookmarksComingSoon,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ),
+                        child: _savesPrivate
+                            ? _refreshableCenter(
+                                key: const PageStorageKey(
+                                  'profile-tab-saves-private',
+                                ),
+                                child: _privateMessage(l10n.savesPrivateMessage),
+                              )
+                            : Column(
+                                children: [
+                                  _tabCountHeader(
+                                    l10n.savesCountHeader(_saves.length),
+                                  ),
+                                  Expanded(
+                                    child: _saves.isEmpty
+                                        ? _refreshableCenter(
+                                            key: const PageStorageKey(
+                                              'profile-tab-saves-empty',
+                                            ),
+                                            child: Text(
+                                              l10n.noSavesYet,
+                                              style: const TextStyle(
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          )
+                                        : ListView.builder(
+                                            key: const PageStorageKey(
+                                              'profile-tab-saves',
+                                            ),
+                                            physics:
+                                                const AlwaysScrollableScrollPhysics(),
+                                            padding: const EdgeInsets.all(12),
+                                            itemCount: _saves.length,
+                                            itemBuilder: (ctx, i) {
+                                              final t = _saves[i];
+                                              return TutorialListCard(
+                                                tutorial: t,
+                                                onTap: () => context.push(
+                                                  '/tutorial/${t.id}',
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                  ),
+                                ],
+                              ),
                       ),
-                      // 点赞（占位）
                       RefreshIndicator(
                         color: _primary,
                         onRefresh: _onRefresh,
-                        child: _refreshableCenter(
-                          key: const PageStorageKey('profile-tab-likes'),
-                          child: Text(
-                            l10n.likesListComingSoon,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
+                        child: Column(
+                          children: [
+                            _tabCountHeader(
+                              l10n.likesCountHeader(_likes.length),
+                            ),
+                            Expanded(
+                              child: _likes.isEmpty
+                                  ? _refreshableCenter(
+                                      key: const PageStorageKey(
+                                        'profile-tab-likes-empty',
+                                      ),
+                                      child: Text(
+                                        l10n.noLikesYet,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      key: const PageStorageKey(
+                                        'profile-tab-likes',
+                                      ),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      padding: const EdgeInsets.all(12),
+                                      itemCount: _likes.length,
+                                      itemBuilder: (ctx, i) {
+                                        final t = _likes[i];
+                                        return TutorialListCard(
+                                          tutorial: t,
+                                          onTap: () =>
+                                              context.push('/tutorial/${t.id}'),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1319,6 +1455,23 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           child: Center(child: child),
         ),
       ],
+    );
+  }
+
+  Widget _privateMessage(String text) {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.lock_outline, size: 36, color: Colors.grey[300]),
+          const SizedBox(height: 12),
+          Text(
+            text,
+            style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+          ),
+        ],
+      ),
     );
   }
 

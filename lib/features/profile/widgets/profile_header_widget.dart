@@ -46,6 +46,10 @@ class ProfileHeaderWidget extends StatelessWidget {
   final int creationStreak;
   final int totalLikes;
   final int totalViews;
+  final int savesCount;
+  // 对方收藏是私密的（GET .../saves 403）——这种情况下这一项该显示"-"，
+  // 不能显示 0，0 意味着"真的一条收藏都没有"，两者是不同的信息
+  final bool savesPrivate;
   final String Function(int) formatCount;
   final List<String> links;
   final Widget avatar;
@@ -83,6 +87,8 @@ class ProfileHeaderWidget extends StatelessWidget {
     required this.creationStreak,
     required this.totalLikes,
     required this.totalViews,
+    required this.savesCount,
+    required this.savesPrivate,
     required this.formatCount,
     required this.links,
     required this.avatar,
@@ -549,8 +555,10 @@ class ProfileHeaderWidget extends StatelessWidget {
 
   // 内容计数统计行——文章/专栏/文件/收藏/点赞/阅读，纯展示不可点
   // （截图里这行没有任何一项有"可点"的视觉提示，真正的切 tab 交给下面
-  // 单独的白底 TabBar）。收藏数没有真实后端聚合数据（只有单条save/unsave
-  // 接口，没有"我收藏了多少篇"这个统计），显示"-"而不是编个假数字。
+  // 单独的白底 TabBar）。收藏数现在是真实的 GET /auth/me/saves 或
+  // /auth/users/:userId/saves 返回的列表长度，不再是写死的占位"-"；
+  // 只有对方把收藏设成私密（该请求 403）时才继续显示"-"，跟"真的一条
+  // 收藏都没有"（显示 0）区分开。
   // 关注/粉丝是真实数据（UserProfile.followingCount/followerCount），
   // 点击跳转到 FollowListScreen，是这行里唯一两个真正"可点"的项
   Widget _buildStatsRow(BuildContext context, AppLocalizations l10n) {
@@ -595,7 +603,10 @@ class ProfileHeaderWidget extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          stat('-', l10n.tabBookmarksLabel),
+          stat(
+            savesPrivate ? '-' : formatCount(savesCount),
+            l10n.tabBookmarksLabel,
+          ),
           stat(formatCount(totalLikes), l10n.tabLikesLabel),
           stat(formatCount(totalViews), l10n.viewsCountLabel),
           stat(
