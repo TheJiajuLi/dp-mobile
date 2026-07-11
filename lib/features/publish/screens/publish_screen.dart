@@ -8,8 +8,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
-import '../../../core/utils/membership_utils.dart';
-import '../../../core/widgets/pro_gate.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 import '../models/block_model.dart';
@@ -989,16 +987,12 @@ result
                       bg: const Color(0xFFE8F8F0),
                       onTap: () => _addBlock(BlockType.image),
                     ),
-                    ProGate(
-                      check: MembershipUtils.canUseXmeng,
-                      featureName: '小梦 AI',
-                      child: _QuickStartBtn(
-                        icon: Icons.auto_awesome_outlined,
-                        label: l10n.quickStartAria,
-                        color: const Color(0xFFD97706),
-                        bg: const Color(0xFFFFF7E6),
-                        onTap: _askXmeng,
-                      ),
+                    _QuickStartBtn(
+                      icon: Icons.auto_awesome_outlined,
+                      label: l10n.quickStartAria,
+                      color: const Color(0xFFD97706),
+                      bg: const Color(0xFFFFF7E6),
+                      onTap: _askXmeng,
                     ),
                   ],
                 ),
