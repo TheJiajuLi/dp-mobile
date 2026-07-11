@@ -42,6 +42,11 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
   final glyphColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF4F46E5);
   final result = <String, Uint8List>{};
 
+  // 调用方在 initState 里同步启动，此刻框架还在 build 阶段——先等当前帧
+  // build 结束，再往 Overlay 里 insert，否则会触发
+  // "setState()/markNeedsBuild() called during build"
+  await WidgetsBinding.instance.endOfFrame;
+
   for (final raw in formulas) {
     final body = _latexBody(raw);
     if (body.isEmpty) continue;
