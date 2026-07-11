@@ -658,18 +658,15 @@ class ProfileHeaderWidget extends StatelessWidget {
   // 头图区里叠在背景上的圆形按钮（返回/汉堡）——半透明白底保证无论背景
   // 是浅色渐变占位还是用户传的任意亮度照片，深色图标都能看清
   // filled:false 给不需要白底圆圈衬托的场景用（比如链接图标）——直接裸
-  // 2026-07-06 去掉了原来 BackdropFilter 毛玻璃圆角底——裸图标压在头图上，
-  // 靠一圈黑色投影保证不管封面照片亮暗都还能看清，不再靠白色半透明底衬托
+  // 2026-07-06 去掉了原来 BackdropFilter 毛玻璃圆角底，改成裸图标+黑色
+  // 投影衬托可见性；2026-07-11 这个投影本身出了问题——Shadow 没给
+  // offset，默认零偏移只会让图标往四周晕开一圈模糊重影，看起来像图标
+  // 下面叠了个鬼影，不是正常的阴影效果，按反馈直接去掉
   Widget _heroIconButton(IconData icon, VoidCallback onTap) => GestureDetector(
     onTap: onTap,
     child: Padding(
       padding: const EdgeInsets.all(6),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: 22,
-        shadows: const [Shadow(color: Colors.black45, blurRadius: 6)],
-      ),
+      child: Icon(icon, color: Colors.white, size: 22),
     ),
   );
 }
