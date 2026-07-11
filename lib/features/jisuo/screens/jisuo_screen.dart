@@ -9,6 +9,8 @@ import '../../../core/network/api_client.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
 
+const _primary = Color(0xFF6366F1);
+
 // 提问领域配色——提问 Sheet 的领域选择跟热门提问卡片的领域标签共用同一套
 Color jisuoDomainColor(String d) => switch (d) {
   '编程开发' => const Color(0xFF6366F1),
@@ -214,9 +216,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             child: Container(
               width: 34,
               height: 34,
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A1A1A),
-                shape: BoxShape.circle,
+              decoration: BoxDecoration(
+                color: _primary,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.add, color: Colors.white, size: 20),
             ),
@@ -227,133 +229,188 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   }
 
   Widget _buildXiaoMeng() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 卡片之前不管浅色/深色模式都是写死的深底星云配色——现在跟主题走，
+    // 深色下保留原来那套浓郁星云玻璃质感，浅色下换成白底+更淡的星云光晕，
+    // 不是简单反色，两套都要保证卡片内文字/胶囊清晰可读
+    final nameColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final subtitleColor = isDark
+        ? Colors.white.withValues(alpha: 0.35)
+        : Colors.grey[500];
+    final pillBg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.white.withValues(alpha: 0.7);
+    final pillBorder = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : _primary.withValues(alpha: 0.12);
+    final hintColor = isDark
+        ? Colors.white.withValues(alpha: 0.35)
+        : Colors.grey[400];
+    final chipBg = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.white.withValues(alpha: 0.6);
+    final chipBorder = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : _primary.withValues(alpha: 0.12);
+    final chipTextColor = isDark
+        ? Colors.white.withValues(alpha: 0.6)
+        : const Color(0xFF4B5563);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-      padding: const EdgeInsets.all(14),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: const Color(0xFF0D0A1E),
+        color: isDark ? const Color(0xFF0D0A1E) : const Color(0xFFF7F6FF),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+          color: _primary.withValues(alpha: isDark ? 0.3 : 0.15),
           width: 0.5,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1230),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(child: _buildAuroraIcon(18)),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                '小梦',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '极梦 AI · 优先引用社区优质内容',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color: Colors.white.withValues(alpha: 0.35),
-                ),
-              ),
-            ],
+          Positioned.fill(
+            child: CustomPaint(painter: _NebulaPainter(isDark: isDark)),
           ),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: _openXiaoMeng,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  width: 0.5,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.auto_awesome,
-                    size: 16,
-                    color: Colors.white.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '问问小梦...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.35),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _openXiaoMeng,
-                    child: Container(
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
                       width: 28,
                       height: 28,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF6366F1),
-                        shape: BoxShape.circle,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF1A1230)
+                            : Colors.white.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(
-                        Icons.arrow_upward,
-                        size: 14,
-                        color: Colors.white,
+                      child: Center(child: _buildAuroraIcon(18)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '小梦',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: nameColor,
                       ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _primary.withValues(alpha: isDark ? 0.18 : 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: _primary.withValues(alpha: 0.3),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        'AI 助手',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? const Color(0xFFA5A9FF) : _primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '优先引用社区优质内容',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 10.5, color: subtitleColor),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _openXiaoMeng,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: pillBg,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: pillBorder, width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.auto_awesome, size: 16, color: hintColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '问问小梦...',
+                            style: TextStyle(fontSize: 14, color: hintColor),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _openXiaoMeng,
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: const BoxDecoration(
+                              color: _primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.arrow_upward,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: ['泊松分布怎么理解？', 'Python数据清洗', '黑洞是什么', '线性回归推导']
-                  .map(
-                    (t) => GestureDetector(
-                      onTap: () => _askXiaoMeng(t),
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 6),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.07),
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            width: 0.5,
+                ),
+                const SizedBox(height: 10),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['泊松分布怎么理解？', 'Python数据清洗', '黑洞是什么', '线性回归推导']
+                        .map(
+                          (t) => GestureDetector(
+                            onTap: () => _askXiaoMeng(t),
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: chipBg,
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(
+                                  color: chipBorder,
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                t,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: chipTextColor,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          t,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -411,14 +468,29 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                '问问小梦，AI 直接给你答案',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.85)
-                      : const Color(0xFF4F46E5),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '问问小梦，AI 直接给你答案',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.85)
+                          : const Color(0xFF4F46E5),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '更快 · 更准 · 更懂你',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.4)
+                          : const Color(0xFF4F46E5).withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
               ),
             ),
             Icon(
@@ -519,8 +591,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           ),
           itemCount: apps.length,
           itemBuilder: (ctx, i) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
             final app = apps[i];
             final route = app['route'] as String?;
+            final iconColor = app['color'] as Color;
+            // 图标底色之前深浅色模式都是同一套浅色柔和色块，深色页面上
+            // 糊成一块跟背景不搭的亮斑——深色下换成图标本色的低透明度
+            // 底色，图标颜色不变，跟卡片背景融为一体，不再是浅色贴纸
+            final iconBg = isDark
+                ? iconColor.withValues(alpha: 0.15)
+                : (app['bg'] as Color? ?? Colors.grey[100]!);
             return GestureDetector(
               onTap: () => route != null
                   ? context.push(route)
@@ -531,19 +611,18 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: app['bg'] as Color? ?? Colors.grey[100],
+                      color: iconBg,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(
-                      app['icon'] as IconData,
-                      size: 26,
-                      color: app['color'] as Color,
-                    ),
+                    child: Icon(app['icon'] as IconData, size: 26, color: iconColor),
                   ),
                   const SizedBox(height: 5),
                   Text(
                     app['name'] as String,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.white60 : Colors.grey[600],
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -652,6 +731,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     final isOwn =
         askerId != null && askerId == ref.watch(currentUserProvider)?.id;
     final removing = _removingQuestionIds.contains(questionId);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 220),
@@ -665,9 +745,20 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.grey.withValues(alpha: 0.1),
+              color: Colors.grey.withValues(alpha: isDark ? 0.12 : 0.08),
               width: 0.5,
             ),
+            // 跟 tutorial_list_card.dart 同款处理——浅色下用很淡的投影
+            // 撑出卡片的浮起感，深色下阴影没意义，靠上面那圈描边区分
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,6 +912,75 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     '/xiaomeng/chat',
     extra: {'initialMessage': question},
   );
+}
+
+// 小梦卡片背景的星云光晕——几个高斯模糊的色块叠加出星云glow，加几道
+// 螺旋光带模拟旋涡星系，深色模式下再撒几颗星点。静态画一次，不跟手势/
+// 动画联动，shouldRepaint 只在主题切换时才需要真的重画
+class _NebulaPainter extends CustomPainter {
+  final bool isDark;
+  const _NebulaPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const blobColors = [Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFF3B82F6)];
+    final blobAlphas = isDark
+        ? const [0.35, 0.22, 0.18]
+        : const [0.10, 0.07, 0.05];
+    final positions = [
+      Offset(size.width * 0.78, size.height * 0.28),
+      Offset(size.width * 0.92, size.height * 0.6),
+      Offset(size.width * 0.55, size.height * 0.1),
+    ];
+    final radii = [
+      size.width * 0.32,
+      size.width * 0.22,
+      size.width * 0.18,
+    ];
+
+    for (var i = 0; i < blobColors.length; i++) {
+      final paint = Paint()
+        ..color = blobColors[i].withValues(alpha: blobAlphas[i])
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, radii[i] * 0.5);
+      canvas.drawCircle(positions[i], radii[i], paint);
+    }
+
+    final swirlPaint = Paint()
+      ..color = (isDark ? Colors.white : _primary).withValues(
+        alpha: isDark ? 0.12 : 0.06,
+      )
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+    final center = Offset(size.width * 0.8, size.height * 0.35);
+    for (var i = 0; i < 3; i++) {
+      final r = size.width * (0.12 + i * 0.08);
+      final path = Path()
+        ..addArc(Rect.fromCircle(center: center, radius: r), -0.6, 3.4);
+      canvas.drawPath(path, swirlPaint);
+    }
+
+    if (isDark) {
+      final starPaint = Paint()..color = Colors.white.withValues(alpha: 0.5);
+      for (final s in const [
+        Offset(0.15, 0.2),
+        Offset(0.35, 0.1),
+        Offset(0.6, 0.6),
+        Offset(0.85, 0.15),
+        Offset(0.25, 0.75),
+        Offset(0.95, 0.7),
+      ]) {
+        canvas.drawCircle(
+          Offset(size.width * s.dx, size.height * s.dy),
+          1.0,
+          starPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_NebulaPainter oldDelegate) => oldDelegate.isDark != isDark;
 }
 
 // 极光Icon画笔
