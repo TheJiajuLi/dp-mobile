@@ -638,7 +638,21 @@ class ProfileHeaderWidget extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Text(hasStreak ? '🔥' : '✍️', style: const TextStyle(fontSize: 20)),
+            // emoji 换成放在磨砂圆角方块里的 Material 图标，更精致专业；有
+            // 连续创作时用橙色火苗图标，否则用中性的编辑图标
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                hasStreak ? Icons.local_fire_department : Icons.edit_note,
+                size: 20,
+                color: hasStreak ? const Color(0xFFF59E0B) : Colors.white,
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
