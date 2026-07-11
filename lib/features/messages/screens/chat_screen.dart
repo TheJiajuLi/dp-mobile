@@ -114,6 +114,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // 只在进入聊天时查一次 /auth/friends（不用每 5 秒轮询都查一遍，好友
   // 关系变化不频繁），后面两个每次收完新消息都本地重算，不用再打接口
   bool _isMutualFriend = false;
+  // _loadMessages() 拉到消息后会立刻调一次 _updateStrangerFlags()，但这
+  // 时 _checkStrangerStatus() 那个 /auth/friends 请求通常还没返回——
+  // _isMutualFriend 还是初始值 false，会把互相关注的好友也误判成"还不是
+  // 好友"，闪一下"你们还不是好友"提示再自己消失。加这个标记，好友关系
+  // 没查完之前 _updateStrangerFlags() 先不算，避免这个误判的闪烁
+  bool _friendStatusChecked = false;
   bool _isStrangerFirstMessage = false;
   bool _strangerLimitReached = false;
   Timer? _pollTimer;
@@ -212,6 +218,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _isMutualFriend = friends.any(
       (f) => (f as Map)['id']?.toString() == otherId,
     );
+    _friendStatusChecked = true;
     _updateStrangerFlags();
   }
 
@@ -219,6 +226,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // 回复过""我有没有发过"只需要看本地已有数据就能判断，不需要额外打
   // 接口——每次收完新消息（5秒轮询一次）都会重算一遍
   void _updateStrangerFlags() {
+    // 好友关系还没查完，不知道对方是不是互关好友，先不算——避免用
+    // 默认值 false 误判成陌生人，闪一下提示再消失
+    if (!_friendStatusChecked) return;
     if (_isMutualFriend) {
       setState(() {
         _isStrangerFirstMessage = false;
