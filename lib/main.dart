@@ -171,6 +171,16 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       title: '',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
+      // MaterialApp 默认会把主题切换做成 200ms 的渐变过渡（哪怕没有显式
+      // 用 AnimatedTheme，这个动画也是内置的）。问题是代码块、聊天气泡
+      // 这些地方大量用的是写死的深色（不跟主题走，任何时候都是深色），
+      // 这些区域不参与这段渐变、瞬间就是最终颜色；而真正跟主题走的区域
+      // （比如底部导航栏读 scaffoldBackgroundColor）却要用 200ms 慢慢
+      // 过渡过去——这两类区域在动画过程中颜色对不上，就是用户看到的
+      // "底部tab跟上方不一致的闪烁延迟"。改成 Duration.zero 让切换瞬间
+      // 完成，不再有过渡窗口，从根上消除这类不同步问题，而不是继续在
+      // 每一处写死深色的地方逐个找补
+      themeAnimationDuration: Duration.zero,
       themeMode: switch (themePref) {
         ThemePreference.light => ThemeMode.light,
         ThemePreference.dark => ThemeMode.dark,
