@@ -94,6 +94,10 @@ Future<Uint8List> buildTutorialPdfBytes({
 
   final font = await PdfGoogleFonts.notoSansSCRegular();
   final boldFont = await PdfGoogleFonts.notoSansSCMedium();
+  // NotoSansSC 不覆盖上标（⁻⁸ 这类 U+207x）和部分数学符号——缺字形时会
+  // 显示成一个方块/替代符号。加一个数学符号字体当 fallback，缺字形时
+  // 换这个字体找，不至于整个字符空着或乱码
+  final mathFont = await PdfGoogleFonts.notoSansMathRegular();
   final images = await _preloadImages(blocks);
 
   final title = tutorial['title']?.toString() ?? '';
@@ -105,7 +109,11 @@ Future<Uint8List> buildTutorialPdfBytes({
       pageTheme: pw.PageTheme(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(40),
-        theme: pw.ThemeData.withFont(base: font, bold: boldFont),
+        theme: pw.ThemeData.withFont(
+          base: font,
+          bold: boldFont,
+          fontFallback: [mathFont],
+        ),
         buildBackground: (context) =>
             pw.FullPage(ignoreMargins: true, child: pw.Container(color: bgColor)),
       ),
@@ -185,40 +193,61 @@ Future<Uint8List> buildTutorialPdfBytes({
               break;
 
             case 'code':
+              // content 是空的话之前会画出一个只有语言标签、没有代码的空
+              // 深色框——看着像渲染坏了，其实是这个 block 本身就没有代码
+              // 内容，直接跳过不画，不留一个看着莫名其妙的空框
+              if (content.trim().isEmpty) break;
               final language = block['language'] as String? ?? '';
+              // 头部（语言标签）和代码正文拆成两个独立 Container，不再
+              // 用一个大 Container 把两者包一起——注意：这不代表代码块
+              // 从此能在 MultiPage 里跨页续接。查过 pdf 包源码
+              // （multi_page.dart）：Container 没有实现 SpanningWidget，
+              // 一个非 spanning widget 放不下当前页剩余空间时，是整体
+              // 挪到下一页重排（或者高度超过整页直接抛异常），不是被截断
+              // 一半。所以之前截图里"第1页空代码框、第2页代码变成纯文字"
+              // 的现象，更可能是这篇文章的 blocks 数据本身就有一个内容
+              // 为空的 code block，后面紧跟着一个把代码当纯文字存的
+              // text block——不是分页机制的问题，拆两个 Container 解决
+              // 不了这一类数据问题，只是让排版结构更干净
               widgets.add(
                 pw.Container(
-                  margin: const pw.EdgeInsets.symmetric(vertical: 6),
-                  padding: const pw.EdgeInsets.all(10),
+                  margin: const pw.EdgeInsets.only(top: 6),
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   width: double.infinity,
                   decoration: pw.BoxDecoration(
                     color: PdfColor.fromHex('1E1E2E'),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                    borderRadius: const pw.BorderRadius.only(
+                      topLeft: pw.Radius.circular(6),
+                      topRight: pw.Radius.circular(6),
+                    ),
                   ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      if (language.isNotEmpty) ...[
-                        pw.Text(
-                          language,
-                          style: pw.TextStyle(
-                            font: font,
-                            fontSize: 8,
-                            color: PdfColor.fromHex('9B9EF8'),
-                          ),
-                        ),
-                        pw.SizedBox(height: 4),
-                      ],
-                      pw.Text(
-                        content,
-                        style: pw.TextStyle(
-                          font: font,
-                          fontSize: 9,
-                          color: PdfColor.fromHex('E0E0FF'),
-                          lineSpacing: 3,
-                        ),
-                      ),
-                    ],
+                  child: pw.Text(
+                    language.isEmpty ? 'CODE' : language,
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 8,
+                      color: PdfColor.fromHex('9B9EF8'),
+                    ),
+                  ),
+                ),
+              );
+              widgets.add(
+                pw.Container(
+                  margin: const pw.EdgeInsets.only(bottom: 6),
+                  padding: const pw.EdgeInsets.all(10),
+                  width: double.infinity,
+                  color: PdfColor.fromHex('282840'),
+                  child: pw.Text(
+                    content,
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 9,
+                      color: PdfColor.fromHex('E0E0FF'),
+                      lineSpacing: 3,
+                    ),
                   ),
                 ),
               );
@@ -245,10 +274,27 @@ Future<Uint8List> buildTutorialPdfBytes({
                       left: pw.BorderSide(color: accentColor, width: 3),
                     ),
                   ),
-                  child: pw.Text(
-                    _stripLatexDelimiters(content),
-                    textAlign: pw.TextAlign.center,
-                    style: pw.TextStyle(font: font, fontSize: 11, color: accentColor),
+                  // pdf 包没有 LaTeX 排版引擎，画不出真正的数学公式，
+                  // 只能把公式原始文本摆出来——加一行"[ 数学公式 ]"标签
+                  // 说明这是公式的文字表示，不是没渲染成功
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        '[ 数学公式 ]',
+                        style: pw.TextStyle(
+                          font: boldFont,
+                          fontSize: 8,
+                          color: accentColor,
+                        ),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        _stripLatexDelimiters(content),
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(font: font, fontSize: 11, color: accentColor),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -261,7 +307,11 @@ Future<Uint8List> buildTutorialPdfBytes({
                 widgets.add(
                   pw.Container(
                     margin: const pw.EdgeInsets.symmetric(vertical: 8),
-                    child: pw.Image(pw.MemoryImage(bytes)),
+                    width: double.infinity,
+                    // 显式给 width，图片本身的像素宽度（比如一张
+                    // 1920px 宽的封面图）不会比页面内容区还宽，
+                    // fit: contain（默认值）负责按比例缩小
+                    child: pw.Image(pw.MemoryImage(bytes), width: double.infinity),
                   ),
                 );
               } else {
