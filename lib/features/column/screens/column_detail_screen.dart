@@ -36,11 +36,168 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
   // _liked/_saved 的初始值处理是同一个坑：先假定未订阅，点一次订阅按钮后
   // 用响应里的真实 subscribed 字段纠正，重进页面前这个假定可能是错的
   bool _subscribed = false;
+  bool _deleting = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  // 右上角「···」删除入口——参考 question_detail_screen.dart 的删除确认流程
+  void _showDeleteSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 3,
+                margin: const EdgeInsets.only(top: 10, bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFF0F0),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.delete_outline,
+                  size: 24,
+                  color: Color(0xFFEF4444),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '删除这个专栏？',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  '删除专栏后，专栏下的文章不会被删除，但会从专栏中移出。',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.6,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _deleteColumn();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          '确认删除',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.grey.withValues(alpha: 0.08),
+                          foregroundColor: Colors.grey[600],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          '取消',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteColumn() async {
+    if (_deleting) return;
+    _deleting = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFEF4444)),
+      ),
+    );
+
+    final res = await ref
+        .read(apiClientProvider)
+        .delete('/auth/columns/${widget.columnId}');
+    if (!mounted) return;
+    Navigator.of(context).pop(); // 关闭 loading
+
+    if (res.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('专栏已删除'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFF1A1A1A),
+        ),
+      );
+      context.pop({'deleted': true, 'columnId': widget.columnId});
+    } else {
+      _deleting = false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.message ?? '删除失败，请稍后重试'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _load() async {
@@ -153,6 +310,11 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                             SnackBar(content: Text(l10n.comingSoonStayTuned)),
                           ),
                     ),
+                    if (isOwner)
+                      IconButton(
+                        icon: const Icon(Icons.more_horiz),
+                        onPressed: _showDeleteSheet,
+                      ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     background: Stack(

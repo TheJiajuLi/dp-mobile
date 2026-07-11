@@ -1286,8 +1286,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           profileId: _profile?.id,
                           onCreated: _loadColumns,
                         ),
-                        onColumnTap: (col) =>
-                            context.push('/columns/${col.id}'),
+                        onColumnTap: (col) async {
+                          final result =
+                              await context.push('/columns/${col.id}');
+                          // 详情页「···」删除专栏后返回——把卡片从列表移除（淡出）
+                          if (!mounted) return;
+                          if (result is Map && result['deleted'] == true) {
+                            setState(() {
+                              _columns = _columns
+                                  .where((c) => c.id != result['columnId'])
+                                  .toList();
+                            });
+                          }
+                        },
+                        // 长按卡片删除（本页内直接处理）
                         onDeleteColumn: (col) => _deleteColumn(col.id),
                       ),
                       if (_showNotebookTab)
