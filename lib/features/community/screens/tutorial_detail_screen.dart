@@ -1342,6 +1342,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     StateSetter setModalState,
   ) {
     final selected = _commentSort == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () {
         setState(() => _commentSort = value);
@@ -1350,7 +1351,11 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEEF0FF) : Colors.transparent,
+          color: selected
+              ? (isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFEEF0FF))
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
@@ -1358,7 +1363,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: selected ? _primary : Colors.grey,
+            color: selected
+                ? (isDark ? const Color(0xFF9B9EF8) : _primary)
+                : Colors.grey,
           ),
         ),
       ),
