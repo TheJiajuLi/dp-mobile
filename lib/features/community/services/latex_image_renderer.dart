@@ -42,8 +42,9 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
   final glyphColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF4F46E5);
   final result = <String, Uint8List>{};
 
-  // 调用方在 initState 里同步启动，此刻框架还在 build 阶段——先等当前帧
-  // build 结束，再往 Overlay 里 insert，否则会触发
+  // 第二道防线：调用方已改成在 addPostFrameCallback 里启动（脱离 build
+  // 阶段）；这里再等一帧确保万一有别的调用方在 build 期调用，也不会在
+  // build 阶段往 Overlay 里 insert，触发
   // "setState()/markNeedsBuild() called during build"
   await WidgetsBinding.instance.endOfFrame;
 
