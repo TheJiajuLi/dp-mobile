@@ -56,7 +56,10 @@ class _ShareSheet extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+        // 之前深色底写死用了 #1A1A2E 这种偏紫的藏青色，跟全项目深色主题
+        // 实际的 cardColor（#2C2C2E，中性灰）不是一个色系——直接读主题
+        // cardColor，跟设置页/更多菜单那些 sheet 用的是同一个来源
+        color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
       ),
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
@@ -86,10 +89,14 @@ class _ShareSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF252540) : const Color(0xFFF8F8FF),
+              color: isDark
+                  ? Theme.of(context).scaffoldBackgroundColor
+                  : const Color(0xFFF8F8FF),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE8E8F0),
+                color: isDark
+                    ? Theme.of(context).dividerColor
+                    : const Color(0xFFE8E8F0),
                 width: 0.5,
               ),
             ),
@@ -188,10 +195,14 @@ class _ShareSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF252540) : const Color(0xFFF5F5F5),
+              color: isDark
+                  ? Theme.of(context).scaffoldBackgroundColor
+                  : const Color(0xFFF5F5F5),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isDark ? const Color(0xFF3A3A5C) : const Color(0xFFEBEBEB),
+                color: isDark
+                    ? Theme.of(context).dividerColor
+                    : const Color(0xFFEBEBEB),
                 width: 0.5,
               ),
             ),
@@ -225,7 +236,7 @@ class _ShareSheet extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
                 backgroundColor: isDark
-                    ? const Color(0xFF252540)
+                    ? Theme.of(context).scaffoldBackgroundColor
                     : const Color(0xFFF5F5F5),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),

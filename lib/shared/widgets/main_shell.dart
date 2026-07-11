@@ -429,20 +429,21 @@ class _PublishButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 用 ColorScheme 的 primary/onPrimary（会被 AnimatedTheme 平滑插值），
-    // M3 保证两种主题下前景/背景对比度都达标，切主题时按钮跟着一起渐变，
-    // 不再在动画中点硬跳。稳态色由主题色板决定（品牌紫系）
-    final cs = Theme.of(context).colorScheme;
+    // 之前用 ColorScheme.primary——M3 的 fromSeed 在深色模式下会把
+    // primary 自动调成一个更浅/更淡的色调（为了跟深色背景保持对比度），
+    // 不是品牌那个饱和的靛蓝，深色模式下这个按钮会变成一块发白的淡紫，
+    // 跟全项目其它地方（都是直接写死 #6366F1）不一致，切到深色主题时
+    // 显得像个 bug。改成跟全项目统一的写死品牌色，不再依赖 M3 自动生成
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: cs.primary,
+          color: const Color(0xFF6366F1),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Icon(Icons.add, color: cs.onPrimary, size: 24),
+        child: const Icon(Icons.add, color: Colors.white, size: 24),
       ),
     );
   }

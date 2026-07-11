@@ -343,16 +343,11 @@ final appRouter = GoRouter(
       path: '/messages/conversations',
       builder: (context, state) => const ConversationListScreen(),
     ),
-    GoRoute(
-      path: '/tutorial/:id',
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        return TutorialDetailScreen(
-          tutorialId: state.pathParameters['id']!,
-          scrollToCommentId: extra?['scrollToCommentId'] as String?,
-        );
-      },
-    ),
+    // /tutorial/export/progress、/tutorial/export/preview、/tutorial/poster
+    // 必须注册在 /tutorial/:id 前面——/tutorial/poster 是两段路径，跟
+    // /tutorial/:id 结构完全一样（id='poster'），go_router 按注册顺序
+    // 匹配，:id 排前面的话 /tutorial/poster 会被当成"打开 id=poster 的
+    // 教程"处理，而不是海报页，表现为点"生成海报"弹"教程不存在"
     GoRoute(
       path: '/tutorial/export/progress',
       builder: (context, state) {
@@ -379,6 +374,16 @@ final appRouter = GoRouter(
       builder: (context, state) => TutorialPosterScreen(
         tutorial: state.extra as Map<String, dynamic>,
       ),
+    ),
+    GoRoute(
+      path: '/tutorial/:id',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return TutorialDetailScreen(
+          tutorialId: state.pathParameters['id']!,
+          scrollToCommentId: extra?['scrollToCommentId'] as String?,
+        );
+      },
     ),
     GoRoute(
       path: '/columns/:id',
