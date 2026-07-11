@@ -73,6 +73,11 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     with SingleTickerProviderStateMixin {
   late final bool _showNotebookTab = !widget.showBackButton;
   late final TabController _tabCtrl;
+  // Tab 数量提示（"N 篇文章"）不再常驻——点击/切换 Tab 时闪现一下再收起，
+  // 不长期占位
+  bool _showTabCount = false;
+  int _lastTabIndex = 0;
+  Timer? _countTimer;
   UserProfile? _profile;
   List<TutorialModel> _tutorials = [];
   List<Map<String, dynamic>> _notebooks = [];
@@ -135,8 +140,29 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: _showNotebookTab ? 5 : 4, vsync: this);
+    _tabCtrl.addListener(_onTabChanged);
+    // 进入页面时先把当前 Tab 的数量闪一下
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _flashTabCount();
+    });
     _loadProfile();
     if (_showNotebookTab) _loadNotebooks();
+  }
+
+  void _onTabChanged() {
+    if (_tabCtrl.index != _lastTabIndex) {
+      _lastTabIndex = _tabCtrl.index;
+      _flashTabCount();
+    }
+  }
+
+  // 数量提示闪现约 1.6 秒后自动收起
+  void _flashTabCount() {
+    _countTimer?.cancel();
+    if (!_showTabCount) setState(() => _showTabCount = true);
+    _countTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _showTabCount = false);
+    });
   }
 
   Future<void> _loadColumns(String userId) async {
@@ -1301,15 +1327,24 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 还没有覆盖到"是否隐藏内容数量"这一项）
   Widget _tabCountHeader(String text) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 2),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          color: isDark ? Colors.white38 : Colors.grey[500],
-        ),
-      ),
+    // 只在 _showTabCount 期间展开显示，其余时间 AnimatedSize 把高度收成 0，
+    // 不长期占位
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+      child: !_showTabCount
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 2),
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white38 : Colors.grey[500],
+                ),
+              ),
+            ),
     );
   }
 
@@ -1433,6 +1468,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   @override
   void dispose() {
+    _countTimer?.cancel();
+    _tabCtrl.removeListener(_onTabChanged);
     _tabCtrl.dispose();
     super.dispose();
   }
