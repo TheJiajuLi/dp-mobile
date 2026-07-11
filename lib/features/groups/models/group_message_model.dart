@@ -1,4 +1,12 @@
-enum GroupMessageType { text, shareTutorial, shareQuestion, image, file, code, latex }
+enum GroupMessageType {
+  text,
+  shareTutorial,
+  shareQuestion,
+  image,
+  file,
+  code,
+  formula,
+}
 
 class GroupMessage {
   final String id;
@@ -11,6 +19,7 @@ class GroupMessage {
   final String? refId; // 分享内容ID
   final String? refTitle; // 分享内容标题
   final String? refMeta; // 分享内容副标题
+  final Map<String, dynamic>? metadata; // 图片url/文件名大小/代码语言等（方案A）
   final bool isRecalled;
   final int createdAt; // 毫秒
   final bool isMe;
@@ -26,6 +35,7 @@ class GroupMessage {
     this.refId,
     this.refTitle,
     this.refMeta,
+    this.metadata,
     this.isRecalled = false,
     required this.createdAt,
     required this.isMe,
@@ -39,7 +49,8 @@ class GroupMessage {
       'image' => GroupMessageType.image,
       'file' => GroupMessageType.file,
       'code' => GroupMessageType.code,
-      'latex' => GroupMessageType.latex,
+      // 'latex' 是早期发过的旧命名，跟 'formula' 都归到 formula，历史消息不丢
+      'formula' || 'latex' => GroupMessageType.formula,
       _ => GroupMessageType.text,
     };
     final senderId = j['sender_id']?.toString() ?? '';
@@ -54,6 +65,9 @@ class GroupMessage {
       refId: j['ref_id']?.toString(),
       refTitle: j['ref_title']?.toString(),
       refMeta: j['ref_meta']?.toString(),
+      metadata: j['metadata'] != null
+          ? Map<String, dynamic>.from(j['metadata'] as Map)
+          : null,
       isRecalled: j['is_recalled'] == 1 || j['is_recalled'] == true,
       // 后端时间戳是秒级，×1000 转毫秒——跟这个项目其它模型
       // （AppNotification/TutorialComment）的约定一致

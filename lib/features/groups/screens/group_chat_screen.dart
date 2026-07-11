@@ -319,6 +319,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     String? refId,
     String? refTitle,
     String? refMeta,
+    Map<String, dynamic>? metadata,
   }) async {
     final res = await ref
         .read(apiClientProvider)
@@ -330,6 +331,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
             if (refId != null) 'ref_id': refId,
             if (refTitle != null) 'ref_title': refTitle,
             if (refMeta != null) 'ref_meta': refMeta,
+            if (metadata != null) 'metadata': metadata,
           },
         );
     if (!mounted) return;
@@ -344,6 +346,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
             refId: refId,
             refTitle: refTitle,
             refMeta: refMeta,
+            metadata: metadata,
           );
     setState(() {
       _messages.add(msg);
@@ -394,6 +397,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         type: GroupMessageType.image,
         typeStr: 'image',
         content: imageUrl,
+        metadata: {'url': imageUrl},
       );
     } catch (e) {
       if (mounted) {
@@ -446,8 +450,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         type: GroupMessageType.file,
         typeStr: 'file',
         content: fileUrl,
-        refTitle: picked.name,
-        refMeta: bytes.length.toString(),
+        metadata: {
+          'url': fileUrl,
+          'filename': picked.name,
+          'size': bytes.length,
+        },
       );
     } catch (e) {
       if (mounted) {
@@ -544,7 +551,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                       type: GroupMessageType.code,
                       typeStr: 'code',
                       content: code,
-                      refTitle: selectedLanguage,
+                      metadata: {'language': selectedLanguage},
                     );
                   },
                   child: const Text(
@@ -615,8 +622,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                   if (latex.isEmpty) return;
                   Navigator.pop(ctx);
                   _sendGroupMessage(
-                    type: GroupMessageType.latex,
-                    typeStr: 'latex',
+                    type: GroupMessageType.formula,
+                    typeStr: 'formula',
                     content: latex,
                   );
                 },
@@ -768,6 +775,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     String? refId,
     String? refTitle,
     String? refMeta,
+    Map<String, dynamic>? metadata,
   }) {
     final me = ref.read(currentUserProvider);
     return GroupMessage(
@@ -781,6 +789,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       refId: refId,
       refTitle: refTitle,
       refMeta: refMeta,
+      metadata: metadata,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       isMe: true,
     );
@@ -1305,27 +1314,31 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.68,
           ),
-          // is_recalled 这一列后端已经建好了，但撤回接口还在部署——现在
-          // 永远是 false，这个分支先摆着，接口一上线不用再改这里
-          child: msg.isRecalled
-              ? _buildRecalledBubble(isDark)
-              : switch (msg.type) {
-                  GroupMessageType.text => _buildTextBubble(
-                    msg,
-                    isDark,
-                    isMatch: isMatch,
-                    isCurrent: isCurrent,
-                  ),
-                  GroupMessageType.image => _buildImageBubble(msg),
-                  GroupMessageType.file => _buildFileBubble(msg, isDark),
-                  GroupMessageType.code => _buildCodeBubble(msg),
-                  GroupMessageType.latex => _buildLatexBubble(msg, isDark),
-                  GroupMessageType.shareTutorial ||
-                  GroupMessageType.shareQuestion => _buildShareCard(
-                    msg,
-                    isDark,
-                  ),
-                },
+          child: GestureDetector(
+            // 长按自己发的、未撤回消息 → 复制/撤回菜单
+            onLongPress: msg.isMe && !msg.isRecalled
+                ? () => _showMessageMenu(msg)
+                : null,
+            child: msg.isRecalled
+                ? _buildRecalledBubble(isDark)
+                : switch (msg.type) {
+                    GroupMessageType.text => _buildTextBubble(
+                      msg,
+                      isDark,
+                      isMatch: isMatch,
+                      isCurrent: isCurrent,
+                    ),
+                    GroupMessageType.image => _buildImageBubble(msg),
+                    GroupMessageType.file => _buildFileBubble(msg, isDark),
+                    GroupMessageType.code => _buildCodeBubble(msg),
+                    GroupMessageType.formula => _buildFormulaBubble(msg, isDark),
+                    GroupMessageType.shareTutorial ||
+                    GroupMessageType.shareQuestion => _buildShareCard(
+                      msg,
+                      isDark,
+                    ),
+                  },
+          ),
         ),
         Padding(
           padding: EdgeInsets.only(
@@ -1627,12 +1640,13 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   }
 
   Widget _buildImageBubble(GroupMessage msg) {
+    final url = (msg.metadata?['url'] as String?) ?? msg.content;
     return GestureDetector(
-      onTap: () => _showImagePreview(msg.content),
+      onTap: () => _showImagePreview(url),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: CachedNetworkImage(
-          imageUrl: msg.content,
+          imageUrl: url,
           width: 200,
           fit: BoxFit.cover,
           placeholder: (ctx, url) => Container(
@@ -1654,7 +1668,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
-  Widget _buildLatexBubble(GroupMessage msg, bool isDark) {
+  Widget _buildFormulaBubble(GroupMessage msg, bool isDark) {
     final isMe = msg.isMe;
     final tex = msg.content
         .replaceAll(r'$$', '')
@@ -1688,7 +1702,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   }
 
   Widget _buildCodeBubble(GroupMessage msg) {
-    final language = msg.refTitle ?? 'text';
+    final language = (msg.metadata?['language'] as String?) ?? 'text';
     final lines = msg.content.split('\n');
     final sizeLabel = _formatBytes(utf8.encode(msg.content).length);
     return Container(
@@ -1780,10 +1794,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
   Widget _buildFileBubble(GroupMessage msg, bool isDark) {
     final isMe = msg.isMe;
-    final filename = msg.refTitle ?? '文件';
-    final size = int.tryParse(msg.refMeta ?? '') ?? 0;
+    final filename = (msg.metadata?['filename'] as String?) ?? '文件';
+    final size = (msg.metadata?['size'] as num?)?.toInt() ?? 0;
     return GestureDetector(
-      onTap: () => _openLink(msg.content),
+      onTap: () => _openLink((msg.metadata?['url'] as String?) ?? msg.content),
       child: Container(
         width: 220,
         padding: const EdgeInsets.all(12),
@@ -1834,6 +1848,97 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       ),
     );
   }
+
+  // 长按自己消息 → 复制/撤回菜单
+  void _showMessageMenu(GroupMessage msg) {
+    final ageMs = DateTime.now().millisecondsSinceEpoch - msg.createdAt;
+    final canRecall = ageMs < 2 * 60 * 1000; // 2分钟内，跟后端一致
+    final canCopy =
+        msg.type == GroupMessageType.text ||
+        msg.type == GroupMessageType.code;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            if (canCopy)
+              ListTile(
+                leading: const Icon(Icons.copy_outlined, size: 20),
+                title: const Text('复制'),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: msg.content));
+                  Navigator.pop(ctx);
+                },
+              ),
+            if (canRecall)
+              ListTile(
+                leading: const Icon(
+                  Icons.undo,
+                  size: 20,
+                  color: Color(0xFFEF4444),
+                ),
+                title: const Text(
+                  '撤回消息',
+                  style: TextStyle(color: Color(0xFFEF4444)),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _recallMessage(msg);
+                },
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Text(
+                  '超过2分钟无法撤回',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _recallMessage(GroupMessage msg) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .post('/auth/groups/${widget.groupId}/messages/${msg.id}/recall');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() {
+        final i = _messages.indexWhere((m) => m.id == msg.id);
+        if (i >= 0) _messages[i] = _copyRecalled(_messages[i]);
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('撤回失败：${res.message ?? '请重试'}')),
+      );
+    }
+  }
+
+  GroupMessage _copyRecalled(GroupMessage m) => GroupMessage(
+    id: m.id,
+    groupId: m.groupId,
+    senderId: m.senderId,
+    senderName: m.senderName,
+    senderAvatar: m.senderAvatar,
+    type: m.type,
+    content: m.content,
+    refId: m.refId,
+    refTitle: m.refTitle,
+    refMeta: m.refMeta,
+    metadata: m.metadata,
+    isRecalled: true,
+    createdAt: m.createdAt,
+    isMe: m.isMe,
+  );
 
   // "+"面板——旧版是 showModalBottomSheet 弹窗，改成跟输入框同屏内联展开/
   // 收起（"+"图标本身旋转45度变"×"，不换图标），点面板里任意一项立即
