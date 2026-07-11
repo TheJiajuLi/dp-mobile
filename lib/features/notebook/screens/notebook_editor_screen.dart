@@ -9,8 +9,6 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/utils/membership_utils.dart';
-import '../../../core/widgets/pro_gate.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../models/notebook_language.dart';
@@ -1302,38 +1300,34 @@ finally:
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      ProGate(
-                        check: MembershipUtils.canRunNotebook,
-                        featureName: 'Notebook 运行',
-                        child: GestureDetector(
-                          onTap: _runAll,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _primary,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.play_arrow,
+                      GestureDetector(
+                        onTap: _runAll,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.play_arrow,
+                                color: Colors.white,
+                                size: 15,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                l10n.runAll,
+                                style: const TextStyle(
+                                  fontSize: 12,
                                   color: Colors.white,
-                                  size: 15,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  l10n.runAll,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1602,31 +1596,26 @@ finally:
                   ),
                 ),
                 const Spacer(),
-                // 运行按钮——Notebook 运行代码是 Pro 权益（跟会员页
-                // subscription_screen.dart 列出的权益一致）
-                ProGate(
-                  check: MembershipUtils.canRunNotebook,
-                  featureName: 'Notebook 运行',
-                  child: GestureDetector(
-                    onTap: isRunning
-                        ? null
-                        : () {
-                            final code = ctrl.text;
-                            cell.code = code;
-                            _runCell(cell);
-                          },
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: _primary,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow,
-                        color: Colors.white,
-                        size: 17,
-                      ),
+                // 运行按钮
+                GestureDetector(
+                  onTap: isRunning
+                      ? null
+                      : () {
+                          final code = ctrl.text;
+                          cell.code = code;
+                          _runCell(cell);
+                        },
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: _primary,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 17,
                     ),
                   ),
                 ),

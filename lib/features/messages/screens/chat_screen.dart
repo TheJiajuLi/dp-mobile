@@ -13,8 +13,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/utils/membership_utils.dart';
-import '../../../core/widgets/pro_gate.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/storage_checker.dart';
@@ -776,28 +774,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     _sendFile();
                   },
                 ),
-                ProGate(
-                  check: MembershipUtils.canSendCodeInChat,
-                  featureName: '聊天发送代码',
-                  child: _attachBtn(Icons.code, l10n.attachCode, () {
-                    Navigator.pop(ctx);
-                    _showCodeInput();
-                  }),
-                ),
+                _attachBtn(Icons.code, l10n.attachCode, () {
+                  Navigator.pop(ctx);
+                  _showCodeInput();
+                }),
               ],
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                ProGate(
-                  check: MembershipUtils.canSendCodeInChat,
-                  featureName: '聊天发送代码',
-                  child: _attachBtn(Icons.functions, l10n.attachFormula, () {
-                    Navigator.pop(ctx);
-                    _showLatexInput();
-                  }),
-                ),
+                _attachBtn(Icons.functions, l10n.attachFormula, () {
+                  Navigator.pop(ctx);
+                  _showLatexInput();
+                }),
                 _attachBtn(Icons.article_outlined, '文章', () {
                   Navigator.pop(ctx);
                   _showTutorialPicker();

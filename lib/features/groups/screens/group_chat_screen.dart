@@ -13,8 +13,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/utils/membership_utils.dart';
-import '../../../core/widgets/pro_gate.dart';
 import '../../../shared/utils/storage_checker.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
@@ -1987,28 +1985,20 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                         _closeAttachPanel();
                         _sendFile();
                       }),
-                      ProGate(
-                        check: MembershipUtils.canSendCodeInChat,
-                        featureName: '群聊发送代码',
-                        child: _attachBtn(Icons.code, '代码', () {
-                          _closeAttachPanel();
-                          _showCodeInput();
-                        }),
-                      ),
+                      _attachBtn(Icons.code, '代码', () {
+                        _closeAttachPanel();
+                        _showCodeInput();
+                      }),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      ProGate(
-                        check: MembershipUtils.canSendCodeInChat,
-                        featureName: '群聊发送代码',
-                        child: _attachBtn(Icons.functions, '公式', () {
-                          _closeAttachPanel();
-                          _showLatexInput();
-                        }),
-                      ),
+                      _attachBtn(Icons.functions, '公式', () {
+                        _closeAttachPanel();
+                        _showLatexInput();
+                      }),
                       _attachBtn(Icons.article_outlined, '文章', () {
                         _closeAttachPanel();
                         _shareContent('share_tutorial');
