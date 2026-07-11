@@ -172,6 +172,7 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
     final replies = (_forum?['reply_count'] as num?)?.toInt() ?? 0;
     final tags = List<String>.from((_forum?['tags'] as List?) ?? const []);
     final colorIdx = (_forum?['color_index'] as num?)?.toInt() ?? 0;
+    final avatar = _forum?['avatar']?.toString();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -195,23 +196,33 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
                 width: 58,
                 height: 58,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: forumGradientFor(colorIdx),
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: (avatar?.isNotEmpty ?? false)
+                      ? null
+                      : LinearGradient(
+                          colors: forumGradientFor(colorIdx),
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  image: (avatar?.isNotEmpty ?? false)
+                      ? DecorationImage(
+                          image: NetworkImage(avatar!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Center(
-                  child: Text(
-                    name.isNotEmpty ? name.substring(0, 1) : 'F',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+                child: (avatar?.isNotEmpty ?? false)
+                    ? null
+                    : Center(
+                        child: Text(
+                          name.isNotEmpty ? name.substring(0, 1) : 'F',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(

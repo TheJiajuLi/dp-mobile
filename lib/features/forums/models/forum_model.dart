@@ -10,6 +10,9 @@ class ForumModel {
   final int createdAt; // 毫秒
   final bool isFollowing;
   final int colorIdx;
+  // forums 表目前还没有这一列，getForums/getForum 返回的 j['avatar']
+  // 恒为 null，这个字段先摆着——等后端加了列，这里跟渲染那边都不用再改
+  final String? avatar;
 
   const ForumModel({
     required this.id,
@@ -23,6 +26,7 @@ class ForumModel {
     required this.createdAt,
     this.isFollowing = false,
     this.colorIdx = 0,
+    this.avatar,
   });
 
   factory ForumModel.fromJson(Map<String, dynamic> j) => ForumModel(
@@ -40,5 +44,6 @@ class ForumModel {
     // 0-5，超出这个范围（脏数据/未来加了更多渐变色但客户端还没更新表）
     // 用 .clamp 兜底，不让下标越界崩溃
     colorIdx: ((j['color_index'] as num?)?.toInt() ?? 0).clamp(0, 5),
+    avatar: j['avatar']?.toString(),
   );
 }

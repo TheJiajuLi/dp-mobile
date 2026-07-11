@@ -167,23 +167,33 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: forumGradientFor(forum.colorIdx),
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: (forum.avatar?.isNotEmpty ?? false)
+              ? null
+              : LinearGradient(
+                  colors: forumGradientFor(forum.colorIdx),
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          image: (forum.avatar?.isNotEmpty ?? false)
+              ? DecorationImage(
+                  image: NetworkImage(forum.avatar!),
+                  fit: BoxFit.cover,
+                )
+              : null,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Center(
-          child: Text(
-            forum.name.isNotEmpty ? forum.name.substring(0, 1) : '论',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-        ),
+        child: (forum.avatar?.isNotEmpty ?? false)
+            ? null
+            : Center(
+                child: Text(
+                  forum.name.isNotEmpty ? forum.name.substring(0, 1) : '论',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
       ),
       title: Text(
         forum.name,
