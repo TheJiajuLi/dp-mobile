@@ -7,6 +7,7 @@ import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/gender_label.dart';
+import '../../../shared/utils/online_status.dart';
 import '../../../shared/widgets/interest_tag.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../models/user_profile_model.dart';
@@ -366,6 +367,32 @@ class ProfileHeaderWidget extends StatelessWidget {
                                 const SizedBox(width: 3),
                                 Text(
                                   zodiacDisplayName(l10n, displayZodiacSign!),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          // 在线状态——只在看别人主页且后端给了 last_seen_at 时显示
+                          if (!isSelfView && profile.lastSeenAt != null)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    color: OnlineStatusHelper.dotColor(
+                                      profile.lastSeenAt,
+                                      true,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  OnlineStatusHelper.label(profile.lastSeenAt),
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: Colors.white70,

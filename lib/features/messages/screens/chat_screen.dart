@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
+import '../../../shared/utils/online_status.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
@@ -120,6 +121,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isStrangerFirstMessage = false;
   bool _strangerLimitReached = false;
   Timer? _pollTimer;
+  // 对方最后活跃时间（秒级），先用会话列表带过来的值，再每60秒刷新
+  int? _otherLastSeen;
+  Timer? _statusTimer;
 
   // 点对方头像跳去 ta 主页时踩过一次 `!semantics.parentDataDirty` 断言
   // 崩溃——根因是这个 5 秒一次的轮询定时器在页面被 push 出去的新路由盖住、
@@ -152,6 +156,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       const Duration(seconds: 5),
       (_) => _loadMessages(),
     );
+    // 在线状态：先用会话带过来的 last_seen，再每 60 秒刷新一次对方状态
+    _otherLastSeen = widget.conversation?.otherLastSeenAt;
+    _refreshOtherUserStatus();
+    _statusTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _refreshOtherUserStatus(),
+    );
+  }
+
+  Future<void> _refreshOtherUserStatus() async {
+    final otherId = widget.conversation?.otherUserId ?? '';
+    if (otherId.isEmpty) return;
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/users/online-status', queryParameters: {'ids': otherId});
+    if (!res.success || !mounted) return;
+    final ts = _extractLastSeen(res.data, otherId);
+    if (ts != null) setState(() => _otherLastSeen = ts);
+  }
+
+  // 在线状态接口返回结构未最终确认，这里尽量兼容：既接受
+  // { id: <last_seen_at秒> } / { id: { last_seen_at } }，也接受外面再包一层
+  // statuses/users/data 的情况；取不到就不动本地值
+  int? _extractLastSeen(dynamic data, String id) {
+    if (data is! Map) return null;
+    int? readValue(dynamic v) {
+      if (v is num) return v.toInt();
+      if (v is Map) return (v['last_seen_at'] as num?)?.toInt();
+      return null;
+    }
+
+    final direct = readValue(data[id]);
+    if (direct != null) return direct;
+    for (final key in const ['statuses', 'users', 'data', 'result']) {
+      final nested = data[key];
+      if (nested is Map) {
+        final v = readValue(nested[id]);
+        if (v != null) return v;
+      }
+    }
+    return null;
   }
 
   void _clearUnread() {
@@ -1003,6 +1048,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _ctrl.dispose();
     _scrollCtrl.dispose();
     _pollTimer?.cancel();
+    _statusTimer?.cancel();
     super.dispose();
   }
 
@@ -1048,12 +1094,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          otherName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              otherName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            // 拿不到 last_seen 就不显示状态行（避免误报"离线"）
+                            if (_otherLastSeen != null)
+                              Text(
+                                OnlineStatusHelper.label(_otherLastSeen),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color:
+                                      OnlineStatusHelper.fromLastSeen(
+                                            _otherLastSeen,
+                                          ) ==
+                                          OnlineStatus.online
+                                      ? const Color(0xFF22C55E)
+                                      : Colors.grey[400],
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       GestureDetector(

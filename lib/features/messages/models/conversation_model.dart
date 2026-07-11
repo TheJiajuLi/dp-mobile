@@ -7,6 +7,7 @@ class Conversation {
   final int? lastMessageAt; // 毫秒
   final int unreadCount;
   final bool isMuted;
+  final int? otherLastSeenAt; // 对方最后活跃时间（秒级，用于在线状态推导）
 
   Conversation({
     required this.id,
@@ -17,6 +18,7 @@ class Conversation {
     this.lastMessageAt,
     required this.unreadCount,
     this.isMuted = false,
+    this.otherLastSeenAt,
   });
 
   Conversation copyWith({int? unreadCount, bool? isMuted}) => Conversation(
@@ -28,6 +30,7 @@ class Conversation {
     lastMessageAt: lastMessageAt,
     unreadCount: unreadCount ?? this.unreadCount,
     isMuted: isMuted ?? this.isMuted,
+    otherLastSeenAt: otherLastSeenAt,
   );
 
   // 免打扰是按会话双方各自一列存的（is_muted_a 对应 user1_id 视角，
@@ -53,6 +56,9 @@ class Conversation {
           : null,
       unreadCount: (j['unread_count'] as num?)?.toInt() ?? 0,
       isMuted: mutedRaw == 1 || mutedRaw == true,
+      // 后端在会话里带上对方 last_seen_at（秒级）——不做 ×1000，
+      // OnlineStatusHelper 用的就是秒
+      otherLastSeenAt: (j['other_last_seen_at'] as num?)?.toInt(),
     );
   }
 }

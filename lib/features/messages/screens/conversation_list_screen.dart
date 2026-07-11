@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/online_dot.dart';
 import '../../../shared/widgets/rounded_list_card.dart';
 import '../models/conversation_model.dart';
 import '../providers/messages_provider.dart';
@@ -210,7 +211,17 @@ class _ConversationListScreenState
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       onTap: () => context.push('/messages/chat/${conv.id}', extra: conv),
-      leading: buildMessageAvatar(conv.otherAvatar, conv.otherUsername),
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          buildMessageAvatar(conv.otherAvatar, conv.otherUsername),
+          Positioned(
+            bottom: -1,
+            right: -1,
+            child: OnlineDot(lastSeenAt: conv.otherLastSeenAt),
+          ),
+        ],
+      ),
       title: Row(
         children: [
           Text(

@@ -43,6 +43,9 @@ class UserProfile {
   // （2026-07-09）GET /auth/users/profile/:identifier 已经把
   // is_aurora_creator 加进 SELECT 列表了，不是过渡期占位字段
   final bool isAuroraCreator;
+  // 最后活跃时间（秒级 Unix 时间戳），用于在线状态推导。后端在
+  // GET /auth/users/profile/:identifier 里带上 last_seen_at；没有时为 null
+  final int? lastSeenAt;
 
   UserProfile({
     required this.id,
@@ -66,6 +69,7 @@ class UserProfile {
     this.occupation,
     this.isFoundingCreator = false,
     this.isAuroraCreator = false,
+    this.lastSeenAt,
   });
 
   UserProfile copyWith({String? avatar, List<String>? tags}) => UserProfile(
@@ -90,6 +94,7 @@ class UserProfile {
     occupation: occupation,
     isFoundingCreator: isFoundingCreator,
     isAuroraCreator: isAuroraCreator,
+    lastSeenAt: lastSeenAt,
   );
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -116,5 +121,6 @@ class UserProfile {
         j['is_founding_creator'] == true || j['is_founding_creator'] == 1,
     isAuroraCreator:
         j['is_aurora_creator'] == true || j['is_aurora_creator'] == 1,
+    lastSeenAt: (j['last_seen_at'] as num?)?.toInt(),
   );
 }

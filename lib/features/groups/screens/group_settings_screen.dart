@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/online_dot.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
 import '../models/group_model.dart';
@@ -396,7 +397,20 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            buildMessageAvatar(m['avatar'] as String?, username, radius: 20),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                buildMessageAvatar(m['avatar'] as String?, username, radius: 20),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: OnlineDot(
+                    lastSeenAt: (m['last_seen_at'] as num?)?.toInt(),
+                    size: 9,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Row(
