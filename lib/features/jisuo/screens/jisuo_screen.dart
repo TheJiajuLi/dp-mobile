@@ -112,17 +112,20 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     ref.read(jisuoImmersiveProvider.notifier).state = true;
 
     try {
-      final response = await ref.read(apiClientProvider).dio.post(
-        '/auth/xmeng/chat/stream',
-        data: {
-          'message': q,
-          if (_convId != null) 'conversationId': _convId,
-        },
-        options: Options(
-          responseType: ResponseType.stream,
-          receiveTimeout: const Duration(seconds: 120),
-        ),
-      );
+      final response = await ref
+          .read(apiClientProvider)
+          .dio
+          .post(
+            '/auth/xmeng/chat/stream',
+            data: {
+              'message': q,
+              if (_convId != null) 'conversationId': _convId,
+            },
+            options: Options(
+              responseType: ResponseType.stream,
+              receiveTimeout: const Duration(seconds: 120),
+            ),
+          );
       final body = response.data as ResponseBody;
       final lines = body.stream
           .cast<List<int>>()
@@ -144,8 +147,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             setState(() => _answer += data['text']?.toString() ?? '');
             break;
           case 'error':
-            errorMessage =
-                data['message']?.toString() ?? '小梦暂时休息中，请稍后再试';
+            errorMessage = data['message']?.toString() ?? '小梦暂时休息中，请稍后再试';
             break;
         }
       }
@@ -192,9 +194,43 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        bottom: false,
-        child: _answerMode ? _buildAnswerMode(isDark) : _buildLanding(isDark),
+      // 装饰性星云/光晕要铺到状态栏后面才是完整的背景——之前包在
+      // SafeArea 里面，SafeArea 顶部内边距会把这层背景一起往下推，
+      // 状态栏那一条就会露出 scaffoldBackgroundColor 的纯色，跟下面
+      // 的渐变背景断成两截，看起来像一块白条盖住了背景。挪到 SafeArea
+      // 外层、Scaffold body 的 Stack 底层，跟首页极光光晕同一个做法
+      body: Stack(
+        children: [
+          if (!_answerMode)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: isDark
+                    ? const CustomPaint(painter: _NebulaPainter(isDark: true))
+                    : Stack(
+                        children: [
+                          Positioned(
+                            top: -60,
+                            left: -40,
+                            child: Container(
+                              width: 300,
+                              height: 300,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _primary.withValues(alpha: 0.06),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          SafeArea(
+            bottom: false,
+            child: _answerMode
+                ? _buildAnswerMode(isDark)
+                : _buildLanding(isDark),
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomInput(isDark),
     );
@@ -211,29 +247,12 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   }
 
   Widget _buildHero(bool isDark) {
+    // 星云/光晕装饰层挪到 Scaffold body 的 Stack 底层了（build()
+    // 里，SafeArea 外面），这里只剩文字内容本身
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.5,
       child: Stack(
         children: [
-          // 深色：星空/星云装饰（复用现有 _NebulaPainter）；浅色：一团很淡的
-          // 紫色光晕
-          if (isDark)
-            const Positioned.fill(
-              child: CustomPaint(painter: _NebulaPainter(isDark: true)),
-            )
-          else
-            Positioned(
-              top: -60,
-              left: -40,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _primary.withValues(alpha: 0.06),
-                ),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
@@ -398,7 +417,10 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+              top: BorderSide(
+                color: Theme.of(context).dividerColor,
+                width: 0.5,
+              ),
             ),
           ),
           child: Row(
@@ -428,7 +450,10 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     style: const TextStyle(fontSize: 14),
                     decoration: InputDecoration(
                       hintText: _mode == 'ai' ? '问小梦任何问题...' : '提问，让社区来回答...',
-                      hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[400],
+                      ),
                       prefixIcon: Icon(
                         Icons.edit_outlined,
                         size: 16,
@@ -681,21 +706,22 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     ),
   );
 
-  Widget _ansFormula(String tex, bool isDark, {bool isDisplay = true}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Math.tex(
-        tex.trim(),
-        mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
-        textStyle: TextStyle(
-          fontSize: isDisplay ? 17 : 15,
-          color: isDark ? const Color(0xFF9B9EF8) : const Color(0xFF4F46E5),
+  Widget _ansFormula(String tex, bool isDark, {bool isDisplay = true}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Math.tex(
+            tex.trim(),
+            mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
+            textStyle: TextStyle(
+              fontSize: isDisplay ? 17 : 15,
+              color: isDark ? const Color(0xFF9B9EF8) : const Color(0xFF4F46E5),
+            ),
+            onErrorFallback: (_) => const FormulaErrorPlaceholder(),
+          ),
         ),
-        onErrorFallback: (_) => const FormulaErrorPlaceholder(),
-      ),
-    ),
-  );
+      );
 }
 
 // 小梦卡片背景的星云光晕——几个高斯模糊的色块叠加出星云glow，加几道
@@ -707,7 +733,11 @@ class _NebulaPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const blobColors = [Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFF3B82F6)];
+    const blobColors = [
+      Color(0xFF6366F1),
+      Color(0xFF8B5CF6),
+      Color(0xFF3B82F6),
+    ];
     final blobAlphas = isDark
         ? const [0.35, 0.22, 0.18]
         : const [0.10, 0.07, 0.05];
@@ -716,11 +746,7 @@ class _NebulaPainter extends CustomPainter {
       Offset(size.width * 0.92, size.height * 0.6),
       Offset(size.width * 0.55, size.height * 0.1),
     ];
-    final radii = [
-      size.width * 0.32,
-      size.width * 0.22,
-      size.width * 0.18,
-    ];
+    final radii = [size.width * 0.32, size.width * 0.22, size.width * 0.18];
 
     for (var i = 0; i < blobColors.length; i++) {
       final paint = Paint()
@@ -764,7 +790,8 @@ class _NebulaPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_NebulaPainter oldDelegate) => oldDelegate.isDark != isDark;
+  bool shouldRepaint(_NebulaPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }
 
 class _AskSheet extends StatefulWidget {

@@ -157,7 +157,10 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                         const SizedBox(height: 8),
                         Text(
                           '博学的知识伙伴',
-                          style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[500],
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -178,7 +181,11 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                     crossAxisCount: 2,
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
-                    childAspectRatio: 1.7,
+                    // 1.7 算出来的格子高度跟内容实际需要的高度只差几像素，
+                    // 在真机字体度量下会被顶出来触发 "BOTTOM OVERFLOWED"——
+                    // 调宽裕一点，不是玄学调数字，是给 32(图标)+8+文字两行+
+                    // 上下 14*2 padding 留够空间
+                    childAspectRatio: 1.5,
                     children: [
                       _capabilityCard(
                         isDark,
@@ -315,7 +322,11 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
     );
   }
 
-  Widget _promptTile(bool isDark, {required IconData icon, required String text}) {
+  Widget _promptTile(
+    bool isDark, {
+    required IconData icon,
+    required String text,
+  }) {
     return GestureDetector(
       onTap: () => _openChat(prefill: text),
       child: Container(
