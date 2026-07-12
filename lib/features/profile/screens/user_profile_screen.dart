@@ -29,6 +29,7 @@ import '../widgets/profile_blocked_widget.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/profile_painters.dart';
 import '../widgets/profile_tabs_widget.dart';
+import '../widgets/tutorial_grid_card.dart';
 import '../widgets/tutorial_list_card.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -88,6 +89,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   // 只是收藏这一项单独被挡
   bool _savesPrivate = false;
   List<TutorialModel> _likes = [];
+  // 收藏/点赞两个 tab 各自独立分页——后端 querySaves/getUserLiked 每页
+  // 20 条，翻到最后一页返回条数 < 20 就当没有更多了，不依赖一个专门的
+  // "总页数"字段（接口只给 total 总条数）
+  int _savesPage = 1;
+  bool _savesHasMore = true;
+  bool _savesLoadingMore = false;
+  final _savesScrollCtrl = ScrollController();
+  int _likesPage = 1;
+  bool _likesHasMore = true;
+  bool _likesLoadingMore = false;
+  final _likesScrollCtrl = ScrollController();
   String? _zodiac;
   List<String> _links = [];
   bool _loading = true;
@@ -153,6 +165,22 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     });
     _loadProfile();
     if (_showNotebookTab) _loadNotebooks();
+    _savesScrollCtrl.addListener(() {
+      if (_savesScrollCtrl.position.pixels >=
+              _savesScrollCtrl.position.maxScrollExtent - 200 &&
+          _savesHasMore &&
+          !_savesLoadingMore) {
+        _loadMoreSaves();
+      }
+    });
+    _likesScrollCtrl.addListener(() {
+      if (_likesScrollCtrl.position.pixels >=
+              _likesScrollCtrl.position.maxScrollExtent - 200 &&
+          _likesHasMore &&
+          !_likesLoadingMore) {
+        _loadMoreLikes();
+      }
+    });
   }
 
   void _onTabChanged() {
@@ -188,10 +216,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   }
 
   // 自己走 /auth/me/saves，别人走 /auth/users/:userId/saves——后者受对方
-  // 隐私设置控制，403 不当错误处理，是"对方收藏是私密的"这个正常状态
+  // 隐私设置控制，403 不当错误处理，是"对方收藏是私密的"这个正常状态。
+  // 记住 userId/isSelf，翻页时 _loadMoreSaves 要用同一套参数继续请求
+  String? _savesUserId;
+  bool _savesIsSelf = false;
+
   Future<void> _loadSaves(String userId, bool isSelf) async {
+    _savesUserId = userId;
+    _savesIsSelf = isSelf;
     final api = ref.read(apiClientProvider);
-    final res = await api.get(isSelf ? '/auth/me/saves' : '/auth/users/$userId/saves');
+    final res = await api.get(
+      isSelf ? '/auth/me/saves' : '/auth/users/$userId/saves',
+      queryParameters: {'page': 1},
+    );
     if (!mounted) return;
     if (res.success && res.data != null) {
       final list = ((res.data as Map)['saves'] as List?) ?? [];
@@ -200,18 +237,56 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
             .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)))
             .toList();
         _savesPrivate = false;
+        _savesPage = 1;
+        // 后端每页固定 20 条，不够一页说明已经是最后一页——接口没给
+        // "总页数"，只给了总条数，用这个当没有更多的判断依据
+        _savesHasMore = list.length >= 20;
       });
     } else if (res.statusCode == 403) {
       setState(() {
         _saves = [];
         _savesPrivate = true;
+        _savesHasMore = false;
       });
     }
   }
 
+  Future<void> _loadMoreSaves() async {
+    if (_savesUserId == null || _savesPrivate) return;
+    setState(() => _savesLoadingMore = true);
+    final nextPage = _savesPage + 1;
+    final res = await ref
+        .read(apiClientProvider)
+        .get(
+          _savesIsSelf ? '/auth/me/saves' : '/auth/users/$_savesUserId/saves',
+          queryParameters: {'page': nextPage},
+        );
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      final list = ((res.data as Map)['saves'] as List?) ?? [];
+      setState(() {
+        _saves.addAll(
+          list.map(
+            (j) => TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)),
+          ),
+        );
+        _savesPage = nextPage;
+        _savesHasMore = list.length >= 20;
+        _savesLoadingMore = false;
+      });
+    } else {
+      setState(() => _savesLoadingMore = false);
+    }
+  }
+
   // 点赞列表没有隐私开关，自己/别人都是同一个接口
+  String? _likesUserId;
+
   Future<void> _loadLikes(String userId) async {
-    final res = await ref.read(apiClientProvider).get('/auth/users/$userId/liked');
+    _likesUserId = userId;
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/users/$userId/liked', queryParameters: {'page': 1});
     if (!mounted) return;
     if (res.success && res.data != null) {
       final list = ((res.data as Map)['tutorials'] as List?) ?? [];
@@ -219,7 +294,37 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         _likes = list
             .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)))
             .toList();
+        _likesPage = 1;
+        _likesHasMore = list.length >= 20;
       });
+    }
+  }
+
+  Future<void> _loadMoreLikes() async {
+    if (_likesUserId == null) return;
+    setState(() => _likesLoadingMore = true);
+    final nextPage = _likesPage + 1;
+    final res = await ref
+        .read(apiClientProvider)
+        .get(
+          '/auth/users/$_likesUserId/liked',
+          queryParameters: {'page': nextPage},
+        );
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      final list = ((res.data as Map)['tutorials'] as List?) ?? [];
+      setState(() {
+        _likes.addAll(
+          list.map(
+            (j) => TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)),
+          ),
+        );
+        _likesPage = nextPage;
+        _likesHasMore = list.length >= 20;
+        _likesLoadingMore = false;
+      });
+    } else {
+      setState(() => _likesLoadingMore = false);
     }
   }
 
@@ -1382,23 +1487,54 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                               ),
                                             ),
                                           )
-                                        : ListView.builder(
+                                        : CustomScrollView(
                                             key: const PageStorageKey(
                                               'profile-tab-saves',
                                             ),
+                                            controller: _savesScrollCtrl,
                                             physics:
                                                 const AlwaysScrollableScrollPhysics(),
-                                            padding: const EdgeInsets.all(12),
-                                            itemCount: _saves.length,
-                                            itemBuilder: (ctx, i) {
-                                              final t = _saves[i];
-                                              return TutorialListCard(
-                                                tutorial: t,
-                                                onTap: () => context.push(
-                                                  '/tutorial/${t.id}',
+                                            slivers: [
+                                              SliverPadding(
+                                                padding: const EdgeInsets.all(
+                                                  12,
                                                 ),
-                                              );
-                                            },
+                                                sliver: SliverGrid(
+                                                  gridDelegate:
+                                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                                        crossAxisCount: 2,
+                                                        mainAxisSpacing: 8,
+                                                        crossAxisSpacing: 8,
+                                                        childAspectRatio: 0.75,
+                                                      ),
+                                                  delegate: SliverChildBuilderDelegate(
+                                                    (ctx, i) {
+                                                      final t = _saves[i];
+                                                      return TutorialGridCard(
+                                                        tutorial: t,
+                                                        onTap: () => context.push(
+                                                          '/tutorial/${t.id}',
+                                                        ),
+                                                      );
+                                                    },
+                                                    childCount: _saves.length,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (_savesLoadingMore)
+                                                const SliverToBoxAdapter(
+                                                  child: Padding(
+                                                    padding: EdgeInsets.symmetric(
+                                                      vertical: 16,
+                                                    ),
+                                                    child: Center(
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                   ),
                                 ],
@@ -1425,22 +1561,52 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                         ),
                                       ),
                                     )
-                                  : ListView.builder(
+                                  : CustomScrollView(
                                       key: const PageStorageKey(
                                         'profile-tab-likes',
                                       ),
+                                      controller: _likesScrollCtrl,
                                       physics:
                                           const AlwaysScrollableScrollPhysics(),
-                                      padding: const EdgeInsets.all(12),
-                                      itemCount: _likes.length,
-                                      itemBuilder: (ctx, i) {
-                                        final t = _likes[i];
-                                        return TutorialListCard(
-                                          tutorial: t,
-                                          onTap: () =>
-                                              context.push('/tutorial/${t.id}'),
-                                        );
-                                      },
+                                      slivers: [
+                                        SliverPadding(
+                                          padding: const EdgeInsets.all(12),
+                                          sliver: SliverGrid(
+                                            gridDelegate:
+                                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                                  crossAxisCount: 2,
+                                                  mainAxisSpacing: 8,
+                                                  crossAxisSpacing: 8,
+                                                  childAspectRatio: 0.75,
+                                                ),
+                                            delegate: SliverChildBuilderDelegate(
+                                              (ctx, i) {
+                                                final t = _likes[i];
+                                                return TutorialGridCard(
+                                                  tutorial: t,
+                                                  onTap: () => context.push(
+                                                    '/tutorial/${t.id}',
+                                                  ),
+                                                );
+                                              },
+                                              childCount: _likes.length,
+                                            ),
+                                          ),
+                                        ),
+                                        if (_likesLoadingMore)
+                                          const SliverToBoxAdapter(
+                                            child: Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                vertical: 16,
+                                              ),
+                                              child: Center(
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                             ),
                           ],
@@ -1637,6 +1803,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     _countTimer?.cancel();
     _tabCtrl.removeListener(_onTabChanged);
     _tabCtrl.dispose();
+    _savesScrollCtrl.dispose();
+    _likesScrollCtrl.dispose();
     super.dispose();
   }
 }
