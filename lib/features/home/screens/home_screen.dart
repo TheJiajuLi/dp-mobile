@@ -12,6 +12,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
+import '../../messages/providers/messages_provider.dart';
 import '../providers/home_feed_provider.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -24,6 +25,15 @@ const _muted = Color(0xFF999999);
 // 若现的接缝，深色主题下反而因为直接复用同一个主题色没有这个问题
 const _bg = AppColors.bg;
 
+// 首页 Feed 顶部三个 Tab——「全部」「最新」都是真实数据，走同一个
+// GET /auth/tutorials?status=published 接口：全部=后端默认排序（本来
+// 就是 created_at DESC），最新=同一份列表在客户端按 createdAt 再排一遍
+// （确认过后端目前没有 sort 参数，加了也会被忽略，所以不去改
+// home_feed_provider.dart 的请求参数，只在展示层做一次保证正确的排序）。
+// 「关注」没有真实数据源（后端 /auth/tutorials 做不到"只看关注的人"），
+// 点了只提示"即将上线"，不展示任何列表，不编假数据
+enum _MainTab { all, follow, latest }
+
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -34,10 +44,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   final _scrollCtrl = ScrollController();
-
-  // 顶部推荐轮播用的状态
-  final _heroCtrl = PageController(viewportFraction: 0.88);
-  int _heroPage = 0;
+  _MainTab _mainTab = _MainTab.all;
 
   Timer? _refreshTimer;
 
@@ -50,6 +57,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       const Duration(minutes: 30),
       (_) => _refreshAll(),
     );
+    // 顶栏红点要用 notificationsProvider 里真实的未读数，不是
+    // unreadCountProvider（那个是"通知+群组消息"合并总数，语义不对）。
+    // notificationsProvider 只有真的调过 fetch() 才会有数据——消息页
+    // 自己会轮询刷新，但用户完全可能先打开首页、还没点过"消息" Tab，
+    // 这里主动拉一次，冷启动时红点也是准的
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(notificationsProvider.notifier).fetch();
+    });
   }
 
   void _refreshAll() {
@@ -67,13 +82,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
-    _heroCtrl.dispose();
     _refreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   void _onScroll() {
+    if (_mainTab == _MainTab.follow) return;
     if (_scrollCtrl.position.pixels >=
         _scrollCtrl.position.maxScrollExtent - 200) {
       ref.read(homeFeedProvider.notifier).loadMore();
@@ -91,6 +106,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         _ => l10n.tagAll,
       };
 
+  void _selectMainTab(_MainTab tab) {
+    if (tab == _MainTab.follow) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('关注功能即将上线')));
+    }
+    setState(() => _mainTab = tab);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -102,96 +126,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ? Theme.of(context).scaffoldBackgroundColor
           : _bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(context, l10n, isDarkMode),
-            const SizedBox(height: 10),
-            _buildCategoryTabs(l10n, state, isDarkMode),
-            const SizedBox(height: 8),
-            Expanded(
-              child: RefreshIndicator(
-                color: _primary,
-                onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
-                child: _buildBody(context, l10n, state, isDarkMode),
+        child: RefreshIndicator(
+          color: _primary,
+          onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
+          child: CustomScrollView(
+            controller: _scrollCtrl,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader(context, isDarkMode)),
+              SliverToBoxAdapter(child: _buildXiaomengCard(isDarkMode)),
+              SliverToBoxAdapter(child: _buildAppGrid(isDarkMode)),
+              SliverToBoxAdapter(child: _buildMainTabs(isDarkMode)),
+              SliverToBoxAdapter(
+                child: _buildCategoryTabs(l10n, state, isDarkMode),
               ),
-            ),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              ..._buildFeedSlivers(context, l10n, state, isDarkMode),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(
-    BuildContext context,
-    AppLocalizations l10n,
-    bool isDarkMode,
-  ) {
+  Widget _buildHeader(BuildContext context, bool isDark) {
     final user = ref.watch(currentUserProvider);
-    final textColor = isDarkMode
-        ? Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white
-        : _ink;
-    final subColor = isDarkMode
-        ? Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey
-        : _muted;
+    final notifUnread = ref
+        .watch(notificationsProvider)
+        .where((n) => !n.isRead)
+        .length;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      l10n.appName,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: _primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.homeAppSubtitle,
-                  style: TextStyle(fontSize: 12, color: subColor),
-                ),
-              ],
+          const Text(
+            '极梦',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: _primary,
             ),
           ),
-          GestureDetector(
+          const Spacer(),
+          _HeaderIconButton(
+            icon: Icons.search_outlined,
+            isDark: isDark,
             onTap: () => context.push('/search'),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Theme.of(context).dividerColor,
-                  width: 0.5,
-                ),
-              ),
-              child: Icon(Icons.search, size: 18, color: textColor),
-            ),
+          ),
+          _HeaderIconButton(
+            icon: Icons.notifications_outlined,
+            isDark: isDark,
+            showDot: notifUnread > 0,
+            onTap: () => context.push('/messages/notifications'),
           ),
           GestureDetector(
             onTap: () => context.go('/profile'),
             child: Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: 4),
               child: _Avatar(avatar: user?.avatar, username: user?.username),
             ),
           ),
@@ -200,11 +192,223 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  Widget _buildXiaomengCard(bool isDark) {
+    return GestureDetector(
+      onTap: () => context.push('/xiaomeng'),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _primary,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Positioned(
+              top: -12,
+              right: -12,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -16,
+              left: 60,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Text(
+                    '梦',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '问问小梦',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '搜索整个知识宇宙',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: Colors.white.withValues(alpha: 0.6),
+                  size: 18,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const List<_AppEntry> _apps = [
+    _AppEntry(
+      icon: Icons.travel_explore_outlined,
+      label: '极索',
+      route: '/jisuo',
+      color: Color(0xFF6366F1),
+      bgLight: Color(0xFFEEF0FF),
+      bgDark: Color(0xFF20284A),
+    ),
+    _AppEntry(
+      icon: Icons.code_outlined,
+      label: 'Notebook',
+      route: '/notebook',
+      color: Color(0xFF16A34A),
+      bgLight: Color(0xFFDCFCE7),
+      bgDark: Color(0xFF0F2A1A),
+    ),
+    _AppEntry(
+      icon: Icons.groups_outlined,
+      label: '群组',
+      route: '/messages/groups',
+      color: Color(0xFFD97706),
+      bgLight: Color(0xFFFEF3C7),
+      bgDark: Color(0xFF2A1F00),
+    ),
+    _AppEntry(
+      icon: Icons.forum_outlined,
+      label: '论坛',
+      route: '/messages/forums',
+      color: Color(0xFFEF4444),
+      bgLight: Color(0xFFFEE2E2),
+      bgDark: Color(0xFF2A0A0A),
+    ),
+  ];
+
+  Widget _buildAppGrid(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: _apps
+            .map(
+              (app) => Expanded(
+                child: GestureDetector(
+                  onTap: () => context.push(app.route),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isDark ? app.bgDark : app.bgLight,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(app.icon, size: 22, color: app.color),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        app.label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark
+                              ? const Color(0xFF7A80A0)
+                              : const Color(0xFF555555),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildMainTabs(bool isDark) {
+    Widget tab(String label, _MainTab value, {required bool isFirst}) {
+      final active = _mainTab == value;
+      return GestureDetector(
+        onTap: () => _selectMainTab(value),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(isFirst ? 16 : 12, 14, 12, 8),
+          child: Column(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w500 : FontWeight.normal,
+                  color: active ? _primary : Colors.grey[400],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                height: 2,
+                width: 20,
+                decoration: BoxDecoration(
+                  color: active ? _primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        tab('全部', _MainTab.all, isFirst: true),
+        tab('关注', _MainTab.follow, isFirst: false),
+        tab('最新', _MainTab.latest, isFirst: false),
+      ],
+    );
+  }
+
   Widget _buildCategoryTabs(
     AppLocalizations l10n,
     HomeFeedState state,
     bool isDarkMode,
   ) {
+    if (_mainTab == _MainTab.follow) return const SizedBox.shrink();
     return SizedBox(
       height: 36,
       child: ListView.separated(
@@ -259,315 +463,120 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildBody(
+  List<Widget> _buildFeedSlivers(
     BuildContext context,
     AppLocalizations l10n,
     HomeFeedState state,
     bool isDarkMode,
   ) {
+    if (_mainTab == _MainTab.follow) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 60),
+            child: Center(
+              child: Text(
+                '关注功能即将上线',
+                style: TextStyle(
+                  color: isDarkMode
+                      ? Theme.of(context).textTheme.bodySmall?.color
+                      : _muted,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+
     if (state.isLoading && state.tutorials.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 120),
-          Center(child: CircularProgressIndicator(color: _primary)),
-        ],
-      );
+      return [
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: EdgeInsets.only(top: 120),
+            child: Center(child: CircularProgressIndicator(color: _primary)),
+          ),
+        ),
+      ];
     }
     if (state.error != null && state.tutorials.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          const SizedBox(height: 80),
-          Center(
-            child: Text(
-              l10n.loadFailedWithReason('${state.error}'),
-              style: const TextStyle(color: AppColors.danger, fontSize: 13),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 80),
+            child: Center(
+              child: Text(
+                l10n.loadFailedWithReason('${state.error}'),
+                style: const TextStyle(color: AppColors.danger, fontSize: 13),
+              ),
             ),
           ),
-        ],
-      );
+        ),
+      ];
     }
 
-    // "推荐文章"顶部沿用大卡轮播的滚动式样式（原来发现页搬过来的那套
-    // PageView+圆点），取当前已加载列表的前5条；剩下的才是宫格瀑布流。
-    // "继续创作"以前挂在 Feed 翻到底之后，得先划过一堆推荐内容才能看到，
-    // 现在挪到创作中心页面底部了（creator_center_screen.dart），不在
-    // 这里重复展示
-    final all = state.filtered;
-    final carouselItems = all.take(5).toList();
-    // 宫格不排除轮播里已经出现过的前5条——账号内容不多时（比如只有5篇）
-    // 排除掉会让宫格直接空掉，而且宫格区域完全没内容可滚，会连带卡住
-    // _onScroll 的触底翻页判断（没有可滚动的高度，永远碰不到"接近底部"
-    // 那个阈值，state.hasMore 是 true 也永远翻不了下一页）。轮播只是把
-    // 同一份列表的前几条挑出来做个"重点展示"的滚动式样式，跟下面完整
-    // 的宫格瀑布流本来就允许重复，不是两份互斥的数据
-    final gridItems = all;
-    final showEmpty = all.isEmpty;
+    // "最新" tab：同一份数据在展示层按 createdAt 重新排一遍——后端确认过
+    // 目前没有 sort 参数，加了也会被忽略，这里保证不管后端支不支持这个
+    // tab 看到的都是真的按时间新到旧
+    var items = state.filtered;
+    if (_mainTab == _MainTab.latest) {
+      items = [...items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
 
-    return CustomScrollView(
-      controller: _scrollCtrl,
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildRecommendedHeader(context, l10n, state),
-                const SizedBox(height: 10),
-                if (carouselItems.isNotEmpty) ...[
-                  _recommendedCarousel(carouselItems),
-                  const SizedBox(height: 18),
-                ],
-              ],
+    if (items.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 60),
+            child: Center(
+              child: Text(
+                l10n.noTutorialsYet,
+                style: TextStyle(
+                  color: isDarkMode
+                      ? Theme.of(context).textTheme.bodySmall?.color
+                      : _muted,
+                ),
+              ),
             ),
           ),
         ),
-        if (showEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 60),
-              child: Center(
-                child: Text(
-                  l10n.noTutorialsYet,
-                  style: TextStyle(
-                    color: isDarkMode
-                        ? Theme.of(context).textTheme.bodySmall?.color
-                        : _muted,
-                  ),
-                ),
-              ),
-            ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                // 顶部tab到底部导航栏之间的可视区域大致能完整露出两行
-                // （四张卡）不用先滚——图片区+标题两行+作者行加起来的
-                // 高宽比调出来的经验值，不是精确按屏幕高度反算的（轮播
-                // 区块高度本身就因设备而异，没法保证所有机型都恰好4张）
-                childAspectRatio: 0.66,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, i) =>
-                    _GridCard(tutorial: gridItems[i], isDarkMode: isDarkMode),
-                childCount: gridItems.length,
-              ),
-            ),
-          ),
-        if (state.isLoadingMore)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: _primary,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-      ],
-    );
-  }
+      ];
+    }
 
-  Widget _recommendedCarousel(List<TutorialModel> heroList) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 208,
-          child: PageView.builder(
-            controller: _heroCtrl,
-            // PageController(viewportFraction < 1) 默认 padEnds:true，会给
-            // 第一张/最后一张卡自动叠加一圈居中留白——这才是首卡左边距一直
-            // 顶不到边的真正原因，之前每次都只调 itemBuilder 自己的 Padding，
-            // 治标不治本，这个 flag 才是不留白的根本开关
-            padEnds: false,
-            itemCount: heroList.length,
-            onPageChanged: (i) => setState(() => _heroPage = i),
-            // 外层 ListView 本身已经统一带 16px 左右边距——这里只补卡片
-            // 之间的间隙，不能再对称地左右各留 6px，不然首卡左边会变成
-            // 16+6=22px，比右边露出来的下一张卡片间隙明显宽一截
-            itemBuilder: (context, index) => Padding(
-              padding: EdgeInsets.only(
-                right: index == heroList.length - 1 ? 0 : 10,
-              ),
-              child: _recommendedCard(context, heroList[index]),
-            ),
-          ),
-        ),
-        if (heroList.length > 1) ...[
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              heroList.length,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: _heroPage == i ? 16 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: _heroPage == i
-                      ? _primary
-                      : Theme.of(context).dividerColor,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _recommendedCard(BuildContext context, TutorialModel t) {
-    final rule = matchedTopicRuleFor(t.tags);
-    return GestureDetector(
-      onTap: () => _openTutorial(context, t),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (t.coverImage?.isNotEmpty == true)
-              CachedNetworkImage(
-                imageUrl: t.coverImage!,
-                fit: BoxFit.cover,
-                errorWidget: (context, url, error) =>
-                    _recommendedGradientBg(rule),
-              )
-            else
-              _recommendedGradientBg(rule),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.35, 1],
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.68),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 14,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (rule != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        rule.label,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Text(
-                    t.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      height: 1.28,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _AuthorAvatar(
-                        avatar: t.avatar,
-                        username: t.username,
-                        isFoundingCreator: t.isFoundingCreator,
-                        radius: 9,
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          t.username,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      const Icon(
-                        Icons.favorite,
-                        size: 13,
-                        color: Colors.white70,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${t.likes}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 4),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, i) {
+            if (i == 0) {
+              return _HeroCard(tutorial: items[i], isDark: isDarkMode);
+            }
+            return _CompactCard(tutorial: items[i], isDark: isDarkMode);
+          }, childCount: items.length),
         ),
       ),
-    );
-  }
-
-  Widget _recommendedGradientBg(TopicBadgeRule? rule) {
-    final base = rule?.fg ?? _primary;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [base.withValues(alpha: 0.9), base.withValues(alpha: 0.55)],
+      if (state.isLoadingMore)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: _primary,
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildRecommendedHeader(
-    BuildContext context,
-    AppLocalizations l10n,
-    HomeFeedState state,
-  ) {
-    return _SectionHeader(title: l10n.recommendedArticlesTitle);
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+    ];
   }
 }
 
@@ -575,25 +584,98 @@ void _openTutorial(BuildContext context, TutorialModel t) {
   context.push('/tutorial/${t.id}');
 }
 
-// 各段小标题统一样式——继续创作/热门话题/推荐文章 三段都用这个，右侧
-// action 是可选的一个文字按钮（推荐文章的"换一换"），大多数段不需要
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader({required this.title});
+String _formatCount(int n) {
+  if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}w';
+  if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
+  return '$n';
+}
+
+// 根据文章标签推断小卡片的图标——跟话题色板（topic_badge.dart）分开的
+// 一套更粗粒度的启发式，纯粹为了给没有封面图的小卡片一个还算贴切的
+// 图标，不追求跟六色话题分类精确对应
+IconData _iconForTags(List<String> tags) {
+  final t = tags.join(' ').toLowerCase();
+  if (t.contains('数学') || t.contains('统计') || t.contains('公式')) {
+    return Icons.functions;
+  }
+  if (t.contains('代码') || t.contains('python') || t.contains('sql')) {
+    return Icons.code;
+  }
+  if (t.contains('数据') || t.contains('分析')) return Icons.bar_chart;
+  if (t.contains('ai') || t.contains('机器学习')) return Icons.psychology;
+  return Icons.auto_stories;
+}
+
+class _AppEntry {
+  final IconData icon;
+  final String label;
+  final String route;
+  final Color color;
+  final Color bgLight;
+  final Color bgDark;
+  const _AppEntry({
+    required this.icon,
+    required this.label,
+    required this.route,
+    required this.color,
+    required this.bgLight,
+    required this.bgDark,
+  });
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final bool isDark;
+  final bool showDot;
+  final VoidCallback onTap;
+
+  const _HeaderIconButton({
+    required this.icon,
+    required this.isDark,
+    this.showDot = false,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: isDark ? Colors.white.withValues(alpha: 0.85) : _ink,
+              ),
+              if (showDot)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF0A0A1A)
+                            : const Color(0xFFFAFAF8),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -618,7 +700,7 @@ class _Avatar extends StatelessWidget {
       }
     }
     return CircleAvatar(
-      radius: 18,
+      radius: 16,
       backgroundColor: AppColors.primary,
       backgroundImage: provider,
       child: provider == null
@@ -628,7 +710,7 @@ class _Avatar extends StatelessWidget {
                   : '?',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
             )
@@ -637,131 +719,204 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-// 小红书风格宫格卡——图片铺满卡片上半部（没有封面图就用话题色渐变占位，
-// 不留白），下半部标题最多两行 + 作者行，圆角卡片，跟 SliverGrid 的
-// crossAxisCount:2 配合铺成瀑布流网格
-class _GridCard extends StatelessWidget {
+// Feed 第一条——16:9 封面 + 标签 + 标题 + 作者行的大卡片，"文章感"，
+// 不是小红书瀑布流那种图片主导的"帖子感"
+class _HeroCard extends StatelessWidget {
   final TutorialModel tutorial;
-  final bool isDarkMode;
-  const _GridCard({required this.tutorial, required this.isDarkMode});
+  final bool isDark;
+  const _HeroCard({required this.tutorial, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
-    final topicRule = matchedTopicRuleFor(tutorial.tags);
-    final topicLabel =
-        topicRule?.label ??
-        (tutorial.tags.isNotEmpty ? tutorial.tags.first : null);
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
+    return GestureDetector(
       onTap: () => _openTutorial(context, tutorial),
       child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
+          color: isDark ? const Color(0xFF111128) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? const Color(0xFF1E1E3A) : const Color(0xFFEBEBEB),
+            width: 0.5,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AspectRatio(
-              aspectRatio: 1,
-              child: Stack(
-                fit: StackFit.expand,
+              aspectRatio: 16 / 9,
+              child: tutorial.coverImage?.isNotEmpty == true
+                  ? CachedNetworkImage(
+                      imageUrl: tutorial.coverImage!,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => _heroPlaceholder(),
+                    )
+                  : _heroPlaceholder(),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  (tutorial.coverImage?.isNotEmpty ?? false)
-                      ? CachedNetworkImage(
-                          imageUrl: tutorial.coverImage!,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) =>
-                              Container(color: Theme.of(context).dividerColor),
-                          errorWidget: (context, url, error) =>
-                              _CoverPlaceholder(title: tutorial.title),
-                        )
-                      : _CoverPlaceholder(title: tutorial.title),
-                  if (topicLabel != null)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                  if (tutorial.tags.isNotEmpty)
+                    Wrap(
+                      spacing: 4,
+                      children: tutorial.tags
+                          .take(2)
+                          .map(
+                            (t) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF1A1A35)
+                                    : const Color(0xFFEEF0FF),
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Text(
+                                t,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: _primary,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  const SizedBox(height: 6),
+                  Text(
+                    tutorial.title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDark
+                          ? const Color(0xFFF0F2F8)
+                          : const Color(0xFF1A1A1A),
+                      height: 1.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _AuthorAvatar(
+                        avatar: tutorial.avatar,
+                        username: tutorial.username,
+                        isFoundingCreator: tutorial.isFoundingCreator,
+                        radius: 9,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
                         child: Text(
-                          topicLabel,
-                          style: const TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                          tutorial.username,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[400],
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
+                      _StatChip(Icons.favorite_border, '${tutorial.likes}'),
+                      const SizedBox(width: 8),
+                      _StatChip(
+                        Icons.visibility_outlined,
+                        _formatCount(tutorial.views),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _heroPlaceholder() {
+    return Container(
+      color: isDark ? const Color(0xFF1A1A35) : const Color(0xFFEEF0FF),
+      child: const Center(
+        child: Icon(Icons.auto_stories, size: 40, color: _primary),
+      ),
+    );
+  }
+}
+
+// Feed 第一条之后——图标区 + 标题 + 元信息一行的紧凑卡片
+class _CompactCard extends StatelessWidget {
+  final TutorialModel tutorial;
+  final bool isDark;
+  const _CompactCard({required this.tutorial, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final rule = matchedTopicRuleFor(tutorial.tags);
+    final iconColor = rule?.fg ?? _primary;
+    final iconBg = isDark
+        ? iconColor.withValues(alpha: 0.15)
+        : (rule?.bg ?? const Color(0xFFEEF0FF));
+
+    return GestureDetector(
+      onTap: () => _openTutorial(context, tutorial),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF111128) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark ? const Color(0xFF1E1E3A) : const Color(0xFFEBEBEB),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                _iconForTags(tutorial.tags),
+                size: 20,
+                color: iconColor,
+              ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      tutorial.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tutorial.title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isDark
+                          ? const Color(0xFFF0F2F8)
+                          : const Color(0xFF1A1A1A),
+                      height: 1.4,
                     ),
-                    Row(
-                      children: [
-                        _AuthorAvatar(
-                          avatar: tutorial.avatar,
-                          username: tutorial.username,
-                          radius: 8,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            tutorial.username,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.color,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.favorite_border,
-                          size: 11,
-                          color: Theme.of(context).textTheme.bodySmall?.color,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${tutorial.likes}',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: Theme.of(context).textTheme.bodySmall?.color,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${tutorial.username} · ${tutorial.likes}赞 · '
+                    '${_formatCount(tutorial.views)}阅读',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  ),
+                ],
               ),
             ),
           ],
@@ -771,32 +926,20 @@ class _GridCard extends StatelessWidget {
   }
 }
 
-const _coverPalette = [
-  (bg: Color(0xFFEEF2FF), icon: Icons.terminal, fg: Color(0xFF6366F1)),
-  (bg: Color(0xFFECFDF5), icon: Icons.functions, fg: Color(0xFF16A34A)),
-  (
-    bg: Color(0xFFFFF7ED),
-    icon: Icons.smart_toy_outlined,
-    fg: Color(0xFFD97706),
-  ),
-  (bg: Color(0xFFFDF2F8), icon: Icons.auto_awesome, fg: Color(0xFFDB2777)),
-  (bg: Color(0xFFEFF6FF), icon: Icons.grid_on, fg: Color(0xFF2563EB)),
-];
-
-class _CoverPlaceholder extends StatelessWidget {
-  final String title;
-  const _CoverPlaceholder({required this.title});
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  const _StatChip(this.icon, this.value);
 
   @override
   Widget build(BuildContext context) {
-    final entry =
-        _coverPalette[title.isNotEmpty
-            ? title.codeUnitAt(0) % _coverPalette.length
-            : 0];
-    return Container(
-      color: entry.bg,
-      alignment: Alignment.center,
-      child: Icon(entry.icon, color: entry.fg, size: 28),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: Colors.grey[400]),
+        const SizedBox(width: 2),
+        Text(value, style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+      ],
     );
   }
 }
