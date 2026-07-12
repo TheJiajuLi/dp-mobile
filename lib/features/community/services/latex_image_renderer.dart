@@ -38,13 +38,6 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
       .toSet();
   if (formulas.isEmpty) return {};
 
-  // 这个函数是从 initState 里同步链路调过来的（导出进度页一 initState
-  // 就发起生成），这时当前这一帧的 build 还没走完，Overlay.of(...).insert()
-  // 会撞上"setState()/markNeedsBuild() called during build"——先等当前帧
-  // 结束，再去动 Overlay，跟下面等公式截图完成用的是同一个安全点写法
-  await WidgetsBinding.instance.endOfFrame;
-  if (!context.mounted) return {};
-
   final overlayState = Overlay.of(context, rootOverlay: true);
   final glyphColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF4F46E5);
   final result = <String, Uint8List>{};
@@ -52,8 +45,10 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
   // 第二道防线：调用方已改成在 addPostFrameCallback 里启动（脱离 build
   // 阶段）；这里再等一帧确保万一有别的调用方在 build 期调用，也不会在
   // build 阶段往 Overlay 里 insert，触发
-  // "setState()/markNeedsBuild() called during build"
+  // "setState()/markNeedsBuild() called during build"。等完这一帧后
+  // 页面也可能已经被用户取消退出了，先判一次 mounted 再继续
   await WidgetsBinding.instance.endOfFrame;
+  if (!context.mounted) return {};
 
   for (final raw in formulas) {
     final body = _latexBody(raw);
