@@ -197,22 +197,24 @@ class AiContentRenderer extends StatelessWidget {
           }
           return WidgetSpan(
             alignment: PlaceholderAlignment.middle,
+            // 行内公式字色跟正文一致，不再用品牌紫——之前公式在句子里
+            // 一片紫，跟黑色正文割裂
             child: Math.tex(
               seg.content.trim(),
               mathStyle: MathStyle.text,
               textStyle: TextStyle(
                 fontSize: 14,
                 color: isDark
-                    ? const Color(0xFF9B98FF)
-                    : const Color(0xFF4F46E5),
+                    ? const Color(0xFFE0E2F0)
+                    : const Color(0xFF1A1A1A),
               ),
               onErrorFallback: (_) => Text(
                 seg.content,
                 style: TextStyle(
                   fontSize: 14,
                   color: isDark
-                      ? const Color(0xFF9B98FF)
-                      : const Color(0xFF4F46E5),
+                      ? const Color(0xFFE0E2F0)
+                      : const Color(0xFF1A1A1A),
                 ),
               ),
             ),
@@ -227,11 +229,13 @@ class AiContentRenderer extends StatelessWidget {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      // 去掉紫色 pill 底色——公式不再从正文里跳出来当色块，只留一圈中性
+      // 细描边把展示式框住，跟正文融为一体
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A35) : const Color(0xFFEEF0FF),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isDark ? const Color(0xFF2A2A50) : const Color(0xFFD0D4FF),
+          color: isDark ? const Color(0xFF33333F) : const Color(0xFFE8E8ED),
           width: 0.5,
         ),
       ),
@@ -241,9 +245,10 @@ class AiContentRenderer extends StatelessWidget {
         child: Math.tex(
           latex.trim(),
           mathStyle: MathStyle.display,
+          // 字色跟正文一致，不再用品牌紫
           textStyle: TextStyle(
             fontSize: 16,
-            color: isDark ? const Color(0xFF9B98FF) : const Color(0xFF4F46E5),
+            color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
           ),
           onErrorFallback: (_) => const FormulaErrorPlaceholder(),
         ),
