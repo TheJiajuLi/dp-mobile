@@ -128,9 +128,7 @@ class MainShell extends ConsumerWidget {
                             selected: navigationShell.currentIndex == 1,
                             onTap: () => _onTap(1),
                           ),
-                          _PublishButton(
-                            onTap: () => context.push('/publish'),
-                          ),
+                          _PublishButton(onTap: () => context.push('/publish')),
                           Consumer(
                             builder: (context, ref, _) {
                               final unread = ref.watch(unreadCountProvider);
