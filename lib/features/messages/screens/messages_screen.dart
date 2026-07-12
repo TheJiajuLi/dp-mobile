@@ -385,6 +385,23 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       (n) => _NotifPreviewTile(
                         notification: n,
                         onTap: () {
+                          // 跟 notifications_screen.dart 的 _openNotification
+                          // 同一个思路——之前这里只跳转，没有顺手标已读，退回来
+                          // 红点/未读数一直卡着不消。本地先乐观标记，红点立刻
+                          // 消失，真正的已读请求在后台异步发
+                          if (!n.isRead) {
+                            setState(() => n.isRead = true);
+                            final current = ref.read(unreadCountProvider);
+                            if (current > 0) {
+                              ref.read(unreadCountProvider.notifier).state =
+                                  current - 1;
+                            }
+                            unawaited(
+                              ref
+                                  .read(notificationsProvider.notifier)
+                                  .markRead([n.id]),
+                            );
+                          }
                           // 评论/点赞/收藏/提及跳文章（评论/提及再定位到评论），
                           // 回答跳问题，关注才跳主页；其它类型兜底跳发信人主页
                           if (openNotificationTarget(context, n)) return;
