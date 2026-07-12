@@ -11,3 +11,9 @@ final jisuoRefreshSignalProvider = StateProvider<int>((ref) => 0);
 void notifyJisuoShouldRefresh(WidgetRef ref) {
   ref.read(jisuoRefreshSignalProvider.notifier).state++;
 }
+
+// 极索进入"回答态"（小梦直答的回答在页内流式输出）时置 true——MainShell
+// 监听它，为 true 时隐藏底部导航栏，让极索页变成沉浸式全屏，靠页内左上角
+// 的返回键退出回答态。极索是 tab 分支、本身没有上一页可 pop，只能用这个
+// 共享 flag 跟父级 MainShell 通信
+final jisuoImmersiveProvider = StateProvider<bool>((ref) => false);

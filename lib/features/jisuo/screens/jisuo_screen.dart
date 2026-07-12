@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/jisuo_refresh_signal.dart';
 import '../../../core/network/api_client.dart';
-import '../../../features/auth/auth_service.dart';
+import '../../../shared/widgets/formula_error.dart';
 import '../../messages/utils/message_avatar.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -39,38 +43,24 @@ class JisuoScreen extends ConsumerStatefulWidget {
 
 class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final _inputCtrl = TextEditingController();
-  // "社区精选"/"为你推荐"之前是两个独立分区，但其实是同一个接口
-  // （GET /auth/questions，按 view_count DESC, created_at DESC 排序）
-  // 翻两页拉出来的——后端没有真正意义上"跟当前用户匹配"的打分能力，
-  // "为你推荐"名不副实，合并成一个列表更诚实：第二页只是按 id 去重后
-  // 追加在第一页后面，不是另一种排序/来源
-  List<Map<String, dynamic>> _hotQuestions = [];
 
-  // 极索是底部导航的常驻分支（跟"我的" tab 一样，切账号只是 goBranch
-  // 跳回首页，不会重新 initState），热门提问只在 initState 拉过一次，
-  // 不会跟着账号切换自动刷新——用户切完账号如果又点回极索 tab，看到的
-  // 可能还是上一个账号在时拉到的数据。跟 user_profile_screen.dart 里
-  // "我的" tab 同一个套路：build() 里发现 currentUserProvider 变了就
-  // 补一次重新加载
-  String? _loadedForUserId;
-  bool _reloadingForAccountChange = false;
-  final Set<String> _removingQuestionIds = {};
-
-  // 底部输入框的模式：ai=小梦直答 / community=社区提问。只影响输入框点击后
-  // 的落点和 hint 文案
+  // 底部输入框的模式：ai=小梦直答 / community=社区提问。只影响 hint 文案和
+  // 发送后的落点
   String _mode = 'ai';
+
+  // 回答态：一提问就进入——隐藏底部导航栏(jisuoImmersiveProvider)、左上角出
+  // 返回键，小梦的回答在分割线下方流式输出
+  bool _answerMode = false;
+  String _askedQuestion = '';
+  String _answer = '';
+  bool _answering = false;
+  String? _convId;
 
   static const _sampleQuestions = [
     '量子纠缠真的可以超光速通信吗？',
     'Python 和 R 哪个更适合数据分析？',
     '为什么黑洞不会把自己吞掉？',
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHotQuestions();
-  }
 
   @override
   void dispose() {
@@ -87,34 +77,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  Future<void> _loadHotQuestions() async {
-    _loadedForUserId = ref.read(currentUserProvider)?.id;
-    final res = await ref
-        .read(apiClientProvider)
-        .get('/auth/questions', queryParameters: {'limit': 10});
-    if (!mounted || !res.success || res.data == null) return;
-    setState(() {
-      _hotQuestions = ((res.data['questions'] as List?) ?? [])
-          .map((q) => Map<String, dynamic>.from(q as Map))
-          .toList();
-    });
-    unawaited(_loadRecommendedQuestions());
-  }
-
-  Future<void> _loadRecommendedQuestions() async {
-    final res = await ref
-        .read(apiClientProvider)
-        .get('/auth/questions', queryParameters: {'limit': 10, 'offset': 10});
-    if (!mounted || !res.success || res.data == null) return;
-    final existingIds = _hotQuestions.map((q) => q['id'].toString()).toSet();
-    final more = ((res.data['questions'] as List?) ?? [])
-        .map((q) => Map<String, dynamic>.from(q as Map))
-        .where((q) => !existingIds.contains(q['id'].toString()))
-        .toList();
-    if (more.isEmpty) return;
-    setState(() => _hotQuestions.addAll(more));
-  }
-
   Future<Map<String, dynamic>> _postQuestion(
     String text,
     String domain,
@@ -129,75 +91,124 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     if (!res.success || res.data == null) {
       throw Exception(res.message ?? '发布失败，请稍后重试');
     }
-    unawaited(_loadHotQuestions());
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  // 问题详情页删除问题成功后 pop 一个 {'deleted': true, 'questionId': ...}
-  // 回来——先淡出对应卡片再从列表移除，同时 jisuoRefreshSignalProvider
-  // 也会被通知到，覆盖不是从这里直接跳转过去的删除场景（比如从通知点进详情页）
-  Future<void> _openQuestion(Map<String, dynamic> q) async {
-    final result = await context.push('/questions/${q['id']}', extra: q);
-    if (!mounted) return;
-    if (result is Map && result['deleted'] == true) {
-      final id = result['questionId']?.toString();
-      if (id != null) _removeQuestionCard(id);
+  void _startQuestion(String q) => _askInline(q);
+
+  // 小梦直答：进入回答态，流式拉 /auth/xmeng/chat/stream，回答实时追加到
+  // _answer，就在本页分割线下方渲染
+  Future<void> _askInline(String question) async {
+    final q = question.trim();
+    if (q.isEmpty || _answering) return;
+    _inputCtrl.clear();
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _answerMode = true;
+      _askedQuestion = q;
+      _answer = '';
+      _answering = true;
+    });
+    ref.read(jisuoImmersiveProvider.notifier).state = true;
+
+    try {
+      final response = await ref.read(apiClientProvider).dio.post(
+        '/auth/xmeng/chat/stream',
+        data: {
+          'message': q,
+          if (_convId != null) 'conversationId': _convId,
+        },
+        options: Options(
+          responseType: ResponseType.stream,
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
+      final body = response.data as ResponseBody;
+      final lines = body.stream
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+      String? errorMessage;
+      await for (final line in lines) {
+        if (!mounted) return;
+        if (!line.startsWith('data:')) continue;
+        final jsonStr = line.substring(5).trim();
+        if (jsonStr.isEmpty) continue;
+        final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+        switch (data['type']) {
+          case 'meta':
+          case 'done':
+            _convId = data['conversationId']?.toString() ?? _convId;
+            break;
+          case 'chunk':
+            setState(() => _answer += data['text']?.toString() ?? '');
+            break;
+          case 'error':
+            errorMessage =
+                data['message']?.toString() ?? '小梦暂时休息中，请稍后再试';
+            break;
+        }
+      }
+      if (!mounted) return;
+      setState(() => _answering = false);
+      if (errorMessage != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() => _answering = false);
+      final msg = e.response?.data is Map
+          ? ((e.response!.data as Map)['message']?.toString() ??
+                '小梦暂时休息中，请稍后再试')
+          : '小梦暂时休息中，请稍后再试';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
-  void _removeQuestionCard(String id) {
-    setState(() => _removingQuestionIds.add(id));
-    Future.delayed(const Duration(milliseconds: 220), () {
-      if (!mounted) return;
-      setState(() {
-        _hotQuestions.removeWhere((q) => q['id'].toString() == id);
-        _removingQuestionIds.remove(id);
-      });
+  // 返回键：退出回答态，回落地页，恢复底部导航栏
+  void _exitAnswerMode() {
+    ref.read(jisuoImmersiveProvider.notifier).state = false;
+    setState(() {
+      _answerMode = false;
+      _askedQuestion = '';
+      _answer = '';
+      _answering = false;
+    });
+  }
+
+  // 清空回答：清掉当前一问一答，停在回答态等下一次提问
+  void _clearAnswer() {
+    setState(() {
+      _askedQuestion = '';
+      _answer = '';
+      _answering = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = ref.watch(currentUserProvider)?.id;
-    if (!_reloadingForAccountChange &&
-        currentUserId != null &&
-        currentUserId != _loadedForUserId) {
-      _reloadingForAccountChange = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (mounted) await _loadHotQuestions();
-        _reloadingForAccountChange = false;
-      });
-    }
-    // 发布回答会让某个问题的 answer_count 变化，但极索是常驻分支不会
-    // 自动重新拉——跟 profile_refresh_signal.dart 同一个套路
-    ref.listen<int>(jisuoRefreshSignalProvider, (prev, next) {
-      if (prev != next) _loadHotQuestions();
-    });
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 极索是"深空感·沉浸式"落地页：用比全局主题更黑的 #0A0A0F / 更白的
-    // #FAFAF8 做背景，Hero 星空 + 大留白 + 单一紫色强调色
     return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF0A0A0F)
-          : const Color(0xFFFAFAF8),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildHero(isDark)),
-            SliverToBoxAdapter(child: _buildModeChips(isDark)),
-            // 混合：Hero 之下保留"社区精选/热门问题"内容，不白丢社区问答
-            SliverToBoxAdapter(child: _buildJmDivider('社区精选')),
-            SliverToBoxAdapter(child: _buildHotQuestions()),
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          ],
-        ),
+        child: _answerMode ? _buildAnswerMode(isDark) : _buildLanding(isDark),
       ),
       bottomNavigationBar: _buildBottomInput(isDark),
     );
   }
 
-  void _startQuestion(String q) => _askXiaoMeng(q);
+  Widget _buildLanding(bool isDark) {
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _buildHero(isDark)),
+        SliverToBoxAdapter(child: _buildModeChips(isDark)),
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+      ],
+    );
+  }
 
   Widget _buildHero(bool isDark) {
     return SizedBox(
@@ -369,75 +380,88 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
+  void _submit() {
+    // community 模式走社区提问 Sheet；ai 模式在本页流式直答
+    if (_mode == 'community') {
+      _showAskSheet();
+      return;
+    }
+    _askInline(_inputCtrl.text);
+  }
+
   Widget _buildBottomInput(bool isDark) {
-    // ai 模式点了进小梦对话；community 模式点了弹社区提问 Sheet
-    void onTap() => _mode == 'ai' ? _openXiaoMeng() : _showAskSheet();
     return Container(
-      color: isDark ? const Color(0xFF0A0A0F) : const Color(0xFFFAFAF8),
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: SafeArea(
         top: false,
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(
-                color: isDark
-                    ? const Color(0xFF1A1A1A)
-                    : const Color(0xFFEBEBEB),
-                width: 0.5,
-              ),
+              top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
             ),
           ),
           child: Row(
             children: [
               Expanded(
-                child: GestureDetector(
-                  onTap: onTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 12,
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 100),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : const Color(0xFFF0F0F8),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Theme.of(context).dividerColor,
+                      width: 0.5,
                     ),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF17171F)
-                          : const Color(0xFFF0F0F8),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFEBEBEB),
-                        width: 0.5,
+                  ),
+                  child: TextField(
+                    controller: _inputCtrl,
+                    minLines: 1,
+                    maxLines: 4,
+                    // community 模式输入框只当"打开提问 Sheet"的按钮用
+                    readOnly: _mode == 'community',
+                    onTap: _mode == 'community' ? _showAskSheet : null,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _submit(),
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: _mode == 'ai' ? '问小梦任何问题...' : '提问，让社区来回答...',
+                      hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                      prefixIcon: Icon(
+                        Icons.edit_outlined,
+                        size: 16,
+                        color: Colors.grey[400],
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.edit_outlined,
-                          size: 16,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          _mode == 'ai' ? '问小梦任何问题...' : '提问，让社区来回答...',
-                          style: TextStyle(fontSize: 14, color: Colors.grey[400]),
-                        ),
-                      ],
+                      prefixIconConstraints: const BoxConstraints(minWidth: 40),
+                      filled: false,
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               GestureDetector(
-                onTap: onTap,
+                onTap: _answering ? null : _submit,
                 child: Container(
                   width: 44,
                   height: 44,
-                  decoration: const BoxDecoration(
-                    color: _primary,
+                  decoration: BoxDecoration(
+                    color: _answering ? Colors.grey[400] : _primary,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.send, size: 18, color: Colors.white),
+                  child: _answering
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send, size: 18, color: Colors.white),
                 ),
               ),
             ],
@@ -447,287 +471,230 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  Widget _buildAuroraIcon(double size) {
-    return CustomPaint(
-      size: Size(size, size * 0.85),
-      painter: _AuroraIconPainter(),
-    );
-  }
-
-  Widget _buildJmDivider(String label) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Divider(
-              color: Colors.grey.withValues(alpha: 0.15),
-              thickness: 0.5,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0D0A1E) : const Color(0xFFEEF0FF),
-                borderRadius: BorderRadius.circular(99),
-                border: Border.all(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-                  width: 0.5,
+  // ── 回答态 ─────────────────────────────────────────────────────────
+  Widget _buildAnswerMode(bool isDark) {
+    return Column(
+      children: [
+        // 顶栏：返回(退出回答态) + 历史对话 + 清空回答
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: _exitAnswerMode,
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(Icons.arrow_back_ios, size: 18),
                 ),
               ),
-              child: Row(
-                children: [
-                  _buildAuroraIcon(12),
-                  const SizedBox(width: 4),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : const Color(0xFF6366F1),
-                    ),
-                  ),
-                ],
+              const Spacer(),
+              IconButton(
+                tooltip: '历史对话',
+                icon: const Icon(Icons.history, size: 20),
+                color: Colors.grey[500],
+                onPressed: () => context.push('/xiaomeng/history'),
               ),
-            ),
+              IconButton(
+                tooltip: '清空回答',
+                icon: const Icon(Icons.delete_sweep_outlined, size: 20),
+                color: Colors.grey[500],
+                onPressed: _clearAnswer,
+              ),
+            ],
           ),
-          Expanded(
-            child: Divider(
-              color: Colors.grey.withValues(alpha: 0.15),
-              thickness: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 头像叠加用的固定配色——跟专家名单那套调色板保持一致
-  static const _avatarColors = [
-    Color(0xFF6366F1),
-    Color(0xFFD97706),
-    Color(0xFF16A34A),
-  ];
-
-  Widget _buildHotQuestions() {
-    if (_hotQuestions.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '热门提问',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[400],
-              letterSpacing: .04,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ..._hotQuestions.map((q) => _hotQuestionCard(q)),
-        ],
-      ),
-    );
-  }
-
-  Widget _hotQuestionCard(Map<String, dynamic> q) {
-    final domain = q['domain'] as String? ?? '';
-    final answerCount = (q['answer_count'] as num?)?.toInt() ?? 0;
-    final viewCount = (q['view_count'] as num?)?.toInt() ?? 0;
-    final invitedCount = (q['invited_count'] as num?)?.toInt() ?? 0;
-    final avatarCount = answerCount < 3 ? answerCount : 3;
-    final questionId = q['id'].toString();
-    final askerId = q['asker_id']?.toString();
-    final isOwn =
-        askerId != null && askerId == ref.watch(currentUserProvider)?.id;
-    final removing = _removingQuestionIds.contains(questionId);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 220),
-      opacity: removing ? 0 : 1,
-      child: GestureDetector(
-        onTap: () => _openQuestion(q),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.grey.withValues(alpha: isDark ? 0.12 : 0.08),
-              width: 0.5,
-            ),
-            // 跟 tutorial_list_card.dart 同款处理——浅色下用很淡的投影
-            // 撑出卡片的浮起感，深色下阴影没意义，靠上面那圈描边区分
-            boxShadow: isDark
-                ? null
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: jisuoDomainBg(domain),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      domain,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: jisuoDomainColor(domain),
-                      ),
-                    ),
+        ),
+        Expanded(
+          child: _askedQuestion.isEmpty
+              ? Center(
+                  child: Text(
+                    '清空了，换个问题再问问小梦',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[400]),
                   ),
-                  if (isOwn) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A0E2E),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        '我的',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFF59E0B),
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  children: [
+                    // 问题（用户气泡，右对齐）
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.75,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: const BoxDecoration(
+                          color: _primary,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(16),
+                            topRight: Radius.circular(16),
+                            bottomLeft: Radius.circular(16),
+                            bottomRight: Radius.circular(4),
+                          ),
+                        ),
+                        child: Text(
+                          _askedQuestion,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                     ),
-                  ],
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      q['text'] as String,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        height: 1.45,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  SizedBox(
-                    width: avatarCount * 14.0 + 4,
-                    height: 20,
-                    child: Stack(
-                      children: List.generate(
-                        avatarCount,
-                        (i) => Positioned(
-                          left: i * 14.0,
-                          child: CircleAvatar(
-                            radius: 9,
-                            backgroundColor: Colors.white,
-                            child: CircleAvatar(
-                              radius: 8,
-                              backgroundColor:
-                                  _avatarColors[i % _avatarColors.length],
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
+                    // 回答（分割线下方流式输出）
+                    if (_answer.isEmpty && _answering)
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _primary,
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '$answerCount 个回答',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.remove_red_eye_outlined,
-                    size: 12,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '$viewCount',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                  ),
-                  const Spacer(),
-                  if (invitedCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(99),
-                        border: Border.all(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.phone_in_talk,
-                            size: 10,
-                            color: Color(0xFFF59E0B),
-                          ),
-                          const SizedBox(width: 3),
+                          const SizedBox(width: 10),
                           Text(
-                            '已邀请 $invitedCount 位专家',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFFF59E0B),
-                              fontWeight: FontWeight.w500,
+                            '小梦正在思考...',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                ],
+                      )
+                    else
+                      ..._buildAnswerContent(_answer, isDark),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  // 跟小梦对话页同一套解析：``` 代码块 / $公式$ / 其余文字
+  List<Widget> _buildAnswerContent(String content, bool isDark) {
+    final regex = RegExp(
+      r'```(\w*)\n([\s\S]*?)```'
+      r'|\$\$([\s\S]*?)\$\$'
+      r'|\$([^\$\n]+)\$',
+    );
+    final widgets = <Widget>[];
+    var last = 0;
+    for (final m in regex.allMatches(content)) {
+      if (m.start > last) {
+        final t = content.substring(last, m.start).trim();
+        if (t.isNotEmpty) widgets.add(_ansText(t, isDark));
+      }
+      if (m.group(2) != null) {
+        widgets.add(_ansCode(m.group(2) ?? '', (m.group(1) ?? '').trim()));
+      } else {
+        final f = m.group(3) ?? m.group(4) ?? '';
+        widgets.add(_ansFormula(f, isDark, isDisplay: m.group(3) != null));
+      }
+      last = m.end;
+    }
+    if (last < content.length) {
+      final t = content.substring(last).trim();
+      if (t.isNotEmpty) widgets.add(_ansText(t, isDark));
+    }
+    if (widgets.isEmpty) widgets.add(_ansText(content, isDark));
+    return widgets;
+  }
+
+  Widget _ansText(String t, bool isDark) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Text(
+      t,
+      style: TextStyle(
+        fontSize: 15,
+        height: 1.7,
+        color: isDark ? const Color(0xFFC8CAD8) : const Color(0xFF2A2A2A),
+      ),
+    ),
+  );
+
+  Widget _ansCode(String code, String lang) => Container(
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    width: double.infinity,
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E1E2E),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
+          child: Row(
+            children: [
+              Text(
+                lang.isEmpty ? 'CODE' : lang.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF9B9EF8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: code));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Text(
+                    '复制',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF9B9EF8)),
+                  ),
+                ),
               ),
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Text(
+              code.trim(),
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: Color(0xFFE0E0FF),
+                height: 1.6,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _ansFormula(String tex, bool isDark, {bool isDisplay = true}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Math.tex(
+        tex.trim(),
+        mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
+        textStyle: TextStyle(
+          fontSize: isDisplay ? 17 : 15,
+          color: isDark ? const Color(0xFF9B9EF8) : const Color(0xFF4F46E5),
+        ),
+        onErrorFallback: (_) => const FormulaErrorPlaceholder(),
       ),
-    );
-  }
-
-  // 之前这里跳的是 /aria——那是个纯占位屏，没有真的对话能力。小梦对话
-  // 页（/xiaomeng）已经真实做完了，这两个入口改跳过去，不然同一个页面
-  // 顶部"问问小梦"输入框/快捷问题点了还是假的，跟下面页面里新加的"问问
-  // 小梦"入口条一真一假，观感很割裂
-  void _openXiaoMeng() => context.push('/xiaomeng');
-
-  void _askXiaoMeng(String question) => context.push(
-    '/xiaomeng/chat',
-    extra: {'initialMessage': question},
+    ),
   );
 }
 
@@ -800,43 +767,6 @@ class _NebulaPainter extends CustomPainter {
   bool shouldRepaint(_NebulaPainter oldDelegate) => oldDelegate.isDark != isDark;
 }
 
-// 极光Icon画笔
-class _AuroraIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paints = [
-      Paint()
-        ..color = const Color(0xFF6366F1).withValues(alpha: 0.5)
-        ..strokeWidth = size.width * 0.08
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-      Paint()
-        ..color = const Color(0xFF818CF8).withValues(alpha: 0.8)
-        ..strokeWidth = size.width * 0.08
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-      Paint()
-        ..color = const Color(0xFF4ADE80)
-        ..strokeWidth = size.width * 0.09
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-    ];
-
-    final offsets = [0.0, 0.1, 0.2];
-    for (var i = 0; i < 3; i++) {
-      final path = Path();
-      final y0 = size.height * (0.7 + offsets[i]);
-      final cp = Offset(size.width * 0.5, size.height * (0.1 + offsets[i]));
-      path.moveTo(0, y0);
-      path.quadraticBezierTo(cp.dx, cp.dy, size.width, y0);
-      canvas.drawPath(path, paints[i]);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_AuroraIconPainter oldDelegate) => false;
-}
-
 class _AskSheet extends StatefulWidget {
   final Future<Map<String, dynamic>> Function(
     String text,
@@ -891,9 +821,9 @@ class _AskSheetState extends State<_AskSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -903,6 +833,7 @@ class _AskSheetState extends State<_AskSheet> {
   }
 
   Widget _buildForm() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final canPost = _ctrl.text.trim().length >= 10 && _domain != null;
 
     return Column(
@@ -913,7 +844,7 @@ class _AskSheetState extends State<_AskSheet> {
           height: 4,
           margin: const EdgeInsets.only(top: 10, bottom: 4),
           decoration: BoxDecoration(
-            color: Colors.grey[200],
+            color: isDark ? Colors.grey[700] : Colors.grey[200],
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -932,7 +863,9 @@ class _AskSheetState extends State<_AskSheet> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.grey[100],
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.close, size: 16, color: Colors.grey[500]),
@@ -993,10 +926,18 @@ class _AskSheetState extends State<_AskSheet> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: on ? jisuoDomainBg(d) : Colors.grey[50],
+                        color: on
+                            ? jisuoDomainBg(d)
+                            : isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.grey[50],
                         borderRadius: BorderRadius.circular(99),
                         border: Border.all(
-                          color: on ? jisuoDomainColor(d) : Colors.grey[200]!,
+                          color: on
+                              ? jisuoDomainColor(d)
+                              : isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.grey[200]!,
                           width: 0.5,
                         ),
                       ),
@@ -1005,7 +946,11 @@ class _AskSheetState extends State<_AskSheet> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: on ? FontWeight.w500 : FontWeight.normal,
-                          color: on ? jisuoDomainColor(d) : Colors.grey[600],
+                          color: on
+                              ? jisuoDomainColor(d)
+                              : isDark
+                              ? Colors.grey[400]
+                              : Colors.grey[600],
                         ),
                       ),
                     ),
@@ -1023,9 +968,14 @@ class _AskSheetState extends State<_AskSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       '匿名提问',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF374151)),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark
+                            ? const Color(0xFFE0E2F0)
+                            : const Color(0xFF374151),
+                      ),
                     ),
                     Text(
                       '其他用户看不到你的名字',
@@ -1050,10 +1000,12 @@ class _AskSheetState extends State<_AskSheet> {
             child: ElevatedButton(
               onPressed: canPost && !_posting ? _submit : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A1A),
+                backgroundColor: isDark ? _primary : const Color(0xFF1A1A1A),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                disabledBackgroundColor: Colors.grey[200],
+                disabledBackgroundColor: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey[200],
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

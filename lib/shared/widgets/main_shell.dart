@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/jisuo_refresh_signal.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/widgets/founding_badge.dart';
 import '../../features/auth/auth_service.dart';
@@ -33,6 +34,9 @@ class MainShell extends ConsumerWidget {
     // scaffoldBackgroundColor）——纯白跟首页/发现页/消息页/个人主页实际的
     // 浅灰白背景不是同一个值，两者拼在一起会露出一条很淡但看得出来的接缝
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 极索进入"回答态"时隐藏底部导航栏，让它变成沉浸式全屏（靠页内左上角
+    // 返回键退出）
+    final immersive = ref.watch(jisuoImmersiveProvider);
 
     // iPad（宽度>=600）改成左侧竖排导航栏——iPhone 底部导航完全不动。这是
     // 重新搭的精简版：4个真实目的地 + 发布，跟手机底部 Tab 完全对应，
@@ -60,7 +64,9 @@ class MainShell extends ConsumerWidget {
 
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: DecoratedBox(
+      bottomNavigationBar: immersive
+          ? null
+          : DecoratedBox(
         decoration: BoxDecoration(
           // 直接读 scaffoldBackgroundColor（会被 AnimatedTheme 平滑插值），
           // 跟页面主体用同一个源、同一条动画曲线，切主题时底部栏边缘不再
