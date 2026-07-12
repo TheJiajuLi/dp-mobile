@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../widgets/settings_row.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -18,9 +19,13 @@ class AboutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
+      // AppBar 跟页面背景统一用 scaffoldBackgroundColor，不再用
+      // cardColor——之前顶栏套一层 cardColor（浅色下是白），跟下面
+      // scaffoldBackgroundColor（浅灰）撞出一块"白色色块贴灰色背景"的
+      // 接缝，跟账号安全/隐私设置页同一个坑，这里补齐
       appBar: AppBar(
         title: Text(l10n.aboutApp),
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
       ),
@@ -82,53 +87,46 @@ class AboutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 40),
 
-          // 信息列表
-          Container(
-            color: Theme.of(context).cardColor,
-            child: Column(
-              children: [
-                ListTile(
-                  title: Text(l10n.versionNumber),
-                  trailing: const Text(
-                    'v1.0.0',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-                const Divider(height: 0.5, indent: 16),
-                ListTile(
-                  title: Text(l10n.devTeam),
-                  trailing: const Text(
-                    'Dreaming Polar',
-                    style: TextStyle(
-                      color: Color(0xFF6366F1),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const Divider(height: 0.5, indent: 16),
-                ListTile(
-                  title: Text(l10n.officialWebsite),
-                  trailing: const Text(
-                    'dreamingpolar.com',
-                    style: TextStyle(color: Color(0xFF6366F1)),
-                  ),
-                  onTap: () => _open('https://dreamingpolar.com'),
-                ),
-                const Divider(height: 0.5, indent: 16),
-                ListTile(
-                  title: Text(l10n.userAgreement),
-                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                  onTap: () => context.push('/settings/terms'),
-                ),
-                const Divider(height: 0.5, indent: 16),
-                ListTile(
-                  title: Text(l10n.privacyPolicy),
-                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                  onTap: () => context.push('/settings/privacy-policy'),
-                ),
-              ],
+          // 信息列表——跟账号安全/隐私设置页同一套视觉语言，收进浮在
+          // 页面背景上的圆角卡片，组内分割线区分，不再是贴边到底的
+          // 扁平列表
+          SettingsGroup(dividerIndent: 16, [
+            ListTile(
+              title: Text(l10n.versionNumber),
+              trailing: const Text(
+                'v1.0.0',
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
-          ),
+            ListTile(
+              title: Text(l10n.devTeam),
+              trailing: const Text(
+                'Dreaming Polar',
+                style: TextStyle(
+                  color: Color(0xFF6366F1),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ListTile(
+              title: Text(l10n.officialWebsite),
+              trailing: const Text(
+                'dreamingpolar.com',
+                style: TextStyle(color: Color(0xFF6366F1)),
+              ),
+              onTap: () => _open('https://dreamingpolar.com'),
+            ),
+            ListTile(
+              title: Text(l10n.userAgreement),
+              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: () => context.push('/settings/terms'),
+            ),
+            ListTile(
+              title: Text(l10n.privacyPolicy),
+              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: () => context.push('/settings/privacy-policy'),
+            ),
+          ]),
           const SizedBox(height: 20),
           Center(
             child: Text(
