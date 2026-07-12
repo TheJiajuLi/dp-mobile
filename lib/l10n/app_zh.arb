@@ -251,6 +251,7 @@
   "notifFilterAll": "全部",
   "notifFilterComments": "评论",
   "notifFilterLikes": "点赞",
+  "notifFilterSaves": "收藏",
   "notifFilterFollows": "关注",
   "notifFilterMentions": "@提及",
   "notifFilterAi": "AI",

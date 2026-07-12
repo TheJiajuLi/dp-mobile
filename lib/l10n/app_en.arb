@@ -384,6 +384,7 @@
   "notifFilterAll": "All",
   "notifFilterComments": "Comments",
   "notifFilterLikes": "Likes",
+  "notifFilterSaves": "Saves",
   "notifFilterFollows": "Follows",
   "notifFilterMentions": "@Mentions",
   "notifFilterAi": "AI",

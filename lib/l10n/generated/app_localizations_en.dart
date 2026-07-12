@@ -825,6 +825,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifFilterLikes => 'Likes';
 
   @override
+  String get notifFilterSaves => 'Saves';
+
+  @override
   String get notifFilterFollows => 'Follows';
 
   @override

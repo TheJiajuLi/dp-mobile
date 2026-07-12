@@ -811,6 +811,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notifFilterLikes => '点赞';
 
   @override
+  String get notifFilterSaves => '收藏';
+
+  @override
   String get notifFilterFollows => '关注';
 
   @override

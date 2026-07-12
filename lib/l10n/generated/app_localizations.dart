@@ -1604,6 +1604,12 @@ abstract class AppLocalizations {
   /// **'Likes'**
   String get notifFilterLikes;
 
+  /// No description provided for @notifFilterSaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Saves'**
+  String get notifFilterSaves;
+
   /// No description provided for @notifFilterFollows.
   ///
   /// In en, this message translates to:

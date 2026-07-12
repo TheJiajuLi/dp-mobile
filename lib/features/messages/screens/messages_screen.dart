@@ -23,7 +23,7 @@ const _primary = kMessagesPrimary;
 // 点了就显示"即将上线"的占位——2026-07-11 换成"回答"，映射真实存在的
 // answer_posted 类型（question.controller.ts createNotification 调用里
 // 确认过），不再是假占位
-enum _PreviewFilter { all, comment, like, follow, answer }
+enum _PreviewFilter { all, comment, like, save, follow, answer }
 
 class MessagesScreen extends ConsumerStatefulWidget {
   const MessagesScreen({super.key});
@@ -146,6 +146,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         return all.where((n) => n.type == 'comment').toList();
       case _PreviewFilter.like:
         return all.where((n) => n.type == 'like').toList();
+      case _PreviewFilter.save:
+        return all.where((n) => n.type == 'tutorial_save').toList();
       case _PreviewFilter.follow:
         return all.where((n) => n.type == 'follow').toList();
       case _PreviewFilter.answer:
@@ -246,6 +248,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                   _filterChip(l10n.notifFilterAll, _PreviewFilter.all),
                   _filterChip(l10n.notifFilterComments, _PreviewFilter.comment),
                   _filterChip(l10n.notifFilterLikes, _PreviewFilter.like),
+                  _filterChip(l10n.notifFilterSaves, _PreviewFilter.save),
                   _filterChip(l10n.notifFilterFollows, _PreviewFilter.follow),
                   _filterChip(l10n.notifFilterAnswer, _PreviewFilter.answer),
                 ],
