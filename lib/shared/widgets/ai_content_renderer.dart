@@ -42,10 +42,15 @@ List<List<AiSegment>> parseAiContent(String text) {
   final paragraphs = <List<AiSegment>>[];
 
   // 先切块级元素：代码块 / \[...\] / $$...$$
+  // 定界符用 \\+ 而不是 \\——小梦（和多数大模型）经常把 LaTeX 定界符
+  // 双重转义成 \\[...\\]，收尾用 \\+ 会把结尾多余的反斜杠全吃掉，不然
+  // 会漏一个 \ 进公式内容里让 Math.tex 直接报错、退化成纯文字（这正是
+  // "看起来没渲染成 LaTeX"的根因）。dotAll 冗余但保底
   final blockPattern = RegExp(
     r'```(\w*)\n([\s\S]*?)```'
-    r'|\\\[([\s\S]*?)\\\]'
+    r'|\\+\[([\s\S]*?)\\+\]'
     r'|\$\$([\s\S]*?)\$\$',
+    dotAll: true,
   );
 
   var lastEnd = 0;
@@ -104,8 +109,9 @@ List<List<AiSegment>> parseAiContent(String text) {
 
 List<AiSegment> _parseInline(String line) {
   final result = <AiSegment>[];
+  // 同理行内 \(...\) 也用 \\+ 容忍双重转义的 \\(...\\)
   final inlinePattern = RegExp(
-    r'\\\(([\s\S]*?)\\\)'
+    r'\\+\(([\s\S]*?)\\+\)'
     r'|\$([^\$\n]+)\$',
   );
   var last = 0;
