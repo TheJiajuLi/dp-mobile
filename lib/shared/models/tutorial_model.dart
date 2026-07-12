@@ -7,6 +7,11 @@ class TutorialModel {
   final String? userId;
   final String? coverImage;
   final String? summary;
+  // 摘要为空时的展示兜底——后端 GET /auth/tutorials 优先返回作者填写的
+  // summary，没填就回退成正文（blocks）前120字纯文本。前端这里再兜底
+  // 一层 summary，是防后端还没部署这个字段/旧缓存响应里没有这个 key
+  // 的情况，不是重复实现同一套截断逻辑
+  final String? preview;
   final String? avatar;
   final List<String> tags;
   final int likes;
@@ -23,6 +28,7 @@ class TutorialModel {
     this.userId,
     this.coverImage,
     this.summary,
+    this.preview,
     this.avatar,
     this.tags = const [],
     required this.likes,
@@ -39,6 +45,7 @@ class TutorialModel {
       userId: json['user_id']?.toString(),
       coverImage: json['cover_image']?.toString(),
       summary: json['summary']?.toString(),
+      preview: json['preview']?.toString() ?? json['summary']?.toString(),
       avatar: json['avatar']?.toString(),
       tags: _parseTags(json['tags']),
       likes: _parseInt(json['likes']),

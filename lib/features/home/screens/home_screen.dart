@@ -631,16 +631,16 @@ class _FeedItem extends StatelessWidget {
                     ),
                   ],
                 ),
-                if ((tutorial.summary?.isNotEmpty ?? false) ||
+                if ((tutorial.preview?.isNotEmpty ?? false) ||
                     tutorial.coverImage?.isNotEmpty == true) ...[
                   const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (tutorial.summary?.isNotEmpty ?? false)
+                      if (tutorial.preview?.isNotEmpty ?? false)
                         Expanded(
                           child: Text(
-                            tutorial.summary!,
+                            tutorial.preview!,
                             style: TextStyle(
                               fontSize: 13,
                               color: textSecondary,
