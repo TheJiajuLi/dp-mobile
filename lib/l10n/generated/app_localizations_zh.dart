@@ -1847,6 +1847,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importCopyrightNotice => '仅供作者本人导入自己的文章，导入他人内容须取得授权';
 
   @override
+  String get importOpenBrowserAction => '抓取失败？打开内置浏览器手动导入';
+
+  @override
   String get textBlockHint => '输入文字内容...';
 
   @override

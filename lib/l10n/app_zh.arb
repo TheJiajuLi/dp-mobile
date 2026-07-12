@@ -576,6 +576,7 @@
   "importFailedNetwork": "导入失败：网络错误",
   "importSuccessMessage": "已从{platform}导入{count}个内容块，请确认版权后再发布",
   "importCopyrightNotice": "仅供作者本人导入自己的文章，导入他人内容须取得授权",
+  "importOpenBrowserAction": "抓取失败？打开内置浏览器手动导入",
   "textBlockHint": "输入文字内容...",
   "headingBlockHint": "Heading {level}...",
   "codeBlockHint": "# 输入代码...",

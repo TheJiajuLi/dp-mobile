@@ -1890,6 +1890,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Only import articles you authored yourself — importing others\' content requires their authorization';
 
   @override
+  String get importOpenBrowserAction =>
+      'Fetch failed? Open built-in browser to import manually';
+
+  @override
   String get textBlockHint => 'Enter text content...';
 
   @override

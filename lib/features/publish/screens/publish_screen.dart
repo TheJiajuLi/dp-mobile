@@ -18,6 +18,7 @@ import '../widgets/formatting_toolbar.dart';
 import '../widgets/preview_drawer.dart';
 import '../widgets/publish_meta_sheet.dart';
 import '../widgets/publish_toolbar.dart';
+import 'import_browser_screen.dart';
 
 const _primary = Color(0xFF6366F1);
 const _ink = Color(0xFF1A1A1A);
@@ -827,8 +828,23 @@ result
                     ),
                   ],
                 ),
+                // 知乎/公众号服务端直接抓经常被反爬拦下（403）——内置
+                // 浏览器手动导入是给这种情况的备选路，不是主路径，放
+                // 成一个次要的文字按钮，不跟上面的主按钮抢视觉重量
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _openImportBrowser();
+                    },
+                    child: Text(
+                      l10n.importOpenBrowserAction,
+                      style: const TextStyle(fontSize: 12, color: _primary),
+                    ),
+                  ),
+                ),
                 Padding(
-                  padding: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     l10n.importCopyrightNotice,
                     style: TextStyle(
@@ -881,45 +897,8 @@ result
         return;
       }
 
-      final data = res.data as Map<String, dynamic>;
-      final newBlocks = (data['blocks'] as List? ?? [])
-          .map((b) => EditorBlock.fromJson(Map<String, dynamic>.from(b as Map)))
-          .toList();
-
-      // _blocks 是 final 的，不能整个重新赋值——旧 block 的 FocusNode
-      // 要先 dispose 掉，不然每导入一次泄漏一批
-      for (final b in _blocks) {
-        b.focusNode.dispose();
-      }
-      setState(() {
-        _titleCtrl.text = data['title']?.toString() ?? _titleCtrl.text;
-        _summaryCtrl.text = data['summary']?.toString() ?? _summaryCtrl.text;
-        _blocks
-          ..clear()
-          ..addAll(newBlocks);
-        if (data['cover_image'] != null) {
-          _coverImageUrl = data['cover_image'].toString();
-        }
-      });
-
       if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-
-      final platform = data['platform']?.toString() ?? 'general';
-      final platformName = platform == 'zhihu'
-          ? l10n.importPlatformZhihu
-          : platform == 'wechat'
-          ? l10n.importPlatformWechat
-          : l10n.importPlatformGeneral;
-      final count = (data['block_count'] as num?)?.toInt() ?? newBlocks.length;
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.importSuccessMessage(count, platformName)),
-          duration: const Duration(seconds: 4),
-          backgroundColor: const Color(0xFF16A34A),
-        ),
-      );
+      _applyImportResult(res.data as Map<String, dynamic>);
     } catch (e) {
       setSheetState(() => setLoading(false));
       if (sheetCtx.mounted) Navigator.pop(sheetCtx);
@@ -931,6 +910,62 @@ result
         ),
       );
     }
+  }
+
+  // /auth/import/url 和内置浏览器那条路（/auth/import/html）返回的都是
+  // 同一套 {title, summary, blocks, cover_image, platform, block_count}
+  // 形状，回填编辑器 + 成功提示这部分逻辑两条路完全一样，抽出来共用，
+  // 不写两份
+  void _applyImportResult(Map<String, dynamic> data) {
+    final l10n = AppLocalizations.of(context)!;
+    final newBlocks = (data['blocks'] as List? ?? [])
+        .map((b) => EditorBlock.fromJson(Map<String, dynamic>.from(b as Map)))
+        .toList();
+
+    // _blocks 是 final 的，不能整个重新赋值——旧 block 的 FocusNode
+    // 要先 dispose 掉，不然每导入一次泄漏一批
+    for (final b in _blocks) {
+      b.focusNode.dispose();
+    }
+    setState(() {
+      _titleCtrl.text = data['title']?.toString() ?? _titleCtrl.text;
+      _summaryCtrl.text = data['summary']?.toString() ?? _summaryCtrl.text;
+      _blocks
+        ..clear()
+        ..addAll(newBlocks);
+      if (data['cover_image'] != null) {
+        _coverImageUrl = data['cover_image'].toString();
+      }
+    });
+
+    final platform = data['platform']?.toString() ?? 'general';
+    final platformName = switch (platform) {
+      'zhihu' => l10n.importPlatformZhihu,
+      'wechat' => l10n.importPlatformWechat,
+      'paste' => l10n.importPlatformGeneral,
+      _ => l10n.importPlatformGeneral,
+    };
+    final count = (data['block_count'] as num?)?.toInt() ?? newBlocks.length;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.importSuccessMessage(count, platformName)),
+        duration: const Duration(seconds: 4),
+        backgroundColor: const Color(0xFF16A34A),
+      ),
+    );
+  }
+
+  // 内置浏览器导入——URL 直接抓取在知乎/公众号这类反爬平台经常被 403
+  // 拒绝，这是备选方案：用户在内嵌浏览器里自己翻到文章页，把当前页面
+  // 已经渲染好的 DOM 发给 /auth/import/html 解析
+  Future<void> _openImportBrowser() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(builder: (_) => const ImportBrowserScreen()),
+    );
+    if (result != null && mounted) _applyImportResult(result);
   }
 
   void _deleteBlock(String id) {

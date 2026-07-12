@@ -3542,6 +3542,12 @@ abstract class AppLocalizations {
   /// **'Only import articles you authored yourself — importing others\' content requires their authorization'**
   String get importCopyrightNotice;
 
+  /// No description provided for @importOpenBrowserAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetch failed? Open built-in browser to import manually'**
+  String get importOpenBrowserAction;
+
   /// No description provided for @textBlockHint.
   ///
   /// In en, this message translates to:

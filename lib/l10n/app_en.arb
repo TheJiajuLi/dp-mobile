@@ -954,6 +954,7 @@
   "importFailedNetwork": "Import failed: network error",
   "importSuccessMessage": "Imported {count} blocks from {platform}. Please confirm copyright before publishing",
   "importCopyrightNotice": "Only import articles you authored yourself — importing others' content requires their authorization",
+  "importOpenBrowserAction": "Fetch failed? Open built-in browser to import manually",
   "textBlockHint": "Enter text content...",
   "headingBlockHint": "Heading {level}...",
   "@headingBlockHint": {
