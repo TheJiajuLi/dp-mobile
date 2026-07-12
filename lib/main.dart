@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:app_links/app_links.dart';
 import 'package:cookie_jar/cookie_jar.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +32,11 @@ Future<void> main() async {
     debugPrint('═══════════════════');
   };
 
+  // 崩溃监控接入。成功初始化后接管 Flutter/异步未捕获错误上报到
+  // Crashlytics；缺 Firebase 配置时整段 catch 掉，保留上面的诊断 handler，
+  // App 照常启动
+  await _initCrashlytics();
+
   // /auth/refresh 认的是登录时后端下发的 dp_refresh HttpOnly cookie，必须
   // 落盘（PersistCookieJar）才能在 App 被系统整个杀掉重启后依然有效——
   // 只是"划走切到后台但进程没被杀"的话，内存态的 cookie 本来就不会丢。
@@ -51,6 +59,33 @@ Future<void> main() async {
       child: const MyApp(),
     ),
   );
+}
+
+// Firebase Crashlytics 初始化。这是可选增强：只有当项目里补齐了 Firebase
+// 配置文件（iOS 的 GoogleService-Info.plist / Android 的 google-services.json，
+// 或用 `flutterfire configure` 生成的 firebase_options.dart 传给
+// initializeApp(options:)）时，initializeApp() 才会成功、崩溃上报才真正启用。
+// 没配置时 initializeApp() 抛异常，这里 catch 掉——不设 Crashlytics 的错误
+// handler，也不影响 App 启动。配置补齐后本函数无需改动即自动生效。
+Future<void> _initCrashlytics() async {
+  try {
+    await Firebase.initializeApp();
+    final crashlytics = FirebaseCrashlytics.instance;
+
+    // Flutter 框架层未捕获错误（build/layout/paint 等）
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      crashlytics.recordFlutterFatalError(details);
+    };
+
+    // 框架之外的异步未捕获错误（isolate 顶层）
+    PlatformDispatcher.instance.onError = (error, stack) {
+      crashlytics.recordError(error, stack, fatal: true);
+      return true;
+    };
+  } catch (_) {
+    // Firebase 未配置——崩溃上报暂不启用，保留上面的诊断 handler，静默跳过
+  }
 }
 
 Future<PersistCookieJar> _buildPersistentCookieJar() async {

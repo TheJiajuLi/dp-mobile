@@ -4,9 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
@@ -105,19 +103,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   String? get _userId => ref.read(currentUserProvider)?.id;
 
+  // 搜索历史改由后端存（GET/POST/DELETE /auth/search/history），换设备也在，
+  // 每用户最多 20 条。未登录用户没有历史，跳过所有历史相关请求
+  static const _historyLimit = 20;
+
   Future<void> _loadHistory() async {
-    final userId = _userId;
-    if (userId == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getStringList(AppConstants.keySearchHistory(userId));
-    if (saved != null && mounted) setState(() => _history = saved);
+    if (_userId == null) return;
+    final res = await ref.read(apiClientProvider).get('/auth/search/history');
+    if (!mounted || !res.success) return;
+    final list = (res.data as Map?)?['history'] as List? ?? [];
+    setState(() {
+      _history = list
+          .map((e) => e is Map ? (e['keyword'] ?? '').toString() : e.toString())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    });
   }
 
-  Future<void> _saveHistory() async {
-    final userId = _userId;
-    if (userId == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(AppConstants.keySearchHistory(userId), _history);
+  // 保存一条搜索记录——后端会去重置顶并裁到 20 条，这里只管发一条
+  Future<void> _saveSearchKeyword(String keyword) async {
+    if (_userId == null) return;
+    await ref
+        .read(apiClientProvider)
+        .post('/auth/search/history', data: {'keyword': keyword});
+  }
+
+  Future<void> _clearHistory() async {
+    if (_userId == null) return;
+    final res = await ref
+        .read(apiClientProvider)
+        .delete('/auth/search/history');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() => _history = []);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res.message ?? '清空失败，请稍后重试')),
+      );
+    }
   }
 
   Future<void> _loadMyGroups() async {
@@ -233,14 +256,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       _ctrl.text = query;
     });
 
-    if (!_history.contains(query)) {
+    // 只有登录用户才有搜索历史。乐观更新：本地去重置顶（跟后端
+    // saveSearchHistory 行为一致），再异步 POST 落库
+    if (_userId != null) {
       setState(() {
+        _history.remove(query);
         _history.insert(0, query);
-        if (_history.length > AppConstants.maxSearchHistory) {
-          _history = _history.sublist(0, AppConstants.maxSearchHistory);
+        if (_history.length > _historyLimit) {
+          _history = _history.sublist(0, _historyLimit);
         }
       });
-      unawaited(_saveHistory());
+      unawaited(_saveSearchKeyword(query));
     }
 
     // 后端 users LIKE 匹配的是 username/handle 本身，不含 @ 前缀——
@@ -445,10 +471,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           _sectionHeader(
             l10n.searchHistory,
             action: GestureDetector(
-              onTap: () {
-                setState(() => _history = []);
-                unawaited(_saveHistory());
-              },
+              onTap: _clearHistory,
               child: Text(
                 l10n.searchClear,
                 style: TextStyle(fontSize: 12, color: _muted),

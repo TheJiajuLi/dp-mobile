@@ -12,6 +12,12 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
+  # 崩溃监控（Firebase Crashlytics）——需要 Firebase 项目配置才会真正上报：
+  # 缺 firebase_options.dart / GoogleService-Info.plist / google-services.json
+  # 时 main.dart 里的初始化会 catch 掉，App 照常运行，配置补齐后自动生效
+  firebase_core: ^3.0.0
+  firebase_crashlytics: ^4.0.0
+
   # 状态管理
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
