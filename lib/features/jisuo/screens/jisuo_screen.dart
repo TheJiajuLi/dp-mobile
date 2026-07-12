@@ -8,7 +8,6 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/jisuo_refresh_signal.dart';
 import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/formula_error.dart';
 import '../../messages/utils/message_avatar.dart';
@@ -34,6 +33,9 @@ Color jisuoDomainBg(String d) => switch (d) {
   _ => const Color(0xFFF3F4F6),
 };
 
+// 极索页内直答的三态
+enum JisuoMode { idle, streaming, done }
+
 class JisuoScreen extends ConsumerStatefulWidget {
   const JisuoScreen({super.key});
 
@@ -43,18 +45,22 @@ class JisuoScreen extends ConsumerStatefulWidget {
 
 class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final _inputCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
 
-  // 底部输入框的模式：ai=小梦直答 / community=社区提问。只影响 hint 文案和
+  // 底部输入框的 tab：ai=小梦直答 / community=社区提问。只影响 hint 文案和
   // 发送后的落点
-  String _mode = 'ai';
+  String _tab = 'ai';
 
-  // 回答态：一提问就进入——隐藏底部导航栏(jisuoImmersiveProvider)、左上角出
-  // 返回键，小梦的回答在分割线下方流式输出
-  bool _answerMode = false;
-  String _askedQuestion = '';
+  // 页内直答状态机：idle=落地页(Hero+示例) / streaming=流式生成中 /
+  // done=回答完成。全程不跳转、不隐藏底部栏，就在极索页内展开
+  JisuoMode _jisuoMode = JisuoMode.idle;
+  String _question = '';
   String _answer = '';
-  bool _answering = false;
   String? _convId;
+  bool _stopRequested = false;
+  List<String> _suggestions = [];
+  // "社区相关讨论"——回答态下方展示的社区问题（GET /auth/questions）
+  List<Map<String, dynamic>> _related = [];
 
   static const _sampleQuestions = [
     '量子纠缠真的可以超光速通信吗？',
@@ -65,6 +71,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   @override
   void dispose() {
     _inputCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -94,22 +101,31 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  void _startQuestion(String q) => _askInline(q);
+  void _startQuestion(String q) => _askQuestion(q);
 
-  // 小梦直答：进入回答态，流式拉 /auth/xmeng/chat/stream，回答实时追加到
-  // _answer，就在本页分割线下方渲染
-  Future<void> _askInline(String question) async {
+  // 小梦直答：页内展开流式回复，全程不跳转。流式拉 /auth/xmeng/chat/stream，
+  // 回答实时追加到 _answer 就地渲染；完成后给三条本地追问建议 + 拉社区相关讨论
+  Future<void> _askQuestion(String question) async {
     final q = question.trim();
-    if (q.isEmpty || _answering) return;
+    if (q.isEmpty || _jisuoMode == JisuoMode.streaming) return;
     _inputCtrl.clear();
     FocusScope.of(context).unfocus();
     setState(() {
-      _answerMode = true;
-      _askedQuestion = q;
+      _jisuoMode = JisuoMode.streaming;
+      _question = q;
       _answer = '';
-      _answering = true;
+      _suggestions = [];
+      _stopRequested = false;
     });
-    ref.read(jisuoImmersiveProvider.notifier).state = true;
+    // 滚回顶部看问题+回答从头展开
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+    unawaited(_loadRelated(q));
 
     try {
       final response = await ref
@@ -134,6 +150,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       String? errorMessage;
       await for (final line in lines) {
         if (!mounted) return;
+        if (_stopRequested) break; // 用户点了"停止生成"
         if (!line.startsWith('data:')) continue;
         final jsonStr = line.substring(5).trim();
         if (jsonStr.isEmpty) continue;
@@ -152,7 +169,10 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         }
       }
       if (!mounted) return;
-      setState(() => _answering = false);
+      setState(() {
+        _jisuoMode = JisuoMode.done;
+        _suggestions = _generateSuggestions(q);
+      });
       if (errorMessage != null) {
         ScaffoldMessenger.of(
           context,
@@ -160,32 +180,59 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       }
     } on DioException catch (e) {
       if (!mounted) return;
-      setState(() => _answering = false);
       final msg = e.response?.data is Map
           ? ((e.response!.data as Map)['message']?.toString() ??
                 '小梦暂时休息中，请稍后再试')
           : '小梦暂时休息中，请稍后再试';
+      // 有部分回答就停在 done 展示，没有就退回 idle
+      setState(() => _jisuoMode = _answer.isEmpty
+          ? JisuoMode.idle
+          : JisuoMode.done);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
 
-  // 返回键：退出回答态，回落地页，恢复底部导航栏
-  void _exitAnswerMode() {
-    ref.read(jisuoImmersiveProvider.notifier).state = false;
+  void _stopStream() => setState(() {
+    _stopRequested = true;
+    _jisuoMode = JisuoMode.done;
+    _suggestions = _generateSuggestions(_question);
+  });
+
+  // 顶栏"重置"：回落地页，清掉当前一问一答
+  void _resetToIdle() {
     setState(() {
-      _answerMode = false;
-      _askedQuestion = '';
+      _jisuoMode = JisuoMode.idle;
+      _question = '';
       _answer = '';
-      _answering = false;
+      _suggestions = [];
     });
   }
 
-  // 清空回答：清掉当前一问一答，停在回答态等下一次提问
-  void _clearAnswer() {
+  void _copyAnswer() {
+    Clipboard.setData(ClipboardData(text: _answer));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
+  }
+
+  // 发布到极索：把这个问题抛给社区讨论——复用社区提问 Sheet
+  void _publishToJisuo() => _showAskSheet();
+
+  List<String> _generateSuggestions(String q) => const [
+    '能举一个更具体的例子吗？',
+    '这个概念在实际中怎么应用？',
+    '有哪些相关的延伸知识？',
+  ];
+
+  Future<void> _loadRelated(String q) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/questions', queryParameters: {'limit': 4});
+    if (!mounted || !res.success || res.data == null) return;
     setState(() {
-      _askedQuestion = '';
-      _answer = '';
-      _answering = false;
+      _related = ((res.data['questions'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
     });
   }
 
@@ -201,7 +248,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       // 外层、Scaffold body 的 Stack 底层，跟首页极光光晕同一个做法
       body: Stack(
         children: [
-          if (!_answerMode)
+          if (_jisuoMode == JisuoMode.idle)
             Positioned.fill(
               child: IgnorePointer(
                 child: isDark
@@ -226,9 +273,18 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             ),
           SafeArea(
             bottom: false,
-            child: _answerMode
-                ? _buildAnswerMode(isDark)
-                : _buildLanding(isDark),
+            child: Column(
+              children: [
+                _buildTopBar(isDark),
+                _buildModeChips(isDark),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: _jisuoMode == JisuoMode.idle
+                      ? _buildIdleView(isDark)
+                      : _buildAnswerView(isDark),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -236,14 +292,41 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  Widget _buildLanding(bool isDark) {
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(child: _buildHero(isDark)),
-        SliverToBoxAdapter(child: _buildModeChips(isDark)),
-        const SliverToBoxAdapter(child: SizedBox(height: 20)),
-      ],
+  // 顶栏：标题 + （非 idle 态）重置按钮
+  Widget _buildTopBar(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 8, 2),
+      child: Row(
+        children: [
+          Text(
+            '极索',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+            ),
+          ),
+          const Spacer(),
+          if (_jisuoMode != JisuoMode.idle)
+            IconButton(
+              tooltip: '重新开始',
+              icon: const Icon(Icons.refresh, size: 20),
+              color: Colors.grey[500],
+              onPressed: _resetToIdle,
+            ),
+          IconButton(
+            tooltip: '历史对话',
+            icon: const Icon(Icons.history, size: 20),
+            color: Colors.grey[500],
+            onPressed: () => context.push('/xiaomeng/history'),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildIdleView(bool isDark) {
+    return ListView(children: [_buildHero(isDark), const SizedBox(height: 20)]);
   }
 
   Widget _buildHero(bool isDark) {
@@ -339,14 +422,14 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
-          _modeChip(
+          _tabChip(
             isDark,
             label: '小梦直答',
             icon: Icons.auto_awesome,
             mode: 'ai',
           ),
           const SizedBox(width: 8),
-          _modeChip(
+          _tabChip(
             isDark,
             label: '社区提问',
             icon: Icons.people_outline,
@@ -357,15 +440,15 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  Widget _modeChip(
+  Widget _tabChip(
     bool isDark, {
     required String label,
     required IconData icon,
     required String mode,
   }) {
-    final selected = _mode == mode;
+    final selected = _tab == mode;
     return GestureDetector(
-      onTap: () => setState(() => _mode = mode),
+      onTap: () => setState(() => _tab = mode),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
@@ -401,11 +484,11 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   void _submit() {
     // community 模式走社区提问 Sheet；ai 模式在本页流式直答
-    if (_mode == 'community') {
+    if (_tab == 'community') {
       _showAskSheet();
       return;
     }
-    _askInline(_inputCtrl.text);
+    _askQuestion(_inputCtrl.text);
   }
 
   Widget _buildBottomInput(bool isDark) {
@@ -443,13 +526,17 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     minLines: 1,
                     maxLines: 4,
                     // community 模式输入框只当"打开提问 Sheet"的按钮用
-                    readOnly: _mode == 'community',
-                    onTap: _mode == 'community' ? _showAskSheet : null,
+                    readOnly: _tab == 'community',
+                    onTap: _tab == 'community' ? _showAskSheet : null,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _submit(),
                     style: const TextStyle(fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: _mode == 'ai' ? '问小梦任何问题...' : '提问，让社区来回答...',
+                      hintText: _jisuoMode != JisuoMode.idle
+                          ? '继续追问小梦...'
+                          : _tab == 'ai'
+                          ? '问小梦任何问题...'
+                          : '提问，让社区来回答...',
                       hintStyle: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[400],
@@ -470,15 +557,15 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               ),
               const SizedBox(width: 10),
               GestureDetector(
-                onTap: _answering ? null : _submit,
+                onTap: _jisuoMode == JisuoMode.streaming ? null : _submit,
                 child: Container(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: _answering ? Colors.grey[400] : _primary,
+                    color: _jisuoMode == JisuoMode.streaming ? Colors.grey[400] : _primary,
                     shape: BoxShape.circle,
                   ),
-                  child: _answering
+                  child: _jisuoMode == JisuoMode.streaming
                       ? const Padding(
                           padding: EdgeInsets.all(12),
                           child: CircularProgressIndicator(
@@ -497,110 +584,317 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   }
 
   // ── 回答态 ─────────────────────────────────────────────────────────
-  Widget _buildAnswerMode(bool isDark) {
-    return Column(
+  Widget _buildAnswerView(bool isDark) {
+    final streaming = _jisuoMode == JisuoMode.streaming;
+    final line = isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF0F0F0);
+    final cardBg = isDark ? const Color(0xFF141427) : Colors.white;
+    final cardBorder = isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFEBEBEB);
+    return ListView(
+      controller: _scrollCtrl,
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
       children: [
-        // 顶栏：返回(退出回答态) + 历史对话 + 清空回答
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
-          child: Row(
+        // 用户问题气泡（右对齐）
+        Align(
+          alignment: Alignment.centerRight,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(48, 4, 12, 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: _primary,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(4),
+              ),
+            ),
+            child: Text(
+              _question,
+              style: const TextStyle(fontSize: 14, color: Colors.white, height: 1.6),
+            ),
+          ),
+        ),
+        // AI 回复卡片
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cardBorder, width: 0.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: _exitAnswerMode,
-                child: const SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Icon(Icons.arrow_back_ios, size: 18),
+              // 卡片头：小梦直答 + 流式中转圈 / 完成后"回答完成"
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 12,
+                      backgroundColor: _primary,
+                      child: Text(
+                        '梦',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '小梦直答',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF9B98FF),
+                      ),
+                    ),
+                    const Spacer(),
+                    if (streaming)
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: _primary,
+                        ),
+                      )
+                    else
+                      Text(
+                        '回答完成',
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              IconButton(
-                tooltip: '历史对话',
-                icon: const Icon(Icons.history, size: 20),
-                color: Colors.grey[500],
-                onPressed: () => context.push('/xiaomeng/history'),
+              Divider(height: 0.5, color: line),
+              // 正文（流式输出）
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: _answer.isEmpty && streaming
+                    ? Row(
+                        children: [
+                          Text(
+                            '小梦正在思考...',
+                            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _buildAnswerContent(_answer, isDark),
+                      ),
               ),
-              IconButton(
-                tooltip: '清空回答',
-                icon: const Icon(Icons.delete_sweep_outlined, size: 20),
-                color: Colors.grey[500],
-                onPressed: _clearAnswer,
+              Divider(height: 0.5, color: line),
+              // 操作行：流式中"停止生成" / 完成后 复制 + 发布到极索
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                child: streaming
+                    ? Center(
+                        child: TextButton(
+                          onPressed: _stopStream,
+                          child: Text(
+                            '停止生成',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                          ),
+                        ),
+                      )
+                    : Row(
+                        children: [
+                          _ansActionBtn(isDark, Icons.copy_outlined, '复制', _copyAnswer),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: _publishToJisuo,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? _primary.withValues(alpha: 0.1)
+                                      : const Color(0xFFEEF0FF),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? _primary.withValues(alpha: 0.2)
+                                        : const Color(0xFFD0D4FF),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.people_outline,
+                                      size: 14,
+                                      color: Color(0xFF9B98FF),
+                                    ),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      '发布到极索让社区讨论',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF9B98FF),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ],
           ),
         ),
-        Expanded(
-          child: _askedQuestion.isEmpty
-              ? Center(
-                  child: Text(
-                    '清空了，换个问题再问问小梦',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  children: [
-                    // 问题（用户气泡，右对齐）
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.75,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: _primary,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
-                            bottomLeft: Radius.circular(16),
-                            bottomRight: Radius.circular(4),
-                          ),
-                        ),
-                        child: Text(
-                          _askedQuestion,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white,
-                            height: 1.4,
-                          ),
+        // 追问建议
+        if (_jisuoMode == JisuoMode.done && _suggestions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '你可能还想问',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                ),
+                const SizedBox(height: 8),
+                ..._suggestions.map(
+                  (s) => GestureDetector(
+                    onTap: () => _askQuestion(s),
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: cardBorder, width: 0.5),
+                      ),
+                      child: Text(
+                        s,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark
+                              ? const Color(0xFF7A80A0)
+                              : Colors.grey[500],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
-                    const SizedBox(height: 16),
-                    // 回答（分割线下方流式输出）
-                    if (_answer.isEmpty && _answering)
-                      Row(
-                        children: [
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: _primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        // 社区相关讨论
+        if (_related.isNotEmpty) _buildRelatedQuestions(isDark),
+      ],
+    );
+  }
+
+  Widget _ansActionBtn(
+    bool isDark,
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFEBEBEB),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey[400]),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildRelatedQuestions(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '社区相关讨论',
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          ),
+          const SizedBox(height: 4),
+          ..._related.map((q) {
+            final title =
+                q['text']?.toString() ?? q['title']?.toString() ?? '';
+            final username = q['username']?.toString() ?? '';
+            final domain = q['domain']?.toString() ?? '';
+            final answers = (q['answer_count'] as num?)?.toInt() ?? 0;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => context.push('/questions/${q['id']}', extra: q),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: jisuoDomainColor(domain),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              username.isNotEmpty ? username.substring(0, 1) : '?',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Text(
-                            '小梦正在思考...',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      ..._buildAnswerContent(_answer, isDark),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          username.isEmpty ? '$answers 回答' : '$username · $answers 回答',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-        ),
-      ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 
