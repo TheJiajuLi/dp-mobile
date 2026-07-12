@@ -318,12 +318,7 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 4),
-            Text(
-              '对话中',
-              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-            ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
@@ -511,10 +506,7 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
         final lang = (m.group(1) ?? '').trim();
         final code = m.group(2) ?? '';
         widgets.add(_codeBubble(code, lang.isEmpty ? 'code' : lang));
-        final cellType = _notebookCellType(lang);
-        if (cellType != null) {
-          widgets.add(_runInNotebookButton(code, cellType));
-        }
+        widgets.add(_codeActions(code, _notebookCellType(lang), isDark));
       } else {
         final formula = m.group(3) ?? m.group(4) ?? m.group(5) ?? m.group(6) ?? '';
         final isDisplay = m.group(3) != null || m.group(5) != null;
@@ -530,29 +522,55 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
     return widgets;
   }
 
+  // AI 气泡外观：浅色白底、深色比页面底(#1C1C1E)略亮一档的靛调面(#23233A)，
+  // 都带一圈细边；左下角小圆角(4)冲着头像那一侧，跟用户气泡镜像
+  BoxDecoration _aiBubbleDecoration(bool isDark) => BoxDecoration(
+    color: isDark ? const Color(0xFF23233A) : Colors.white,
+    borderRadius: const BorderRadius.only(
+      topLeft: Radius.circular(16),
+      topRight: Radius.circular(16),
+      bottomRight: Radius.circular(16),
+      bottomLeft: Radius.circular(4),
+    ),
+    border: Border.all(
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.08)
+          : const Color(0xFFEBEBEB),
+      width: 0.5,
+    ),
+  );
+
   Widget _textBubble(String text, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2, bottom: 2),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.72,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: _aiBubbleDecoration(isDark),
       child: Text(
         text,
         style: TextStyle(
           fontSize: 14,
           height: 1.55,
           color: isDark
-              ? Colors.white.withValues(alpha: 0.9)
+              ? Colors.white.withValues(alpha: 0.92)
               : const Color(0xFF1A1A1A),
         ),
       ),
     );
   }
 
-  // 公式块之前用一块靛蓝底色卡片装着，跟文字气泡的纯背景不是一个视觉
-  // 语言，看着像单独的高亮框——按老规矩去掉底色，跟页面背景统一，公式
-  // 本身照样保留字号/颜色区分，不需要靠一块底色去区分
+  // 公式也放进 AI 气泡里（跟 Demo 一致），公式本身用靛蓝强调色。宽公式
+  // （长中文标签的分式等）横向滚动，不撑破气泡
   Widget _formulaBubble(String tex, bool isDark, {bool isDisplay = true}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      // 宽公式（长中文标签的分式等）横向滚动，不再撑破容器溢出
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.72,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: _aiBubbleDecoration(isDark),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Math.tex(
@@ -561,8 +579,8 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
           textStyle: TextStyle(
             fontSize: isDisplay ? 16 : 14,
             color: isDark
-                ? Colors.white.withValues(alpha: 0.9)
-                : const Color(0xFF1A1A1A),
+                ? const Color(0xFF9B9EF8)
+                : const Color(0xFF4F46E5),
           ),
           onErrorFallback: (err) => const FormulaErrorPlaceholder(),
         ),
@@ -596,19 +614,6 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
                     fontSize: 10,
                     color: Color(0xFF9B9EF8),
                     fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: code));
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
-                  },
-                  child: const Text(
-                    '复制',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF9B9EF8)),
                   ),
                 ),
               ],
@@ -679,45 +684,94 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
     context.push('/notebook/${nb.id}');
   }
 
-  Widget _runInNotebookButton(String code, String cellType) {
+  // 代码块下方操作行：运行（紫色突出，可运行的语言才有）+ 复制（次要，灰）。
+  // 运行走「存成 Notebook 并跳过去用现成环境执行」那条真实链路
+  Widget _codeActions(String code, String? cellType, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 4),
-      child: GestureDetector(
-        onTap: () => _runInNotebook(code, cellType),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: _primary,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.play_arrow, size: 14, color: Colors.white),
-              SizedBox(width: 4),
-              Text(
-                '在 Notebook 中运行',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
+      padding: const EdgeInsets.only(top: 6, bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (cellType != null) ...[
+            GestureDetector(
+              onTap: () => _runInNotebook(code, cellType),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.play_arrow, size: 12, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
+                      '运行',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
+            const SizedBox(width: 6),
+          ],
+          GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: code));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF23233A)
+                    : const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFEBEBEB),
+                  width: 0.5,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.copy_outlined, size: 12, color: Colors.grey[400]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '复制',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _typingRow() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
           _miniAvatar(),
           const SizedBox(width: 8),
-          const _TypingDots(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: _aiBubbleDecoration(isDark),
+            child: const _TypingDots(),
+          ),
         ],
       ),
     );
@@ -729,15 +783,9 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
       padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
       child: Row(
         children: [
-          _toolbarBtn(Icons.alternate_email, '引用内容', () => _comingSoon('引用内容')),
-          const SizedBox(width: 18),
+          _toolbarBtn(Icons.alternate_email, '引用', () => _comingSoon('引用内容')),
+          const SizedBox(width: 20),
           _toolbarBtn(Icons.image_outlined, '图片', () => _comingSoon('图片')),
-          const SizedBox(width: 18),
-          _toolbarBtn(
-            Icons.play_arrow_outlined,
-            '在 Notebook 运行',
-            () => _comingSoon('在 Notebook 运行'),
-          ),
         ],
       ),
     );

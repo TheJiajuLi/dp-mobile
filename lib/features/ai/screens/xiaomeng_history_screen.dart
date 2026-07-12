@@ -133,12 +133,7 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 4),
-            Text(
-              '历史对话',
-              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-            ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(

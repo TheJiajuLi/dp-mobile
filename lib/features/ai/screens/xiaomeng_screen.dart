@@ -47,12 +47,7 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 4),
-            Text(
-              '欢迎页',
-              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-            ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
@@ -76,13 +71,25 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                       '问问小梦',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                         color: Theme.of(context).textTheme.bodyLarge?.color,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 34),
+                  // 历史对话入口（之前欢迎页没有，得先退出去才能进历史）
+                  GestureDetector(
+                    onTap: () => context.push('/xiaomeng/history'),
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: Icon(
+                        Icons.history_outlined,
+                        size: 20,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -142,19 +149,24 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                         Text(
                           '你好，我是小梦',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 22,
                             fontWeight: FontWeight.w700,
                             color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Text(
-                          '你的极梦 AI 助手',
+                          '博学的知识伙伴',
                           style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          '擅长数学、编程、数据分析',
-                          style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                          '数学·代码·人文·生活，随时问我',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[500],
+                            height: 1.5,
+                          ),
                         ),
                       ],
                     ),
@@ -166,56 +178,56 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                     crossAxisCount: 2,
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
-                    childAspectRatio: 1.55,
+                    childAspectRatio: 1.7,
                     children: [
                       _capabilityCard(
                         isDark,
                         icon: Icons.functions,
                         iconColor: _primary,
                         iconBg: const Color(0xFFEEF0FF),
+                        iconBgDark: const Color(0xFF20284A),
                         label: '数学推导',
-                        subtitle: '公式、证明、计算',
+                        subtitle: '公式·证明·计算',
                         prefill: '帮我推导：',
                       ),
                       _capabilityCard(
                         isDark,
                         icon: Icons.code,
                         iconColor: const Color(0xFF16A34A),
-                        iconBg: const Color(0xFFE8F8F0),
+                        iconBg: const Color(0xFFDCFCE7),
+                        iconBgDark: const Color(0xFF0F2A1A),
                         label: '代码辅助',
-                        subtitle: 'Python、SQL、调试',
+                        subtitle: 'Python·SQL·调试',
                         prefill: '帮我写代码实现：',
                       ),
                       _capabilityCard(
                         isDark,
                         icon: Icons.bar_chart,
                         iconColor: const Color(0xFFD97706),
-                        iconBg: const Color(0xFFFFF7E6),
+                        iconBg: const Color(0xFFFEF3C7),
+                        iconBgDark: const Color(0xFF2A1F00),
                         label: '数据分析',
-                        subtitle: 'RFM、可视化、建模',
+                        subtitle: 'RFM·可视化·建模',
                         prefill: '帮我分析：',
                       ),
                       _capabilityCard(
                         isDark,
                         icon: Icons.chat_bubble_outline,
-                        iconColor: const Color(0xFFDC2626),
+                        iconColor: const Color(0xFFEF4444),
                         iconBg: const Color(0xFFFEE2E2),
-                        label: '自由对话',
-                        subtitle: '任何话题都可以聊',
+                        iconBgDark: const Color(0xFF2A0A0A),
+                        label: '随便聊聊',
+                        subtitle: '生活·娱乐·思考',
                         prefill: null,
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    '试试这些问题',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[500],
-                    ),
+                    '试试这些',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   _promptTile(
                     isDark,
                     icon: Icons.auto_awesome,
@@ -249,6 +261,7 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
     required IconData icon,
     required Color iconColor,
     required Color iconBg,
+    required Color iconBgDark,
     required String label,
     required String subtitle,
     required String? prefill,
@@ -275,7 +288,7 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: iconBg,
+                color: isDark ? iconBgDark : iconBg,
                 borderRadius: BorderRadius.circular(9),
               ),
               child: Icon(icon, size: 17, color: iconColor),
@@ -366,7 +379,7 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _submitInput(),
                     decoration: const InputDecoration(
-                      hintText: '直接开始对话...',
+                      hintText: '问小梦任何问题...',
                       filled: false,
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
@@ -381,13 +394,13 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
               GestureDetector(
                 onTap: _submitInput,
                 child: Container(
-                  width: 36,
-                  height: 36,
+                  width: 40,
+                  height: 40,
                   decoration: const BoxDecoration(
                     color: _primary,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.arrow_upward, size: 18, color: Colors.white),
+                  child: const Icon(Icons.send, size: 17, color: Colors.white),
                 ),
               ),
             ],
