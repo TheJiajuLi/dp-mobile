@@ -5,35 +5,16 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
-import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/providers/messages_provider.dart';
 import '../providers/home_feed_provider.dart';
 
 const _primary = Color(0xFF6366F1);
-const _ink = Color(0xFF1A1A1A);
-const _muted = Color(0xFF999999);
-// 2026-07-06 起统一成 AppColors.bg（跟主题默认 scaffoldBackgroundColor
-// 同一个值）——之前这里自己配了个 #FAFAF8，跟发现页/消息页走
-// Theme.of(context).scaffoldBackgroundColor 拿到的 #F7F7FB 是两个肉眼
-// 很难分辨但确实不同的浅灰白，底部导航栏跟内容区拼接处会露出一条若隐
-// 若现的接缝，深色主题下反而因为直接复用同一个主题色没有这个问题
-const _bg = AppColors.bg;
-
-// 首页 Feed 顶部三个 Tab——「全部」「最新」都是真实数据，走同一个
-// GET /auth/tutorials?status=published 接口：全部=后端默认排序（本来
-// 就是 created_at DESC），最新=同一份列表在客户端按 createdAt 再排一遍
-// （确认过后端目前没有 sort 参数，加了也会被忽略，所以不去改
-// home_feed_provider.dart 的请求参数，只在展示层做一次保证正确的排序）。
-// 「关注」没有真实数据源（后端 /auth/tutorials 做不到"只看关注的人"），
-// 点了只提示"即将上线"，不展示任何列表，不编假数据
-enum _MainTab { all, follow, latest }
 
 // 分类 pill 只是 homeFeedCategories 的一个展示子集——「全部」不再单独
 // 出一个 pill（不选中任何 pill 就等价于全部，靠 HomeFeedState 默认的
@@ -42,9 +23,15 @@ enum _MainTab { all, follow, latest }
 // 保留「时事」这个 key，只是首页不再露出对应 pill 入口
 const _categoryPills = ['科学', '经济', '生活', '数据', '编程'];
 
-// 本地"上次阅读进度"持久化 key——tutorial_detail_screen.dart 滚动时写，
-// 这里首页启动时读。进度 >= 0.9 视为读完，不再显示"继续阅读"卡
-const _lastReadPrefsKey = 'last_read_tutorial';
+// 首页 Feed 顶部三个 Tab——「全部」「最新」都是真实数据，走同一个
+// GET /auth/tutorials?status=published 接口：全部=后端默认排序（本来
+// 就是 created_at DESC），最新=同一份列表在客户端按 createdAt 再排一遍
+// （确认过后端目前没有 sort 参数，加了也会被忽略，所以不去改
+// home_feed_provider.dart 的请求参数，只在展示层做一次保证正确的排序）。
+// 「关注」没有真实数据源（后端 /auth/tutorials 做不到"只看关注的人"），
+// 点了只提示"即将上线"，不展示任何列表，不编假数据。「热榜」同理
+// 没有真实排行数据源，这版不加，避免又一个假 Tab
+enum _MainTab { all, follow, latest }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -57,7 +44,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   final _scrollCtrl = ScrollController();
   _MainTab _mainTab = _MainTab.all;
-  Map<String, dynamic>? _continueReading;
+  // "不感兴趣"——纯本地状态，隐藏当前会话里点过 × 的条目，不落库、
+  // 不调接口，刷新/重进页面就会恢复显示
+  final Set<String> _hiddenIds = {};
 
   Timer? _refreshTimer;
 
@@ -70,7 +59,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       const Duration(minutes: 30),
       (_) => _refreshAll(),
     );
-    _loadContinueReading();
     // 顶栏红点要用 notificationsProvider 里真实的未读数，不是
     // unreadCountProvider（那个是"通知+群组消息"合并总数，语义不对）。
     // notificationsProvider 只有真的调过 fetch() 才会有数据——消息页
@@ -85,30 +73,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.read(homeFeedProvider.notifier).refresh();
   }
 
-  Future<void> _loadContinueReading() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_lastReadPrefsKey);
-      if (raw == null) {
-        if (mounted && _continueReading != null) {
-          setState(() => _continueReading = null);
-        }
-        return;
-      }
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      final progress = (data['progress'] as num?)?.toDouble() ?? 0;
-      if (!mounted) return;
-      setState(() => _continueReading = progress < 0.9 ? data : null);
-    } catch (_) {
-      // 本地读取失败静默忽略，不影响首页其它内容
-    }
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshAll();
-      _loadContinueReading();
     }
   }
 
@@ -156,9 +124,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDarkMode
-          ? Theme.of(context).scaffoldBackgroundColor
-          : _bg,
+      backgroundColor: isDarkMode ? const Color(0xFF000000) : const Color(0xFFFAFAF8),
       body: SafeArea(
         child: RefreshIndicator(
           color: _primary,
@@ -168,13 +134,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(child: _buildHeader(context, isDarkMode)),
-              SliverToBoxAdapter(child: _buildXiaomengCard(isDarkMode)),
-              SliverToBoxAdapter(child: _buildAppGrid(isDarkMode)),
               SliverToBoxAdapter(child: _buildMainTabs(isDarkMode)),
               SliverToBoxAdapter(
                 child: _buildCategoryTabs(l10n, state, isDarkMode),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              const SliverToBoxAdapter(child: SizedBox(height: 4)),
               ..._buildFeedSlivers(context, l10n, state, isDarkMode),
             ],
           ),
@@ -226,220 +190,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildXiaomengCard(bool isDark) {
-    return GestureDetector(
-      onTap: () => context.push('/xiaomeng'),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 14, 12, 14),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _primary,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned(
-              top: -12,
-              right: -12,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -16,
-              left: 60,
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Text(
-                    '梦',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '问问小梦',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '搜索整个知识宇宙',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: Colors.white.withValues(alpha: 0.6),
-                  size: 18,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static const List<_AppEntry> _apps = [
-    _AppEntry(
-      icon: Icons.travel_explore_outlined,
-      label: '极索',
-      route: '/jisuo',
-      color: Color(0xFF6366F1),
-      bgLight: Color(0xFFEEF0FF),
-      bgDark: Color(0xFF20284A),
-    ),
-    _AppEntry(
-      icon: Icons.code_outlined,
-      label: 'Notebook',
-      route: '/notebook',
-      color: Color(0xFF16A34A),
-      bgLight: Color(0xFFDCFCE7),
-      bgDark: Color(0xFF0F2A1A),
-    ),
-    // 论坛+群组合并入口——route 留空，点击弹出选择而不是直接跳转
-    _AppEntry(
-      icon: Icons.groups_outlined,
-      label: '社区',
-      route: null,
-      color: Color(0xFFD97706),
-      bgLight: Color(0xFFFEF3C7),
-      bgDark: Color(0xFF2A1F00),
-    ),
-  ];
-
-  void _openApp(_AppEntry app) {
-    if (app.route != null) {
-      context.push(app.route!);
-      return;
-    }
-    _showCommunitySheet();
-  }
-
-  void _showCommunitySheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(sheetContext).dividerColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.forum_outlined, color: _primary),
-              title: const Text('论坛'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                context.push('/messages/forums');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.groups_outlined, color: _primary),
-              title: const Text('群组'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                context.push('/messages/groups');
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppGrid(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: _apps
-            .map(
-              (app) => Expanded(
-                child: GestureDetector(
-                  onTap: () => _openApp(app),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isDark ? app.bgDark : app.bgLight,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(app.icon, size: 22, color: app.color),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        app.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isDark
-                              ? const Color(0xFF7A80A0)
-                              : const Color(0xFF555555),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-
   Widget _buildMainTabs(bool isDark) {
     Widget tab(String label, _MainTab value, {required bool isFirst}) {
       final active = _mainTab == value;
@@ -472,12 +222,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
     }
 
-    return Row(
-      children: [
-        tab('推荐', _MainTab.all, isFirst: true),
-        tab('关注', _MainTab.follow, isFirst: false),
-        tab('最新', _MainTab.latest, isFirst: false),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          tab('推荐', _MainTab.all, isFirst: true),
+          tab('关注', _MainTab.follow, isFirst: false),
+          tab('最新', _MainTab.latest, isFirst: false),
+        ],
+      ),
     );
   }
 
@@ -509,7 +262,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ? (isDarkMode
                           ? Theme.of(context).textTheme.bodyLarge?.color ??
                                 Colors.white
-                          : _ink)
+                          : const Color(0xFF1A1A1A))
                     : Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(99),
                 border: selected
@@ -560,7 +313,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 style: TextStyle(
                   color: isDarkMode
                       ? Theme.of(context).textTheme.bodySmall?.color
-                      : _muted,
+                      : const Color(0xFF999999),
                 ),
               ),
             ),
@@ -600,7 +353,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // "最新" tab：同一份数据在展示层按 createdAt 重新排一遍——后端确认过
     // 目前没有 sort 参数，加了也会被忽略，这里保证不管后端支不支持这个
     // tab 看到的都是真的按时间新到旧
-    var items = state.filtered;
+    var items = state.filtered.where((t) => !_hiddenIds.contains(t.id)).toList();
     if (_mainTab == _MainTab.latest) {
       items = [...items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
@@ -617,7 +370,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 style: TextStyle(
                   color: isDarkMode
                       ? Theme.of(context).textTheme.bodySmall?.color
-                      : _muted,
+                      : const Color(0xFF999999),
                 ),
               ),
             ),
@@ -626,29 +379,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ];
     }
 
-    final continueReading = _continueReading;
-
     return [
-      SliverToBoxAdapter(
-        child: _HeroCard(tutorial: items[0], isDark: isDarkMode),
-      ),
-      // 继续阅读卡指向的文章正好是 Hero 卡本身时不重复露出——两张卡片
-      // 挤在一起指向同一篇文章没有意义
-      if (continueReading != null &&
-          (continueReading['id'] as String?) != items[0].id)
-        SliverToBoxAdapter(
-          child: _ContinueReadingCard(
-            data: continueReading,
+      SliverList(
+        delegate: SliverChildBuilderDelegate((context, i) {
+          return _FeedItem(
+            tutorial: items[i],
             isDark: isDarkMode,
-          ),
-        ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(0, 0, 0, 4),
-        sliver: SliverList(
-          delegate: SliverChildBuilderDelegate((context, i) {
-            return _CompactCard(tutorial: items[i + 1], isDark: isDarkMode);
-          }, childCount: items.length - 1),
-        ),
+            onHide: () => setState(() => _hiddenIds.add(items[i].id)),
+          );
+        }, childCount: items.length),
       ),
       if (state.isLoadingMore)
         const SliverToBoxAdapter(
@@ -673,46 +412,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
 void _openTutorial(BuildContext context, TutorialModel t) {
   context.push('/tutorial/${t.id}');
-}
-
-String _formatCount(int n) {
-  if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}w';
-  if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-  return '$n';
-}
-
-// 根据文章标签推断小卡片的图标——跟话题色板（topic_badge.dart）分开的
-// 一套更粗粒度的启发式，纯粹为了给没有封面图的小卡片一个还算贴切的
-// 图标，不追求跟六色话题分类精确对应
-IconData _iconForTags(List<String> tags) {
-  final t = tags.join(' ').toLowerCase();
-  if (t.contains('数学') || t.contains('统计') || t.contains('公式')) {
-    return Icons.functions;
-  }
-  if (t.contains('代码') || t.contains('python') || t.contains('sql')) {
-    return Icons.code;
-  }
-  if (t.contains('数据') || t.contains('分析')) return Icons.bar_chart;
-  if (t.contains('ai') || t.contains('机器学习')) return Icons.psychology;
-  return Icons.auto_stories;
-}
-
-class _AppEntry {
-  final IconData icon;
-  final String label;
-  // null = 没有单一目标路由，点击走自定义逻辑（比如弹出选择）
-  final String? route;
-  final Color color;
-  final Color bgLight;
-  final Color bgDark;
-  const _AppEntry({
-    required this.icon,
-    required this.label,
-    required this.route,
-    required this.color,
-    required this.bgLight,
-    required this.bgDark,
-  });
 }
 
 class _HeaderIconButton extends StatelessWidget {
@@ -743,7 +442,7 @@ class _HeaderIconButton extends StatelessWidget {
               Icon(
                 icon,
                 size: 22,
-                color: isDark ? Colors.white.withValues(alpha: 0.85) : _ink,
+                color: isDark ? Colors.white.withValues(alpha: 0.85) : const Color(0xFF1A1A1A),
               ),
               if (showDot)
                 Positioned(
@@ -757,7 +456,7 @@ class _HeaderIconButton extends StatelessWidget {
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isDark
-                            ? const Color(0xFF0A0A1A)
+                            ? const Color(0xFF000000)
                             : const Color(0xFFFAFAF8),
                         width: 1.5,
                       ),
@@ -811,354 +510,204 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-// Feed 第一条——16:9 封面 + 标签 + 标题 + 作者行的大卡片，"文章感"，
-// 不是小红书瀑布流那种图片主导的"帖子感"
-class _HeroCard extends StatelessWidget {
+// 无边框沉浸式 Feed 条目——知乎/Twitter 风格：没有卡片背景色、没有
+// border，条目之间只靠底部一条 0.5px 分割线分隔，内容直接浮在页面
+// 背景上
+class _FeedItem extends StatelessWidget {
   final TutorialModel tutorial;
   final bool isDark;
-  const _HeroCard({required this.tutorial, required this.isDark});
+  final VoidCallback onHide;
+  const _FeedItem({
+    required this.tutorial,
+    required this.isDark,
+    required this.onHide,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final textPrimary = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final textSecondary = isDark ? const Color(0xFF666666) : const Color(0xFF888888);
+    final divider = isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF0F0F0);
+    final actionDivider = isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5);
+    // "来源行"只在真的能确认内容来自小梦（账号 username=='小梦'）时才
+    // 显示——没有别的字段能判断一篇教程是不是小梦发的，不编造这个状态
+    final showSource = tutorial.username == '小梦';
+
     return GestureDetector(
       onTap: () => _openTutorial(context, tutorial),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF111128) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? const Color(0xFF1E1E3A) : const Color(0xFFEBEBEB),
-            width: 0.5,
-          ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: tutorial.coverImage?.isNotEmpty == true
-                      ? CachedNetworkImage(
-                          imageUrl: tutorial.coverImage!,
-                          fit: BoxFit.cover,
-                          errorWidget: (context, url, error) =>
-                              _heroPlaceholder(),
-                        )
-                      : _heroPlaceholder(),
+                if (showSource) ...[
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 8,
+                        backgroundColor: _primary,
+                        child: Text(
+                          '梦',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '小梦 · 发表了文章',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? const Color(0xFF555555)
+                              : const Color(0xFFAAAAAA),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                Text(
+                  tutorial.title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                    height: 1.45,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _AuthorAvatar(
+                      avatar: tutorial.avatar,
+                      username: tutorial.username,
+                      isFoundingCreator: tutorial.isFoundingCreator,
+                      radius: 11,
                     ),
-                    decoration: BoxDecoration(
-                      color: _primary,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      '今日推荐',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
+                    const SizedBox(width: 7),
+                    Text(
+                      tutorial.username,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF888888),
                       ),
                     ),
+                  ],
+                ),
+                if (tutorial.summary?.isNotEmpty ?? false) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    tutorial.summary!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: textSecondary,
+                      height: 1.7,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (tutorial.coverImage?.isNotEmpty == true) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: CachedNetworkImage(
+                        imageUrl: tutorial.coverImage!,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: actionDivider, width: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      _ActionBtn(
+                        icon: Icons.thumb_up_outlined,
+                        label: '${tutorial.likes}',
+                        isDark: isDark,
+                        onTap: () => _openTutorial(context, tutorial),
+                      ),
+                      _ActionBtn(
+                        icon: Icons.bookmark_outline,
+                        label: '收藏',
+                        isDark: isDark,
+                        onTap: () => _openTutorial(context, tutorial),
+                      ),
+                      _ActionBtn(
+                        icon: Icons.chat_bubble_outline,
+                        label: '评论',
+                        isDark: isDark,
+                        onTap: () => _openTutorial(context, tutorial),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: onHide,
+                        child: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: isDark
+                              ? const Color(0xFF444444)
+                              : const Color(0xFFCCCCCC),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (tutorial.tags.isNotEmpty)
-                    Wrap(
-                      spacing: 4,
-                      children: tutorial.tags
-                          .take(2)
-                          .map(
-                            (t) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? const Color(0xFF1A1A35)
-                                    : const Color(0xFFEEF0FF),
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                              child: Text(
-                                t,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: _primary,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  const SizedBox(height: 6),
-                  Text(
-                    tutorial.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: isDark
-                          ? const Color(0xFFF0F2F8)
-                          : const Color(0xFF1A1A1A),
-                      height: 1.5,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _AuthorAvatar(
-                        avatar: tutorial.avatar,
-                        username: tutorial.username,
-                        isFoundingCreator: tutorial.isFoundingCreator,
-                        radius: 9,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          tutorial.username,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[400],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      _StatChip(Icons.favorite_border, '${tutorial.likes}'),
-                      const SizedBox(width: 8),
-                      _StatChip(
-                        Icons.visibility_outlined,
-                        _formatCount(tutorial.views),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _heroPlaceholder() {
-    return Container(
-      color: isDark ? const Color(0xFF1A1A35) : const Color(0xFFEEF0FF),
-      child: const Center(
-        child: Icon(Icons.auto_stories, size: 40, color: _primary),
-      ),
-    );
-  }
-}
-
-// Hero 卡下方的"继续阅读"卡——数据来自本地 SharedPreferences
-// （tutorial_detail_screen.dart 滚动时写入），不是后端接口
-class _ContinueReadingCard extends StatelessWidget {
-  final Map<String, dynamic> data;
-  final bool isDark;
-  const _ContinueReadingCard({required this.data, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final id = data['id'] as String? ?? '';
-    final title = data['title'] as String? ?? '';
-    final progress = ((data['progress'] as num?)?.toDouble() ?? 0).clamp(
-      0.0,
-      1.0,
-    );
-
-    return GestureDetector(
-      onTap: () => context.push('/tutorial/$id'),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF111128) : const Color(0xFFFAFAF8),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isDark ? const Color(0xFF1E1E3A) : const Color(0xFFEBEBEB),
-            width: 0.5,
           ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '继续阅读',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: _primary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isDark
-                          ? const Color(0xFFF0F2F8)
-                          : const Color(0xFF1A1A1A),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: isDark
-                          ? const Color(0xFF1E1E3A)
-                          : const Color(0xFFEBEBEB),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        _primary,
-                      ),
-                      minHeight: 3,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${(progress * 100).round()}% 已读',
-                    style: TextStyle(fontSize: 10, color: Colors.grey[400]),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400]),
-          ],
-        ),
+          Container(height: 0.5, color: divider),
+        ],
       ),
     );
   }
 }
 
-// Feed 第一条之后——图标区 + 标题 + 元信息一行的紧凑卡片
-class _CompactCard extends StatelessWidget {
-  final TutorialModel tutorial;
-  final bool isDark;
-  const _CompactCard({required this.tutorial, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final rule = matchedTopicRuleFor(tutorial.tags);
-    final iconColor = rule?.fg ?? _primary;
-    final iconBg = isDark
-        ? iconColor.withValues(alpha: 0.15)
-        : (rule?.bg ?? const Color(0xFFEEF0FF));
-
-    return GestureDetector(
-      onTap: () => _openTutorial(context, tutorial),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF111128) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isDark ? const Color(0xFF1E1E3A) : const Color(0xFFEBEBEB),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                _iconForTags(tutorial.tags),
-                size: 20,
-                color: iconColor,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tutorial.title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isDark
-                          ? const Color(0xFFF0F2F8)
-                          : const Color(0xFF1A1A1A),
-                      height: 1.4,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (tutorial.summary?.isNotEmpty ?? false) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      tutorial.summary!,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[400],
-                        height: 1.4,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: 3),
-                  Text(
-                    '${tutorial.username} · ${tutorial.likes}赞 · '
-                    '${_formatCount(tutorial.views)}阅读',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
+class _ActionBtn extends StatelessWidget {
   final IconData icon;
-  final String value;
-  const _StatChip(this.icon, this.value);
+  final String label;
+  final bool isDark;
+  final VoidCallback onTap;
+  const _ActionBtn({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: Colors.grey[400]),
-        const SizedBox(width: 2),
-        Text(value, style: TextStyle(fontSize: 11, color: Colors.grey[400])),
-      ],
+    final color = isDark ? const Color(0xFF666666) : const Color(0xFF888888);
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 20),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 12, color: color)),
+          ],
+        ),
+      ),
     );
   }
 }
