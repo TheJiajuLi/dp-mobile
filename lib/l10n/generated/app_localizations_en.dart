@@ -1856,6 +1856,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tapToPlayLabel => 'Tap to play';
 
   @override
+  String get tapToPlayExternalLabel => 'Tap to play externally';
+
+  @override
   String get videoBlockMembershipLock =>
       'Video blocks are a Pro membership feature';
 

@@ -954,6 +954,7 @@
   "audioBlockMembershipLock": "Audio blocks are a membership feature",
   "uploadAudioLabel": "Upload audio (MP3/WAV/M4A)",
   "tapToPlayLabel": "Tap to play",
+  "tapToPlayExternalLabel": "Tap to play externally",
   "videoBlockMembershipLock": "Video blocks are a Pro membership feature",
   "uploadVideoFromGallery": "Upload video from gallery",
   "videoSizeExceedsLimit": "Video exceeds the size limit ({limit})",

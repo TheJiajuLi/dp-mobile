@@ -3470,6 +3470,12 @@ abstract class AppLocalizations {
   /// **'Tap to play'**
   String get tapToPlayLabel;
 
+  /// No description provided for @tapToPlayExternalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to play externally'**
+  String get tapToPlayExternalLabel;
+
   /// No description provided for @videoBlockMembershipLock.
   ///
   /// In en, this message translates to:

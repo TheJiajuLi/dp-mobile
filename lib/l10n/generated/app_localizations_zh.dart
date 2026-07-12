@@ -1813,6 +1813,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tapToPlayLabel => '点击播放';
 
   @override
+  String get tapToPlayExternalLabel => '点击在外部播放';
+
+  @override
   String get videoBlockMembershipLock => '视频块为 Pro 会员功能';
 
   @override

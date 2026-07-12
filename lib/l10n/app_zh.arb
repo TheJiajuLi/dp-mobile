@@ -562,6 +562,7 @@
   "audioBlockMembershipLock": "音频块为会员功能",
   "uploadAudioLabel": "上传音频（MP3/WAV/M4A）",
   "tapToPlayLabel": "点击播放",
+  "tapToPlayExternalLabel": "点击在外部播放",
   "videoBlockMembershipLock": "视频块为 Pro 会员功能",
   "uploadVideoFromGallery": "从相册上传视频",
   "videoSizeExceedsLimit": "视频超出大小限制（{limit}）",

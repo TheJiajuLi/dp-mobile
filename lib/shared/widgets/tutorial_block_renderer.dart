@@ -109,7 +109,7 @@ Widget buildTutorialBlockWidget(
         leadingColor: const Color(0xFFA855F7),
         title: fileName,
         titleColor: const Color(0xFF6B21A8),
-        subtitle: l10n.tapToPlayLabel,
+        subtitle: l10n.tapToPlayExternalLabel,
         subtitleColor: const Color(0xFFA855F7),
       );
 
@@ -136,11 +136,21 @@ Widget buildTutorialBlockWidget(
                 bottom: 10,
                 left: 12,
                 right: 12,
-                child: Text(
-                  fileName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                    Text(
+                      l10n.tapToPlayExternalLabel,
+                      style: const TextStyle(fontSize: 10.5, color: Colors.white54),
+                    ),
+                  ],
                 ),
               ),
             ],
