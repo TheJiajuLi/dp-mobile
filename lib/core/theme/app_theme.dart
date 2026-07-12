@@ -9,6 +9,21 @@ class AppColors {
   static const textPrimary = Color(0xFF1C1C1E);
   static const textMuted = Color(0xFF8E8E93);
   static const danger = Color(0xFFFF3B30);
+
+  // 深色主题层级——之前深色下背景/卡片/分割线用的都是同一档 Material
+  // 默认灰阶（#1C1C1E/#2C2C2E/#3A3A3C），拉不开视觉深度，糊成一块。
+  // 这一套改用更深的近黑背景 + 逐级提亮的卡片/表面色，层级差拉开了
+  // 才看得出"背景之上浮着卡片"的立体感
+  static const darkBg = Color(0xFF0A0A0F);
+  static const darkCard = Color(0xFF111118);
+  static const darkCardHero = Color(0xFF141427);
+  static const darkCardList = Color(0xFF101017);
+  static const darkSurface = Color(0xFF17171F);
+  static const darkBorder = Color(0x0FFFFFFF); // rgba(255,255,255,.06)
+  static const darkDivider = Color(0xFF1A1A28);
+  static const darkTextPrimary = Color(0xFFF0F2F8);
+  static const darkTextSecondary = Color(0xFF7A80A0);
+  static const darkTextMuted = Color(0xFF4A4A6A);
 }
 
 class AppRadius {
@@ -62,23 +77,28 @@ class AppTheme {
   static ThemeData get dark => ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: const Color(0xFF1C1C1E),
+    scaffoldBackgroundColor: AppColors.darkBg,
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       brightness: Brightness.dark,
     ),
-    cardColor: const Color(0xFF2C2C2E),
-    dividerColor: const Color(0xFF3A3A3C),
+    cardColor: AppColors.darkCard,
+    dividerColor: AppColors.darkDivider,
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(color: AppColors.darkTextPrimary),
+      bodyMedium: TextStyle(color: AppColors.darkTextPrimary),
+      bodySmall: TextStyle(color: AppColors.darkTextSecondary),
+    ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF2C2C2E),
-      foregroundColor: Colors.white,
+      backgroundColor: AppColors.darkCard,
+      foregroundColor: AppColors.darkTextPrimary,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
       centerTitle: true,
     ),
-    listTileTheme: const ListTileThemeData(tileColor: Color(0xFF2C2C2E)),
+    listTileTheme: const ListTileThemeData(tileColor: AppColors.darkCard),
     inputDecorationTheme: InputDecorationTheme(
-      fillColor: const Color(0xFF3A3A3C),
+      fillColor: AppColors.darkSurface,
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),

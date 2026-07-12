@@ -123,27 +123,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final state = ref.watch(homeFeedProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDarkMode ? const Color(0xFF000000) : const Color(0xFFFAFAF8),
-      body: SafeArea(
-        child: RefreshIndicator(
-          color: _primary,
-          onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
-          child: CustomScrollView(
-            controller: _scrollCtrl,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(child: _buildHeader(context, isDarkMode)),
-              SliverToBoxAdapter(child: _buildMainTabs(isDarkMode)),
-              SliverToBoxAdapter(
-                child: _buildCategoryTabs(l10n, state, isDarkMode),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 4)),
-              ..._buildFeedSlivers(context, l10n, state, isDarkMode),
-            ],
-          ),
+    final feed = SafeArea(
+      child: RefreshIndicator(
+        color: _primary,
+        onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
+        child: CustomScrollView(
+          controller: _scrollCtrl,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: _buildHeader(context, isDarkMode)),
+            SliverToBoxAdapter(child: _buildMainTabs(isDarkMode)),
+            SliverToBoxAdapter(
+              child: _buildCategoryTabs(l10n, state, isDarkMode),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 4)),
+            ..._buildFeedSlivers(context, l10n, state, isDarkMode),
+          ],
         ),
       ),
+    );
+
+    return Scaffold(
+      backgroundColor: isDarkMode ? AppColors.darkBg : const Color(0xFFFAFAF8),
+      // 深色下顶部叠两片低透明度光晕，制造"背景有氛围、不是纯死黑"的
+      // 极光感；浅色沿用原本的纯背景，不需要这层
+      body: isDarkMode
+          ? Stack(
+              children: [
+                Positioned(
+                  top: -100,
+                  left: -60,
+                  child: Container(
+                    width: 280,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _primary.withValues(alpha: 0.08),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: -80,
+                  right: -40,
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF50B4FF).withValues(alpha: 0.06),
+                    ),
+                  ),
+                ),
+                feed,
+              ],
+            )
+          : feed,
     );
   }
 
@@ -260,16 +294,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               decoration: BoxDecoration(
                 color: selected
                     ? (isDarkMode
-                          ? Theme.of(context).textTheme.bodyLarge?.color ??
-                                Colors.white
+                          ? const Color(0xFF5B61FF)
                           : const Color(0xFF1A1A1A))
-                    : Theme.of(context).cardColor,
+                    : (isDarkMode ? AppColors.darkSurface : Colors.white),
                 borderRadius: BorderRadius.circular(99),
                 border: selected
                     ? null
                     : Border.all(
                         color: isDarkMode
-                            ? Theme.of(context).dividerColor
+                            ? AppColors.darkBorder
                             : const Color(0xFFE8E8E8),
                         width: 1.5,
                       ),
@@ -280,11 +313,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: selected
-                      ? (isDarkMode
-                            ? Theme.of(context).scaffoldBackgroundColor
-                            : Colors.white)
+                      ? Colors.white
                       : (isDarkMode
-                            ? Theme.of(context).textTheme.bodySmall?.color
+                            ? AppColors.darkTextSecondary
                             : const Color(0xFF555555)),
                 ),
               ),
@@ -455,9 +486,7 @@ class _HeaderIconButton extends StatelessWidget {
                       color: const Color(0xFFEF4444),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isDark
-                            ? const Color(0xFF000000)
-                            : const Color(0xFFFAFAF8),
+                        color: isDark ? AppColors.darkBg : const Color(0xFFFAFAF8),
                         width: 1.5,
                       ),
                     ),
@@ -525,10 +554,10 @@ class _FeedItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textPrimary = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final textSecondary = isDark ? const Color(0xFF666666) : const Color(0xFF888888);
-    final divider = isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF0F0F0);
-    final actionDivider = isDark ? const Color(0xFF111111) : const Color(0xFFF5F5F5);
+    final textPrimary = isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1A1A);
+    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF888888);
+    final divider = isDark ? AppColors.darkDivider : const Color(0xFFF0F0F0);
+    final actionDivider = isDark ? AppColors.darkBorder : const Color(0xFFF5F5F5);
     // "来源行"只在真的能确认内容来自小梦（账号 username=='小梦'）时才
     // 显示——没有别的字段能判断一篇教程是不是小梦发的，不编造这个状态
     final showSource = tutorial.username == '小梦';

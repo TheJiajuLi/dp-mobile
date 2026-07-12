@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/font_size_provider.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -1377,10 +1378,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111128) : const Color(0xFFF8F8FF),
+        color: isDark ? AppColors.darkCard : const Color(0xFFF8F8FF),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF1E1E3A) : const Color(0xFFE8E8FF),
+          color: isDark ? AppColors.darkBorder : const Color(0xFFE8E8FF),
           width: 0.5,
         ),
       ),
