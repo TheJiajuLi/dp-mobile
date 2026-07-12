@@ -631,31 +631,42 @@ class _FeedItem extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (tutorial.summary?.isNotEmpty ?? false) ...[
+                if ((tutorial.summary?.isNotEmpty ?? false) ||
+                    tutorial.coverImage?.isNotEmpty == true) ...[
                   const SizedBox(height: 8),
-                  Text(
-                    tutorial.summary!,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: textSecondary,
-                      height: 1.7,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (tutorial.coverImage?.isNotEmpty == true) ...[
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      height: 140,
-                      width: double.infinity,
-                      child: CachedNetworkImage(
-                        imageUrl: tutorial.coverImage!,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (tutorial.summary?.isNotEmpty ?? false)
+                        Expanded(
+                          child: Text(
+                            tutorial.summary!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textSecondary,
+                              height: 1.7,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      // 封面只做成小卡片缩略图，不再铺满一整行——没有封面
+                      // 就完全不占位，不留空白
+                      if (tutorial.coverImage?.isNotEmpty == true) ...[
+                        const SizedBox(width: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: CachedNetworkImage(
+                            imageUrl: tutorial.coverImage!,
+                            width: 76,
+                            height: 76,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
                 const SizedBox(height: 6),
