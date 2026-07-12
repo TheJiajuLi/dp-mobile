@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/font_size_provider.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
@@ -129,9 +130,15 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   GlobalKey _keyFor(String commentId) =>
       _commentKeys.putIfAbsent(commentId, () => GlobalKey());
 
+  // 阅读进度 + 顶栏"滚过封面后显示标题/实底"的状态
+  final ScrollController _scrollCtrl = ScrollController();
+  final ValueNotifier<double> _progress = ValueNotifier(0);
+  final ValueNotifier<bool> _barSolid = ValueNotifier(false);
+
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     _load();
     _loadComments().then((_) {
       if (widget.scrollToCommentId != null) {
@@ -140,11 +147,74 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     });
   }
 
+  void _onScroll() {
+    final max = _scrollCtrl.position.maxScrollExtent;
+    if (max > 0) {
+      _progress.value = (_scrollCtrl.offset / max).clamp(0.0, 1.0);
+    }
+    final solid = _scrollCtrl.offset >= 100;
+    if (solid != _barSolid.value) _barSolid.value = solid;
+  }
+
   @override
   void dispose() {
+    _scrollCtrl.dispose();
+    _progress.dispose();
+    _barSolid.dispose();
     _commentCtrl.dispose();
     _commentFocusNode.dispose();
     super.dispose();
+  }
+
+  // 顶栏「A」字体大小调节——直接调全局 fontSizeProvider（main.dart 的
+  // textScaler 消费它），阅读页和全 App 一致
+  void _showFontSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '字体大小',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              Consumer(
+                builder: (context, ref, _) {
+                  final size = ref.watch(fontSizeProvider);
+                  return Row(
+                    children: [
+                      const Text('A', style: TextStyle(fontSize: 13)),
+                      Expanded(
+                        child: Slider(
+                          value: size.clamp(0.85, 1.35),
+                          min: 0.85,
+                          max: 1.35,
+                          divisions: 5,
+                          activeColor: _primary,
+                          onChanged: (v) =>
+                              ref.read(fontSizeProvider.notifier).setSize(v),
+                        ),
+                      ),
+                      const Text('A', style: TextStyle(fontSize: 22)),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadComments() async {
@@ -744,6 +814,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     }
 
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final t = _tutorial!;
     final title = t['title'] as String? ?? '';
     final username = t['username'] as String? ?? '';
@@ -788,38 +859,73 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
+        controller: _scrollCtrl,
         slivers: [
-          SliverAppBar(
-            expandedHeight: 220,
-            pinned: true,
-            backgroundColor: Theme.of(context).cardColor,
-            foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, size: 18),
-              onPressed: () => context.pop(),
+          // 顶栏（slim，常驻）：返回 + 滚过封面后浮现的标题 + 字体 + 更多；
+          // 底边一条阅读进度条随滚动实时更新
+          ValueListenableBuilder<bool>(
+            valueListenable: _barSolid,
+            builder: (context, solid, _) => SliverAppBar(
+              toolbarHeight: 48,
+              pinned: true,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
+              titleSpacing: 0,
+              centerTitle: false,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios, size: 18),
+                onPressed: () => context.pop(),
+              ),
+              title: AnimatedOpacity(
+                opacity: solid ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.format_size),
+                  onPressed: _showFontSheet,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.more_horiz),
+                  onPressed: _showMoreMenu,
+                ),
+              ],
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(3),
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _progress,
+                  builder: (context, v, _) => LinearProgressIndicator(
+                    value: v,
+                    minHeight: 3,
+                    backgroundColor: isDark
+                        ? const Color(0xFF1E1E3A)
+                        : const Color(0xFFEBEBEB),
+                    valueColor: const AlwaysStoppedAnimation(_primary),
+                  ),
+                ),
+              ),
             ),
-            actions: [
-              IconButton(
-                icon: Icon(_saved ? Icons.bookmark : Icons.bookmark_outline),
-                onPressed: _toggleSave,
-              ),
-              IconButton(
-                icon: const Icon(Icons.share_outlined),
-                onPressed: _showShare,
-              ),
-              IconButton(
-                icon: const Icon(Icons.more_horiz),
-                onPressed: _showMoreMenu,
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: ExcludeSemantics(
-                // 封面图纯装饰、不承载信息（标题/作者那些才是），排除出语义树——
-                // 不然图片在 SliverAppBar 折叠动画期间加载完成触发的 relayout，
-                // 跟点头像 context.push 的转场动画抢语义树更新，就会炸出
-                // `!semantics.parentDataDirty` 断言（“详细教程页点作者头像
-                // 白屏”就是这个）
+          ),
+          // 封面区：16:9 封面图 + 底部渐变遮罩 + 标签浮层
+          SliverToBoxAdapter(
+            child: ExcludeSemantics(
+              // 封面图纯装饰、不承载信息，排除出语义树——不然图片异步加载完成
+              // 触发的 relayout 会跟点头像 context.push 的转场抢语义树更新，
+              // 炸出 `!semantics.parentDataDirty` 断言
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -832,33 +938,57 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                       )
                     else
                       _CoverGradient(rule: topicRule),
-                    if (topicRule != null)
+                    // 底部渐变遮罩，让浮在封面上的标签更清晰
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        height: 80,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Color(0x99000000)],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (tags.isNotEmpty)
                       Positioned(
-                        left: 16,
-                        top: 52,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A1A),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            topicRule.label,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                        left: 12,
+                        bottom: 10,
+                        child: Row(
+                          children: tags
+                              .take(2)
+                              .map(
+                                (tg) => Container(
+                                  margin: const EdgeInsets.only(right: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 9,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                  child: Text(
+                                    tg,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ),
                     if (seriesTag != null && seriesTag.isNotEmpty)
                       Positioned(
-                        right: 16,
-                        top: 52,
+                        right: 12,
+                        bottom: 10,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -899,12 +1029,14 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     ),
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A1A1A),
-                      letterSpacing: -0.3,
-                      height: 1.3,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? const Color(0xFFF0F2F8)
+                          : const Color(0xFF1A1A1A),
+                      letterSpacing: -0.2,
+                      height: 1.4,
                     ),
                   ),
                   if (summary != null && summary.isNotEmpty) ...[
@@ -1021,6 +1153,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     context,
                     l10n,
                     Map<String, dynamic>.from(b as Map),
+                    readingMode: true,
                   ),
                 ),
                 if (columnId != null && columnId.isNotEmpty)
@@ -1061,6 +1194,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ],
             ),
           ),
+          SliverToBoxAdapter(child: _buildAuthorCard(isDark, l10n)),
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1133,74 +1267,87 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _openCommentSheet,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).inputDecorationTheme.fillColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        l10n.writeCommentHint,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                GestureDetector(
+                _bottomAction(
+                  icon: _liked ? Icons.favorite : Icons.favorite_border,
+                  color: _liked ? const Color(0xFFEF4444) : Colors.grey[400]!,
+                  label: '$likes',
                   onTap: _toggleLike,
-                  child: Row(
-                    children: [
-                      Icon(
-                        _liked ? Icons.favorite : Icons.favorite_outline,
-                        color: _liked ? Colors.red : Colors.grey,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$likes',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
-                const SizedBox(width: 16),
-                GestureDetector(
+                const SizedBox(width: 22),
+                _bottomAction(
+                  icon: Icons.chat_bubble_outline,
+                  color: Colors.grey[400]!,
+                  label: '${_comments.length}',
+                  onTap: _openCommentSheet,
+                ),
+                const SizedBox(width: 22),
+                _bottomAction(
+                  icon: _saved ? Icons.bookmark : Icons.bookmark_border,
+                  color: _saved ? _primary : Colors.grey[400]!,
+                  label: '收藏',
                   onTap: _toggleSave,
-                  child: Icon(
-                    _saved ? Icons.bookmark : Icons.bookmark_outline,
-                    color: _saved ? _primary : Colors.grey,
-                    size: 22,
-                  ),
                 ),
-                const SizedBox(width: 16),
+                const Spacer(),
+                // 分享——紫色突出
                 GestureDetector(
                   onTap: _showShare,
-                  child: const Icon(
-                    Icons.share_outlined,
-                    color: Colors.grey,
-                    size: 22,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _primary,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.share_outlined,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          '分享',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _bottomAction({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 22, color: color),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+        ],
       ),
     );
   }
@@ -1212,6 +1359,108 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         .where((b) => b['type'] == null || b['type'] == 'text')
         .fold<int>(0, (sum, b) => sum + ('${b['content'] ?? ''}'.length));
     return (chars / wordsPerMinute).ceil().clamp(1, 999);
+  }
+
+  // 文章末尾作者卡片。教程 payload 只带 username/avatar/徽章/user_id，没有
+  // 简介/文章数/获赞/粉丝这些统计（要另拉作者主页接口，而那个接口实测
+  // 不可靠），所以只展示手头真实有的字段，不编造数字凑 Demo
+  Widget _buildAuthorCard(bool isDark, AppLocalizations l10n) {
+    final t = _tutorial!;
+    final username = t['username'] as String? ?? '';
+    final avatar = t['avatar'] as String?;
+    final founding =
+        t['is_founding_creator'] == true || t['is_founding_creator'] == 1;
+    final aurora =
+        t['is_aurora_creator'] == true || t['is_aurora_creator'] == 1;
+    final bio = t['bio'] as String?;
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111128) : const Color(0xFFF8F8FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1E1E3A) : const Color(0xFFE8E8FF),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: username.isEmpty
+                ? null
+                : () => context.push('/users/$username'),
+            child: _buildAuthorAvatar(
+              avatar,
+              username,
+              radius: 22,
+              isFoundingCreator: founding,
+              isAuroraCreator: aurora,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        username,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? const Color(0xFFF0F2F8)
+                              : const Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                    if (founding) const FoundingBadgeSmall(),
+                    if (aurora) const AuroraBadgeSmall(),
+                  ],
+                ),
+                if (bio != null && bio.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    bio,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (_isFollowing != null) ...[
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: _toggleFollow,
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: _isFollowing!
+                    ? (isDark ? Colors.white10 : Colors.grey[200])
+                    : _primary,
+                foregroundColor: _isFollowing! ? Colors.grey[600] : Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: Text(
+                _isFollowing! ? l10n.followingAction : l10n.followAction,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   // 专栏卡片：column_id 目前永远是 null（见 build() 里的说明），这里只做

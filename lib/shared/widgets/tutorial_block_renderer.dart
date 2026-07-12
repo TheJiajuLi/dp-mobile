@@ -22,8 +22,11 @@ const _primary = Color(0xFF6366F1);
 Widget buildTutorialBlockWidget(
   BuildContext context,
   AppLocalizations l10n,
-  Map<String, dynamic> block,
-) {
+  Map<String, dynamic> block, {
+  // 阅读页专用排版：正文放大到 16/1.85、callout 带灯泡图标。只有文章阅读页
+  // 传 true，发布预览抽屉不受影响（默认 false）
+  bool readingMode = false,
+}) {
   final type = block['type'] as String? ?? 'text';
   final content = block['content'] as String? ?? '';
 
@@ -251,10 +254,28 @@ Widget buildTutorialBlockWidget(
             left: BorderSide(color: accent, width: 3),
           ),
         ),
-        child: Text(
-          content,
-          style: TextStyle(fontSize: 14, color: accent, height: 1.5),
-        ),
+        child: readingMode
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.lightbulb_outline, size: 16, color: accent),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      content,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: accent,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                content,
+                style: TextStyle(fontSize: 14, color: accent, height: 1.5),
+              ),
       );
 
     default: // text
@@ -263,9 +284,16 @@ Widget buildTutorialBlockWidget(
         child: Text(
           content,
           style: TextStyle(
-            fontSize: 15,
-            height: 1.7,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+            // 阅读页对标 Apple Books 的舒适度：16px、行高 1.85、正文用比纯黑
+            // /纯白更柔和的颜色
+            fontSize: readingMode ? 16 : 15,
+            height: readingMode ? 1.85 : 1.7,
+            letterSpacing: readingMode ? 0.01 : null,
+            color: readingMode
+                ? (Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFC8CAD8)
+                      : const Color(0xFF2A2A2A))
+                : Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       );
