@@ -4,12 +4,15 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/formula_error.dart';
+import '../../../shared/widgets/tutorial_block_renderer.dart'
+    show TutorialCodeBlock;
 import '../../messages/utils/message_avatar.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -185,9 +188,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                 '小梦暂时休息中，请稍后再试')
           : '小梦暂时休息中，请稍后再试';
       // 有部分回答就停在 done 展示，没有就退回 idle
-      setState(() => _jisuoMode = _answer.isEmpty
-          ? JisuoMode.idle
-          : JisuoMode.done);
+      setState(
+        () => _jisuoMode = _answer.isEmpty ? JisuoMode.idle : JisuoMode.done,
+      );
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -422,12 +425,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
-          _tabChip(
-            isDark,
-            label: '小梦直答',
-            icon: Icons.auto_awesome,
-            mode: 'ai',
-          ),
+          _tabChip(isDark, label: '小梦直答', icon: Icons.auto_awesome, mode: 'ai'),
           const SizedBox(width: 8),
           _tabChip(
             isDark,
@@ -562,7 +560,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: _jisuoMode == JisuoMode.streaming ? Colors.grey[400] : _primary,
+                    color: _jisuoMode == JisuoMode.streaming
+                        ? Colors.grey[400]
+                        : _primary,
                     shape: BoxShape.circle,
                   ),
                   child: _jisuoMode == JisuoMode.streaming
@@ -586,9 +586,13 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   // ── 回答态 ─────────────────────────────────────────────────────────
   Widget _buildAnswerView(bool isDark) {
     final streaming = _jisuoMode == JisuoMode.streaming;
-    final line = isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF0F0F0);
+    final line = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF0F0F0);
     final cardBg = isDark ? const Color(0xFF141427) : Colors.white;
-    final cardBorder = isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFEBEBEB);
+    final cardBorder = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFFEBEBEB);
     return ListView(
       controller: _scrollCtrl,
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
@@ -610,7 +614,11 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             ),
             child: Text(
               _question,
-              style: const TextStyle(fontSize: 14, color: Colors.white, height: 1.6),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                height: 1.6,
+              ),
             ),
           ),
         ),
@@ -679,7 +687,10 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                         children: [
                           Text(
                             '小梦正在思考...',
-                            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
+                            ),
                           ),
                         ],
                       )
@@ -698,19 +709,29 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                           onPressed: _stopStream,
                           child: Text(
                             '停止生成',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[400],
+                            ),
                           ),
                         ),
                       )
                     : Row(
                         children: [
-                          _ansActionBtn(isDark, Icons.copy_outlined, '复制', _copyAnswer),
+                          _ansActionBtn(
+                            isDark,
+                            Icons.copy_outlined,
+                            '复制',
+                            _copyAnswer,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: GestureDetector(
                               onTap: _publishToJisuo,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
                                   color: isDark
                                       ? _primary.withValues(alpha: 0.1)
@@ -808,10 +829,14 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF5F5F5),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFEBEBEB),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFEBEBEB),
           width: 0.5,
         ),
       ),
@@ -838,8 +863,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           ),
           const SizedBox(height: 4),
           ..._related.map((q) {
-            final title =
-                q['text']?.toString() ?? q['title']?.toString() ?? '';
+            final title = q['text']?.toString() ?? q['title']?.toString() ?? '';
             final username = q['username']?.toString() ?? '';
             final domain = q['domain']?.toString() ?? '';
             final answers = (q['answer_count'] as num?)?.toInt() ?? 0;
@@ -873,7 +897,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              username.isNotEmpty ? username.substring(0, 1) : '?',
+                              username.isNotEmpty
+                                  ? username.substring(0, 1)
+                                  : '?',
                               style: const TextStyle(
                                 fontSize: 9,
                                 color: Colors.white,
@@ -883,8 +909,13 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          username.isEmpty ? '$answers 回答' : '$username · $answers 回答',
-                          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          username.isEmpty
+                              ? '$answers 回答'
+                              : '$username · $answers 回答',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                          ),
                         ),
                       ],
                     ),
@@ -898,7 +929,12 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  // 跟小梦对话页同一套解析：``` 代码块 / $公式$ / 其余文字
+  // 代码块/LaTeX 照样用正则先切出来（TutorialCodeBlock/_ansFormula 各自
+  // 有自己的渲染方式，不该走 markdown 解析器），其余文字段落改交给
+  // flutter_markdown 的 MarkdownBody 真正渲染——之前这里是手写的"切完
+  // 剩下全部当纯文本 Text()"，### / ** / 表格 / --- 这些语法全部原样
+  // 打在屏幕上不解析，是真实存在的 bug，不是简化。flutter_markdown 项目
+  // 里本来就是依赖（阅读页别处已经在用），不是新引入
   List<Widget> _buildAnswerContent(String content, bool isDark) {
     final regex = RegExp(
       r'```(\w*)\n([\s\S]*?)```'
@@ -910,10 +946,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     for (final m in regex.allMatches(content)) {
       if (m.start > last) {
         final t = content.substring(last, m.start).trim();
-        if (t.isNotEmpty) widgets.add(_ansText(t, isDark));
+        if (t.isNotEmpty) widgets.add(_ansMarkdown(t, isDark));
       }
       if (m.group(2) != null) {
-        widgets.add(_ansCode(m.group(2) ?? '', (m.group(1) ?? '').trim()));
+        final lang = (m.group(1) ?? '').trim();
+        widgets.add(
+          TutorialCodeBlock(
+            content: m.group(2) ?? '',
+            language: lang.isEmpty ? 'text' : lang,
+          ),
+        );
       } else {
         final f = m.group(3) ?? m.group(4) ?? '';
         widgets.add(_ansFormula(f, isDark, isDisplay: m.group(3) != null));
@@ -922,83 +964,75 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     }
     if (last < content.length) {
       final t = content.substring(last).trim();
-      if (t.isNotEmpty) widgets.add(_ansText(t, isDark));
+      if (t.isNotEmpty) widgets.add(_ansMarkdown(t, isDark));
     }
-    if (widgets.isEmpty) widgets.add(_ansText(content, isDark));
+    if (widgets.isEmpty) widgets.add(_ansMarkdown(content, isDark));
     return widgets;
   }
 
-  Widget _ansText(String t, bool isDark) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Text(
-      t,
-      style: TextStyle(
-        fontSize: 15,
-        height: 1.7,
-        color: isDark ? const Color(0xFFC8CAD8) : const Color(0xFF2A2A2A),
-      ),
-    ),
-  );
-
-  Widget _ansCode(String code, String lang) => Container(
-    margin: const EdgeInsets.symmetric(vertical: 8),
-    width: double.infinity,
-    decoration: BoxDecoration(
-      color: const Color(0xFF1E1E2E),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
-          child: Row(
-            children: [
-              Text(
-                lang.isEmpty ? 'CODE' : lang.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF9B9EF8),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: code));
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
-                },
-                child: const Padding(
-                  padding: EdgeInsets.all(4),
-                  child: Text(
-                    '复制',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF9B9EF8)),
-                  ),
-                ),
-              ),
-            ],
+  Widget _ansMarkdown(String t, bool isDark) {
+    final textColor = isDark
+        ? const Color(0xFFC8CAD8)
+        : const Color(0xFF2A2A2A);
+    final headingColor = isDark
+        ? const Color(0xFFF0F2F8)
+        : const Color(0xFF1A1A1A);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: MarkdownBody(
+        data: t,
+        selectable: true,
+        styleSheet: MarkdownStyleSheet(
+          p: TextStyle(fontSize: 15, height: 1.7, color: textColor),
+          h1: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: headingColor,
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Text(
-              code.trim(),
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: Color(0xFFE0E0FF),
-                height: 1.6,
+          h2: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: headingColor,
+          ),
+          h3: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: headingColor,
+          ),
+          strong: TextStyle(fontWeight: FontWeight.w700, color: textColor),
+          em: TextStyle(fontStyle: FontStyle.italic, color: textColor),
+          listBullet: TextStyle(fontSize: 15, color: textColor),
+          tableBody: TextStyle(fontSize: 13, color: textColor),
+          tableHead: TextStyle(fontWeight: FontWeight.w600, color: textColor),
+          tableBorder: TableBorder.all(
+            color: isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE0E0E0),
+            width: 0.5,
+          ),
+          blockquoteDecoration: BoxDecoration(
+            border: const Border(left: BorderSide(color: _primary, width: 3)),
+            color: isDark ? const Color(0xFF1A1A35) : const Color(0xFFEEF0FF),
+          ),
+          horizontalRuleDecoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? const Color(0xFF3A3A5C)
+                    : const Color(0xFFE0E0E0),
               ),
             ),
           ),
+          code: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            backgroundColor: isDark
+                ? const Color(0xFF1E1E2E)
+                : const Color(0xFFF5F5F5),
+            color: isDark ? const Color(0xFFE0E0FF) : const Color(0xFF1A1A1A),
+          ),
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 
   Widget _ansFormula(String tex, bool isDark, {bool isDisplay = true}) =>
       Padding(
