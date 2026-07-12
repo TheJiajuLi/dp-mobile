@@ -85,6 +85,13 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   // 跟着最新一轮问题刷新，不是每一轮各自一份
   List<Map<String, dynamic>> _related = [];
 
+  // "社区提问"Tab 的内容——切到这个 Tab 才是真的展示社区发布的问答
+  // 列表（跟上面 _related 那种"挂在AI回答下面的相关推荐"是两回事），
+  // 懒加载：第一次点这个 Tab 才拉，不是一进极索页就请求
+  List<Map<String, dynamic>> _communityQuestions = [];
+  bool _loadingCommunity = false;
+  bool _communityLoaded = false;
+
   static const _sampleQuestions = [
     '量子纠缠真的可以超光速通信吗？',
     'Python 和 R 哪个更适合数据分析？',
@@ -274,6 +281,23 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     });
   }
 
+  Future<void> _loadCommunityQuestions({bool refresh = false}) async {
+    setState(() => _loadingCommunity = true);
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/questions', queryParameters: {'limit': 30});
+    if (!mounted) return;
+    setState(() {
+      _loadingCommunity = false;
+      _communityLoaded = true;
+      if (res.success && res.data != null) {
+        _communityQuestions = ((res.data['questions'] as List?) ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -314,12 +338,12 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             child: Column(
               children: [
                 _buildTopBar(isDark),
-                _buildModeChips(isDark),
-                const SizedBox(height: 4),
                 Expanded(
-                  child: _jisuoMode == JisuoMode.idle
-                      ? _buildIdleView(isDark)
-                      : _buildAnswerView(isDark),
+                  child: _tab == 'community'
+                      ? _buildCommunityView(isDark)
+                      : (_jisuoMode == JisuoMode.idle
+                            ? _buildIdleView(isDark)
+                            : _buildAnswerView(isDark)),
                 ),
               ],
             ),
@@ -330,7 +354,8 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  // 顶栏：标题 + （非 idle 态）重置按钮
+  // 顶栏：标题 + Tab切换（问问小梦/社区提问，跟标题同一行，腾出下面
+  // 一整行的竖向空间给内容）+ （AI Tab 非 idle 态）重置/历史对话按钮
   Widget _buildTopBar(bool isDark) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 8, 2),
@@ -344,20 +369,30 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               color: isDark ? Colors.white : const Color(0xFF1A1A1A),
             ),
           ),
+          const SizedBox(width: 10),
+          _tabChip(isDark, label: '问问小梦', icon: Icons.auto_awesome, mode: 'ai'),
+          const SizedBox(width: 6),
+          _tabChip(
+            isDark,
+            label: '社区提问',
+            icon: Icons.people_outline,
+            mode: 'community',
+          ),
           const Spacer(),
-          if (_jisuoMode != JisuoMode.idle)
+          if (_tab == 'ai' && _jisuoMode != JisuoMode.idle)
             IconButton(
               tooltip: '重新开始',
               icon: const Icon(Icons.refresh, size: 20),
               color: Colors.grey[500],
               onPressed: _resetToIdle,
             ),
-          IconButton(
-            tooltip: '历史对话',
-            icon: const Icon(Icons.history, size: 20),
-            color: Colors.grey[500],
-            onPressed: () => context.push('/xiaomeng/history'),
-          ),
+          if (_tab == 'ai')
+            IconButton(
+              tooltip: '历史对话',
+              icon: const Icon(Icons.history, size: 20),
+              color: Colors.grey[500],
+              onPressed: () => context.push('/xiaomeng/history'),
+            ),
         ],
       ),
     );
@@ -455,24 +490,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  Widget _buildModeChips(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          _tabChip(isDark, label: '问问小梦', icon: Icons.auto_awesome, mode: 'ai'),
-          const SizedBox(width: 8),
-          _tabChip(
-            isDark,
-            label: '社区提问',
-            icon: Icons.people_outline,
-            mode: 'community',
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _tabChip(
     bool isDark, {
     required String label,
@@ -481,9 +498,14 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   }) {
     final selected = _tab == mode;
     return GestureDetector(
-      onTap: () => setState(() => _tab = mode),
+      onTap: () {
+        setState(() => _tab = mode);
+        if (mode == 'community' && !_communityLoaded) {
+          _loadCommunityQuestions();
+        }
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: selected
               ? _primary
@@ -985,6 +1007,117 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             );
           }),
         ],
+      ),
+    );
+  }
+
+  // "社区提问"Tab 的正文——社区已发布问答列表，真实数据
+  // （GET /auth/questions），不是切 Tab 只换个高亮颜色、内容照旧
+  Widget _buildCommunityView(bool isDark) {
+    if (_loadingCommunity && _communityQuestions.isEmpty) {
+      return const Center(child: CircularProgressIndicator(color: _primary));
+    }
+    if (_communityQuestions.isEmpty) {
+      return Center(
+        child: Text(
+          _communityLoaded ? '还没有人在社区提问' : '',
+          style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+        ),
+      );
+    }
+    final line = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF0F0F0);
+    return RefreshIndicator(
+      color: _primary,
+      onRefresh: () => _loadCommunityQuestions(refresh: true),
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: _communityQuestions.length,
+        separatorBuilder: (_, _) => Divider(height: 1, color: line),
+        itemBuilder: (context, i) {
+          final q = _communityQuestions[i];
+          final title = q['text']?.toString() ?? q['title']?.toString() ?? '';
+          final username = q['username']?.toString() ?? '';
+          final domain = q['domain']?.toString() ?? '';
+          final answers = (q['answer_count'] as num?)?.toInt() ?? 0;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.push('/questions/${q['id']}', extra: q),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (domain.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: jisuoDomainBg(domain),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          domain,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: jisuoDomainColor(domain),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: jisuoDomainColor(domain),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            username.isNotEmpty
+                                ? username.substring(0, 1)
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        username.isEmpty
+                            ? '$answers 回答'
+                            : '$username · $answers 回答',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
