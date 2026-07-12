@@ -512,7 +512,7 @@
   "noArticlesToCollectPrompt": "没有可收录的教程",
   "collectAction": "收录",
   "tabColumnsLabel": "专栏",
-  "tabFilesLabel": "文件",
+  "tabFilesLabel": "Notebook",
   "confirmAction": "确认",
   "titleInsertionAction": "标题植入",
   "titleInsertionSubtitleHint": "副标题 / 系列标记 / 期号",

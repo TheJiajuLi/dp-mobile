@@ -119,26 +119,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
   int get _totalLikes => _tutorials.fold(0, (sum, t) => sum + t.likes);
   int get _totalViews => _tutorials.fold(0, (sum, t) => sum + t.views);
 
-  // 真实计算的"连续创作天数"——从今天开始倒推，_tutorials 里有发布记录的
-  // 那些自然日连续多少天，不是后端字段（后端和Web参考站都没有这个统计），
-  // 今天没发布过就是 0（不给"昨天算不算"的宽限），streak 为 0 时头图区
-  // 那张卡片直接不显示，不用假数字凑颜值
-  int get _creationStreak {
-    if (_tutorials.isEmpty) return 0;
-    final days = _tutorials.map((t) {
-      final d = DateTime.fromMillisecondsSinceEpoch(t.createdAt);
-      return DateTime(d.year, d.month, d.day);
-    }).toSet();
-    var streak = 0;
-    var cursor = DateTime.now();
-    cursor = DateTime(cursor.year, cursor.month, cursor.day);
-    while (days.contains(cursor)) {
-      streak++;
-      cursor = cursor.subtract(const Duration(days: 1));
-    }
-    return streak;
-  }
-
   // 2026-07-06 起改为用户在编辑资料页自己选的"兴趣标签"（最多3个，后端
   // users.tags 字段），不再从发布过的教程 tags 里统计频率——那套自动推断
   // 已经被编辑资料页里可以直接设置的显式字段取代
@@ -234,7 +214,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       final list = ((res.data as Map)['saves'] as List?) ?? [];
       setState(() {
         _saves = list
-            .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)))
+            .map(
+              (j) =>
+                  TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)),
+            )
             .toList();
         _savesPrivate = false;
         _savesPage = 1;
@@ -292,7 +275,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       final list = ((res.data as Map)['tutorials'] as List?) ?? [];
       setState(() {
         _likes = list
-            .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)))
+            .map(
+              (j) =>
+                  TutorialModel.fromJson(Map<String, dynamic>.from(j as Map)),
+            )
             .toList();
         _likesPage = 1;
         _likesHasMore = list.length >= 20;
@@ -1244,7 +1230,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         uploadingCover: _uploadingCover,
                         uploadingAvatar: _uploadingAvatar,
                         coverImageUrl: _coverImageUrl,
-                        creationStreak: _creationStreak,
                         totalLikes: _totalLikes,
                         totalViews: _totalViews,
                         savesCount: _saves.length,
@@ -1290,7 +1275,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           controller: _tabCtrl,
                           labelColor: isDarkMode ? Colors.white : _ink,
                           unselectedLabelColor: isDarkMode
-                              ? Colors.white54
+                              ? Colors.white.withValues(alpha: 0.35)
                               : const Color(0xFFBBBBBB),
                           // 5个tab挤在一行，字号跟padding都比4个tab时更紧凑
                           labelPadding: const EdgeInsets.symmetric(
@@ -1392,8 +1377,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                           onCreated: _loadColumns,
                         ),
                         onColumnTap: (col) async {
-                          final result =
-                              await context.push('/columns/${col.id}');
+                          final result = await context.push(
+                            '/columns/${col.id}',
+                          );
                           // 详情页「···」删除专栏后返回——把卡片从列表移除（淡出）
                           if (!mounted) return;
                           if (result is Map && result['deleted'] == true) {
@@ -1467,7 +1453,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                 key: const PageStorageKey(
                                   'profile-tab-saves-private',
                                 ),
-                                child: _privateMessage(l10n.savesPrivateMessage),
+                                child: _privateMessage(
+                                  l10n.savesPrivateMessage,
+                                ),
                               )
                             : Column(
                                 children: [
@@ -1507,30 +1495,32 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                                         crossAxisSpacing: 8,
                                                         childAspectRatio: 0.75,
                                                       ),
-                                                  delegate: SliverChildBuilderDelegate(
-                                                    (ctx, i) {
-                                                      final t = _saves[i];
-                                                      return TutorialGridCard(
-                                                        tutorial: t,
-                                                        onTap: () => context.push(
-                                                          '/tutorial/${t.id}',
-                                                        ),
-                                                      );
-                                                    },
-                                                    childCount: _saves.length,
-                                                  ),
+                                                  delegate: SliverChildBuilderDelegate((
+                                                    ctx,
+                                                    i,
+                                                  ) {
+                                                    final t = _saves[i];
+                                                    return TutorialGridCard(
+                                                      tutorial: t,
+                                                      onTap: () => context.push(
+                                                        '/tutorial/${t.id}',
+                                                      ),
+                                                    );
+                                                  }, childCount: _saves.length),
                                                 ),
                                               ),
                                               if (_savesLoadingMore)
                                                 const SliverToBoxAdapter(
                                                   child: Padding(
-                                                    padding: EdgeInsets.symmetric(
-                                                      vertical: 16,
-                                                    ),
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          vertical: 16,
+                                                        ),
                                                     child: Center(
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                      ),
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
                                                     ),
                                                   ),
                                                 ),
@@ -1579,18 +1569,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                                   crossAxisSpacing: 8,
                                                   childAspectRatio: 0.75,
                                                 ),
-                                            delegate: SliverChildBuilderDelegate(
-                                              (ctx, i) {
-                                                final t = _likes[i];
-                                                return TutorialGridCard(
-                                                  tutorial: t,
-                                                  onTap: () => context.push(
-                                                    '/tutorial/${t.id}',
-                                                  ),
-                                                );
-                                              },
-                                              childCount: _likes.length,
-                                            ),
+                                            delegate:
+                                                SliverChildBuilderDelegate((
+                                                  ctx,
+                                                  i,
+                                                ) {
+                                                  final t = _likes[i];
+                                                  return TutorialGridCard(
+                                                    tutorial: t,
+                                                    onTap: () => context.push(
+                                                      '/tutorial/${t.id}',
+                                                    ),
+                                                  );
+                                                }, childCount: _likes.length),
                                           ),
                                         ),
                                         if (_likesLoadingMore)
@@ -1600,9 +1591,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                                 vertical: 16,
                                               ),
                                               child: Center(
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
                                               ),
                                             ),
                                           ),
@@ -1644,10 +1636,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         children: [
           Icon(Icons.lock_outline, size: 36, color: Colors.grey[300]),
           const SizedBox(height: 12),
-          Text(
-            text,
-            style: TextStyle(fontSize: 14, color: Colors.grey[400]),
-          ),
+          Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[400])),
         ],
       ),
     );
@@ -1680,49 +1669,39 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     );
   }
 
-  // VIP 徽章——会员是暖金色渐变字（有质感），非会员是暗淡的灰白字，
-  // 两种状态都真实反映 membership，不是随手编一个"看起来高级"的常亮效果。
-  // 自己查看自己主页点了跳会员管理页；查看别人主页时纯展示，不接一个
-  // "点了打开我自己订阅页"这种文不对题的跳转
-  // 会员等级对应的徽章底色——之前 pro/pro_max 共用同一套暖金色渐变，
-  // 区分不出两档差异；改成三色阶梯（灰/蓝/紫），紫色跟全局主色一致，
-  // 一眼能认出是最高档。实测确认（2026-07-08）GET /auth/me 本来就直接
-  // 返回 membership，自己查看自己主页不用再绕道 storageUsageProvider
-  // 多打一次 /auth/storage/usage
-  Color _membershipColor(String? membership) {
-    switch (membership) {
-      case 'pro_max':
-        return _primary;
-      case 'pro':
-        return const Color(0xFF0EA5E9);
-      default:
-        return const Color(0xFFAAAAAA);
-    }
-  }
-
+  // Pro/极光徽章——免费账号不再显示任何角标（之前免费用户也会露出一个
+  // 灰色"VIP"占位角标，容易让人以为那是某种默认身份）。极光创作者优先于
+  // 单纯的 Pro 会员展示（更稀有的身份），两者都没有就不渲染。自己查看
+  // 自己主页点了跳会员管理页；查看别人主页时纯展示，不接一个"点了打开
+  // 我自己订阅页"这种文不对题的跳转
   Widget _buildVipBadge({required bool isSelfView}) {
     final membership = isSelfView
         ? ref.watch(currentUserProvider)?.membership
         : _profile?.membership;
+    final isAurora = isSelfView
+        ? ref.watch(currentUserProvider)?.isAuroraCreator ?? false
+        : _profile?.isAuroraCreator ?? false;
     final isMember = membership == 'pro' || membership == 'pro_max';
-    final color = _membershipColor(membership);
+    if (!isAurora && !isMember) return const SizedBox.shrink();
+
+    final label = isAurora ? '极光' : 'Pro';
     return GestureDetector(
       onTap: isSelfView ? () => context.push('/settings/subscription') : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
         decoration: BoxDecoration(
-          color: isMember ? color : Colors.black45,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white, width: 1.5),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+          ),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: Colors.white, width: 1.2),
         ),
         child: Text(
-          'VIP',
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
-            fontStyle: FontStyle.italic,
-            letterSpacing: 1,
-            color: isMember ? Colors.white : Colors.white70,
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
         ),
       ),
@@ -1808,4 +1787,3 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     super.dispose();
   }
 }
-

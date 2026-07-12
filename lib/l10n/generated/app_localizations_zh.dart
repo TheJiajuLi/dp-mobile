@@ -1657,7 +1657,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tabColumnsLabel => '专栏';
 
   @override
-  String get tabFilesLabel => '文件';
+  String get tabFilesLabel => 'Notebook';
 
   @override
   String get confirmAction => '确认';

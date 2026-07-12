@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -43,7 +45,6 @@ class ProfileHeaderWidget extends StatelessWidget {
   final bool uploadingCover;
   final bool uploadingAvatar;
   final String? coverImageUrl;
-  final int creationStreak;
   final int totalLikes;
   final int totalViews;
   final int savesCount;
@@ -84,7 +85,6 @@ class ProfileHeaderWidget extends StatelessWidget {
     required this.uploadingCover,
     required this.uploadingAvatar,
     required this.coverImageUrl,
-    required this.creationStreak,
     required this.totalLikes,
     required this.totalViews,
     required this.savesCount,
@@ -564,9 +564,9 @@ class ProfileHeaderWidget extends StatelessWidget {
   Widget _buildStatsRow(BuildContext context, AppLocalizations l10n) {
     Widget stat(String value, String label, {VoidCallback? onTap}) {
       final content = Padding(
-        padding: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               value,
@@ -576,6 +576,7 @@ class ProfileHeaderWidget extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
+            const SizedBox(height: 2),
             Text(
               label,
               style: const TextStyle(fontSize: 10, color: Colors.white60),
@@ -591,6 +592,12 @@ class ProfileHeaderWidget extends StatelessWidget {
       );
     }
 
+    Widget divider() => Container(
+      width: 0.5,
+      height: 26,
+      color: Colors.white.withValues(alpha: 0.08),
+    );
+
     final userId = profile.id;
 
     // 文章/专栏/文件这几个数量本来就是下面 Tab 切换后能直接看到的东西，
@@ -599,99 +606,139 @@ class ProfileHeaderWidget extends StatelessWidget {
     // 不带 pill 底色的纯文字展示（效仿知乎"创作"页签下方的计数写法），
     // 只在切到那个 Tab 时才看得到，减少头图区一上来就是一整排数字的
     // 视觉噪音
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          stat(
-            savesPrivate ? '-' : formatCount(savesCount),
-            l10n.tabBookmarksLabel,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 0.5,
+            ),
           ),
-          stat(formatCount(totalLikes), l10n.tabLikesLabel),
-          stat(formatCount(totalViews), l10n.viewsCountLabel),
-          stat(
-            '${profile.followingCount}',
-            l10n.followingCountLabel,
-            onTap: () => context.push('/users/$userId/following'),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  stat(
+                    savesPrivate ? '-' : formatCount(savesCount),
+                    l10n.tabBookmarksLabel,
+                  ),
+                  divider(),
+                  stat(formatCount(totalLikes), l10n.tabLikesLabel),
+                  divider(),
+                  stat(formatCount(totalViews), l10n.viewsCountLabel),
+                  divider(),
+                  stat(
+                    '${profile.followingCount}',
+                    l10n.followingCountLabel,
+                    onTap: () => context.push('/users/$userId/following'),
+                  ),
+                  divider(),
+                  stat(
+                    '${profile.followerCount}',
+                    l10n.followersCountLabel,
+                    onTap: () => context.push('/users/$userId/followers'),
+                  ),
+                ],
+              ),
+            ),
           ),
-          stat(
-            '${profile.followerCount}',
-            l10n.followersCountLabel,
-            onTap: () => context.push('/users/$userId/followers'),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  // 创作中心入口——原来头图区右上角另有一个独立的"创作者中心"图标按钮，
-  // 跟这张卡片功能重叠，去掉那个图标改成直接点这张卡进创作者中心，只有
-  // 自己看自己主页时才能点（看别人主页也可能显示这张卡，但点进去应该是
-  // 打开自己的创作者中心，不是对方的，容易误解，所以干脆不给点）。
-  // 之前这张卡在 creationStreak == 0 时上层完全不渲染——连续创作天数是
-  // 0 在没有天天发布内容的账号上其实是常态而不是例外，导致"创作中心"
-  // 这个入口经常直接从主页消失、根本摸不到，跟之前极索页邀请回答汇总卡
-  // count==0 就整块消失是同一类问题——现在改成 streak==0 时也照样渲染，
-  // 只是换成不带🔥文案的朴素版本，保证入口常在
+  // 创作中心入口——原来是"连续创作天数"单行文案卡，改成跟创作者中心
+  // 页顶部同一份口径的三格数据（浏览/获赞/粉丝，来自本页已经加载好的
+  // totalViews/totalLikes/profile.followerCount，不重新打一次接口）+
+  // 右侧 dashboard 图标按钮进创作者中心。注意：这三个数字是全量累计值，
+  // 不是真的"本月"——后端没有历史快照算不出月度环比（CONTEXT.md 创作
+  // 者中心那节同样的口径），标签用"浏览/获赞/粉丝"而不是"本月xx"，
+  // 不虚报统计口径。只有自己看自己主页时才能点进创作者中心，看别人主页
+  // 不显示这张卡（对方的创作数据点进去实际打开的是自己的创作者中心，
+  // 容易误解，索性不给点也不显示）
   Widget _buildStreakCard(BuildContext context, AppLocalizations l10n) {
-    final hasStreak = creationStreak > 0;
     return GestureDetector(
       onTap: isSelfView ? () => context.push('/creator') : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 0.5,
+          ),
         ),
         child: Row(
           children: [
-            // emoji 换成放在磨砂圆角方块里的 Material 图标，更精致专业；有
-            // 连续创作时用橙色火苗图标，否则用中性的编辑图标
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                hasStreak ? Icons.local_fire_department : Icons.edit_note,
-                size: 20,
-                color: hasStreak ? const Color(0xFFF59E0B) : Colors.white,
-              ),
-            ),
-            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    hasStreak
-                        ? l10n.creationStreakDays(creationStreak)
-                        : l10n.creatorCenterEntryLabel,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    hasStreak
-                        ? l10n.creationStreakSubtitle
-                        : l10n.creatorCenterEntrySubtitle,
-                    style: const TextStyle(fontSize: 11, color: Colors.white60),
+                  _creatorStat(formatCount(totalViews), l10n.viewsCountLabel),
+                  const SizedBox(width: 18),
+                  _creatorStat(formatCount(totalLikes), l10n.tabLikesLabel),
+                  const SizedBox(width: 18),
+                  _creatorStat(
+                    '${profile.followerCount}',
+                    l10n.followersCountLabel,
                   ),
                 ],
               ),
             ),
-            if (isSelfView)
-              const Icon(Icons.chevron_right, size: 18, color: Colors.white54),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.dashboard_outlined,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    l10n.creatorCenterEntryLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  Widget _creatorStat(String value, String label) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        value,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
+      const SizedBox(height: 2),
+      Text(label, style: const TextStyle(fontSize: 10, color: Colors.white60)),
+    ],
+  );
 
   // 头图信息行的小图标+文字组合——性别/地区/职业公用同一个样式
   Widget _infoChip(IconData icon, String text) => Row(
@@ -703,18 +750,36 @@ class ProfileHeaderWidget extends StatelessWidget {
     ],
   );
 
-  // 头图区里叠在背景上的圆形按钮（返回/汉堡）——半透明白底保证无论背景
-  // 是浅色渐变占位还是用户传的任意亮度照片，深色图标都能看清
-  // filled:false 给不需要白底圆圈衬托的场景用（比如链接图标）——直接裸
-  // 2026-07-06 去掉了原来 BackdropFilter 毛玻璃圆角底，改成裸图标+黑色
-  // 投影衬托可见性；2026-07-11 这个投影本身出了问题——Shadow 没给
-  // offset，默认零偏移只会让图标往四周晕开一圈模糊重影，看起来像图标
-  // 下面叠了个鬼影，不是正常的阴影效果，按反馈直接去掉
-  Widget _heroIconButton(IconData icon, VoidCallback onTap) => GestureDetector(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.all(6),
-      child: Icon(icon, color: Colors.white, size: 22),
+  // 头图区里叠在背景上的按钮（返回/主题切换/设置/链接）——36px 毛玻璃
+  // 圆角方块，rgba(255,255,255,.10) 底 + rgba(255,255,255,.12) 描边。
+  // 2026-07-06 曾经去掉过 BackdropFilter 改成裸图标+投影，2026-07-11
+  // 又因为投影本身有问题直接去掉；这次重新加回毛玻璃是深色视觉规范里
+  // 明确要求的样式，不是走回头路——只改按钮外观，功能（主题切换/设置）
+  // 不变，也不引入侧边栏
+  Widget _heroIconButton(IconData icon, VoidCallback onTap) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.12),
+                width: 0.5,
+              ),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+        ),
+      ),
     ),
   );
 }

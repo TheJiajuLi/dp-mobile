@@ -1697,7 +1697,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabColumnsLabel => 'Columns';
 
   @override
-  String get tabFilesLabel => 'Files';
+  String get tabFilesLabel => 'Notebook';
 
   @override
   String get confirmAction => 'Confirm';

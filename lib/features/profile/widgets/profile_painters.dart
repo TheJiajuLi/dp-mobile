@@ -24,6 +24,7 @@ class CoverGradient extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       fit: StackFit.expand,
+      clipBehavior: Clip.hardEdge,
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
@@ -32,9 +33,9 @@ class CoverGradient extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: isDark
                   ? const [
-                      Color(0xFF120C24),
-                      Color(0xFF362D6B),
-                      Color(0xFF0D2436),
+                      Color(0xFF1A0E2E),
+                      Color(0xFF0D1A3A),
+                      Color(0xFF0A0A1A),
                     ]
                   : const [
                       Color(0xFF7EC8E3),
@@ -45,9 +46,33 @@ class CoverGradient extends StatelessWidget {
             ),
           ),
         ),
-        if (isDark)
-          const CustomPaint(painter: StarFieldPainter())
-        else
+        if (isDark) ...[
+          Positioned(
+            top: -60,
+            left: -40,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _primary.withValues(alpha: 0.2),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: -60,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+              ),
+            ),
+          ),
+          const CustomPaint(painter: StarFieldPainter()),
+        ] else
           const CustomPaint(painter: SunGlowPainter()),
       ],
     );

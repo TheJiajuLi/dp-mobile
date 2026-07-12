@@ -33,10 +33,12 @@ class TutorialListCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDark ? Colors.white12 : const Color(0xFFF0F0F0),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFF0F0F0),
             width: 0.5,
           ),
           boxShadow: isDark
@@ -53,10 +55,10 @@ class TutorialListCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               child: SizedBox(
-                width: 92,
-                height: 76,
+                width: 80,
+                height: 80,
                 child: tutorial.coverImage?.isNotEmpty == true
                     ? ExcludeSemantics(
                         child: CachedNetworkImage(
@@ -103,7 +105,9 @@ class TutorialListCard extends StatelessWidget {
                         child: Icon(
                           Icons.more_horiz,
                           size: 18,
-                          color: isDark ? Colors.white38 : Colors.grey[400],
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.3)
+                              : Colors.grey[400],
                         ),
                       ),
                     ],
@@ -140,35 +144,45 @@ class TutorialListCard extends StatelessWidget {
                         messageTimeAgo(l10n, tutorial.createdAt),
                         style: TextStyle(
                           fontSize: 11.5,
-                          color: isDark ? Colors.white38 : Colors.grey[500],
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.35)
+                              : Colors.grey[500],
                         ),
                       ),
                       _statDot(isDark),
                       Icon(
                         Icons.remove_red_eye_outlined,
                         size: 13,
-                        color: isDark ? Colors.white38 : Colors.grey[500],
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.35)
+                            : Colors.grey[500],
                       ),
                       const SizedBox(width: 3),
                       Text(
                         '${tutorial.views}',
                         style: TextStyle(
                           fontSize: 11.5,
-                          color: isDark ? Colors.white38 : Colors.grey[500],
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.35)
+                              : Colors.grey[500],
                         ),
                       ),
                       _statDot(isDark),
                       Icon(
                         Icons.favorite_outline,
                         size: 13,
-                        color: isDark ? Colors.white38 : Colors.grey[500],
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.35)
+                            : Colors.grey[500],
                       ),
                       const SizedBox(width: 3),
                       Text(
                         '${tutorial.likes}',
                         style: TextStyle(
                           fontSize: 11.5,
-                          color: isDark ? Colors.white38 : Colors.grey[500],
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.35)
+                              : Colors.grey[500],
                         ),
                       ),
                     ],

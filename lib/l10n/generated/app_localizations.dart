@@ -3173,7 +3173,7 @@ abstract class AppLocalizations {
   /// No description provided for @tabFilesLabel.
   ///
   /// In en, this message translates to:
-  /// **'Files'**
+  /// **'Notebook'**
   String get tabFilesLabel;
 
   /// No description provided for @confirmAction.

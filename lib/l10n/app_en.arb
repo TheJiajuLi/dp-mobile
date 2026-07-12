@@ -883,7 +883,7 @@
   "noArticlesToCollectPrompt": "No tutorials available",
   "collectAction": "Add",
   "tabColumnsLabel": "Columns",
-  "tabFilesLabel": "Files",
+  "tabFilesLabel": "Notebook",
   "confirmAction": "Confirm",
   "titleInsertionAction": "Title Details",
   "titleInsertionSubtitleHint": "Subtitle / Series tag / Issue number",

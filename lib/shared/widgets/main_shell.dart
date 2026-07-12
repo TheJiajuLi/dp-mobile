@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -64,76 +65,99 @@ class MainShell extends ConsumerWidget {
 
     return Scaffold(
       body: navigationShell,
+      // 深色模式下改成毛玻璃底：半透明深底 + 20px 模糊 + 顶边框，跟页面
+      // 内容不再是同一块实色（之前直接读 scaffoldBackgroundColor 保证的
+      // "融为一体"），而是明确"浮"在内容之上的一层。浅色模式不跟着改，
+      // 沿用原来的实色融合方案——磨砂玻璃在浅色背景上视觉收益不明显，
+      // 还平白多一层 BackdropFilter 的渲染开销。immersive（极索回答态）
+      // 时整条隐藏，跟之前一样
       bottomNavigationBar: immersive
           ? null
-          : DecoratedBox(
-        decoration: BoxDecoration(
-          // 直接读 scaffoldBackgroundColor（会被 AnimatedTheme 平滑插值），
-          // 跟页面主体用同一个源、同一条动画曲线，切主题时底部栏边缘不再
-          // "慢半拍"snap。稳态值跟原来完全一致：浅色 #F7F7FB / 深色 #1C1C1E
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          // 深色模式底部bar跟页面内容看起来是"一体的"（没有阴影），浅色
-          // 模式之前留了一圈阴影，页面内容和底部bar之间露出一条看得出来的
-          // 接缝，两种模式观感不一致——去掉阴影，浅色模式也跟深色模式一样
-          // 融为一体
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 60,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // 首页跟发现合并成一个页面（发现的板块搬到首页顶部），
-                  // 这个tab的图标/文案换成原来发现tab的，不再单独占一个tab
-                  _NavItem(
-                    icon: Icons.explore_outlined,
-                    activeIcon: Icons.explore,
-                    label: l10n.navCommunity,
-                    selected: navigationShell.currentIndex == 0,
-                    onTap: () => _onTap(0),
+          : ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              child: BackdropFilter(
+                filter: isDark
+                    ? ImageFilter.blur(sigmaX: 20, sigmaY: 20)
+                    : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF0A0A1A).withValues(alpha: 0.85)
+                        : Theme.of(context).scaffoldBackgroundColor,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    border: isDark
+                        ? Border(
+                            top: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              width: 0.5,
+                            ),
+                          )
+                        : null,
+                    // 深色模式底部bar跟页面内容看起来是"一体的"（没有阴影），
+                    // 浅色模式之前留了一圈阴影，页面内容和底部bar之间露出
+                    // 一条看得出来的接缝，两种模式观感不一致——去掉阴影，
+                    // 浅色模式也跟深色模式一样融为一体
                   ),
-                  // 极索——替代原来发现tab的位置，小梦AI入口+应用宫格+
-                  // 社区精选
-                  _NavItem(
-                    iconBuilder: (selected) =>
-                        _JisuoIcon(selected: selected),
-                    label: '极索',
-                    selected: navigationShell.currentIndex == 1,
-                    onTap: () => _onTap(1),
+                  child: SafeArea(
+                    top: false,
+                    child: SizedBox(
+                      height: 60,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          // 首页跟发现合并成一个页面（发现的板块搬到首页
+                          // 顶部），这个tab的图标/文案换成原来发现tab的，
+                          // 不再单独占一个tab
+                          _NavItem(
+                            icon: Icons.explore_outlined,
+                            activeIcon: Icons.explore,
+                            label: l10n.navCommunity,
+                            selected: navigationShell.currentIndex == 0,
+                            onTap: () => _onTap(0),
+                          ),
+                          // 极索——替代原来发现tab的位置，小梦AI入口+
+                          // 应用宫格+社区精选
+                          _NavItem(
+                            iconBuilder: (selected) =>
+                                _JisuoIcon(selected: selected),
+                            label: '极索',
+                            selected: navigationShell.currentIndex == 1,
+                            onTap: () => _onTap(1),
+                          ),
+                          _PublishButton(
+                            onTap: () => context.push('/publish'),
+                          ),
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final unread = ref.watch(unreadCountProvider);
+                              return _NavItem(
+                                icon: Icons.chat_bubble_outline,
+                                activeIcon: Icons.chat_bubble,
+                                label: l10n.messagesTitle,
+                                selected: navigationShell.currentIndex == 2,
+                                badgeCount: unread,
+                                onTap: () => _onTap(2),
+                              );
+                            },
+                          ),
+                          _NavItem(
+                            icon: Icons.person_outline,
+                            activeIcon: Icons.person,
+                            label: l10n.navProfile,
+                            selected: navigationShell.currentIndex == 3,
+                            onTap: () => _onTap(3),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  _PublishButton(
-                    onTap: () => context.push('/publish'),
-                  ),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final unread = ref.watch(unreadCountProvider);
-                      return _NavItem(
-                        icon: Icons.chat_bubble_outline,
-                        activeIcon: Icons.chat_bubble,
-                        label: l10n.messagesTitle,
-                        selected: navigationShell.currentIndex == 2,
-                        badgeCount: unread,
-                        onTap: () => _onTap(2),
-                      );
-                    },
-                  ),
-                  _NavItem(
-                    icon: Icons.person_outline,
-                    activeIcon: Icons.person,
-                    label: l10n.navProfile,
-                    selected: navigationShell.currentIndex == 3,
-                    onTap: () => _onTap(3),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -407,11 +431,7 @@ class _NavItem extends StatelessWidget {
               backgroundColor: Colors.red,
               child: iconBuilder != null
                   ? iconBuilder!(selected)
-                  : Icon(
-                      selected ? activeIcon : icon,
-                      color: color,
-                      size: 24,
-                    ),
+                  : Icon(selected ? activeIcon : icon, color: color, size: 24),
             ),
             const SizedBox(height: 2),
             Text(
@@ -443,11 +463,11 @@ class _PublishButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: 46,
+        height: 46,
         decoration: BoxDecoration(
           color: const Color(0xFF6366F1),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(15),
         ),
         child: const Icon(Icons.add, color: Colors.white, size: 24),
       ),
