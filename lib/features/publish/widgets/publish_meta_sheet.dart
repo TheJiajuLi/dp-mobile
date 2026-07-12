@@ -61,9 +61,12 @@ class PublishMetaSection extends StatelessWidget {
       children: [
         // 封面图缩小成一个小方块，塞进摘要这一行左边，跟摘要输入框合并
         // 成一行——不再单独占一整张 140px 高的卡，省下来的空间让整个
-        // 元信息区更紧凑
+        // 元信息区更紧凑。这一整张卡是固定在 Block 列表上方、不跟着滚动
+        // 的，之前几行加起来接近半屏，把"今日灵感"挤得只剩一条缝——摘要
+        // 输入框行高/每行内边距/封面图尺寸都再压缩一档，让整张卡大概只
+        // 占以前的三分之一
         Container(
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(14),
@@ -77,18 +80,19 @@ class PublishMetaSection extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
                       onTap: onCoverTap,
                       child: Container(
-                        width: 64,
-                        height: 64,
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0F0F8),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(9),
                           image: coverImageUrl != null
                               ? DecorationImage(
                                   image: NetworkImage(coverImageUrl!),
@@ -97,25 +101,11 @@ class PublishMetaSection extends StatelessWidget {
                               : null,
                         ),
                         child: coverImageUrl == null
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_photo_alternate_outlined,
-                                    size: 20,
-                                    color: (topicRule?.fg ?? _primary)
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    l10n.coverImageLabel,
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      color: (topicRule?.fg ?? _primary)
-                                          .withValues(alpha: 0.6),
-                                    ),
-                                  ),
-                                ],
+                            ? Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 18,
+                                color: (topicRule?.fg ?? _primary)
+                                    .withValues(alpha: 0.6),
                               )
                             : null,
                       ),
@@ -143,8 +133,8 @@ class PublishMetaSection extends StatelessWidget {
                               color: Color(0xFF888888),
                               height: 1.4,
                             ),
-                            maxLines: 4,
-                            minLines: 3,
+                            maxLines: 3,
+                            minLines: 2,
                             onChanged: (_) => onSummaryChanged(),
                           ),
                           if (generatingSummary)
@@ -200,7 +190,7 @@ class PublishMetaSection extends StatelessWidget {
               ),
               _rowDivider(context, isDarkMode),
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
                 child: Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -209,7 +199,7 @@ class PublishMetaSection extends StatelessWidget {
                       (tag) => Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
-                          vertical: 5,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: isDarkMode
@@ -248,7 +238,7 @@ class PublishMetaSection extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
-                          vertical: 5,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(6),
@@ -289,7 +279,7 @@ class PublishMetaSection extends StatelessWidget {
                 onTap: onTitleInsertionTap,
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
                 child: _joinColumnEntry(context),
               ),
             ],
@@ -306,7 +296,7 @@ class PublishMetaSection extends StatelessWidget {
     return GestureDetector(
       onTap: onColumnTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? _primary.withValues(alpha: 0.06) : null,
           borderRadius: BorderRadius.circular(10),
@@ -389,12 +379,13 @@ class PublishMetaSection extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Row(
           children: [
             Container(
               width: 26,
               height: 26,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: iconBg,
                 borderRadius: BorderRadius.circular(8),
