@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/font_size_provider.dart';
 import '../../../core/network/api_client.dart';
@@ -134,6 +136,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   final ScrollController _scrollCtrl = ScrollController();
   final ValueNotifier<double> _progress = ValueNotifier(0);
   final ValueNotifier<bool> _barSolid = ValueNotifier(false);
+  Timer? _progressSaveTimer;
 
   @override
   void initState() {
@@ -147,13 +150,40 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     });
   }
 
+  // 顶栏进度条 + 首页"继续阅读"卡的数据源——后者是本地持久化，不走
+  // 后端接口，滚动时防抖 500ms 再写，避免每一帧滚动都触发一次磁盘 IO
   void _onScroll() {
+    if (!_scrollCtrl.hasClients) return;
     final max = _scrollCtrl.position.maxScrollExtent;
-    if (max > 0) {
-      _progress.value = (_scrollCtrl.offset / max).clamp(0.0, 1.0);
-    }
+    if (max <= 0) return;
+    final progress = (_scrollCtrl.offset / max).clamp(0.0, 1.0);
+    _progress.value = progress;
     final solid = _scrollCtrl.offset >= 100;
     if (solid != _barSolid.value) _barSolid.value = solid;
+
+    _progressSaveTimer?.cancel();
+    _progressSaveTimer = Timer(
+      const Duration(milliseconds: 500),
+      () => _saveReadingProgress(progress),
+    );
+  }
+
+  Future<void> _saveReadingProgress(double progress) async {
+    final title = _tutorial?['title'] as String?;
+    if (title == null || title.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'last_read_tutorial',
+        jsonEncode({
+          'id': widget.tutorialId,
+          'title': title,
+          'progress': progress,
+        }),
+      );
+    } catch (_) {
+      // 本地写入失败静默忽略，不影响阅读体验
+    }
   }
 
   @override
@@ -161,6 +191,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     _scrollCtrl.dispose();
     _progress.dispose();
     _barSolid.dispose();
+    _progressSaveTimer?.cancel();
     _commentCtrl.dispose();
     _commentFocusNode.dispose();
     super.dispose();

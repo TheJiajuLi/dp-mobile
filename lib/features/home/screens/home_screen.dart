@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/founding_badge.dart';
@@ -34,6 +35,17 @@ const _bg = AppColors.bg;
 // 点了只提示"即将上线"，不展示任何列表，不编假数据
 enum _MainTab { all, follow, latest }
 
+// 分类 pill 只是 homeFeedCategories 的一个展示子集——「全部」不再单独
+// 出一个 pill（不选中任何 pill 就等价于全部，靠 HomeFeedState 默认的
+// selectedCategory=='全部' 语义达成，不用改 home_feed_provider.dart），
+// 顺带去掉「时事」腾地方给更常用的分类。筛选关键词表仍在 provider 里
+// 保留「时事」这个 key，只是首页不再露出对应 pill 入口
+const _categoryPills = ['科学', '经济', '生活', '数据', '编程'];
+
+// 本地"上次阅读进度"持久化 key——tutorial_detail_screen.dart 滚动时写，
+// 这里首页启动时读。进度 >= 0.9 视为读完，不再显示"继续阅读"卡
+const _lastReadPrefsKey = 'last_read_tutorial';
+
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -45,6 +57,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   final _scrollCtrl = ScrollController();
   _MainTab _mainTab = _MainTab.all;
+  Map<String, dynamic>? _continueReading;
 
   Timer? _refreshTimer;
 
@@ -57,6 +70,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       const Duration(minutes: 30),
       (_) => _refreshAll(),
     );
+    _loadContinueReading();
     // 顶栏红点要用 notificationsProvider 里真实的未读数，不是
     // unreadCountProvider（那个是"通知+群组消息"合并总数，语义不对）。
     // notificationsProvider 只有真的调过 fetch() 才会有数据——消息页
@@ -71,10 +85,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.read(homeFeedProvider.notifier).refresh();
   }
 
+  Future<void> _loadContinueReading() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_lastReadPrefsKey);
+      if (raw == null) {
+        if (mounted && _continueReading != null) {
+          setState(() => _continueReading = null);
+        }
+        return;
+      }
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final progress = (data['progress'] as num?)?.toDouble() ?? 0;
+      if (!mounted) return;
+      setState(() => _continueReading = progress < 0.9 ? data : null);
+    } catch (_) {
+      // 本地读取失败静默忽略，不影响首页其它内容
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshAll();
+      _loadContinueReading();
     }
   }
 
@@ -302,23 +336,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       bgLight: Color(0xFFDCFCE7),
       bgDark: Color(0xFF0F2A1A),
     ),
+    // 论坛+群组合并入口——route 留空，点击弹出选择而不是直接跳转
     _AppEntry(
       icon: Icons.groups_outlined,
-      label: '群组',
-      route: '/messages/groups',
+      label: '社区',
+      route: null,
       color: Color(0xFFD97706),
       bgLight: Color(0xFFFEF3C7),
       bgDark: Color(0xFF2A1F00),
     ),
-    _AppEntry(
-      icon: Icons.forum_outlined,
-      label: '论坛',
-      route: '/messages/forums',
-      color: Color(0xFFEF4444),
-      bgLight: Color(0xFFFEE2E2),
-      bgDark: Color(0xFF2A0A0A),
-    ),
   ];
+
+  void _openApp(_AppEntry app) {
+    if (app.route != null) {
+      context.push(app.route!);
+      return;
+    }
+    _showCommunitySheet();
+  }
+
+  void _showCommunitySheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(sheetContext).dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.forum_outlined, color: _primary),
+              title: const Text('论坛'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                context.push('/messages/forums');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined, color: _primary),
+              title: const Text('群组'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                context.push('/messages/groups');
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildAppGrid(bool isDark) {
     return Padding(
@@ -328,7 +406,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             .map(
               (app) => Expanded(
                 child: GestureDetector(
-                  onTap: () => context.push(app.route),
+                  onTap: () => _openApp(app),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -396,7 +474,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Row(
       children: [
-        tab('全部', _MainTab.all, isFirst: true),
+        tab('推荐', _MainTab.all, isFirst: true),
         tab('关注', _MainTab.follow, isFirst: false),
         tab('最新', _MainTab.latest, isFirst: false),
       ],
@@ -414,14 +492,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: homeFeedCategories.length,
+        itemCount: _categoryPills.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final category = homeFeedCategories[index];
+          final category = _categoryPills[index];
           final selected = state.selectedCategory == category;
           return GestureDetector(
-            onTap: () =>
-                ref.read(homeFeedProvider.notifier).setCategory(category),
+            onTap: () => ref
+                .read(homeFeedProvider.notifier)
+                .setCategory(selected ? '全部' : category),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               alignment: Alignment.center,
@@ -547,16 +626,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ];
     }
 
+    final continueReading = _continueReading;
+
     return [
+      SliverToBoxAdapter(
+        child: _HeroCard(tutorial: items[0], isDark: isDarkMode),
+      ),
+      // 继续阅读卡指向的文章正好是 Hero 卡本身时不重复露出——两张卡片
+      // 挤在一起指向同一篇文章没有意义
+      if (continueReading != null &&
+          (continueReading['id'] as String?) != items[0].id)
+        SliverToBoxAdapter(
+          child: _ContinueReadingCard(
+            data: continueReading,
+            isDark: isDarkMode,
+          ),
+        ),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(0, 0, 0, 4),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate((context, i) {
-            if (i == 0) {
-              return _HeroCard(tutorial: items[i], isDark: isDarkMode);
-            }
-            return _CompactCard(tutorial: items[i], isDark: isDarkMode);
-          }, childCount: items.length),
+            return _CompactCard(tutorial: items[i + 1], isDark: isDarkMode);
+          }, childCount: items.length - 1),
         ),
       ),
       if (state.isLoadingMore)
@@ -609,7 +700,8 @@ IconData _iconForTags(List<String> tags) {
 class _AppEntry {
   final IconData icon;
   final String label;
-  final String route;
+  // null = 没有单一目标路由，点击走自定义逻辑（比如弹出选择）
+  final String? route;
   final Color color;
   final Color bgLight;
   final Color bgDark;
@@ -744,15 +836,42 @@ class _HeroCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: tutorial.coverImage?.isNotEmpty == true
-                  ? CachedNetworkImage(
-                      imageUrl: tutorial.coverImage!,
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) => _heroPlaceholder(),
-                    )
-                  : _heroPlaceholder(),
+            Stack(
+              children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: tutorial.coverImage?.isNotEmpty == true
+                      ? CachedNetworkImage(
+                          imageUrl: tutorial.coverImage!,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, url, error) =>
+                              _heroPlaceholder(),
+                        )
+                      : _heroPlaceholder(),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _primary,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      '今日推荐',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(10),
@@ -849,6 +968,93 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
+// Hero 卡下方的"继续阅读"卡——数据来自本地 SharedPreferences
+// （tutorial_detail_screen.dart 滚动时写入），不是后端接口
+class _ContinueReadingCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final bool isDark;
+  const _ContinueReadingCard({required this.data, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final id = data['id'] as String? ?? '';
+    final title = data['title'] as String? ?? '';
+    final progress = ((data['progress'] as num?)?.toDouble() ?? 0).clamp(
+      0.0,
+      1.0,
+    );
+
+    return GestureDetector(
+      onTap: () => context.push('/tutorial/$id'),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF111128) : const Color(0xFFFAFAF8),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark ? const Color(0xFF1E1E3A) : const Color(0xFFEBEBEB),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '继续阅读',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: _primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isDark
+                          ? const Color(0xFFF0F2F8)
+                          : const Color(0xFF1A1A1A),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: isDark
+                          ? const Color(0xFF1E1E3A)
+                          : const Color(0xFFEBEBEB),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        _primary,
+                      ),
+                      minHeight: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${(progress * 100).round()}% 已读',
+                    style: TextStyle(fontSize: 10, color: Colors.grey[400]),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // Feed 第一条之后——图标区 + 标题 + 元信息一行的紧凑卡片
 class _CompactCard extends StatelessWidget {
   final TutorialModel tutorial;
@@ -910,6 +1116,19 @@ class _CompactCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (tutorial.summary?.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      tutorial.summary!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[400],
+                        height: 1.4,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                   const SizedBox(height: 3),
                   Text(
                     '${tutorial.username} · ${tutorial.likes}赞 · '
