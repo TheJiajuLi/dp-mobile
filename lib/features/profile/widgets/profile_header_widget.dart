@@ -170,6 +170,12 @@ class ProfileHeaderWidget extends StatelessWidget {
                       _heroIconButton(Icons.arrow_back_ios_new, onBack),
                     const Spacer(),
                     if (isSelfView) ...[
+                      // 创作中心入口——原来是下面一整张占竖向高度的卡片，改成
+                      // 头图顶栏这颗小图标，不再占内容区高度
+                      _heroIconButton(
+                        Icons.space_dashboard_outlined,
+                        () => context.push('/creator'),
+                      ),
                       _heroIconButton(
                         Theme.of(context).brightness == Brightness.dark
                             ? Icons.dark_mode_outlined
@@ -464,11 +470,7 @@ class ProfileHeaderWidget extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                if (isSelfView) ...[
-                  _buildStatsRow(context, l10n),
-                  const SizedBox(height: 14),
-                  _buildStreakCard(context, l10n),
-                ],
+                if (isSelfView) _buildStatsRow(context, l10n),
                 // 给下面圆角"卡片沿"留出空间——内容到这里为止，圆角沿贴在
                 // 正下方，不会互相压着
                 const SizedBox(height: _kTabBarRadius),
@@ -653,94 +655,6 @@ class ProfileHeaderWidget extends StatelessWidget {
     );
   }
 
-  // 创作中心入口——原来是"连续创作天数"单行文案卡，改成跟创作者中心
-  // 页顶部同一份口径的三格数据（浏览/获赞/粉丝，来自本页已经加载好的
-  // totalViews/totalLikes/profile.followerCount，不重新打一次接口）+
-  // 右侧 dashboard 图标按钮进创作者中心。注意：这三个数字是全量累计值，
-  // 不是真的"本月"——后端没有历史快照算不出月度环比（CONTEXT.md 创作
-  // 者中心那节同样的口径），标签用"浏览/获赞/粉丝"而不是"本月xx"，
-  // 不虚报统计口径。只有自己看自己主页时才能点进创作者中心，看别人主页
-  // 不显示这张卡（对方的创作数据点进去实际打开的是自己的创作者中心，
-  // 容易误解，索性不给点也不显示）
-  Widget _buildStreakCard(BuildContext context, AppLocalizations l10n) {
-    return GestureDetector(
-      onTap: isSelfView ? () => context.push('/creator') : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  _creatorStat(formatCount(totalViews), l10n.viewsCountLabel),
-                  const SizedBox(width: 18),
-                  _creatorStat(formatCount(totalLikes), l10n.tabLikesLabel),
-                  const SizedBox(width: 18),
-                  _creatorStat(
-                    '${profile.followerCount}',
-                    l10n.followersCountLabel,
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.dashboard_outlined,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    l10n.creatorCenterEntryLabel,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _creatorStat(String value, String label) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        value,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
-      ),
-      const SizedBox(height: 2),
-      Text(label, style: const TextStyle(fontSize: 10, color: Colors.white60)),
-    ],
-  );
-
-  // 头图信息行的小图标+文字组合——性别/地区/职业公用同一个样式
   Widget _infoChip(IconData icon, String text) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
