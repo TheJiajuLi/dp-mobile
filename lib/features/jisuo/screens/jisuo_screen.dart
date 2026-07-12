@@ -1121,7 +1121,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       ),
     );
   }
-
 }
 
 // 小梦卡片背景的星云光晕——几个高斯模糊的色块叠加出星云glow，加几道
