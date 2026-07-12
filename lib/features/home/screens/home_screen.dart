@@ -648,8 +648,9 @@ class _FeedItem extends StatelessWidget {
                   const SizedBox(height: 10),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
+                    child: SizedBox(
+                      height: 140,
+                      width: double.infinity,
                       child: CachedNetworkImage(
                         imageUrl: tutorial.coverImage!,
                         fit: BoxFit.cover,
