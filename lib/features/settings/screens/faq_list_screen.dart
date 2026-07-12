@@ -66,6 +66,7 @@ class _FaqListScreenState extends State<FaqListScreen> {
   @override
   Widget build(BuildContext context) {
     final results = _filtered;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -111,11 +112,42 @@ class _FaqListScreenState extends State<FaqListScreen> {
                       style: TextStyle(color: Colors.grey),
                     ),
                   )
-                : ListView.separated(
+                : ListView(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                    itemCount: results.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (ctx, i) => _FaqTile(item: results[i]),
+                    children: [
+                      // 所有问题收进一张大圆角卡片，组内用分割线区分，不再是
+                      // 一条一条独立的小卡片
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: isDark
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < results.length; i++) ...[
+                              if (i > 0)
+                                Divider(
+                                  height: 0.5,
+                                  thickness: 0.5,
+                                  indent: 14,
+                                  color: Theme.of(context).dividerColor,
+                                ),
+                              _FaqTile(item: results[i]),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
           ),
         ],
@@ -138,25 +170,12 @@ class _FaqTileState extends State<_FaqTile> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
+    // 单条不再是独立卡片——外层把所有问题收进一张大圆角卡，这里只负责一行
+    // 可展开的问答
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
@@ -195,7 +214,6 @@ class _FaqTileState extends State<_FaqTile> {
               ),
             ),
         ],
-      ),
     );
   }
 }
