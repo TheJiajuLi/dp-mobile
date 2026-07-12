@@ -50,7 +50,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
-  // 底部输入框的 tab：ai=小梦直答 / community=社区提问。只影响 hint 文案和
+  // 底部输入框的 tab：ai=问问小梦 / community=社区提问。只影响 hint 文案和
   // 发送后的落点
   String _tab = 'ai';
 
@@ -106,7 +106,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   void _startQuestion(String q) => _askQuestion(q);
 
-  // 小梦直答：页内展开流式回复，全程不跳转。流式拉 /auth/xmeng/chat/stream，
+  // 问问小梦：页内展开流式回复，全程不跳转。流式拉 /auth/xmeng/chat/stream，
   // 回答实时追加到 _answer 就地渲染；完成后给三条本地追问建议 + 拉社区相关讨论
   Future<void> _askQuestion(String question) async {
     final q = question.trim();
@@ -425,7 +425,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
-          _tabChip(isDark, label: '小梦直答', icon: Icons.auto_awesome, mode: 'ai'),
+          _tabChip(isDark, label: '问问小梦', icon: Icons.auto_awesome, mode: 'ai'),
           const SizedBox(width: 8),
           _tabChip(
             isDark,
@@ -634,7 +634,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 卡片头：小梦直答 + 流式中转圈 / 完成后"回答完成"
+              // 卡片头：问问小梦 + 流式中转圈 / 完成后"回答完成"
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                 child: Row(
@@ -653,7 +653,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     ),
                     const SizedBox(width: 8),
                     const Text(
-                      '小梦直答',
+                      '问问小梦',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
