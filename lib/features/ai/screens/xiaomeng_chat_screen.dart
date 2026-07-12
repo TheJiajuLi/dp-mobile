@@ -1,17 +1,12 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart'
+    show DioException, Options, ResponseBody, ResponseType;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
-import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:dio/dio.dart' show DioException, Options, ResponseBody, ResponseType;
 
 import '../../../core/network/api_client.dart';
-import '../../../shared/widgets/formula_error.dart';
-import '../../auth/auth_service.dart';
-import '../../notebook/models/notebook_model.dart';
-import '../../notebook/services/notebook_service.dart';
+import '../../../shared/widgets/ai_content_renderer.dart';
 import '../models/ai_message_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -430,10 +425,7 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
           _miniAvatar(),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: _buildContent(msg.content, isDark),
-            ),
+            child: AiContentRenderer(content: msg.content, isDark: isDark),
           ),
         ],
       ),
@@ -483,45 +475,6 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
   // 渲染，不是整段当纯文字丢进一个气泡。极梦相关文章那种"引用卡片"是
   // Demo 里的装饰性元素，没有对应的真实数据来源（后端回复只有一个纯
   // 文本 reply 字段，没有引用了哪篇文章的结构化信息），没有做
-  // 模型实际回复里公式不止 $$...$$ 一种写法——真实见过 \[...\]（行间）、
-  // \(...\)（行内）、$$...$$（行间）、$...$（行内）四种都在用，只认
-  // $$ 会把另外三种原样漏成文字。$...$ 那条不允许跨行/不允许内容为空，
-  // 是为了不误吞代码块里孤立的美元符号
-  List<Widget> _buildContent(String content, bool isDark) {
-    final regex = RegExp(
-      r'```(\w*)\n([\s\S]*?)```'
-      r'|\\\[([\s\S]*?)\\\]'
-      r'|\\\(([\s\S]*?)\\\)'
-      r'|\$\$([\s\S]*?)\$\$'
-      r'|\$([^\$\n]+)\$',
-    );
-    final widgets = <Widget>[];
-    var last = 0;
-    for (final m in regex.allMatches(content)) {
-      if (m.start > last) {
-        final text = content.substring(last, m.start).trim();
-        if (text.isNotEmpty) widgets.add(_textBubble(text, isDark));
-      }
-      if (m.group(2) != null) {
-        final lang = (m.group(1) ?? '').trim();
-        final code = m.group(2) ?? '';
-        widgets.add(_codeBubble(code, lang.isEmpty ? 'code' : lang));
-        widgets.add(_codeActions(code, _notebookCellType(lang), isDark));
-      } else {
-        final formula = m.group(3) ?? m.group(4) ?? m.group(5) ?? m.group(6) ?? '';
-        final isDisplay = m.group(3) != null || m.group(5) != null;
-        widgets.add(_formulaBubble(formula, isDark, isDisplay: isDisplay));
-      }
-      last = m.end;
-    }
-    if (last < content.length) {
-      final text = content.substring(last).trim();
-      if (text.isNotEmpty) widgets.add(_textBubble(text, isDark));
-    }
-    if (widgets.isEmpty) widgets.add(_textBubble(content, isDark));
-    return widgets;
-  }
-
   // AI 气泡外观：浅色白底、深色比页面底(#1C1C1E)略亮一档的靛调面(#23233A)，
   // 都带一圈细边；左下角小圆角(4)冲着头像那一侧，跟用户气泡镜像
   BoxDecoration _aiBubbleDecoration(bool isDark) => BoxDecoration(
@@ -539,225 +492,6 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
       width: 0.5,
     ),
   );
-
-  Widget _textBubble(String text, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.72,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: _aiBubbleDecoration(isDark),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 14,
-          height: 1.55,
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.92)
-              : const Color(0xFF1A1A1A),
-        ),
-      ),
-    );
-  }
-
-  // 公式也放进 AI 气泡里（跟 Demo 一致），公式本身用靛蓝强调色。宽公式
-  // （长中文标签的分式等）横向滚动，不撑破气泡
-  Widget _formulaBubble(String tex, bool isDark, {bool isDisplay = true}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.72,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: _aiBubbleDecoration(isDark),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Math.tex(
-          tex.trim(),
-          mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
-          textStyle: TextStyle(
-            fontSize: isDisplay ? 16 : 14,
-            color: isDark
-                ? const Color(0xFF9B9EF8)
-                : const Color(0xFF4F46E5),
-          ),
-          onErrorFallback: (err) => const FormulaErrorPlaceholder(),
-        ),
-      ),
-    );
-  }
-
-  Widget _codeBubble(String code, String lang) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      constraints: const BoxConstraints(maxWidth: 260),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF3A3A5C), width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1E1E2E),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(11)),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  lang.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF9B9EF8),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: const BoxDecoration(
-              color: Color(0xFF282840),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(11)),
-            ),
-            child: Text(
-              code.trim(),
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
-                color: Color(0xFFE0E0FF),
-                height: 1.6,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 代码块「运行」——聊天页没有可复用的独立执行服务（Notebook 的 Python
-  // 执行是绑死在 NotebookEditorScreen 一个 State 里的 WebView+Pyodide
-  // JS桥接，不是能抽出来直接调的 service），与其在这里重新糊一套执行
-  // 环境，不如把这段代码存成一个新 Notebook 并跳转过去，用 Notebook
-  // 现成的环境跑——Python/SQL 跳过去是真的能运行，R/Julia 跳过去后跟
-  // 用户在 Notebook 首页自己新建一个 R/Julia cell 看到的一样，还是
-  // 「即将上线」，不会显得比原来更假
-  String? _notebookCellType(String lang) {
-    switch (lang.toLowerCase()) {
-      case 'python':
-      case 'py':
-        return 'python';
-      case 'sql':
-        return 'sql';
-      case 'r':
-        return 'r';
-      case 'julia':
-        return 'julia';
-      case 'javascript':
-      case 'js':
-        return 'javascript';
-      default:
-        return null;
-    }
-  }
-
-  Future<void> _runInNotebook(String code, String cellType) async {
-    final user = ref.read(currentUserProvider);
-    final svc = NotebookService(user?.id ?? 'guest');
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final nb = Notebook(
-      id: 'nb_$now',
-      name: '小梦生成的代码',
-      lang: cellType == 'python' ? 'python' : 'mixed',
-      cells: [NotebookCell(id: 'cell_$now', type: cellType, code: code)],
-      createdAt: now ~/ 1000,
-      updatedAt: now ~/ 1000,
-    );
-    await svc.save(nb);
-    if (!mounted) return;
-    context.push('/notebook/${nb.id}');
-  }
-
-  // 代码块下方操作行：运行（紫色突出，可运行的语言才有）+ 复制（次要，灰）。
-  // 运行走「存成 Notebook 并跳过去用现成环境执行」那条真实链路
-  Widget _codeActions(String code, String? cellType, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6, bottom: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (cellType != null) ...[
-            GestureDetector(
-              onTap: () => _runInNotebook(code, cellType),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _primary,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.play_arrow, size: 12, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text(
-                      '运行',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-          ],
-          GestureDetector(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: code));
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF23233A)
-                    : const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : const Color(0xFFEBEBEB),
-                  width: 0.5,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.copy_outlined, size: 12, color: Colors.grey[400]),
-                  const SizedBox(width: 4),
-                  Text(
-                    '复制',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _typingRow() {
     final isDark = Theme.of(context).brightness == Brightness.dark;

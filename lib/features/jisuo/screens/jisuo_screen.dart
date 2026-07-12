@@ -4,15 +4,11 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
-import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../shared/widgets/formula_error.dart';
-import '../../../shared/widgets/tutorial_block_renderer.dart'
-    show TutorialCodeBlock;
+import '../../../shared/widgets/ai_content_renderer.dart';
 import '../../messages/utils/message_avatar.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -763,10 +759,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                       '小梦暂时休息中，请稍后再试',
                       style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                     )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _buildAnswerContent(turn.answer, isDark),
-                    ),
+                  : AiContentRenderer(content: turn.answer, isDark: isDark),
             ),
             Divider(height: 0.5, color: line),
             // 操作行：流式中"停止生成"（只有正在飞的这一轮才能停）/
@@ -996,127 +989,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  // 代码块/LaTeX 照样用正则先切出来（TutorialCodeBlock/_ansFormula 各自
-  // 有自己的渲染方式，不该走 markdown 解析器），其余文字段落改交给
-  // flutter_markdown 的 MarkdownBody 真正渲染——之前这里是手写的"切完
-  // 剩下全部当纯文本 Text()"，### / ** / 表格 / --- 这些语法全部原样
-  // 打在屏幕上不解析，是真实存在的 bug，不是简化。flutter_markdown 项目
-  // 里本来就是依赖（阅读页别处已经在用），不是新引入
-  List<Widget> _buildAnswerContent(String content, bool isDark) {
-    final regex = RegExp(
-      r'```(\w*)\n([\s\S]*?)```'
-      r'|\$\$([\s\S]*?)\$\$'
-      r'|\$([^\$\n]+)\$',
-    );
-    final widgets = <Widget>[];
-    var last = 0;
-    for (final m in regex.allMatches(content)) {
-      if (m.start > last) {
-        final t = content.substring(last, m.start).trim();
-        if (t.isNotEmpty) widgets.add(_ansMarkdown(t, isDark));
-      }
-      if (m.group(2) != null) {
-        final lang = (m.group(1) ?? '').trim();
-        widgets.add(
-          TutorialCodeBlock(
-            content: m.group(2) ?? '',
-            language: lang.isEmpty ? 'text' : lang,
-          ),
-        );
-      } else {
-        final f = m.group(3) ?? m.group(4) ?? '';
-        widgets.add(_ansFormula(f, isDark, isDisplay: m.group(3) != null));
-      }
-      last = m.end;
-    }
-    if (last < content.length) {
-      final t = content.substring(last).trim();
-      if (t.isNotEmpty) widgets.add(_ansMarkdown(t, isDark));
-    }
-    if (widgets.isEmpty) widgets.add(_ansMarkdown(content, isDark));
-    return widgets;
-  }
-
-  Widget _ansMarkdown(String t, bool isDark) {
-    final textColor = isDark
-        ? const Color(0xFFC8CAD8)
-        : const Color(0xFF2A2A2A);
-    final headingColor = isDark
-        ? const Color(0xFFF0F2F8)
-        : const Color(0xFF1A1A1A);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: MarkdownBody(
-        data: t,
-        selectable: true,
-        styleSheet: MarkdownStyleSheet(
-          p: TextStyle(fontSize: 15, height: 1.7, color: textColor),
-          h1: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: headingColor,
-          ),
-          h2: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: headingColor,
-          ),
-          h3: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: headingColor,
-          ),
-          strong: TextStyle(fontWeight: FontWeight.w700, color: textColor),
-          em: TextStyle(fontStyle: FontStyle.italic, color: textColor),
-          listBullet: TextStyle(fontSize: 15, color: textColor),
-          tableBody: TextStyle(fontSize: 13, color: textColor),
-          tableHead: TextStyle(fontWeight: FontWeight.w600, color: textColor),
-          tableBorder: TableBorder.all(
-            color: isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE0E0E0),
-            width: 0.5,
-          ),
-          blockquoteDecoration: BoxDecoration(
-            border: const Border(left: BorderSide(color: _primary, width: 3)),
-            color: isDark ? const Color(0xFF1A1A35) : const Color(0xFFEEF0FF),
-          ),
-          horizontalRuleDecoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: isDark
-                    ? const Color(0xFF3A3A5C)
-                    : const Color(0xFFE0E0E0),
-              ),
-            ),
-          ),
-          code: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 13,
-            backgroundColor: isDark
-                ? const Color(0xFF1E1E2E)
-                : const Color(0xFFF5F5F5),
-            color: isDark ? const Color(0xFFE0E0FF) : const Color(0xFF1A1A1A),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _ansFormula(String tex, bool isDark, {bool isDisplay = true}) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Math.tex(
-            tex.trim(),
-            mathStyle: isDisplay ? MathStyle.display : MathStyle.text,
-            textStyle: TextStyle(
-              fontSize: isDisplay ? 17 : 15,
-              color: isDark ? const Color(0xFF9B9EF8) : const Color(0xFF4F46E5),
-            ),
-            onErrorFallback: (_) => const FormulaErrorPlaceholder(),
-          ),
-        ),
-      );
 }
 
 // 小梦卡片背景的星云光晕——几个高斯模糊的色块叠加出星云glow，加几道
