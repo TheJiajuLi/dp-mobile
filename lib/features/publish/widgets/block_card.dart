@@ -1253,16 +1253,9 @@ th{background:#1e293b;color:#94a3b8}
   // 不一致"是同一个问题，这里跟着 Theme.of(context).brightness 走
   Widget _buildLatexBlock(AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 之前整块铺满高饱和度琥珀色（暗色下是一块烧焦棕），跟卡片本身的
-    // 中性灰底"箱中箱"式打架，一线产品的公式块通常是"中性底 + 一点点
-    // 识别色"而不是整块上色——琥珀色只留一圈很淡的描边/底色，公式本身
-    // 用跟正文一致的颜色渲染，可读性和质感都更好
-    const accent = Color(0xFFD97706);
-    final bg = Color.alphaBlend(
-      accent.withValues(alpha: isDark ? 0.07 : 0.05),
-      isDark ? Theme.of(context).cardColor : Colors.white,
-    );
-    final border = accent.withValues(alpha: isDark ? 0.32 : 0.28);
+    // 去掉整块填充底色（原来的琥珀/米色 pill），改成我们标准的"中性圆框"：
+    // 透明底 + 一圈中性描边，公式本身用正文色渲染，更克制、更一线
+    final border = Theme.of(context).dividerColor;
     final mathColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
     final hintColor = isDark ? Colors.white38 : Colors.black38;
     final inputHintColor = isDark ? Colors.white24 : const Color(0xFFC7C7CC);
@@ -1272,8 +1265,8 @@ th{background:#1e293b;color:#94a3b8}
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: border, width: 0.8),
       ),
       child: Column(
@@ -1964,18 +1957,16 @@ th{background:#1e293b;color:#94a3b8}
   // 编辑器这边统一按新样式显示，不再往 variant 写除 info 以外的值
   Widget _buildCalloutBlock(AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? Theme.of(context).scaffoldBackgroundColor
-        : const Color(0xFFFAFAF8);
     final textColor = isDark
         ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
         : const Color(0xFF1A1A1A);
 
+    // 去掉灰色填充底（pill），只留左侧紫色引用线——干净的引用样式
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: bg,
-        border: const Border(left: BorderSide(color: _primary, width: 3)),
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+        border: Border(left: BorderSide(color: _primary, width: 3)),
       ),
       child: TextFormField(
         key: ValueKey('callout_${widget.block.id}_$_textRevision'),
