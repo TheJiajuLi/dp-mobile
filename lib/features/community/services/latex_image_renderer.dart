@@ -38,6 +38,13 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
       .toSet();
   if (formulas.isEmpty) return {};
 
+  // 这个函数是从 initState 里同步链路调过来的（导出进度页一 initState
+  // 就发起生成），这时当前这一帧的 build 还没走完，Overlay.of(...).insert()
+  // 会撞上"setState()/markNeedsBuild() called during build"——先等当前帧
+  // 结束，再去动 Overlay，跟下面等公式截图完成用的是同一个安全点写法
+  await WidgetsBinding.instance.endOfFrame;
+  if (!context.mounted) return {};
+
   final overlayState = Overlay.of(context, rootOverlay: true);
   final glyphColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF4F46E5);
   final result = <String, Uint8List>{};
