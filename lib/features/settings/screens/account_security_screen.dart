@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
+import '../widgets/settings_row.dart';
 
 class AccountSecurityScreen extends ConsumerWidget {
   const AccountSecurityScreen({super.key});
@@ -29,31 +30,28 @@ class AccountSecurityScreen extends ConsumerWidget {
       body: ListView(
         children: [
           const SizedBox(height: 8),
-          _SecurityRow(
-            title: l10n.changePassword,
-            subtitle: l10n.changePasswordSubtitle,
-            onTap: () => _showChangePassword(context, ref),
-          ),
-          Divider(
-            height: 0.5,
-            indent: 16,
-            color: Theme.of(context).dividerColor,
-          ),
-          _SecurityRow(
-            title: l10n.loginHistory,
-            subtitle: l10n.loginHistorySubtitle,
-            onTap: () => context.push('/settings/security/history'),
-          ),
-          Divider(
-            height: 0.5,
-            indent: 16,
-            color: Theme.of(context).dividerColor,
-          ),
-          _SecurityRow(
-            title: l10n.deleteAccount,
-            subtitle: l10n.deleteAccountSubtitle,
-            titleColor: const Color(0xFFDC2626),
-            onTap: () => _showDeleteAccount(context, ref),
+          // 跟隐私设置/设置页一样，收进浮在页面背景上的圆角卡片（16 圆角 +
+          // 组内分割线），对齐当前视觉语言，不再是贴边到底的扁平列表
+          SettingsGroup(
+            dividerIndent: 16,
+            [
+              _SecurityRow(
+                title: l10n.changePassword,
+                subtitle: l10n.changePasswordSubtitle,
+                onTap: () => _showChangePassword(context, ref),
+              ),
+              _SecurityRow(
+                title: l10n.loginHistory,
+                subtitle: l10n.loginHistorySubtitle,
+                onTap: () => context.push('/settings/security/history'),
+              ),
+              _SecurityRow(
+                title: l10n.deleteAccount,
+                subtitle: l10n.deleteAccountSubtitle,
+                titleColor: const Color(0xFFDC2626),
+                onTap: () => _showDeleteAccount(context, ref),
+              ),
+            ],
           ),
         ],
       ),
