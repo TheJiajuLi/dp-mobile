@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/block_text_style.dart';
 import '../../../shared/utils/code_highlight.dart';
 import '../../../shared/utils/premium_button.dart';
 import '../models/block_model.dart';
@@ -54,6 +55,10 @@ class BlockCard extends ConsumerStatefulWidget {
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
   final VoidCallback onChanged;
+  // 文字/标题 block 获得焦点时通知 PublishScreen——底部格式工具栏（粗体/
+  // 颜色/字体等）只在"当前正在编辑哪个 block"明确的时候才有意义，这个
+  // 状态本来就该由父级持有，不是 BlockCard 自己的事
+  final VoidCallback? onFocusGained;
 
   const BlockCard({
     super.key,
@@ -66,6 +71,7 @@ class BlockCard extends ConsumerStatefulWidget {
     this.onMoveUp,
     this.onMoveDown,
     required this.onChanged,
+    this.onFocusGained,
   });
 
   @override
@@ -91,7 +97,22 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    // 用 FocusNode 监听而不是 TextFormField.onTap——_addBlock() 新建
+    // block 后是程序调用 focusNode.requestFocus()，不会触发用户点击
+    // 手势的 onTap，底部格式工具栏得靠这个监听器才能知道新 block 也
+    // "获得了焦点"
+    widget.block.focusNode.addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (widget.block.focusNode.hasFocus) widget.onFocusGained?.call();
+  }
+
+  @override
   void dispose() {
+    widget.block.focusNode.removeListener(_handleFocusChange);
     _codeCtrl.dispose();
     super.dispose();
   }
@@ -274,7 +295,22 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       isDense: true,
       contentPadding: EdgeInsets.zero,
     ),
-    style: const TextStyle(fontSize: 14, height: 1.7, color: Color(0xFF1C1C1E)),
+    style: applyBlockTextFormat(
+      TextStyle(
+        fontSize: 14,
+        height: 1.7,
+        color: Theme.of(context).textTheme.bodyLarge?.color,
+      ),
+      isBold: widget.block.isBold,
+      isItalic: widget.block.isItalic,
+      isUnderline: widget.block.isUnderline,
+      isStrike: widget.block.isStrike,
+      textColorValue: widget.block.textColorValue,
+      highlightColorValue: widget.block.highlightColorValue,
+      fontFamily: widget.block.fontFamily,
+      fontSizeStep: widget.block.fontSizeStep,
+      lineHeightStep: widget.block.lineHeightStep,
+    ),
     maxLines: null,
     onChanged: (v) {
       widget.block.content = v;
@@ -908,20 +944,33 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       isDense: true,
       contentPadding: EdgeInsets.zero,
     ),
-    style: TextStyle(
-      fontSize: widget.block.headingLevel == 2
-          ? 20
-          : widget.block.headingLevel == 3
-          ? 17
-          : 15,
-      fontWeight: FontWeight.w700,
-      color: const Color(0xFF1C1C1E),
+    style: applyBlockTextFormat(
+      TextStyle(
+        fontSize: widget.block.headingLevel == 2
+            ? 20
+            : widget.block.headingLevel == 3
+            ? 17
+            : 15,
+        fontWeight: FontWeight.w700,
+        color: Theme.of(context).textTheme.bodyLarge?.color,
+      ),
+      isBold: widget.block.isBold,
+      isItalic: widget.block.isItalic,
+      isUnderline: widget.block.isUnderline,
+      isStrike: widget.block.isStrike,
+      textColorValue: widget.block.textColorValue,
+      highlightColorValue: widget.block.highlightColorValue,
+      fontFamily: widget.block.fontFamily,
+      fontSizeStep: widget.block.fontSizeStep,
+      lineHeightStep: widget.block.lineHeightStep,
     ),
     maxLines: 1,
     onChanged: (v) {
       widget.block.content = v;
       widget.onChanged();
     },
+    onTap: () => setState(() => _focused = true),
+    onEditingComplete: () => setState(() => _focused = false),
   );
 
   // 外面套一层 ClipRRect 统一裁出四角圆角——header/body/output 内部各自

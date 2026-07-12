@@ -1764,6 +1764,48 @@ class AppLocalizationsZh extends AppLocalizations {
   String get blockTypeCallout => '引用';
 
   @override
+  String get formattingTextColorLabel => '文字';
+
+  @override
+  String get formattingHighlightLabel => '高亮';
+
+  @override
+  String get fontPickerTitle => '字体选择';
+
+  @override
+  String get fontSystemLabel => '苹方 · 系统默认';
+
+  @override
+  String get fontSerifLabel => '宋体 · 衬线';
+
+  @override
+  String get fontMonospaceLabel => '等宽 · Mono';
+
+  @override
+  String get fontSizeLabel => '字号';
+
+  @override
+  String get fontSizeMedium => '中';
+
+  @override
+  String get fontSizeXLarge => '特大';
+
+  @override
+  String get lineHeightLabel => '行距';
+
+  @override
+  String get lineHeightCompact => '紧凑';
+
+  @override
+  String get lineHeightStandard => '标准';
+
+  @override
+  String get lineHeightRelaxed => '宽松';
+
+  @override
+  String get blockPickerTitle => '选择内容块类型';
+
+  @override
   String get textBlockHint => '输入文字内容...';
 
   @override

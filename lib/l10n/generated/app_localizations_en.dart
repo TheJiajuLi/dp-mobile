@@ -1142,13 +1142,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fontSize => 'Font Size';
 
   @override
-  String get fontSizeSmall => 'Small';
+  String get fontSizeSmall => 'S';
 
   @override
   String get fontSizeStandard => 'Standard';
 
   @override
-  String get fontSizeLarge => 'Large';
+  String get fontSizeLarge => 'L';
 
   @override
   String get fontSizeExtraLarge => 'Extra Large';
@@ -1803,6 +1803,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get blockTypeCallout => 'Quote';
+
+  @override
+  String get formattingTextColorLabel => 'Text';
+
+  @override
+  String get formattingHighlightLabel => 'Highlight';
+
+  @override
+  String get fontPickerTitle => 'Font';
+
+  @override
+  String get fontSystemLabel => 'System Default';
+
+  @override
+  String get fontSerifLabel => 'Serif';
+
+  @override
+  String get fontMonospaceLabel => 'Monospace';
+
+  @override
+  String get fontSizeLabel => 'Font Size';
+
+  @override
+  String get fontSizeMedium => 'M';
+
+  @override
+  String get fontSizeXLarge => 'XL';
+
+  @override
+  String get lineHeightLabel => 'Line Height';
+
+  @override
+  String get lineHeightCompact => 'Compact';
+
+  @override
+  String get lineHeightStandard => 'Standard';
+
+  @override
+  String get lineHeightRelaxed => 'Relaxed';
+
+  @override
+  String get blockPickerTitle => 'Choose block type';
 
   @override
   String get textBlockHint => 'Enter text content...';

@@ -2177,7 +2177,7 @@ abstract class AppLocalizations {
   /// No description provided for @fontSizeSmall.
   ///
   /// In en, this message translates to:
-  /// **'Small'**
+  /// **'S'**
   String get fontSizeSmall;
 
   /// No description provided for @fontSizeStandard.
@@ -2189,7 +2189,7 @@ abstract class AppLocalizations {
   /// No description provided for @fontSizeLarge.
   ///
   /// In en, this message translates to:
-  /// **'Large'**
+  /// **'L'**
   String get fontSizeLarge;
 
   /// No description provided for @fontSizeExtraLarge.
@@ -3379,6 +3379,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Quote'**
   String get blockTypeCallout;
+
+  /// No description provided for @formattingTextColorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get formattingTextColorLabel;
+
+  /// No description provided for @formattingHighlightLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight'**
+  String get formattingHighlightLabel;
+
+  /// No description provided for @fontPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Font'**
+  String get fontPickerTitle;
+
+  /// No description provided for @fontSystemLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'System Default'**
+  String get fontSystemLabel;
+
+  /// No description provided for @fontSerifLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Serif'**
+  String get fontSerifLabel;
+
+  /// No description provided for @fontMonospaceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Monospace'**
+  String get fontMonospaceLabel;
+
+  /// No description provided for @fontSizeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Font Size'**
+  String get fontSizeLabel;
+
+  /// No description provided for @fontSizeMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'M'**
+  String get fontSizeMedium;
+
+  /// No description provided for @fontSizeXLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'XL'**
+  String get fontSizeXLarge;
+
+  /// No description provided for @lineHeightLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Line Height'**
+  String get lineHeightLabel;
+
+  /// No description provided for @lineHeightCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get lineHeightCompact;
+
+  /// No description provided for @lineHeightStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get lineHeightStandard;
+
+  /// No description provided for @lineHeightRelaxed.
+  ///
+  /// In en, this message translates to:
+  /// **'Relaxed'**
+  String get lineHeightRelaxed;
+
+  /// No description provided for @blockPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose block type'**
+  String get blockPickerTitle;
 
   /// No description provided for @textBlockHint.
   ///

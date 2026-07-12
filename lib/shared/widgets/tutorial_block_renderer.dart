@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../services/pyodide_engine.dart';
+import '../utils/block_text_style.dart';
 import '../utils/code_highlight.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -37,14 +38,25 @@ Widget buildTutorialBlockWidget(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Text(
           content,
-          style: TextStyle(
-            fontSize: level == 2
-                ? 20
-                : level == 3
-                ? 17
-                : 15,
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+          style: applyBlockTextFormat(
+            TextStyle(
+              fontSize: level == 2
+                  ? 20
+                  : level == 3
+                  ? 17
+                  : 15,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+            isBold: block['bold'] == true,
+            isItalic: block['italic'] == true,
+            isUnderline: block['underline'] == true,
+            isStrike: block['strike'] == true,
+            textColorValue: (block['textColor'] as num?)?.toInt(),
+            highlightColorValue: (block['highlightColor'] as num?)?.toInt(),
+            fontFamily: block['fontFamily'] as String?,
+            fontSizeStep: (block['fontSizeStep'] as num?)?.toInt() ?? 1,
+            lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
           ),
         ),
       );
@@ -283,17 +295,28 @@ Widget buildTutorialBlockWidget(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Text(
           content,
-          style: TextStyle(
-            // 阅读页对标 Apple Books 的舒适度：16px、行高 1.85、正文用比纯黑
-            // /纯白更柔和的颜色
-            fontSize: readingMode ? 16 : 15,
-            height: readingMode ? 1.85 : 1.7,
-            letterSpacing: readingMode ? 0.01 : null,
-            color: readingMode
-                ? (Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFFC8CAD8)
-                      : const Color(0xFF2A2A2A))
-                : Theme.of(context).textTheme.bodyLarge?.color,
+          style: applyBlockTextFormat(
+            TextStyle(
+              // 阅读页对标 Apple Books 的舒适度：16px、行高 1.85、正文用比
+              // 纯黑/纯白更柔和的颜色
+              fontSize: readingMode ? 16 : 15,
+              height: readingMode ? 1.85 : 1.7,
+              letterSpacing: readingMode ? 0.01 : null,
+              color: readingMode
+                  ? (Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFC8CAD8)
+                        : const Color(0xFF2A2A2A))
+                  : Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+            isBold: block['bold'] == true,
+            isItalic: block['italic'] == true,
+            isUnderline: block['underline'] == true,
+            isStrike: block['strike'] == true,
+            textColorValue: (block['textColor'] as num?)?.toInt(),
+            highlightColorValue: (block['highlightColor'] as num?)?.toInt(),
+            fontFamily: block['fontFamily'] as String?,
+            fontSizeStep: (block['fontSizeStep'] as num?)?.toInt() ?? 1,
+            lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
           ),
         ),
       );

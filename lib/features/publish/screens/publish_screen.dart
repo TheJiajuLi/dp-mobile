@@ -14,6 +14,7 @@ import '../models/block_model.dart';
 import '../widgets/block_card.dart';
 import '../widgets/column_picker_sheet.dart';
 import '../widgets/cover_picker_sheet.dart';
+import '../widgets/formatting_toolbar.dart';
 import '../widgets/preview_drawer.dart';
 import '../widgets/publish_meta_sheet.dart';
 import '../widgets/publish_toolbar.dart';
@@ -54,6 +55,17 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   // 加内容按钮"走，默认高亮"文字"，跟刚打开发布页时只有一个文字 block
   // 的初始状态对上
   BlockType _activeToolbarType = BlockType.text;
+  // 格式工具栏（粗体/颜色/字体）要知道"当前在编辑哪个 block"——这个链路
+  // 现在真的接上了（BlockCard 的 FocusNode 监听器），上面那条"链路太长"
+  // 的注释是旧决定，格式工具栏这个新功能必须要有这份状态才能工作
+  String? _focusedBlockId;
+
+  EditorBlock? get _focusedBlock {
+    for (final b in _blocks) {
+      if (b.id == _focusedBlockId) return b;
+    }
+    return null;
+  }
 
   // 专栏
   String? _selectedColumnId;
@@ -574,6 +586,39 @@ result
     });
   }
 
+  // EditorBlock.type 是 final 的（构造后不可变），text↔heading 互转只能
+  // 换成一个新实例——保留 id/content/格式字段，旧 FocusNode 要先 dispose
+  // 掉（不然每转一次泄漏一个），新实例的 FocusNode 立刻要回焦点，不然
+  // 用户点了 H1 之后输入框会看起来突然失焦
+  void _convertHeading(String blockId, int? headingLevel) {
+    final index = _blocks.indexWhere((b) => b.id == blockId);
+    if (index == -1) return;
+    final old = _blocks[index];
+    final replacement = EditorBlock(
+      id: old.id,
+      type: headingLevel == null ? BlockType.text : BlockType.heading,
+      content: old.content,
+      headingLevel: headingLevel ?? old.headingLevel,
+      isBold: old.isBold,
+      isItalic: old.isItalic,
+      isUnderline: old.isUnderline,
+      isStrike: old.isStrike,
+      textColorValue: old.textColorValue,
+      highlightColorValue: old.highlightColorValue,
+      fontFamily: old.fontFamily,
+      fontSizeStep: old.fontSizeStep,
+      lineHeightStep: old.lineHeightStep,
+    );
+    old.focusNode.dispose();
+    setState(() {
+      _blocks[index] = replacement;
+      _focusedBlockId = replacement.id;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      replacement.focusNode.requestFocus();
+    });
+  }
+
   void _deleteBlock(String id) {
     final removed = _blocks.where((b) => b.id == id);
     for (final b in removed) {
@@ -807,7 +852,7 @@ result
                       ? _buildEmptyState(l10n, isDarkMode)
                       : ReorderableListView.builder(
                           scrollController: _scrollCtrl,
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                           itemCount: _blocks.length,
                           onReorder: _onReorder,
                           // 拖拽只从 BlockCard 里那个手柄图标触发（见
@@ -831,8 +876,74 @@ result
                                 ? () => _swapBlocks(i, i + 1)
                                 : null,
                             onChanged: () => setState(() {}),
+                            onFocusGained: () =>
+                                setState(() => _focusedBlockId = _blocks[i].id),
                           ),
                         ),
+                ),
+                // "添加内容块"——放在列表下方常驻（不跟着滚动进 Reorderable
+                // 列表里，那样会跟拖拽排序的下标数学搅在一起），打开紧凑的
+                // 4列 Block 选择器，跟顶栏那排图标是两个不同入口：图标行是
+                // "直接加"，这个是给已经滚到底部、不想再滚回顶栏的场景用
+                if (_blocks.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: GestureDetector(
+                      onTap: () => showBlockPickerSheet(
+                        context,
+                        l10n: l10n,
+                        isDarkMode: isDarkMode,
+                        onPick: _addBlock,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDarkMode
+                                ? Colors.white.withValues(alpha: 0.1)
+                                : const Color(0xFFDDDDF0),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add, size: 16, color: Colors.grey[400]),
+                            const SizedBox(width: 6),
+                            Text(
+                              l10n.addContentBlockLabel,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                BlockFormattingToolbar(
+                  l10n: l10n,
+                  isDarkMode: isDarkMode,
+                  block: _focusedBlock,
+                  onChanged: () => setState(() {}),
+                  onShowFontSheet: () {
+                    final b = _focusedBlock;
+                    if (b == null) return;
+                    showFontSheet(
+                      context,
+                      l10n: l10n,
+                      isDarkMode: isDarkMode,
+                      block: b,
+                      onChanged: () => setState(() {}),
+                    );
+                  },
+                  onConvertHeading: (level) {
+                    final id = _focusedBlockId;
+                    if (id == null) return;
+                    _convertHeading(id, level);
+                  },
                 ),
                 PublishBottomToolbar(
                   l10n: l10n,

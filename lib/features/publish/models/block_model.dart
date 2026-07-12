@@ -37,6 +37,19 @@ class EditorBlock {
   bool isExecutable;
   String? outputContent;
   String? outputType; // text/image/error
+  // 文字格式——只在 text/heading block 上有意义。这里没有做到"选中一段
+  // 文字单独加粗"的真富文本（那需要给 content 换成 spans/delta 结构 +
+  // 阅读端同步换渲染方式，是另一个量级的活），是整块 block 一起套用同一
+  // 份格式，跟 headingLevel 是同一个"整块生效"的语义，不是逐字符的
+  bool isBold;
+  bool isItalic;
+  bool isUnderline;
+  bool isStrike;
+  int? textColorValue; // ARGB int，null=用主题默认文字色
+  int? highlightColorValue; // ARGB int，null=不高亮
+  String? fontFamily; // null/''=系统默认苹方，'serif'，'monospace'
+  int fontSizeStep; // 0小/1中/2大/3特大
+  int lineHeightStep; // 0紧凑/1标准/2宽松
   // 新建block之后自动跳光标要用——block_card.dart把这个传给对应输入框的
   // TextFormField.focusNode，_PublishScreenState._addBlock()在下一帧调
   // requestFocus()。EditorBlock被删除时要记得在_deleteBlock()里dispose，
@@ -61,6 +74,15 @@ class EditorBlock {
     this.isExecutable = false,
     this.outputContent,
     this.outputType,
+    this.isBold = false,
+    this.isItalic = false,
+    this.isUnderline = false,
+    this.isStrike = false,
+    this.textColorValue,
+    this.highlightColorValue,
+    this.fontFamily,
+    this.fontSizeStep = 1,
+    this.lineHeightStep = 1,
   });
 
   // 跟 tutorial_detail_screen.dart 的渲染字段一一对应：heading 用 level
@@ -83,6 +105,18 @@ class EditorBlock {
     },
     if (type == BlockType.link) ...{'linkTitle': linkTitle, 'linkUrl': linkUrl},
     if (type == BlockType.callout) 'variant': variant,
+    if (type == BlockType.text || type == BlockType.heading) ...{
+      if (isBold) 'bold': true,
+      if (isItalic) 'italic': true,
+      if (isUnderline) 'underline': true,
+      if (isStrike) 'strike': true,
+      if (textColorValue != null) 'textColor': textColorValue,
+      if (highlightColorValue != null) 'highlightColor': highlightColorValue,
+      if (fontFamily != null && fontFamily!.isNotEmpty)
+        'fontFamily': fontFamily,
+      if (fontSizeStep != 1) 'fontSizeStep': fontSizeStep,
+      if (lineHeightStep != 1) 'lineHeightStep': lineHeightStep,
+    },
   };
 
   // 编辑已发布/草稿内容时把后端返回的 block 数组读回可编辑的 EditorBlock
@@ -108,6 +142,15 @@ class EditorBlock {
       linkUrl: j['linkUrl']?.toString(),
       variant: j['variant']?.toString() ?? 'info',
       isExecutable: j['executable'] as bool? ?? false,
+      isBold: j['bold'] == true,
+      isItalic: j['italic'] == true,
+      isUnderline: j['underline'] == true,
+      isStrike: j['strike'] == true,
+      textColorValue: (j['textColor'] as num?)?.toInt(),
+      highlightColorValue: (j['highlightColor'] as num?)?.toInt(),
+      fontFamily: j['fontFamily']?.toString(),
+      fontSizeStep: (j['fontSizeStep'] as num?)?.toInt() ?? 1,
+      lineHeightStep: (j['lineHeightStep'] as num?)?.toInt() ?? 1,
     );
   }
 }
