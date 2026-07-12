@@ -51,6 +51,9 @@ class SettingsGroup extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
+        // 加一圈细描边，让"圆框"在深浅色下都清晰可见——深色下本来没有阴影，
+        // 卡片容易糊进背景；浅色下描边+淡阴影一起更有一线产品的边界感
+        border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
         boxShadow: isDark
             ? null
             : [
