@@ -524,145 +524,158 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                             ],
                           ),
                         ),
-                      Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        color: Colors.white,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                              child: Text(
-                                l10n.columnContentCountLabel(_articles.length),
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1C1C1E),
+                      // 专栏一篇文章都没有时，这个模块之前还是会渲染出来——
+                      // 只剩一行"收录内容 · 0篇"标题浮在页面上，下面什么都
+                      // 没有，看着像没加载完/坏掉了。没内容就不显示整个模块，
+                      // 不留一个空标题占位
+                      if (_articles.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          color: Colors.white,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  14,
+                                  16,
+                                  8,
+                                ),
+                                child: Text(
+                                  l10n.columnContentCountLabel(
+                                    _articles.length,
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1C1C1E),
+                                  ),
                                 ),
                               ),
-                            ),
-                            ..._articles.asMap().entries.map((e) {
-                              final i = e.key;
-                              final a = e.value as Map;
-                              final coverImage = a['cover_image'] as String?;
-                              return GestureDetector(
-                                onTap: () =>
-                                    context.push('/tutorial/${a['id']}'),
-                                child: Container(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    12,
-                                    16,
-                                    12,
-                                  ),
-                                  decoration: const BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Color(0xFFF5F5F5),
+                              ..._articles.asMap().entries.map((e) {
+                                final i = e.key;
+                                final a = e.value as Map;
+                                final coverImage = a['cover_image'] as String?;
+                                return GestureDetector(
+                                  onTap: () =>
+                                      context.push('/tutorial/${a['id']}'),
+                                  child: Container(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      12,
+                                      16,
+                                      12,
+                                    ),
+                                    decoration: const BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Color(0xFFF5F5F5),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 26,
-                                        height: 26,
-                                        decoration: BoxDecoration(
-                                          color: i < 3
-                                              ? _primary
-                                              : const Color(0xFFEEF0FF),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            '${i + 1}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: i < 3
-                                                  ? Colors.white
-                                                  : _primary,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 26,
+                                          height: 26,
+                                          decoration: BoxDecoration(
+                                            color: i < 3
+                                                ? _primary
+                                                : const Color(0xFFEEF0FF),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '${i + 1}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: i < 3
+                                                    ? Colors.white
+                                                    : _primary,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              a['title'] as String? ?? '',
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                                color: Color(0xFF1C1C1E),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                a['title'] as String? ?? '',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Color(0xFF1C1C1E),
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.remove_red_eye_outlined,
-                                                  size: 11,
-                                                  color: Colors.grey,
-                                                ),
-                                                const SizedBox(width: 2),
-                                                Text(
-                                                  '${a['views'] ?? 0}',
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons
+                                                        .remove_red_eye_outlined,
+                                                    size: 11,
                                                     color: Colors.grey,
                                                   ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                const Icon(
-                                                  Icons.favorite_outline,
-                                                  size: 11,
-                                                  color: Colors.grey,
-                                                ),
-                                                const SizedBox(width: 2),
-                                                Text(
-                                                  '${a['likes'] ?? 0}',
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
+                                                  const SizedBox(width: 2),
+                                                  Text(
+                                                    '${a['views'] ?? 0}',
+                                                    style: const TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.grey,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  const Icon(
+                                                    Icons.favorite_outline,
+                                                    size: 11,
                                                     color: Colors.grey,
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                                  const SizedBox(width: 2),
+                                                  Text(
+                                                    '${a['likes'] ?? 0}',
+                                                    style: const TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.grey,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      coverImage != null &&
-                                              coverImage.isNotEmpty
-                                          ? ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              child: CachedNetworkImage(
-                                                imageUrl: coverImage,
-                                                width: 60,
-                                                height: 50,
-                                                fit: BoxFit.cover,
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        _artThumb(),
-                                              ),
-                                            )
-                                          : _artThumb(),
-                                    ],
+                                        const SizedBox(width: 10),
+                                        coverImage != null &&
+                                                coverImage.isNotEmpty
+                                            ? ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: CachedNetworkImage(
+                                                  imageUrl: coverImage,
+                                                  width: 60,
+                                                  height: 50,
+                                                  fit: BoxFit.cover,
+                                                  errorWidget:
+                                                      (context, url, error) =>
+                                                          _artThumb(),
+                                                ),
+                                              )
+                                            : _artThumb(),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            }),
-                            const SizedBox(height: 20),
-                          ],
+                                );
+                              }),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 20),
                     ],
                   ),
