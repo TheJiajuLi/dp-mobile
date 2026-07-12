@@ -1847,6 +1847,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockPickerTitle => 'Choose block type';
 
   @override
+  String get importFromLinkAction => 'Import';
+
+  @override
+  String get importSheetTitle => 'Import article from link';
+
+  @override
+  String get importSheetSubtitle =>
+      'Supports Zhihu, WeChat Official Accounts, any web article';
+
+  @override
+  String get importUrlHint => 'Paste a Zhihu/WeChat article link...';
+
+  @override
+  String get importPlatformZhihu => 'Zhihu';
+
+  @override
+  String get importPlatformWechat => 'WeChat';
+
+  @override
+  String get importPlatformGeneral => 'General web page';
+
+  @override
+  String get importingLabel => 'Parsing...';
+
+  @override
+  String get importEmptyUrlError => 'Please enter an article link';
+
+  @override
+  String get importFailedDefault => 'Import failed, please check the link';
+
+  @override
+  String get importFailedNetwork => 'Import failed: network error';
+
+  @override
+  String importSuccessMessage(Object count, Object platform) {
+    return 'Imported $count blocks from $platform. Please confirm copyright before publishing';
+  }
+
+  @override
+  String get importCopyrightNotice =>
+      'Only import articles you authored yourself — importing others\' content requires their authorization';
+
+  @override
   String get textBlockHint => 'Enter text content...';
 
   @override

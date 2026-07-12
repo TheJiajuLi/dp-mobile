@@ -161,6 +161,7 @@ class PublishBottomToolbar extends StatelessWidget {
   final List<EditorBlock> blocks;
   final BlockType activeToolbarType;
   final void Function(BlockType type) onAddBlock;
+  final VoidCallback onImport;
 
   const PublishBottomToolbar({
     super.key,
@@ -169,6 +170,7 @@ class PublishBottomToolbar extends StatelessWidget {
     required this.blocks,
     required this.activeToolbarType,
     required this.onAddBlock,
+    required this.onImport,
   });
 
   @override
@@ -208,6 +210,13 @@ class PublishBottomToolbar extends StatelessWidget {
                     }
                     return button;
                   }),
+                  _toolbarButton(
+                    icon: Icons.download_outlined,
+                    tooltip: l10n.importFromLinkAction,
+                    selected: false,
+                    isDarkMode: isDarkMode,
+                    onTap: onImport,
+                  ),
                 ],
               ),
             ),

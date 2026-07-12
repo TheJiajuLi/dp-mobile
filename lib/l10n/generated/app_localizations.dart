@@ -3464,6 +3464,84 @@ abstract class AppLocalizations {
   /// **'Choose block type'**
   String get blockPickerTitle;
 
+  /// No description provided for @importFromLinkAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get importFromLinkAction;
+
+  /// No description provided for @importSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import article from link'**
+  String get importSheetTitle;
+
+  /// No description provided for @importSheetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Supports Zhihu, WeChat Official Accounts, any web article'**
+  String get importSheetSubtitle;
+
+  /// No description provided for @importUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a Zhihu/WeChat article link...'**
+  String get importUrlHint;
+
+  /// No description provided for @importPlatformZhihu.
+  ///
+  /// In en, this message translates to:
+  /// **'Zhihu'**
+  String get importPlatformZhihu;
+
+  /// No description provided for @importPlatformWechat.
+  ///
+  /// In en, this message translates to:
+  /// **'WeChat'**
+  String get importPlatformWechat;
+
+  /// No description provided for @importPlatformGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'General web page'**
+  String get importPlatformGeneral;
+
+  /// No description provided for @importingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Parsing...'**
+  String get importingLabel;
+
+  /// No description provided for @importEmptyUrlError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter an article link'**
+  String get importEmptyUrlError;
+
+  /// No description provided for @importFailedDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed, please check the link'**
+  String get importFailedDefault;
+
+  /// No description provided for @importFailedNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed: network error'**
+  String get importFailedNetwork;
+
+  /// No description provided for @importSuccessMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {count} blocks from {platform}. Please confirm copyright before publishing'**
+  String importSuccessMessage(Object count, Object platform);
+
+  /// No description provided for @importCopyrightNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Only import articles you authored yourself — importing others\' content requires their authorization'**
+  String get importCopyrightNotice;
+
   /// No description provided for @textBlockHint.
   ///
   /// In en, this message translates to:

@@ -1806,6 +1806,47 @@ class AppLocalizationsZh extends AppLocalizations {
   String get blockPickerTitle => '选择内容块类型';
 
   @override
+  String get importFromLinkAction => '导入';
+
+  @override
+  String get importSheetTitle => '从链接导入文章';
+
+  @override
+  String get importSheetSubtitle => '支持知乎、微信公众号、任意网页文章';
+
+  @override
+  String get importUrlHint => '粘贴知乎/公众号文章链接...';
+
+  @override
+  String get importPlatformZhihu => '知乎';
+
+  @override
+  String get importPlatformWechat => '公众号';
+
+  @override
+  String get importPlatformGeneral => '通用网页';
+
+  @override
+  String get importingLabel => '解析中...';
+
+  @override
+  String get importEmptyUrlError => '请输入文章链接';
+
+  @override
+  String get importFailedDefault => '导入失败，请检查链接';
+
+  @override
+  String get importFailedNetwork => '导入失败：网络错误';
+
+  @override
+  String importSuccessMessage(Object count, Object platform) {
+    return '已从$platform导入$count个内容块，请确认版权后再发布';
+  }
+
+  @override
+  String get importCopyrightNotice => '仅供作者本人导入自己的文章，导入他人内容须取得授权';
+
+  @override
   String get textBlockHint => '输入文字内容...';
 
   @override
