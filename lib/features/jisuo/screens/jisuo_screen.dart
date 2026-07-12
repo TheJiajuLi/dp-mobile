@@ -56,6 +56,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   bool _reloadingForAccountChange = false;
   final Set<String> _removingQuestionIds = {};
 
+  // 底部输入框的模式：ai=小梦直答 / community=社区提问。只影响输入框点击后
+  // 的落点和 hint 文案
+  String _mode = 'ai';
+
+  static const _sampleQuestions = [
+    '量子纠缠真的可以超光速通信吗？',
+    'Python 和 R 哪个更适合数据分析？',
+    '为什么黑洞不会把自己吞掉？',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -66,12 +76,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   void dispose() {
     _inputCtrl.dispose();
     super.dispose();
-  }
-
-  void _placeholderSnack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showAskSheet() {
@@ -169,251 +173,276 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     ref.listen<int>(jisuoRefreshSignalProvider, (prev, next) {
       if (prev != next) _loadHotQuestions();
     });
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 极索是"深空感·沉浸式"落地页：用比全局主题更黑的 #0A0A0F / 更白的
+    // #FAFAF8 做背景，Hero 星空 + 大留白 + 单一紫色强调色
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark
+          ? const Color(0xFF0A0A0F)
+          : const Color(0xFFFAFAF8),
       body: SafeArea(
+        bottom: false,
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(child: _buildTopBar()),
-            SliverToBoxAdapter(child: _buildXiaoMeng()),
-            SliverToBoxAdapter(child: _buildAppsSection()),
-            SliverToBoxAdapter(child: _buildXiaomengEntry()),
+            SliverToBoxAdapter(child: _buildHero(isDark)),
+            SliverToBoxAdapter(child: _buildModeChips(isDark)),
+            // 混合：Hero 之下保留"社区精选/热门问题"内容，不白丢社区问答
             SliverToBoxAdapter(child: _buildJmDivider('社区精选')),
             SliverToBoxAdapter(child: _buildHotQuestions()),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomInput(isDark),
     );
   }
 
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '极索',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-              ),
-              Text(
-                '探索 · 提问 · 发现',
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-              ),
-            ],
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.history, size: 20),
-            color: Colors.grey[500],
-            onPressed: () => context.push('/xiaomeng/history'),
-          ),
-          GestureDetector(
-            onTap: _showAskSheet,
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: _primary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 20),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  void _startQuestion(String q) => _askXiaoMeng(q);
 
-  Widget _buildXiaoMeng() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 卡片之前不管浅色/深色模式都是写死的深底星云配色——现在跟主题走，
-    // 深色下保留原来那套浓郁星云玻璃质感，浅色下换成白底+更淡的星云光晕，
-    // 不是简单反色，两套都要保证卡片内文字/胶囊清晰可读
-    final nameColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final subtitleColor = isDark
-        ? Colors.white.withValues(alpha: 0.35)
-        : Colors.grey[500];
-    final pillBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.white.withValues(alpha: 0.7);
-    final pillBorder = isDark
-        ? Colors.white.withValues(alpha: 0.1)
-        : _primary.withValues(alpha: 0.12);
-    final hintColor = isDark
-        ? Colors.white.withValues(alpha: 0.35)
-        : Colors.grey[400];
-    final chipBg = isDark
-        ? Colors.white.withValues(alpha: 0.07)
-        : Colors.white.withValues(alpha: 0.6);
-    final chipBorder = isDark
-        ? Colors.white.withValues(alpha: 0.12)
-        : _primary.withValues(alpha: 0.12);
-    final chipTextColor = isDark
-        ? Colors.white.withValues(alpha: 0.6)
-        : const Color(0xFF4B5563);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0D0A1E) : const Color(0xFFF7F6FF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _primary.withValues(alpha: isDark ? 0.3 : 0.15),
-          width: 0.5,
-        ),
-      ),
+  Widget _buildHero(bool isDark) {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.5,
       child: Stack(
         children: [
-          Positioned.fill(
-            child: CustomPaint(painter: _NebulaPainter(isDark: isDark)),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF1A1230)
-                            : Colors.white.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(child: _buildAuroraIcon(18)),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '小梦',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: nameColor,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _primary.withValues(alpha: isDark ? 0.18 : 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: _primary.withValues(alpha: 0.3),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        'AI 助手',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? const Color(0xFFA5A9FF) : _primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '优先引用社区优质内容',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 10.5, color: subtitleColor),
-                      ),
-                    ),
-                  ],
+          // 深色：星空/星云装饰（复用现有 _NebulaPainter）；浅色：一团很淡的
+          // 紫色光晕
+          if (isDark)
+            const Positioned.fill(
+              child: CustomPaint(painter: _NebulaPainter(isDark: true)),
+            )
+          else
+            Positioned(
+              top: -60,
+              left: -40,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _primary.withValues(alpha: 0.06),
                 ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: _openXiaoMeng,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                      height: 1.3,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                     ),
-                    decoration: BoxDecoration(
-                      color: pillBg,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: pillBorder, width: 0.5),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.auto_awesome, size: 16, color: hintColor),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '问问小梦...',
-                            style: TextStyle(fontSize: 14, color: hintColor),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _openXiaoMeng,
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: const BoxDecoration(
-                              color: _primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.arrow_upward,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    children: const [
+                      TextSpan(text: '用'),
+                      TextSpan(
+                        text: '提问',
+                        style: TextStyle(color: _primary),
+                      ),
+                      TextSpan(text: '发现世界'),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 10),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: ['泊松分布怎么理解？', 'Python数据清洗', '黑洞是什么', '线性回归推导']
-                        .map(
-                          (t) => GestureDetector(
-                            onTap: () => _askXiaoMeng(t),
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 6),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 11,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: chipBg,
-                                borderRadius: BorderRadius.circular(99),
-                                border: Border.all(
-                                  color: chipBorder,
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Text(
-                                t,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: chipTextColor,
-                                ),
-                              ),
-                            ),
+                Text(
+                  '极梦 · 知识问答社区',
+                  style: TextStyle(
+                    fontSize: 13,
+                    letterSpacing: 0.5,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.45)
+                        : Colors.grey[400],
+                  ),
+                ),
+                const SizedBox(height: 36),
+                ..._sampleQuestions.map(
+                  (q) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GestureDetector(
+                      onTap: () => _startQuestion(q),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 11,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : _primary.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.1)
+                                : _primary.withValues(alpha: 0.15),
+                            width: 0.5,
                           ),
-                        )
-                        .toList(),
+                        ),
+                        child: Text(
+                          q,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.75)
+                                : const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildModeChips(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          _modeChip(
+            isDark,
+            label: '小梦直答',
+            icon: Icons.auto_awesome,
+            mode: 'ai',
+          ),
+          const SizedBox(width: 8),
+          _modeChip(
+            isDark,
+            label: '社区提问',
+            icon: Icons.people_outline,
+            mode: 'community',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _modeChip(
+    bool isDark, {
+    required String label,
+    required IconData icon,
+    required String mode,
+  }) {
+    final selected = _mode == mode;
+    return GestureDetector(
+      onTap: () => setState(() => _mode = mode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? _primary
+              : isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: selected ? Colors.white : Colors.grey[400],
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: selected ? Colors.white : Colors.grey[400],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomInput(bool isDark) {
+    // ai 模式点了进小梦对话；community 模式点了弹社区提问 Sheet
+    void onTap() => _mode == 'ai' ? _openXiaoMeng() : _showAskSheet();
+    return Container(
+      color: isDark ? const Color(0xFF0A0A0F) : const Color(0xFFFAFAF8),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? const Color(0xFF1A1A1A)
+                    : const Color(0xFFEBEBEB),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF17171F)
+                          : const Color(0xFFF0F0F8),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFEBEBEB),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 16,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          _mode == 'ai' ? '问小梦任何问题...' : '提问，让社区来回答...',
+                          style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: onTap,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: _primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.send, size: 18, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -425,218 +454,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  // 问题列表顶部的"问问小梦"入口条——跟页面最上面 _buildXiaoMeng() 那个
-  // 输入框卡片是两个不同位置的入口，都指向同一个真实的 /xiaomeng。之前
-  // 底色/文字是写死的浅色（EEF0FF+靛蓝字），深色模式下变成一块亮卡片
-  // 糊在纯黑页面里，很突兀——按 _buildXiaoMeng() 那张卡片已经定好的深色
-  // 配色（0xFF0D0A1E底+靛蓝描边）在深色模式下同款处理，两处入口才是
-  // 同一套"小梦"视觉语言
-  Widget _buildXiaomengEntry() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: () => context.push('/xiaomeng'),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0D0A1E) : const Color(0xFFEEF0FF),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: const BoxDecoration(
-                color: Color(0xFF6366F1),
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: Text(
-                  '梦',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '问问小梦，AI 直接给你答案',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : const Color(0xFF4F46E5),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '更快 · 更准 · 更懂你',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.4)
-                          : const Color(0xFF4F46E5).withValues(alpha: 0.55),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 12,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.5)
-                  : const Color(0xFF6366F1),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppsSection() {
-    // Notebook 是这个 App 里唯一真实存在的入口，首页去掉工具宫格之后
-    // 在 iPhone 上一度没地方点进去了，这里补上；其余几个跟原来首页
-    // 宫格是不同的一套（按学科分类，不是按工具类型），后端/页面都还没有，
-    // 统一走"即将上线"占位
-    final apps = [
-      {
-        'name': 'Notebook',
-        'icon': Icons.code,
-        'bg': const Color(0xFFEEF0FF),
-        'color': const Color(0xFF6366F1),
-        'route': '/notebook',
-      },
-      {
-        'name': '数学建模',
-        'icon': Icons.functions,
-        'bg': const Color(0xFFFEF3C7),
-        'color': const Color(0xFFD97706),
-      },
-      {
-        'name': '可视化',
-        'icon': Icons.bar_chart,
-        'bg': const Color(0xFFDCFCE7),
-        'color': const Color(0xFF16A34A),
-      },
-      {
-        'name': '金融分析',
-        'icon': Icons.currency_yen,
-        'bg': const Color(0xFFFEE2E2),
-        'color': const Color(0xFFDC2626),
-      },
-      {
-        'name': '机器学习',
-        'icon': Icons.psychology,
-        'bg': const Color(0xFFF3E8FF),
-        'color': const Color(0xFF8B5CF6),
-      },
-      {
-        'name': '物理模拟',
-        'icon': Icons.science,
-        'bg': const Color(0xFFE0F2FE),
-        'color': const Color(0xFF0284C7),
-      },
-      {
-        'name': '生物信息',
-        'icon': Icons.biotech,
-        'bg': const Color(0xFFFFF7ED),
-        'color': const Color(0xFFEA580C),
-      },
-      {'name': '更多', 'icon': Icons.grid_view, 'bg': null, 'color': Colors.grey},
-    ];
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-          child: Row(
-            children: [
-              const Text(
-                '应用',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => _placeholderSnack('应用中心即将上线'),
-                child: const Text(
-                  '全部',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF6366F1)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 8,
-            childAspectRatio: 0.85,
-          ),
-          itemCount: apps.length,
-          itemBuilder: (ctx, i) {
-            final isDark = Theme.of(ctx).brightness == Brightness.dark;
-            final app = apps[i];
-            final route = app['route'] as String?;
-            final iconColor = app['color'] as Color;
-            // 图标底色之前深浅色模式都是同一套浅色柔和色块，深色页面上
-            // 糊成一块跟背景不搭的亮斑——深色下换成图标本色的低透明度
-            // 底色，图标颜色不变，跟卡片背景融为一体，不再是浅色贴纸
-            final iconBg = isDark
-                ? iconColor.withValues(alpha: 0.15)
-                : (app['bg'] as Color? ?? Colors.grey[100]!);
-            return GestureDetector(
-              onTap: () => route != null
-                  ? context.push(route)
-                  : _placeholderSnack('即将上线，敬请期待'),
-              child: Column(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: iconBg,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(app['icon'] as IconData, size: 26, color: iconColor),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    app['name'] as String,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? Colors.white60 : Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  // 底色同样是写死的浅色，深色模式下也糊成一块亮标签——同 _buildXiaomengEntry()
-  // 一并按 _buildXiaoMeng() 的深色配色处理
   Widget _buildJmDivider(String label) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
