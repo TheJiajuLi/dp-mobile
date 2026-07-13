@@ -166,32 +166,40 @@ class _ConversationListScreenState
             ),
             const SizedBox(height: 4),
             Expanded(
-              child: conversations.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.chat_bubble_outline,
-                            size: 56,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            l10n.noDirectMessagesYet,
-                            style: const TextStyle(
+              // 点会话列表空白处收起搜索键盘——ListView 默认不 unfocus，
+              // opaque 让整块（含条目间空隙/空状态）都接住 tap；会话卡片是
+              // 各自的 GestureDetector，子级优先命中，照常可点进聊天
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: conversations.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.chat_bubble_outline,
+                              size: 56,
                               color: Colors.grey,
-                              fontSize: 15,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+                            Text(
+                              l10n.noDirectMessagesYet,
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(top: 4, bottom: 16),
+                        itemCount: groups.length,
+                        itemBuilder: (ctx, i) =>
+                            _buildGroupCard(groups[i], l10n),
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.only(top: 4, bottom: 16),
-                      itemCount: groups.length,
-                      itemBuilder: (ctx, i) => _buildGroupCard(groups[i], l10n),
-                    ),
+              ),
             ),
           ],
         ),
