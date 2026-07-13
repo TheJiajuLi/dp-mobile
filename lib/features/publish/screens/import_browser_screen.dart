@@ -25,9 +25,20 @@ class ImportBrowserScreen extends ConsumerStatefulWidget {
       _ImportBrowserScreenState();
 }
 
+// 起始页几个快捷入口——跟 _showUrlInput 底部弹窗里的快捷链接是同一份
+const _quickLinks = [
+  ('知乎', 'https://www.zhihu.com', '专业问答'),
+  ('微信公众号', 'https://mp.weixin.qq.com', '公众号文章'),
+  ('掘金', 'https://juejin.cn', '技术社区'),
+  ('CSDN', 'https://www.csdn.net', '技术博客'),
+];
+
 class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   InAppWebViewController? _webCtrl;
-  String _currentUrl = 'https://www.zhihu.com';
+  // 起始页不再直接打开知乎——about:blank + onWebViewCreated 里
+  // loadData 一个中性的"选择文章来源"引导页，用户自己点想去的平台，
+  // 不替用户做选择
+  String _currentUrl = '';
   bool _importing = false;
 
   @override
@@ -42,9 +53,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
         child: Column(
           children: [
             Container(
-              color: isDark
-                  ? const Color(0xFF111118)
-                  : const Color(0xFFF5F5F5),
+              color: isDark ? const Color(0xFF111118) : const Color(0xFFF5F5F5),
               padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
               child: Column(
                 children: [
@@ -58,45 +67,56 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                             : Colors.grey[600],
                       ),
                       Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF17171F)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.06)
-                                  : const Color(0xFFEBEBEB),
-                              width: 0.5,
+                        child: GestureDetector(
+                          onTap: _showUrlInput,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 7,
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.lock,
-                                size: 12,
-                                color: Color(0xFF16A34A),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF17171F)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : const Color(0xFFEBEBEB),
+                                width: 0.5,
                               ),
-                              const SizedBox(width: 5),
-                              Expanded(
-                                child: Text(
-                                  _urlHost(_currentUrl),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark
-                                        ? const Color(0xFFE0E2F0)
-                                        : const Color(0xFF555555),
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _currentUrl.isEmpty
+                                      ? Icons.search
+                                      : Icons.lock,
+                                  size: 12,
+                                  color: _currentUrl.isEmpty
+                                      ? Colors.grey[400]
+                                      : const Color(0xFF16A34A),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    _currentUrl.isEmpty
+                                        ? '输入网址或选择下方来源'
+                                        : _urlHost(_currentUrl),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _currentUrl.isEmpty
+                                          ? Colors.grey[400]
+                                          : (isDark
+                                                ? const Color(0xFFE0E2F0)
+                                                : const Color(0xFF555555)),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -111,7 +131,11 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                   ),
                   const SizedBox(height: 6),
                   GestureDetector(
-                    onTap: _importing ? null : _doImport,
+                    // 还停在起始引导页（_currentUrl 为空）时点了也是抓
+                    // 引导页自己的 HTML，没有意义，禁掉
+                    onTap: (_importing || _currentUrl.isEmpty)
+                        ? null
+                        : _doImport,
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -119,7 +143,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                         vertical: 9,
                       ),
                       decoration: BoxDecoration(
-                        color: _importing
+                        color: (_importing || _currentUrl.isEmpty)
                             ? Colors.grey[400]
                             : const Color(0xFF6366F1),
                         borderRadius: BorderRadius.circular(8),
@@ -136,7 +160,11 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _importing ? '正在提取文章内容...' : '看到想导入的文章了？点这里',
+                              _importing
+                                  ? '正在提取文章内容...'
+                                  : _currentUrl.isEmpty
+                                  ? '先选择或输入文章来源'
+                                  : '看到想导入的文章了？点这里',
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
@@ -159,9 +187,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
             ),
             Expanded(
               child: InAppWebView(
-                initialUrlRequest: URLRequest(
-                  url: WebUri(_currentUrl),
-                ),
+                initialUrlRequest: URLRequest(url: WebUri('about:blank')),
                 initialSettings: InAppWebViewSettings(
                   userAgent:
                       'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
@@ -171,10 +197,21 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                   domStorageEnabled: true,
                   allowsInlineMediaPlayback: true,
                 ),
-                onWebViewCreated: (ctrl) => _webCtrl = ctrl,
+                onWebViewCreated: (ctrl) {
+                  _webCtrl = ctrl;
+                  ctrl.loadData(
+                    data: _guideHtml,
+                    mimeType: 'text/html',
+                    encoding: 'utf-8',
+                  );
+                },
                 onLoadStop: (ctrl, url) {
                   if (!mounted) return;
-                  setState(() => _currentUrl = url?.toString() ?? _currentUrl);
+                  final u = url?.toString() ?? '';
+                  // about:blank 本身也会触发一次 onLoadStop，不算真的
+                  // "导航到了一个页面"，_currentUrl 留空继续显示引导态
+                  if (u.isEmpty || u == 'about:blank') return;
+                  setState(() => _currentUrl = u);
                 },
               ),
             ),
@@ -185,12 +222,145 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   }
 
   String _urlHost(String url) {
-    if (url.isEmpty) return 'zhihu.com';
+    if (url.isEmpty) return '';
     try {
       return Uri.parse(url).host;
     } catch (_) {
       return url;
     }
+  }
+
+  // 只是给"已经确认真实存在的" /auth/import/html 顺带带一个 platform
+  // 字段——实测确认（2026-07-13）后端这个接口目前固定回 platform:
+  // 'paste'，不会因为传了这个字段就切到知乎专用解析器（那套只在
+  // /auth/import/url 里根据服务端自己探测的 URL 触发）。传了不会更准，
+  // 但也无害，后端以后如果把这个接口也接上按 platform 分流解析，前端
+  // 不用再改一次
+  String _detectPlatform(String url) {
+    if (url.contains('zhihu.com')) return 'zhihu';
+    if (url.contains('mp.weixin.qq.com')) return 'wechat';
+    return 'general';
+  }
+
+  void _showUrlInput() {
+    final ctrl = TextEditingController(text: _currentUrl);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF17171F) : Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 3,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: ctrl,
+                        autofocus: true,
+                        keyboardType: TextInputType.url,
+                        textInputAction: TextInputAction.go,
+                        decoration: const InputDecoration(
+                          hintText: '输入网址...',
+                          prefixIcon: Icon(Icons.search, size: 18),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                          ),
+                        ),
+                        onSubmitted: (url) {
+                          Navigator.pop(sheetCtx);
+                          _loadUrl(url);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(sheetCtx);
+                        _loadUrl(ctrl.text);
+                      },
+                      child: const Text('前往'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: _quickLinks
+                      .map(
+                        (l) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _quickLink(sheetCtx, l.$1, l.$2, isDark),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _quickLink(
+    BuildContext sheetCtx,
+    String label,
+    String url,
+    bool isDark,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(sheetCtx);
+        _loadUrl(url);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF111118) : const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF555555),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 不是合法 URL 就当搜索词——用百度不用谷歌：主要用户群体在国内，
+  // 谷歌在很多网络环境下直接打不开，搜索兜底选一个真的能用的
+  void _loadUrl(String url) {
+    var finalUrl = url.trim();
+    if (finalUrl.isEmpty) return;
+    if (!finalUrl.startsWith('http')) {
+      finalUrl = 'https://www.baidu.com/s?wd=${Uri.encodeComponent(finalUrl)}';
+    }
+    _webCtrl?.loadUrl(urlRequest: URLRequest(url: WebUri(finalUrl)));
   }
 
   Future<void> _doImport() async {
@@ -211,7 +381,11 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
           .read(apiClientProvider)
           .post(
             '/auth/import/html',
-            data: {'html': html.toString(), 'source_url': _currentUrl},
+            data: {
+              'html': html.toString(),
+              'source_url': _currentUrl,
+              'platform': _detectPlatform(_currentUrl),
+            },
           );
 
       if (!res.success || res.data == null) {
@@ -234,3 +408,80 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     );
   }
 }
+
+// 起始引导页——纯静态 HTML，通过 loadData 塞进 WebView，不是真的网络
+// 请求。链接是普通 <a href>，点了就是正常的页面内导航，不需要额外的
+// JS bridge
+const _guideHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body {
+    font-family: -apple-system, sans-serif;
+    background: #FAFAF8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1A1A1A;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .sub {
+    font-size: 14px;
+    color: #AAA;
+    margin-bottom: 32px;
+    text-align: center;
+    line-height: 1.6;
+  }
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 300px;
+  }
+  a {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    background: white;
+    border-radius: 12px;
+    border: 0.5px solid #EBEBEB;
+    text-decoration: none;
+    color: #1A1A1A;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .badge {
+    margin-left: auto;
+    font-size: 11px;
+    color: #AAA;
+  }
+</style>
+</head>
+<body>
+  <div class="title">选择文章来源</div>
+  <div class="sub">
+    在浏览器里找到你想导入的文章<br>
+    点击上方紫色横幅即可导入
+  </div>
+  <div class="links">
+    <a href="https://www.zhihu.com">知乎<span class="badge">专业问答</span></a>
+    <a href="https://mp.weixin.qq.com">微信公众号<span class="badge">公众号文章</span></a>
+    <a href="https://juejin.cn">掘金<span class="badge">技术社区</span></a>
+    <a href="https://www.csdn.net">CSDN<span class="badge">技术博客</span></a>
+  </div>
+</body>
+</html>
+''';
