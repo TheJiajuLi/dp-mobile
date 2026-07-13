@@ -4,6 +4,15 @@ import '../../../l10n/generated/app_localizations.dart';
 
 const _primary = Color(0xFF6366F1);
 
+// 头像选项弹层里行与行之间的克制分割线——缩进 56 对齐 ListTile 标题文字
+// （避开左侧图标），不铺满整行
+Widget _avatarSheetDivider(BuildContext ctx) => Divider(
+  height: 0.5,
+  thickness: 0.5,
+  indent: 56,
+  color: Theme.of(ctx).dividerColor,
+);
+
 void showAvatarOptions(
   BuildContext context, {
   required VoidCallback onPickGallery,
@@ -43,7 +52,9 @@ void showAvatarOptions(
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            // 不再把三项包在一块白色卡片里，直接落在弹层底色上，行与行之间
+            // 用一条克制的浅分割线（缩进对齐标题文字）隔开
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: Text(l10n.selectFromAlbum),
@@ -52,6 +63,7 @@ void showAvatarOptions(
                 onPickGallery();
               },
             ),
+            _avatarSheetDivider(ctx),
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: Text(l10n.takePhoto),
@@ -60,6 +72,7 @@ void showAvatarOptions(
                 onPickCamera();
               },
             ),
+            _avatarSheetDivider(ctx),
             ListTile(
               leading: const Icon(Icons.auto_awesome_outlined, color: _primary),
               title: const Text('AI 生成头像'),
@@ -169,7 +182,10 @@ void showAiAvatarSheet(
                     ),
                     child: Text(
                       t,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF555555),
+                      ),
                     ),
                   ),
                 );
@@ -193,7 +209,10 @@ void showAiAvatarSheet(
                 ),
                 child: const Text(
                   '开始生成（约20秒）',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ),
@@ -235,7 +254,12 @@ void showSingleAvatarConfirm(
           ),
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(url, width: 160, height: 160, fit: BoxFit.cover),
+            child: Image.network(
+              url,
+              width: 160,
+              height: 160,
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -258,7 +282,10 @@ void showSingleAvatarConfirm(
                     ),
                     side: const BorderSide(color: Color(0xFFD0D0D0)),
                   ),
-                  child: const Text('重新生成', style: TextStyle(color: Colors.grey)),
+                  child: const Text(
+                    '重新生成',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -278,7 +305,10 @@ void showSingleAvatarConfirm(
                   ),
                   child: const Text(
                     '使用',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
@@ -326,7 +356,11 @@ void showAvatarPickerSheet(
                   color: const Color(0xFFEEF0FF),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.auto_awesome_outlined, size: 14, color: _primary),
+                child: const Icon(
+                  Icons.auto_awesome_outlined,
+                  size: 14,
+                  color: _primary,
+                ),
               ),
               const SizedBox(width: 8),
               const Text(
@@ -345,7 +379,9 @@ void showAvatarPickerSheet(
           // sheet 跟着无限拉长（甚至顶到状态栏）——所以这里用 maxHeight
           // 卡住网格区域的高度，GridView 保留正常的滚动手势
           ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.5),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+            ),
             child: GridView.builder(
               shrinkWrap: true,
               padding: EdgeInsets.zero,
