@@ -461,7 +461,7 @@
   "versionNumber": "版本号",
   "devTeam": "开发团队",
   "officialWebsite": "官网",
-  "copyrightFooter": "© 2026 Dreaming Polar\\n极梦，为创造而生",
+  "copyrightFooter": "© 2026 Dreaming Polar\n极梦，为创造而生",
   "storageFull": "存储空间已满",
   "storageFullMessage": "已用 {used} / {quota}。\\n\\n请升级会员获取更多空间，或清理旧文件后再发送。",
   "manageStorage": "管理存储",

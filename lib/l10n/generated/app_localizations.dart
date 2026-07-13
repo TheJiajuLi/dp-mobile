@@ -2867,7 +2867,7 @@ abstract class AppLocalizations {
   /// No description provided for @copyrightFooter.
   ///
   /// In en, this message translates to:
-  /// **'© 2026 Dreaming Polar\\nBorn to create'**
+  /// **'© 2026 Dreaming Polar\nBorn to create'**
   String get copyrightFooter;
 
   /// No description provided for @storageFull.

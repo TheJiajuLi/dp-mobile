@@ -97,7 +97,16 @@ class SettingsGroup extends StatelessWidget {
               width: 0.5,
             ),
           ),
-          child: Column(children: rows),
+          // 组里的行大多是 ListTile（onTap 触发点击反馈）——ListTile 的
+          // InkWell 水波纹需要一个 Material 祖先才能正确画/裁切，之前
+          // 直接吃外层 Scaffold 的默认 Material，水波纹动画在圆角边界
+          // 附近可能不走这一层 ClipRRect 的裁切，最后一行贴着圆角的
+          // 那个角就会露出方形边缘。显式包一层透明 Material，水波纹
+          // 保证跟着这个 ClipRRect 一起裁
+          child: Material(
+            color: Colors.transparent,
+            child: Column(children: rows),
+          ),
         ),
       ),
     );

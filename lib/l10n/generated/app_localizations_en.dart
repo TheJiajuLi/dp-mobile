@@ -1529,7 +1529,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get officialWebsite => 'Official Website';
 
   @override
-  String get copyrightFooter => '© 2026 Dreaming Polar\\nBorn to create';
+  String get copyrightFooter => '© 2026 Dreaming Polar\nBorn to create';
 
   @override
   String get storageFull => 'Storage Full';

@@ -1492,7 +1492,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get officialWebsite => '官网';
 
   @override
-  String get copyrightFooter => '© 2026 Dreaming Polar\\n极梦，为创造而生';
+  String get copyrightFooter => '© 2026 Dreaming Polar\n极梦，为创造而生';
 
   @override
   String get storageFull => '存储空间已满';

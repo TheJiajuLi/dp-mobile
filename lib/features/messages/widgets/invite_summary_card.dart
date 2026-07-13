@@ -26,15 +26,21 @@ class InviteSummaryCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        // 跟同一个页面上"最近通知"/"私信"用的 _PreviewCard 统一成同一套
+        // 圆角卡片语言——浅色靠细阴影撑轮廓不描边，圆角也对齐成20，不然
+        // 两种卡片语言（描边 vs 阴影、14 vs 20）在同一屏里显得不统一
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : const Color(0xFFEBEBEB),
-            width: 0.5,
-          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

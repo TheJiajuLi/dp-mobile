@@ -778,7 +778,7 @@
   "versionNumber": "Version",
   "devTeam": "Development Team",
   "officialWebsite": "Official Website",
-  "copyrightFooter": "© 2026 Dreaming Polar\\nBorn to create",
+  "copyrightFooter": "© 2026 Dreaming Polar\nBorn to create",
   "storageFull": "Storage Full",
   "storageFullMessage": "Used {used} / {quota}.\\n\\nUpgrade your membership for more space, or clear old files before sending.",
   "@storageFullMessage": {

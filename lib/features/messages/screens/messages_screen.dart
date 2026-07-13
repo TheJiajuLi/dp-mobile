@@ -487,12 +487,17 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           alignment: Alignment.center,
+          // 未选中态之前是白底+描边——跟页面上其它卡片(_PreviewCard/
+          // InviteSummaryCard)都已经改成"不描边、靠底色/阴影撑轮廓"的
+          // 语言不一致。选中态维持品牌紫实心；未选中态换成中性灰实心，
+          // 不再描边
           decoration: BoxDecoration(
-            color: selected ? _primary : Theme.of(context).cardColor,
+            color: selected
+                ? _primary
+                : (Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.grey[100]),
             borderRadius: BorderRadius.circular(16),
-            border: selected
-                ? null
-                : Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Text(
             label,
@@ -976,7 +981,8 @@ class _NotifPreviewTile extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final n = notification;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      // 之前 vertical:4 太紧，头像挨着分割线——加一点呼吸感
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       onTap: onTap,
       leading: Stack(
         clipBehavior: Clip.none,
@@ -1036,7 +1042,7 @@ class _ConvPreviewTile extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final conv = conversation;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       onTap: onTap,
       leading: buildMessageAvatar(conv.otherAvatar, conv.otherUsername),
       title: Text(
