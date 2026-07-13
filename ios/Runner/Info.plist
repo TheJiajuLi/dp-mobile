@@ -48,6 +48,8 @@
 	<string>极梦需要访问相册以保存分享海报</string>
 	<key>NSCameraUsageDescription</key>
 	<string>极梦需要访问相机以拍摄头像</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>极梦使用您的位置信息来显示本地化内容</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>https</string>
