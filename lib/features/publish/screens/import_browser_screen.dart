@@ -578,6 +578,22 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     return m.getAttribute('data-tex') || (m.textContent ? m.textContent.trim() : '') || null;
   }
 
+  // 视频播放器控件/进度条这类噪声段落——微信内嵌视频会把整套播放器 UI
+  // 文字（退出全屏/倍速/进度/"您的浏览器不支持video标签"）铺在正文里，
+  // 命中关键词或纯进度数字就当噪声丢掉，跨站点兜底
+  const playerNoisePatterns = [
+    '您的浏览器不支持', '退出全屏', '进入全屏', '切换到竖屏', '切换到横屏',
+    '横屏模式', '竖屏', '倍速播放', '0.5倍', '0.75倍', '1.5倍', '2.0倍',
+    '超清', '流畅', '百分之', '进度条', '已同步到看一看', '视频详情',
+    '观看更多', '重播', '继续播放', '继续观看',
+  ];
+  function isPlayerNoise(text) {
+    if (!text) return false;
+    // 纯数字/时间/百分比（播放进度：00:48 / 100% 之类）
+    if (/^[\d\s%:：\/.]+$/.test(text)) return true;
+    return playerNoisePatterns.some(p => text.includes(p));
+  }
+
   // ── 知乎文章 ──
   // 触发条件放宽成"知乎域名 + 存在 .Post-RichText 正文容器"——原来强绑
   // h1.Post-Title，专栏/回答/新版页面标题类名不同就会漏掉、掉进通用
@@ -761,8 +777,19 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       const tag = el.tagName.toLowerCase();
       if (el.closest('pre') && tag !== 'pre') return;
       if (el.closest('ul,ol') && tag === 'li') return;
-      // 跳过公众号里的 UI 垃圾容器（二维码/名片/小程序卡片等）
-      if (el.closest('.wx_tap_card, .weapp_display_element, .js_profile_container, #js_pc_qr_code, .qr_code_pc')) return;
+      // 直接跳过视频/iframe 标签本身
+      if (tag === 'video' || tag === 'iframe' || tag === 'mpvideosnap') return;
+      // 跳过公众号 UI 垃圾容器：二维码/名片/小程序卡片 + 视频播放器容器 +
+      // 点赞评论互动区（里面全是播放器控件/社交按钮文字，不是正文）
+      if (el.closest(
+        '.wx_tap_card, .weapp_display_element, .js_profile_container, ' +
+        '#js_pc_qr_code, .qr_code_pc, ' +
+        'video, iframe, mpvideosnap, mp-common-videosnap, ' +
+        '.wx_video_context, .js_video_channel, .video_iframe, .wx_video, ' +
+        '[class*="video_container"], [class*="videosnap"], ' +
+        '.wx_tap_card2, .rich_media_tool, .wx_profile_msg_inner, ' +
+        '#js_like_comment, .like_comment_outter'
+      )) return;
 
       if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
         const content = extractMixed(el).trim();
@@ -825,8 +852,8 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
           }
         }
         const content = extractMixed(el).trim();
-        // 过滤太短/纯数字（点赞条、阅读数这类噪声）
-        if (content.length > 5 && !/^\d+$/.test(content)) {
+        // 过滤太短/纯数字（点赞条、阅读数）+ 视频播放器控件噪声
+        if (content.length > 5 && !/^\d+$/.test(content) && !isPlayerNoise(content)) {
           blocks.push({ id: genId(), type: 'text', content: content });
         }
         return;
@@ -877,9 +904,11 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   container.querySelectorAll('h1,h2,h3,p,pre,li,img').forEach(el => {
     const tag = el.tagName.toLowerCase();
     if (el.closest('pre') && tag !== 'pre') return;
-    // 跳过导航/工具栏/评论/侧栏/广告/身份面板等 UI 垃圾容器
-    if (el.closest('nav, header, footer, .toolbar, .tabbar, .comment, .comments, .sidebar, .ad, .advertisement, .js_profile_container, #js_pc_qr_code')) return;
-    // 纯数字段落（点赞/阅读数这类噪声）跳过
+    // 直接跳过视频/iframe 标签
+    if (tag === 'video' || tag === 'iframe') return;
+    // 跳过导航/工具栏/评论/侧栏/广告/身份面板/视频播放器等 UI 垃圾容器
+    if (el.closest('nav, header, footer, .toolbar, .tabbar, .comment, .comments, .sidebar, .ad, .advertisement, .js_profile_container, #js_pc_qr_code, video, iframe, [class*="video"], [class*="player"]')) return;
+    // 纯数字段落（点赞/阅读数）跳过
     if (tag === 'p' && /^\d+$/.test((el.innerText || '').trim())) return;
 
     if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
@@ -897,7 +926,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
         }
       }
       const content = extractMixed(el).trim();
-      if (content.length > 5) blocks.push({ id: gid(), type: 'text', content: content });
+      if (content.length > 5 && !isPlayerNoise(content)) blocks.push({ id: gid(), type: 'text', content: content });
     } else if (tag === 'li') {
       if (isSoleLatexEl(el)) {
         const latex = getSoleLatex(el);
