@@ -501,6 +501,13 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     required String mode,
   }) {
     final selected = _tab == mode;
+    // 未选中态跟输入框/示例问题气泡同一套淡紫胶囊：淡紫底 + 淡紫描边 +
+    // 紫色字/图标（浅色），不再是发灰的底 + 灰字；选中态仍是实心紫 + 白字
+    final contentColor = selected
+        ? Colors.white
+        : isDark
+        ? Colors.white.withValues(alpha: 0.6)
+        : _primary;
     return GestureDetector(
       onTap: () {
         setState(() => _tab = mode);
@@ -515,24 +522,28 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               ? _primary
               : isDark
               ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0xFFF5F5F5),
+              : _primary.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(99),
+          border: selected
+              ? null
+              : Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : _primary.withValues(alpha: 0.15),
+                  width: 0.5,
+                ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 14,
-              color: selected ? Colors.white : Colors.grey[400],
-            ),
+            Icon(icon, size: 14, color: contentColor),
             const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: selected ? Colors.white : Colors.grey[400],
+                color: contentColor,
               ),
             ),
           ],
