@@ -1068,40 +1068,63 @@ result
                     }),
                   ),
                   Expanded(
-                    child: _blocks.isEmpty
-                        ? _buildEmptyState(l10n, isDarkMode)
-                        : ReorderableListView.builder(
-                            scrollController: _scrollCtrl,
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                            itemCount: _blocks.length,
-                            onReorder: _onReorder,
-                            // 拖拽只从 BlockCard 里那个手柄图标触发（见
-                            // ReorderableDragStartListener），关掉默认的
-                            // "长按列表项任意位置拖拽"——不然长按 block 里的
-                            // 文字/代码输入框想选中文本时会跟这个默认拖拽
-                            // 手势抢
-                            buildDefaultDragHandles: false,
-                            itemBuilder: (ctx, i) => BlockCard(
-                              key: ValueKey(_blocks[i].id),
-                              block: _blocks[i],
-                              index: i,
-                              total: _blocks.length,
-                              membership: membership,
-                              onRunCode: _runBlockCode,
-                              onDelete: () => _deleteBlock(_blocks[i].id),
-                              onMoveUp: i > 0
-                                  ? () => _swapBlocks(i, i - 1)
-                                  : null,
-                              onMoveDown: i < _blocks.length - 1
-                                  ? () => _swapBlocks(i, i + 1)
-                                  : null,
-                              onChanged: () => setState(() {}),
-                              onFocusGained: () => setState(
-                                () => _focusedBlockId = _blocks[i].id,
+                    // 点空白区域（block之间的空隙、列表末尾没有block的地方）
+                    // 收起格式工具栏——ReorderableListView本身不认"点了空白"
+                    // 这种事，外面套一层不吃手势的GestureDetector，点到
+                    // 具体block/输入框时那些控件自己的手势会先响应，不会被
+                    // 这层拦截
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _focusedBlockId = null);
+                        FocusScope.of(context).unfocus();
+                      },
+                      behavior: HitTestBehavior.translucent,
+                      child: _blocks.isEmpty
+                          ? _buildEmptyState(l10n, isDarkMode)
+                          : ReorderableListView.builder(
+                              scrollController: _scrollCtrl,
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                              itemCount: _blocks.length,
+                              onReorder: _onReorder,
+                              // 拖拽只从 BlockCard 里那个手柄图标触发（见
+                              // ReorderableDragStartListener），关掉默认的
+                              // "长按列表项任意位置拖拽"——不然长按 block 里的
+                              // 文字/代码输入框想选中文本时会跟这个默认拖拽
+                              // 手势抢
+                              buildDefaultDragHandles: false,
+                              itemBuilder: (ctx, i) => BlockCard(
+                                key: ValueKey(_blocks[i].id),
+                                block: _blocks[i],
+                                index: i,
+                                total: _blocks.length,
+                                membership: membership,
+                                onRunCode: _runBlockCode,
+                                onDelete: () => _deleteBlock(_blocks[i].id),
+                                onMoveUp: i > 0
+                                    ? () => _swapBlocks(i, i - 1)
+                                    : null,
+                                onMoveDown: i < _blocks.length - 1
+                                    ? () => _swapBlocks(i, i + 1)
+                                    : null,
+                                onChanged: () => setState(() {}),
+                                focusedBlockId: _focusedBlockId,
+                                onFocusGained: () => setState(
+                                  () => _focusedBlockId = _blocks[i].id,
+                                ),
+                                // 非文字block（图片/代码/公式等）自己也要设成
+                                // _focusedBlockId——这样它自己的chrome（移动/
+                                // 删除/拖拽）才能借同一个"当前激活block"的判断
+                                // 亮出来。格式工具栏不会因此误显示：
+                                // BlockFormattingToolbar 自己的 _applicable
+                                // 只认 text/heading，块类型一对不上就还是收着
+                                onNonTextTap: () => setState(
+                                  () => _focusedBlockId = _blocks[i].id,
+                                ),
+                                onFileUploaded: (id) =>
+                                    _uploadedFileIds.add(id),
                               ),
-                              onFileUploaded: (id) => _uploadedFileIds.add(id),
                             ),
-                          ),
+                    ),
                   ),
                   // "添加内容块"——放在列表下方常驻（不跟着滚动进 Reorderable
                   // 列表里，那样会跟拖拽排序的下标数学搅在一起），打开紧凑的

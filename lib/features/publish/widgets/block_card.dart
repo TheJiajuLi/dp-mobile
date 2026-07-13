@@ -15,7 +15,8 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/block_text_style.dart';
 import '../../../shared/utils/code_highlight.dart';
 import '../../../shared/utils/premium_button.dart';
-import '../../../shared/widgets/tutorial_block_renderer.dart' show inlineLatexText;
+import '../../../shared/widgets/tutorial_block_renderer.dart'
+    show inlineLatexText;
 import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
@@ -94,6 +95,15 @@ class BlockCard extends ConsumerStatefulWidget {
   // 颜色/字体等）只在"当前正在编辑哪个 block"明确的时候才有意义，这个
   // 状态本来就该由父级持有，不是 BlockCard 自己的事
   final VoidCallback? onFocusGained;
+  // 文字/标题输入框失焦（收起键盘/切到别的控件）时通知父级清掉
+  // focusedBlockId——不然格式工具栏只会越绑越"新"，永远不会真正收起
+  final VoidCallback? onFocusLost;
+  // 非文字类block（图片/代码/公式等）点击时通知父级——这些block不适用
+  // 格式工具栏，点了应该让工具栏收起，不是继续绑在上一个文字block上
+  final VoidCallback? onNonTextTap;
+  // 父级当前"激活"的是哪个block——卡片自己的chrome（拖拽手柄/AI按钮/
+  // 移动/删除/边框）只在这个block是激活态时才显示，平时收起来减少噪音
+  final String? focusedBlockId;
   // 每次上传文件成功（图片/视频/音频/文件）把后端返回的 file id 报给
   // PublishScreen 收集，退出未保存时用来清理 COS 里这些孤儿文件
   final void Function(String fileId)? onFileUploaded;
@@ -110,6 +120,9 @@ class BlockCard extends ConsumerStatefulWidget {
     this.onMoveDown,
     required this.onChanged,
     this.onFocusGained,
+    this.onFocusLost,
+    this.onNonTextTap,
+    this.focusedBlockId,
     this.onFileUploaded,
   });
 
@@ -146,8 +159,14 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   }
 
   void _handleFocusChange() {
-    if (widget.block.focusNode.hasFocus) widget.onFocusGained?.call();
+    if (widget.block.focusNode.hasFocus) {
+      widget.onFocusGained?.call();
+    } else {
+      widget.onFocusLost?.call();
+    }
   }
+
+  bool get _isActive => widget.block.id == widget.focusedBlockId;
 
   @override
   void dispose() {
@@ -174,135 +193,163 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // 代码块整张卡片直接用深底——不再是白卡片里再套一个深色小块（白框
-    // 套深块两层嵌套很割裂），整块深色跟里面的代码区连成一体
+    // 套深块两层嵌套很割裂），整块深色跟里面的代码区连成一体。代码块的
+    // 深底+细描边不受激活态影响，一直保持（不然代码区没了容器背景，字
+    // 直接糊在页面背景上，比"吵"更难看）
     final isCode = widget.block.type == BlockType.code;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isCode ? const Color(0xFF1A1A1A) : Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: _focused
-              ? _primary
-              : isCode
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFEBEBEB),
-          width: _focused ? 1.0 : 0.5,
+    // 未激活时卡片完全透明、无边框，跟页面融为一体；激活时才浮出白色/
+    // 深色卡片背景+细描边——减少同屏一堆边框叠边框的视觉噪音，只有正在
+    // 编辑的那一个 block 需要被"框"出来
+    return GestureDetector(
+      // 非文字/标题类block自己没有走 onFocusGained 那条路（它们的
+      // FocusNode 没接到真正的输入框上，或者内部输入框跟格式工具栏无关，
+      // 比如代码/公式源码框），点了要主动告诉父级——translucent 不会
+      // 拦下内部各自的手势（图片点击换图/代码框输入等照常工作）
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        if (widget.block.type != BlockType.text &&
+            widget.block.type != BlockType.heading) {
+          widget.onNonTextTap?.call();
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: isCode
+              ? const Color(0xFF1A1A1A)
+              : (_isActive ? Theme.of(context).cardColor : Colors.transparent),
+          borderRadius: BorderRadius.circular(14),
+          border: isCode
+              ? Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 0.5,
+                )
+              : (_isActive
+                    ? Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFEBEBEB),
+                        width: 0.5,
+                      )
+                    : null),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 类型图标+类型名一行，操作按钮放在同一行右侧——上移/下移/复制/
-          // 折叠/删除这几个此前常驻平铺的图标收进一个「...」里，点开是
-          // iOS 原生风格的浮层菜单（圆角、细分割线、删除项标红），只留
-          // AI 入口和拖拽手柄常驻——这两个用得最频繁，藏进菜单反而多一次
-          // 点击
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 8, 0),
-            child: Row(
-              children: [
-                Icon(
-                  blockTypeIcon(widget.block.type),
-                  size: 14,
-                  color: const Color(0xFF999999),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  blockTypeLabel(l10n, widget.block.type),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF999999),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 类型图标+类型名一行，操作按钮放在同一行右侧——拖拽手柄/AI入口/
+            // 移动/删除只在这个block激活时才显示，平时收起来减少噪音
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 0),
+              child: Row(
+                children: [
+                  Icon(
+                    blockTypeIcon(widget.block.type),
+                    size: 14,
+                    color: const Color(0xFF999999),
                   ),
-                ),
-                const Spacer(),
-                if (_showsAiButton)
-                  _polishing
-                      ? const Padding(
+                  const SizedBox(width: 4),
+                  Text(
+                    blockTypeLabel(l10n, widget.block.type),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF999999),
+                    ),
+                  ),
+                  const Spacer(),
+                  // AI入口/上移/下移/删除/拖拽手柄——只在这个block是当前
+                  // 激活的那一个时才显示，没激活时收起来，同屏不再是一堆
+                  // block各自顶着一整排图标的噪音感
+                  if (_isActive) ...[
+                    if (_showsAiButton)
+                      _polishing
+                          ? const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: _primary,
+                                ),
+                              ),
+                            )
+                          : GestureDetector(
+                              onTap: _showAiMenu,
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.auto_awesome_outlined,
+                                  size: 15,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                            ),
+                    if (widget.onMoveUp != null)
+                      GestureDetector(
+                        onTap: widget.onMoveUp,
+                        child: const Padding(
                           padding: EdgeInsets.all(4),
-                          child: SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: _primary,
-                            ),
-                          ),
-                        )
-                      : GestureDetector(
-                          onTap: _showAiMenu,
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: Icon(
-                              Icons.auto_awesome_outlined,
-                              size: 15,
-                              color: Colors.grey.shade400,
-                            ),
+                          child: Icon(
+                            Icons.arrow_upward,
+                            size: 16,
+                            color: Color(0xFFBBBBBB),
                           ),
                         ),
-                if (widget.onMoveUp != null)
-                  GestureDetector(
-                    onTap: widget.onMoveUp,
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.arrow_upward,
-                        size: 16,
-                        color: Color(0xFFBBBBBB),
+                      ),
+                    if (widget.onMoveDown != null)
+                      GestureDetector(
+                        onTap: widget.onMoveDown,
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.arrow_downward,
+                            size: 16,
+                            color: Color(0xFFBBBBBB),
+                          ),
+                        ),
+                      ),
+                    GestureDetector(
+                      onTap: widget.onDelete,
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Color(0xFFBBBBBB),
+                        ),
                       ),
                     ),
-                  ),
-                if (widget.onMoveDown != null)
-                  GestureDetector(
-                    onTap: widget.onMoveDown,
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.arrow_downward,
-                        size: 16,
-                        color: Color(0xFFBBBBBB),
+                    const SizedBox(width: 2),
+                    // 光一个 Icon 摆在那不会自己变成拖拽热区——
+                    // ReorderableListView 默认是"长按列表项里任意没被别的
+                    // 手势抢走的地方"才能拖，跟"按住这个把手图标就立刻能拖"
+                    // 的直觉不一样。用 ReorderableDragStartListener 把拖拽
+                    // 手势精确绑定在这一个图标上，摁下就能拖，不用长按，
+                    // 也不会跟这一行其它按钮/下面的输入框抢手势
+                    ReorderableDragStartListener(
+                      index: widget.index,
+                      child: const Icon(
+                        Icons.drag_handle,
+                        size: 18,
+                        color: Color(0xFFDDDDDD),
                       ),
                     ),
-                  ),
-                GestureDetector(
-                  onTap: widget.onDelete,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.close,
-                      size: 16,
-                      color: Color(0xFFBBBBBB),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 2),
-                // 光一个 Icon 摆在那不会自己变成拖拽热区——
-                // ReorderableListView 默认是"长按列表项里任意没被别的
-                // 手势抢走的地方"才能拖，跟"按住这个把手图标就立刻能拖"
-                // 的直觉不一样。用 ReorderableDragStartListener 把拖拽
-                // 手势精确绑定在这一个图标上，摁下就能拖，不用长按，
-                // 也不会跟这一行其它按钮/下面的输入框抢手势
-                ReorderableDragStartListener(
-                  index: widget.index,
-                  child: const Icon(
-                    Icons.drag_handle,
-                    size: 18,
-                    color: Color(0xFFDDDDDD),
-                  ),
-                ),
-              ],
+                  ],
+                ],
+              ),
             ),
-          ),
-          Padding(
-            // 代码块铺满整张深色卡片，其它类型保持原来的四周留白
-            padding: isCode
-                ? const EdgeInsets.fromLTRB(0, 4, 0, 0)
-                : const EdgeInsets.fromLTRB(10, 6, 10, 10),
-            child: _buildContent(l10n),
-          ),
-        ],
+            Padding(
+              // 代码块铺满整张深色卡片，其它类型保持原来的四周留白
+              padding: isCode
+                  ? const EdgeInsets.fromLTRB(0, 4, 0, 0)
+                  : const EdgeInsets.fromLTRB(10, 6, 10, 10),
+              child: _buildContent(l10n),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1399,10 +1446,7 @@ th{background:#1e293b;color:#94a3b8}
                       textStyle: TextStyle(fontSize: 16, color: mathColor),
                       onErrorFallback: (err) => Text(
                         widget.block.content,
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                        ),
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
                       ),
                     ),
                   ),
