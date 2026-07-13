@@ -69,21 +69,10 @@ class MainShell extends ConsumerWidget {
       bottomNavigationBar: immersive
           ? null
           : DecoratedBox(
-              // 底部栏跟页面内容统一用同一个实色背景、平铺不圆角，深浅色都
-              // 跟内容"融为一体"。之前深色是 #0A0A1A@85% 半透明毛玻璃+圆角，
-              // 比内容底 #0A0A0F 偏蓝、圆角缺口还透出内容，跟纯黑内容拼在
-              // 一起显得突兀不协调；统一成实色 scaffoldBackgroundColor，只
-              // 在深色下留一条顶部细线做若有若无的分隔
+              // 底部栏跟页面内容统一用同一个实色背景、平铺不圆角、也不留
+              // 顶部分隔线，深浅色都跟内容彻底融为一体
               decoration: BoxDecoration(
                 color: Theme.of(context).scaffoldBackgroundColor,
-                border: isDark
-                    ? Border(
-                        top: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          width: 0.5,
-                        ),
-                      )
-                    : null,
               ),
               child: SafeArea(
                 top: false,
