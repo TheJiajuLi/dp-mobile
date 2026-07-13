@@ -52,6 +52,7 @@ import '../../features/notebook/screens/notebook_home_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/follow_list_screen.dart';
 import '../../features/profile/screens/user_profile_screen.dart';
+import '../../features/publish/models/block_model.dart';
 import '../../features/publish/screens/publish_screen.dart';
 import '../../features/search/screens/search_screen.dart';
 import '../../features/settings/screens/about_screen.dart';
@@ -102,7 +103,17 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/publish',
-      builder: (context, state) => const PublishScreen(),
+      builder: (context, state) {
+        // Notebook 一键发布等会通过 extra 带 {title, blocks} 预填新文章
+        final extra = state.extra;
+        if (extra is Map) {
+          return PublishScreen(
+            initialTitle: extra['title'] as String?,
+            initialBlocks: (extra['blocks'] as List?)?.cast<EditorBlock>(),
+          );
+        }
+        return const PublishScreen();
+      },
     ),
     GoRoute(
       path: '/publish/:id',
@@ -312,9 +323,7 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
         final tags =
-            (extra?['forumTags'] as List?)
-                ?.map((e) => e.toString())
-                .toList() ??
+            (extra?['forumTags'] as List?)?.map((e) => e.toString()).toList() ??
             const <String>[];
         return CreatePostScreen(
           forumId: extra?['forumId'] as String? ?? '',
@@ -371,9 +380,8 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/tutorial/poster',
-      builder: (context, state) => TutorialPosterScreen(
-        tutorial: state.extra as Map<String, dynamic>,
-      ),
+      builder: (context, state) =>
+          TutorialPosterScreen(tutorial: state.extra as Map<String, dynamic>),
     ),
     GoRoute(
       path: '/tutorial/:id',

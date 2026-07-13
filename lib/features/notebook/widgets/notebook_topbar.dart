@@ -19,10 +19,18 @@ class NotebookTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final divColor = isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFEBEBEB);
-    final btnBg = isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF0F0F0);
-    final btnBorder = isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE5E5E5);
-    final iconColor = isDark ? Colors.white.withValues(alpha: 0.6) : const Color(0xFF555555);
+    final divColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFFEBEBEB);
+    final btnBg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF0F0F0);
+    final btnBorder = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : const Color(0xFFE5E5E5);
+    final iconColor = isDark
+        ? Colors.white.withValues(alpha: 0.6)
+        : const Color(0xFF555555);
     final runBg = isDark ? const Color(0xFF6366F1) : const Color(0xFF1A1A1A);
 
     return Container(
@@ -52,7 +60,9 @@ class NotebookTopBar extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1A1A1A),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.9)
+                    : const Color(0xFF1A1A1A),
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -77,7 +87,10 @@ class NotebookTopBar extends StatelessWidget {
             child: Container(
               height: 30,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(color: runBg, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                color: runBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -85,13 +98,24 @@ class NotebookTopBar extends StatelessWidget {
                       ? const SizedBox(
                           width: 12,
                           height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.white,
+                          ),
                         )
-                      : const Icon(Icons.play_arrow, size: 14, color: Colors.white),
+                      : const Icon(
+                          Icons.play_arrow,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                   const SizedBox(width: 4),
                   Text(
                     isRunning ? '运行中' : '运行',
-                    style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),

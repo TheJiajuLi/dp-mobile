@@ -8,7 +8,9 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/network/api_client.dart';
+import '../../publish/models/block_model.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../models/notebook_language.dart';
@@ -441,7 +443,9 @@ Widget buildCellOutput(BuildContext context, String output, String? type) {
       );
     case 'image':
       try {
-        final base64Data = output.contains(',') ? output.split(',').last : output;
+        final base64Data = output.contains(',')
+            ? output.split(',').last
+            : output;
         return ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.memory(base64Decode(base64Data), fit: BoxFit.contain),
@@ -1241,6 +1245,81 @@ finally:
     super.dispose();
   }
 
+  // 一键发布为文章——把每个 cell 映射成文章 block，带进发布页（新文章）。
+  // markdown→text / latex→latex / 其它(python/sql/js/r/julia/html)→code；
+  // 文字输出挂到 code block 的 outputContent，图片输出额外出一个 image
+  // block，error 输出不带
+  void _publishAsArticle() {
+    final nb = _nb;
+    if (nb == null) return;
+    final blocks = <EditorBlock>[];
+    var idc = 0;
+    String nid() => 'nb${++idc}_${DateTime.now().microsecondsSinceEpoch}';
+
+    for (final cell in nb.cells) {
+      final code = cell.code.trim();
+      if (cell.type == 'markdown') {
+        if (code.isNotEmpty) {
+          blocks.add(
+            EditorBlock(id: nid(), type: BlockType.text, content: code),
+          );
+        }
+        continue;
+      }
+      if (cell.type == 'latex') {
+        if (code.isNotEmpty) {
+          blocks.add(
+            EditorBlock(id: nid(), type: BlockType.latex, content: code),
+          );
+        }
+        continue;
+      }
+      // 代码 cell
+      if (code.isNotEmpty) {
+        final runnable =
+            cell.type == 'python' ||
+            cell.type == 'javascript' ||
+            cell.type == 'sql';
+        final out = cell.output?.trim() ?? '';
+        final hasTextOut =
+            out.isNotEmpty &&
+            cell.outputType != 'error' &&
+            cell.outputType != 'image';
+        blocks.add(
+          EditorBlock(
+            id: nid(),
+            type: BlockType.code,
+            content: code,
+            language: cell.type,
+            isExecutable: runnable,
+            outputContent: hasTextOut ? cell.output : null,
+            outputType: hasTextOut ? cell.outputType : null,
+          ),
+        );
+      }
+      // 图片输出 → 额外一个 image block
+      if (cell.outputType == 'image' &&
+          (cell.output?.trim().isNotEmpty ?? false)) {
+        blocks.add(
+          EditorBlock(
+            id: nid(),
+            type: BlockType.image,
+            imageUrl: cell.output,
+            content: cell.output!,
+          ),
+        );
+      }
+    }
+
+    if (blocks.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Notebook 是空的，没有可发布的内容')));
+      return;
+    }
+    context.push('/publish', extra: {'title': nb.name, 'blocks': blocks});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -1328,6 +1407,23 @@ finally:
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // 一键发布为文章
+                      GestureDetector(
+                        onTap: _publishAsArticle,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: _primary, width: 1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.ios_share,
+                            color: _primary,
+                            size: 16,
                           ),
                         ),
                       ),
@@ -1699,7 +1795,8 @@ finally:
     );
   }
 
-  Widget _buildOutput(String output, String? type) => buildCellOutput(context, output, type);
+  Widget _buildOutput(String output, String? type) =>
+      buildCellOutput(context, output, type);
 }
 
 // CodeMirror 6 全屏编辑页——所有 cell 打开编辑时复用这一个 widget/WebView，
@@ -1782,9 +1879,9 @@ class _CodeEditorPageState extends State<_CodeEditorPage> {
     final code = await _webCtrl?.evaluateJavascript(source: 'window.getCode()');
     widget.onContentChanged((code as String?) ?? '');
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
+    );
   }
 
   Future<void> _run() async {
@@ -1884,14 +1981,18 @@ class _CodeEditorPageState extends State<_CodeEditorPage> {
                               children: [
                                 Icon(
                                   Icons.wifi_off,
-                                  color: isDark ? Colors.white38 : Colors.black26,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black26,
                                   size: 32,
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
                                   '加载较慢，请检查网络',
                                   style: TextStyle(
-                                    color: isDark ? Colors.white54 : Colors.black45,
+                                    color: isDark
+                                        ? Colors.white54
+                                        : Colors.black45,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -1909,12 +2010,16 @@ class _CodeEditorPageState extends State<_CodeEditorPage> {
                           : Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const CircularProgressIndicator(color: _primary),
+                                const CircularProgressIndicator(
+                                  color: _primary,
+                                ),
                                 const SizedBox(height: 12),
                                 Text(
                                   '正在加载编辑器…',
                                   style: TextStyle(
-                                    color: isDark ? Colors.white54 : Colors.black45,
+                                    color: isDark
+                                        ? Colors.white54
+                                        : Colors.black45,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -1965,8 +2070,7 @@ class _CodeEditorPageState extends State<_CodeEditorPage> {
                   ),
                 ),
               ),
-            if (lang != null)
-              SnippetBar(language: lang, onInsert: _insert),
+            if (lang != null) SnippetBar(language: lang, onInsert: _insert),
             KeyboardToolbar(
               onInsert: _insert,
               onMoveUp: () => _moveCursor(-1),

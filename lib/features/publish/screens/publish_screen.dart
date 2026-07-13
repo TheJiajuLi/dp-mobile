@@ -30,7 +30,17 @@ class PublishScreen extends ConsumerStatefulWidget {
   // 发布/草稿内容），会先拉一遍这篇教程的完整数据回填进编辑器，保存时
   // 走 PUT 更新原教程，不是再 POST 建一篇新的
   final String? tutorialId;
-  const PublishScreen({super.key, this.tutorialId});
+  // 从别处（如 Notebook 一键发布）带一批 block 预填进新文章——直接传
+  // EditorBlock 对象（不走 JSON：outputContent/outputType 不在 toJson 里，
+  // JSON 会丢）。只在新建（tutorialId 为空）时生效，不覆盖编辑已有教程
+  final String? initialTitle;
+  final List<EditorBlock>? initialBlocks;
+  const PublishScreen({
+    super.key,
+    this.tutorialId,
+    this.initialTitle,
+    this.initialBlocks,
+  });
   @override
   ConsumerState<PublishScreen> createState() => _PublishScreenState();
 }
@@ -348,6 +358,10 @@ setTimeout(() => {
     // 时候才显示，加了第一个 block 之后就跟正常编辑流程一样了
     if (widget.tutorialId != null) {
       _loadExisting(widget.tutorialId!);
+    } else if (widget.initialBlocks != null) {
+      // Notebook 一键发布等场景：用带进来的 block 预填新文章
+      if (widget.initialTitle != null) _titleCtrl.text = widget.initialTitle!;
+      _blocks.addAll(widget.initialBlocks!);
     }
   }
 
