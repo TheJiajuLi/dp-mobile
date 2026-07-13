@@ -414,11 +414,12 @@ Widget buildCellOutput(BuildContext context, String output, String? type) {
     case 'markdown':
       return MarkdownBody(data: output);
     case 'info':
+      // 去掉胶囊底色——跟下面 error 分支同一套"左侧细竖线强调，不填色"
+      // 的克制风格，不再是一块显眼的橙色底
       return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF7E6),
-          borderRadius: BorderRadius.circular(8),
+        padding: const EdgeInsets.only(left: 8),
+        decoration: const BoxDecoration(
+          border: Border(left: BorderSide(color: Color(0xFFD97706), width: 2)),
         ),
         child: Text(
           output,
@@ -1638,15 +1639,12 @@ finally:
             ),
             child: Row(
               children: [
-                Container(
+                // 序号/语言标签去掉胶囊底色，只留文字本身的颜色——跟卡片
+                // 整体"细描边、不填色"的克制风格统一，不再是每个cell头顶
+                // 一排彩色小药丸
+                SizedBox(
                   width: 24,
                   height: 24,
-                  decoration: BoxDecoration(
-                    color: isRunning
-                        ? _primary.withValues(alpha: 0.1)
-                        : Theme.of(context).inputDecorationTheme.fillColor,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
                   child: isRunning
                       ? const Padding(
                           padding: EdgeInsets.all(5),
@@ -1670,15 +1668,8 @@ finally:
                 ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Text(
                       badgeLabel,
                       maxLines: 1,
@@ -1716,16 +1707,12 @@ finally:
                   ),
                 ),
                 const SizedBox(width: 6),
-                // 删除按钮
+                // 删除按钮——去掉灰底胶囊，跟运行按钮一样只留图标本身
                 GestureDetector(
                   onTap: () => _deleteCell(cell.id),
-                  child: Container(
+                  child: SizedBox(
                     width: 30,
                     height: 30,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).inputDecorationTheme.fillColor,
-                      borderRadius: BorderRadius.circular(7),
-                    ),
                     child: Icon(Icons.close, color: Colors.grey[500], size: 15),
                   ),
                 ),
