@@ -34,31 +34,29 @@ Widget buildTutorialBlockWidget(
   switch (type) {
     case 'heading':
       final level = block['level'] as int? ?? 2;
+      final headingStyle = applyBlockTextFormat(
+        TextStyle(
+          fontSize: level == 2
+              ? 20
+              : level == 3
+              ? 17
+              : 15,
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+        isBold: block['bold'] == true,
+        isItalic: block['italic'] == true,
+        isUnderline: block['underline'] == true,
+        isStrike: block['strike'] == true,
+        textColorValue: (block['textColor'] as num?)?.toInt(),
+        highlightColorValue: (block['highlightColor'] as num?)?.toInt(),
+        fontFamily: block['fontFamily'] as String?,
+        fontSizeStep: (block['fontSizeStep'] as num?)?.toInt() ?? 1,
+        lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
+      );
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Text(
-          content,
-          style: applyBlockTextFormat(
-            TextStyle(
-              fontSize: level == 2
-                  ? 20
-                  : level == 3
-                  ? 17
-                  : 15,
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-            isBold: block['bold'] == true,
-            isItalic: block['italic'] == true,
-            isUnderline: block['underline'] == true,
-            isStrike: block['strike'] == true,
-            textColorValue: (block['textColor'] as num?)?.toInt(),
-            highlightColorValue: (block['highlightColor'] as num?)?.toInt(),
-            fontFamily: block['fontFamily'] as String?,
-            fontSizeStep: (block['fontSizeStep'] as num?)?.toInt() ?? 1,
-            lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
-          ),
-        ),
+        child: _headingContent(content, headingStyle),
       );
 
     case 'code':
@@ -326,6 +324,50 @@ Widget buildTutorialBlockWidget(
         ),
       );
   }
+}
+
+// heading block 支持行内 $...$ LaTeX——纯文字用 Text 走原来的路径，含
+// 公式的才切到 Text.rich + WidgetSpan（跟 AiContentRenderer 里行内公式
+// 一个思路）。headingStyle 已经套了 applyBlockTextFormat（加粗/颜色/
+// 高亮等），公式片段字号跟着缩小一档，视觉上不会比正文字还抢眼
+Widget _headingContent(String content, TextStyle headingStyle) {
+  final pattern = RegExp(r'\$([^$]+)\$');
+  final matches = pattern.allMatches(content).toList();
+  if (matches.isEmpty) return Text(content, style: headingStyle);
+
+  final mathFontSize = (headingStyle.fontSize ?? 20) * 0.85;
+  final spans = <InlineSpan>[];
+  var last = 0;
+  for (final m in matches) {
+    if (m.start > last) {
+      spans.add(TextSpan(text: content.substring(last, m.start)));
+    }
+    spans.add(
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Math.tex(
+          m.group(1)!,
+          textStyle: TextStyle(
+            fontSize: mathFontSize,
+            color: headingStyle.color,
+          ),
+          onErrorFallback: (_) => Text(
+            m.group(1)!,
+            style: TextStyle(
+              fontSize: mathFontSize * 0.9,
+              fontFamily: 'monospace',
+              color: headingStyle.color,
+            ),
+          ),
+        ),
+      ),
+    );
+    last = m.end;
+  }
+  if (last < content.length) {
+    spans.add(TextSpan(text: content.substring(last)));
+  }
+  return Text.rich(TextSpan(style: headingStyle, children: spans));
 }
 
 // 教程详情页（阅读视角）里可运行的代码块——只有 python/javascript/sql
