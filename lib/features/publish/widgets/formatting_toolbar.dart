@@ -67,9 +67,11 @@ class BlockFormattingToolbar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Divider(height: 0.5, thickness: 0.5, color: dividerColor),
+          // 字体样式 + 文字/高亮色合并成一行横向滚动——原来是上下两行 +
+          // 中间分割线，太占竖向空间；合成一行后高度砍掉约一半
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(
               children: [
                 _fmtBtn(
@@ -170,15 +172,7 @@ class BlockFormattingToolbar extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          Divider(height: 0.5, thickness: 0.5, color: dividerColor),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Row(
-              children: [
+                _fmtDivider(dividerColor),
                 Text(
                   l10n.formattingTextColorLabel,
                   style: TextStyle(fontSize: 11, color: Colors.grey[400]),
@@ -188,7 +182,8 @@ class BlockFormattingToolbar extends StatelessWidget {
                   (c) => _colorDot(
                     color: c ?? (isDarkMode ? Colors.white : Colors.black),
                     selected: b.textColorValue == c?.toARGB32(),
-                    onTap: () => _toggle(() => b.textColorValue = c?.toARGB32()),
+                    onTap: () =>
+                        _toggle(() => b.textColorValue = c?.toARGB32()),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -228,7 +223,8 @@ class BlockFormattingToolbar extends StatelessWidget {
 
   // 再点一次同一个 H 级别就转回普通文字段落，不用先切别的类型再切回来
   void _toggleHeading(EditorBlock b, int level) {
-    final alreadyThisLevel = b.type == BlockType.heading && b.headingLevel == level;
+    final alreadyThisLevel =
+        b.type == BlockType.heading && b.headingLevel == level;
     onConvertHeading(alreadyThisLevel ? null : level);
   }
 
