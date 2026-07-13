@@ -40,6 +40,11 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   // 不替用户做选择
   String _currentUrl = '';
   bool _importing = false;
+  // 导入横幅是否可点——不能只看 _currentUrl 是否非空：知乎是 SPA 路由，
+  // onLoadStop 的 url 参数在这种客户端跳转下经常拿不到准确值，
+  // _currentUrl 可能一直显示"没更新"，但 WebView 其实早就换了内容。
+  // 只要真的发生过一次有效导航（不管后续 URL 显示准不准）就该允许点
+  bool _hasNavigated = false;
 
   @override
   Widget build(BuildContext context) {
@@ -131,11 +136,11 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                   ),
                   const SizedBox(height: 6),
                   GestureDetector(
-                    // 还停在起始引导页（_currentUrl 为空）时点了也是抓
-                    // 引导页自己的 HTML，没有意义，禁掉
-                    onTap: (_importing || _currentUrl.isEmpty)
-                        ? null
-                        : _doImport,
+                    // 还没发生过任何一次有效导航时点了也是抓引导页自己
+                    // 的 HTML，没有意义，禁掉——判断依据是 _hasNavigated
+                    // 不是 _currentUrl.isEmpty，后者在知乎这类 SPA 路由
+                    // 站点上经常拿不到准确值，两者不是一回事
+                    onTap: (_importing || !_hasNavigated) ? null : _doImport,
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -143,7 +148,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                         vertical: 9,
                       ),
                       decoration: BoxDecoration(
-                        color: (_importing || _currentUrl.isEmpty)
+                        color: (_importing || !_hasNavigated)
                             ? Colors.grey[400]
                             : const Color(0xFF6366F1),
                         borderRadius: BorderRadius.circular(8),
@@ -162,9 +167,9 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                             child: Text(
                               _importing
                                   ? '正在提取文章内容...'
-                                  : _currentUrl.isEmpty
+                                  : !_hasNavigated
                                   ? '先选择或输入文章来源'
-                                  : '看到想导入的文章了？点这里',
+                                  : '导入当前页面的文章',
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
@@ -205,13 +210,35 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                     encoding: 'utf-8',
                   );
                 },
-                onLoadStop: (ctrl, url) {
-                  if (!mounted) return;
-                  final u = url?.toString() ?? '';
-                  // about:blank 本身也会触发一次 onLoadStop，不算真的
-                  // "导航到了一个页面"，_currentUrl 留空继续显示引导态
-                  if (u.isEmpty || u == 'about:blank') return;
-                  setState(() => _currentUrl = u);
+                // 单靠 onLoadStop 的 url 参数不可靠——知乎是 SPA 路由，
+                // 客户端跳转经常不触发一次干净的"整页加载完成"事件，
+                // 或者事件触发了但参数拿到的还是旧 URL。四路一起盯：
+                // 1) onLoadStop 主动用 ctrl.getUrl() 查一遍，不信参数
+                // 2) onUpdateVisitedHistory 专门抓 SPA 的 pushState 跳转
+                // 3) shouldOverrideUrlLoading 拦截跳转的最早时机，同时
+                //    顺手拦掉"在App内打开"这种 zhihu://等 scheme 跳转
+                //    （不拦的话知乎会试图拉起知乎App，内置浏览器直接被晾在原地）
+                // 4) onLoadStart 加载一开始就更新，不用等加载完
+                onLoadStart: (ctrl, url) => _updateUrl(url?.toString()),
+                onLoadStop: (ctrl, url) async {
+                  final u = await ctrl.getUrl();
+                  _updateUrl(u?.toString());
+                },
+                onUpdateVisitedHistory: (ctrl, url, isReload) async {
+                  final u = await ctrl.getUrl();
+                  _updateUrl(u?.toString());
+                },
+                shouldOverrideUrlLoading: (ctrl, action) async {
+                  final u = action.request.url?.toString() ?? '';
+                  // "在App内打开"拦截——不让它跳去 zhihu://weixin:// 这类
+                  // App scheme，内置浏览器留在原地，不然知乎会试图拉起App
+                  if (u.startsWith('zhihu://') ||
+                      u.startsWith('snssdk') ||
+                      u.startsWith('weixin://')) {
+                    return NavigationActionPolicy.CANCEL;
+                  }
+                  _updateUrl(u);
+                  return NavigationActionPolicy.ALLOW;
                 },
               ),
             ),
@@ -219,6 +246,20 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
         ),
       ),
     );
+  }
+
+  // about:blank/空字符串不算真的"导航到了一个页面"，_currentUrl 留空
+  // 继续显示引导态；其它任何非空 URL 都视为一次有效导航，_hasNavigated
+  // 一旦置 true 就不会再变回 false（用户就算导航回引导页也已经证明过
+  // WebView 是好的，没必要再让导入横幅灰回去）
+  void _updateUrl(String? url) {
+    final u = url ?? '';
+    if (u.isEmpty || u.startsWith('about:')) return;
+    if (!mounted) return;
+    setState(() {
+      _currentUrl = u;
+      _hasNavigated = true;
+    });
   }
 
   String _urlHost(String url) {
