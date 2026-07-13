@@ -231,10 +231,21 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEF0FF),
+                        // 深色下改成紫色实心 + 白色＋号（跟"全部"选中态一套
+                        // 视觉），浅色维持淡紫底 + 紫号
+                        color:
+                            Theme.of(context).brightness == Brightness.dark
+                            ? _primary
+                            : const Color(0xFFEEF0FF),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.add, color: _primary, size: 20),
+                      child: Icon(
+                        Icons.add,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : _primary,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
