@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -65,93 +64,75 @@ class MainShell extends ConsumerWidget {
 
     return Scaffold(
       body: navigationShell,
-      // 深色模式下改成毛玻璃底：半透明深底 + 20px 模糊 + 顶边框，跟页面
-      // 内容不再是同一块实色（之前直接读 scaffoldBackgroundColor 保证的
-      // "融为一体"），而是明确"浮"在内容之上的一层。浅色模式不跟着改，
-      // 沿用原来的实色融合方案——磨砂玻璃在浅色背景上视觉收益不明显，
-      // 还平白多一层 BackdropFilter 的渲染开销。immersive（极索回答态）
-      // 时整条隐藏，跟之前一样
+      // immersive（极索回答态）时整条隐藏，其余时候底部栏跟页面内容用同一
+      // 个实色背景，深浅色都跟内容融为一体
       bottomNavigationBar: immersive
           ? null
-          : ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
+          : DecoratedBox(
+              // 底部栏跟页面内容统一用同一个实色背景、平铺不圆角，深浅色都
+              // 跟内容"融为一体"。之前深色是 #0A0A1A@85% 半透明毛玻璃+圆角，
+              // 比内容底 #0A0A0F 偏蓝、圆角缺口还透出内容，跟纯黑内容拼在
+              // 一起显得突兀不协调；统一成实色 scaffoldBackgroundColor，只
+              // 在深色下留一条顶部细线做若有若无的分隔
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                border: isDark
+                    ? Border(
+                        top: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          width: 0.5,
+                        ),
+                      )
+                    : null,
               ),
-              child: BackdropFilter(
-                filter: isDark
-                    ? ImageFilter.blur(sigmaX: 20, sigmaY: 20)
-                    : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF0A0A1A).withValues(alpha: 0.85)
-                        : Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    border: isDark
-                        ? Border(
-                            top: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.08),
-                              width: 0.5,
-                            ),
-                          )
-                        : null,
-                    // 深色模式底部bar跟页面内容看起来是"一体的"（没有阴影），
-                    // 浅色模式之前留了一圈阴影，页面内容和底部bar之间露出
-                    // 一条看得出来的接缝，两种模式观感不一致——去掉阴影，
-                    // 浅色模式也跟深色模式一样融为一体
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: SizedBox(
-                      height: 60,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          // 首页跟发现合并成一个页面（发现的板块搬到首页
-                          // 顶部），这个tab的图标/文案换成原来发现tab的，
-                          // 不再单独占一个tab
-                          _NavItem(
-                            icon: Icons.explore_outlined,
-                            activeIcon: Icons.explore,
-                            label: l10n.navCommunity,
-                            selected: navigationShell.currentIndex == 0,
-                            onTap: () => _onTap(0),
-                          ),
-                          // 极索——替代原来发现tab的位置，小梦AI入口+
-                          // 应用宫格+社区精选
-                          _NavItem(
-                            iconBuilder: (selected) =>
-                                _JisuoIcon(selected: selected),
-                            label: '极索',
-                            selected: navigationShell.currentIndex == 1,
-                            onTap: () => _onTap(1),
-                          ),
-                          _PublishButton(onTap: () => context.push('/publish')),
-                          Consumer(
-                            builder: (context, ref, _) {
-                              final unread = ref.watch(unreadCountProvider);
-                              return _NavItem(
-                                icon: Icons.chat_bubble_outline,
-                                activeIcon: Icons.chat_bubble,
-                                label: l10n.messagesTitle,
-                                selected: navigationShell.currentIndex == 2,
-                                badgeCount: unread,
-                                onTap: () => _onTap(2),
-                              );
-                            },
-                          ),
-                          _NavItem(
-                            icon: Icons.person_outline,
-                            activeIcon: Icons.person,
-                            label: l10n.navProfile,
-                            selected: navigationShell.currentIndex == 3,
-                            onTap: () => _onTap(3),
-                          ),
-                        ],
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  height: 60,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      // 首页跟发现合并成一个页面（发现的板块搬到首页
+                      // 顶部），这个tab的图标/文案换成原来发现tab的，
+                      // 不再单独占一个tab
+                      _NavItem(
+                        icon: Icons.explore_outlined,
+                        activeIcon: Icons.explore,
+                        label: l10n.navCommunity,
+                        selected: navigationShell.currentIndex == 0,
+                        onTap: () => _onTap(0),
                       ),
-                    ),
+                      // 极索——替代原来发现tab的位置，小梦AI入口+
+                      // 应用宫格+社区精选
+                      _NavItem(
+                        iconBuilder: (selected) =>
+                            _JisuoIcon(selected: selected),
+                        label: '极索',
+                        selected: navigationShell.currentIndex == 1,
+                        onTap: () => _onTap(1),
+                      ),
+                      _PublishButton(onTap: () => context.push('/publish')),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final unread = ref.watch(unreadCountProvider);
+                          return _NavItem(
+                            icon: Icons.chat_bubble_outline,
+                            activeIcon: Icons.chat_bubble,
+                            label: l10n.messagesTitle,
+                            selected: navigationShell.currentIndex == 2,
+                            badgeCount: unread,
+                            onTap: () => _onTap(2),
+                          );
+                        },
+                      ),
+                      _NavItem(
+                        icon: Icons.person_outline,
+                        activeIcon: Icons.person,
+                        label: l10n.navProfile,
+                        selected: navigationShell.currentIndex == 3,
+                        onTap: () => _onTap(3),
+                      ),
+                    ],
                   ),
                 ),
               ),
