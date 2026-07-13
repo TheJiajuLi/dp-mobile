@@ -46,14 +46,18 @@ class SettingsGroup extends StatelessWidget {
       }
       rows.add(children[i]);
     }
+    // Container 自己的 decoration（border+borderRadius）配 clipBehavior
+    // 会有个经典的 Flutter 渲染坑：内部负责裁切的 ClipPath 跟负责画描边
+    // 的 BoxDecoration.paint() 用的不是同一份圆角几何，在圆角最尖的那个
+    // 点上偶尔会漏出一丁点没被裁掉的直角像素（肉眼要凑近才看得出来）。
+    // 拆成外层 Container（只管 margin+阴影，不裁切——阴影本来就要溢出
+    // 边界才有效果，裁了阴影就没了）+ 中间 ClipRRect（唯一的裁切来源，
+    // 保证圆角边界只有一份权威几何）+ 内层 Container（背景色+描边，被
+    // ClipRRect 干净地裁掉多余的角）
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        // 加一圈细描边，让"圆框"在深浅色下都清晰可见——深色下本来没有阴影，
-        // 卡片容易糊进背景；浅色下描边+淡阴影一起更有一线产品的边界感
-        border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
         boxShadow: isDark
             ? null
             : [
@@ -64,8 +68,22 @@ class SettingsGroup extends StatelessWidget {
                 ),
               ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: rows),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            // 加一圈细描边，让"圆框"在深浅色下都清晰可见——深色下本来
+            // 没有阴影，卡片容易糊进背景；浅色下描边+淡阴影一起更有
+            // 一线产品的边界感
+            border: Border.all(
+              color: Theme.of(context).dividerColor,
+              width: 0.5,
+            ),
+          ),
+          child: Column(children: rows),
+        ),
+      ),
     );
   }
 }
