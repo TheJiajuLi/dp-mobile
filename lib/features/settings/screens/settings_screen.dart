@@ -494,21 +494,25 @@ class _NotifSettingsSheet extends ConsumerWidget {
             dividerIndent: 16,
             [
               _toggle(
+                context,
                 l10n.likeNotifications,
                 settings.likes,
                 (v) => notifier.toggle('likes', v),
               ),
               _toggle(
+                context,
                 l10n.commentNotifications,
                 settings.comments,
                 (v) => notifier.toggle('comments', v),
               ),
               _toggle(
+                context,
                 l10n.followNotifications,
                 settings.follows,
                 (v) => notifier.toggle('follows', v),
               ),
               _toggle(
+                context,
                 l10n.systemNotifications,
                 settings.system,
                 (v) => notifier.toggle('system', v),
@@ -520,12 +524,20 @@ class _NotifSettingsSheet extends ConsumerWidget {
     );
   }
 
-  Widget _toggle(String title, bool value, ValueChanged<bool> onChanged) {
+  Widget _toggle(
+    BuildContext context,
+    String title,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
+    final colors = monoSwitchColors(context);
     return SwitchListTile(
       title: Text(title, style: const TextStyle(fontSize: 15)),
       value: value,
       onChanged: onChanged,
-      activeThumbColor: const Color(0xFF6366F1),
+      activeThumbColor: colors.thumb,
+      activeTrackColor: colors.track,
+      trackOutlineColor: colors.outline,
     );
   }
 }

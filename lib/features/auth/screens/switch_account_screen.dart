@@ -10,6 +10,7 @@ import '../auth_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../messages/providers/messages_provider.dart';
+import '../../settings/widgets/settings_row.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -163,39 +164,52 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                   Expanded(
                     child: ListView(
                       children: [
-                        ..._accounts.map(
-                          (a) => _AccountRow(
-                            id: a['id']?.toString() ?? '',
-                            username: a['username']?.toString() ?? '',
-                            avatar: a['avatar']?.toString(),
-                            isCurrent: a['id']?.toString() == currentUserId,
-                            managing: _managing,
-                            switching: _switchingId == a['id']?.toString(),
-                            onSwitch: () =>
-                                _switchTo(a['id']?.toString() ?? ''),
-                            onRemove: () => _remove(a['id']?.toString() ?? ''),
-                          ),
+                        const SizedBox(height: 8),
+                        SettingsGroup(
+                          dividerIndent: 68,
+                          _accounts
+                              .map(
+                                (a) => _AccountRow(
+                                  id: a['id']?.toString() ?? '',
+                                  username: a['username']?.toString() ?? '',
+                                  avatar: a['avatar']?.toString(),
+                                  isCurrent:
+                                      a['id']?.toString() == currentUserId,
+                                  managing: _managing,
+                                  switching:
+                                      _switchingId == a['id']?.toString(),
+                                  onSwitch: () =>
+                                      _switchTo(a['id']?.toString() ?? ''),
+                                  onRemove: () =>
+                                      _remove(a['id']?.toString() ?? ''),
+                                ),
+                              )
+                              .toList(),
                         ),
-                        ListTile(
-                          leading: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Theme.of(
-                                context,
-                              ).inputDecorationTheme.fillColor,
+                        SettingsGroup([
+                          ListTile(
+                            leading: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Theme.of(
+                                  context,
+                                ).inputDecorationTheme.fillColor,
+                              ),
+                              child: const Icon(Icons.add, color: _primary),
                             ),
-                            child: const Icon(Icons.add, color: _primary),
+                            title: Text(
+                              l10n.addOtherAccount,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            onTap: () => context.push('/login'),
                           ),
-                          title: Text(
-                            l10n.addOtherAccount,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                          onTap: () => context.push('/login'),
-                        ),
+                        ]),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                           child: Text(
                             l10n.maxAccountsSupported,
                             style: TextStyle(
@@ -310,6 +324,7 @@ class _AccountRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
       leading: _buildAvatar(),
       title: Text(
@@ -330,15 +345,23 @@ class _AccountRow extends StatelessWidget {
                     ),
                   ))
           : isCurrent
+          // 之前是粉底红字——"当前登录"是个中性状态，不是警告/错误，用
+          // 报错色语义不对。改成中性灰底+跟随主题文字色，跟整套设置页
+          // 的黑白基调统一
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFF5F5F5),
                 borderRadius: BorderRadius.circular(99),
               ),
               child: Text(
                 AppLocalizations.of(context)!.currentlyLoggedIn,
-                style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
               ),
             )
           : switching
@@ -347,16 +370,29 @@ class _AccountRow extends StatelessWidget {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
             )
-          : OutlinedButton(
-              onPressed: onSwitch,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _primary,
-                side: const BorderSide(color: _primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          // 之前是紫色描边+紫字的 OutlinedButton，一圈实心边框跟整个
+          // 页面（圆角卡片、无描边、填充色胶囊）的视觉语言割裂。改成
+          // 同一套填充色胶囊、不描边
+          : GestureDetector(
+              onTap: onSwitch,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  AppLocalizations.of(context)!.switchToThisAccount,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _primary,
+                  ),
                 ),
               ),
-              child: Text(AppLocalizations.of(context)!.switchToThisAccount),
             ),
     );
   }

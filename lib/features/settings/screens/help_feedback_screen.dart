@@ -202,13 +202,21 @@ class _HelpFeedbackScreenState extends State<HelpFeedbackScreen> {
                 filled: true,
                 fillColor: Theme.of(context).cardColor,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                // 之前只设了 border/enabledBorder，没设 focusedBorder——
+                // 一点进去（哪怕是readOnly）就吃主题默认的聚焦描边（更粗
+                // 的品牌紫圈），看起来像个没改过样式的原生控件。直接去掉
+                // 描边，靠 filled 的胶囊底色区分，聚焦态也不例外
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                  borderSide: BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),

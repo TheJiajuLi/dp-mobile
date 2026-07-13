@@ -1,5 +1,21 @@
 import 'package:flutter/material.dart';
 
+// 设置页开关统一用黑白配色，不用品牌紫——紫色 activeThumbColor 配 M3
+// Switch 默认的浅紫描边轨道，两个紫叠在一起显得发闷，也跟"开关"这种
+// 纯功能性控件不需要抢视觉重点的定位不符。深色模式下纯黑轨道会跟
+// darkCard背景(#111118)糊在一起，所以轨道颜色反过来跟主题走：浅色黑
+// 轨道+白拨钮，深色白轨道+黑拨钒。trackOutlineColor 设透明去掉 M3
+// 默认的描边圈
+({Color thumb, Color track, WidgetStateProperty<Color?> outline})
+monoSwitchColors(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return (
+    thumb: isDark ? Colors.black : Colors.white,
+    track: isDark ? Colors.white : const Color(0xFF1A1A1A),
+    outline: const WidgetStatePropertyAll(Colors.transparent),
+  );
+}
+
 // 设置页公用的分组标题/卡片/行组件——settings_screen.dart 和
 // help_feedback_screen.dart 共用同一套视觉语言（圆角卡片浮在页面背景上，
 // 组内相邻行之间才画分割线），抽出来避免两处各写一份容易走样

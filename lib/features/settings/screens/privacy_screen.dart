@@ -75,6 +75,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final colors = monoSwitchColors(context);
     // 顶栏+页面背景统一用 scaffoldBackgroundColor（不再是 cardColor）。
     // 四行开关跟设置页 SettingsGroup 一样浮在页面背景上的圆角卡片——
     // 分割线缩进跟着 SwitchListTile 默认的 16 内边距对齐，而不是
@@ -98,7 +99,9 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 title: Text(l10n.publicProfile),
                 subtitle: Text(l10n.publicProfileSubtitle),
                 value: _publicProfile,
-                activeThumbColor: const Color(0xFF6366F1),
+                activeThumbColor: colors.thumb,
+                activeTrackColor: colors.track,
+                trackOutlineColor: colors.outline,
                 onChanged: (v) {
                   setState(() => _publicProfile = v);
                   _save('privacy_public_profile', v);
@@ -108,7 +111,9 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 title: Text(l10n.publicFavorites),
                 subtitle: Text(l10n.publicFavoritesSubtitle),
                 value: _publicFavorites,
-                activeThumbColor: const Color(0xFF6366F1),
+                activeThumbColor: colors.thumb,
+                activeTrackColor: colors.track,
+                trackOutlineColor: colors.outline,
                 onChanged: (v) {
                   setState(() => _publicFavorites = v);
                   _save('privacy_public_favorites', v);
@@ -118,7 +123,9 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 title: Text(l10n.allowComments),
                 subtitle: Text(l10n.allowCommentsSubtitle),
                 value: _allowComments,
-                activeThumbColor: const Color(0xFF6366F1),
+                activeThumbColor: colors.thumb,
+                activeTrackColor: colors.track,
+                trackOutlineColor: colors.outline,
                 onChanged: (v) {
                   setState(() => _allowComments = v);
                   _save('privacy_allow_comments', v);
@@ -128,7 +135,9 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
                 title: Text(l10n.allowMessages),
                 subtitle: Text(l10n.allowMessagesSubtitle),
                 value: _allowMessages,
-                activeThumbColor: const Color(0xFF6366F1),
+                activeThumbColor: colors.thumb,
+                activeTrackColor: colors.track,
+                trackOutlineColor: colors.outline,
                 onChanged: (v) {
                   setState(() => _allowMessages = v);
                   _save('privacy_allow_messages', v);
