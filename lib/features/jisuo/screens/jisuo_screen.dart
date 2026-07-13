@@ -581,19 +581,19 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               Expanded(
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 100),
-                  // 浅色下改成跟"发布提问"按钮同一套灰色胶囊视觉——纯灰底、
-                  // 不描边，不再是淡紫色调，跟输入框这种中性功能控件更搭
+                  // 浅色改成纯白胶囊 + 一圈极淡描边（纯白底在近白页面背景上
+                  // 会糊掉，靠描边把控件边界勾出来）；深色不变
                   decoration: BoxDecoration(
                     color: isDark
                         ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.grey[200],
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    border: isDark
-                        ? Border.all(
-                            color: Theme.of(context).dividerColor,
-                            width: 0.5,
-                          )
-                        : null,
+                    border: Border.all(
+                      color: isDark
+                          ? Theme.of(context).dividerColor
+                          : const Color(0xFFEAEAEA),
+                      width: 0.5,
+                    ),
                   ),
                   child: TextField(
                     controller: _inputCtrl,
@@ -656,19 +656,18 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     child: Container(
                       width: 44,
                       height: 44,
-                      // 跟左边输入框保持同一套胶囊视觉：浅色也是"发布提问"
-                      // 同款纯灰底、不描边
+                      // 跟左边输入框保持同一套胶囊视觉：浅色纯白底 + 极淡描边
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.06)
-                            : Colors.grey[200],
+                            : Colors.white,
                         shape: BoxShape.circle,
-                        border: isDark
-                            ? Border.all(
-                                color: Theme.of(context).dividerColor,
-                                width: 0.5,
-                              )
-                            : null,
+                        border: Border.all(
+                          color: isDark
+                              ? Theme.of(context).dividerColor
+                              : const Color(0xFFEAEAEA),
+                          width: 0.5,
+                        ),
                       ),
                       child: Icon(
                         streaming ? Icons.stop_rounded : Icons.arrow_upward,
