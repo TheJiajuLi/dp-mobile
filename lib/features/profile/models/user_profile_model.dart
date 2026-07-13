@@ -5,6 +5,10 @@ class UserProfile {
   final String? avatar;
   final String? bio;
   final String? website;
+  // 个人主页封面/背景图。2026-07-13 后端上线：GET /auth/me 和
+  // GET /auth/users/profile/:identifier 都会返回 cover_image，换封面走
+  // PATCH /auth/me/cover 落到服务端（不再只存本地）
+  final String? coverImage;
   // 后端目前还没有这3个字段（截至2026-07-04实测不返回）——后端接口
   // 上线前这几个值恒为 null，UI 那边已经做了 null 就不显示的兼容
   final String? gender;
@@ -54,6 +58,7 @@ class UserProfile {
     this.avatar,
     this.bio,
     this.website,
+    this.coverImage,
     this.gender,
     this.location,
     this.zodiac,
@@ -79,6 +84,7 @@ class UserProfile {
     avatar: avatar ?? this.avatar,
     bio: bio,
     website: website,
+    coverImage: coverImage,
     gender: gender,
     location: location,
     zodiac: zodiac,
@@ -104,6 +110,7 @@ class UserProfile {
     avatar: j['avatar']?.toString(),
     bio: j['bio']?.toString(),
     website: j['website']?.toString(),
+    coverImage: j['cover_image']?.toString(),
     gender: j['gender']?.toString(),
     location: j['location']?.toString(),
     zodiac: j['zodiac']?.toString(),

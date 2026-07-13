@@ -6,6 +6,9 @@ class UserModel {
   final String? avatar;
   final String? bio;
   final String? website;
+  // 个人主页封面/背景图。2026-07-13 后端上线：GET /auth/me 返回 cover_image，
+  // 换封面走 PATCH /auth/me/cover（不再只存本地SharedPreferences）
+  final String? coverImage;
   final int? createdAt;
   // 后端目前还没有这4个字段（截至2026-07-04实测 PATCH /auth/me 会静默
   // 丢弃，GET /auth/me 不返回）——后端接口上线前这几个值只会停留在内存里，
@@ -51,6 +54,7 @@ class UserModel {
     this.avatar,
     this.bio,
     this.website,
+    this.coverImage,
     this.createdAt,
     this.gender,
     this.location,
@@ -75,6 +79,7 @@ class UserModel {
     avatar: json['avatar'],
     bio: json['bio'],
     website: json['website'],
+    coverImage: json['cover_image'] as String?,
     createdAt: json['created_at'],
     gender: json['gender'] as String?,
     location: json['location'] as String?,
@@ -103,6 +108,7 @@ class UserModel {
     'avatar': avatar,
     'bio': bio,
     'website': website,
+    'cover_image': coverImage,
     'created_at': createdAt,
     'gender': gender,
     'location': location,
@@ -124,6 +130,7 @@ class UserModel {
     String? bio,
     String? website,
     String? avatar,
+    String? coverImage,
     String? gender,
     String? location,
     String? birthday,
@@ -145,6 +152,7 @@ class UserModel {
     avatar: avatar ?? this.avatar,
     bio: bio ?? this.bio,
     website: website ?? this.website,
+    coverImage: coverImage ?? this.coverImage,
     createdAt: createdAt,
     gender: gender ?? this.gender,
     location: location ?? this.location,

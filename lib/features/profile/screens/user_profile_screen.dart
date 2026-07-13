@@ -363,6 +363,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         avatar: currentUser.avatar,
         bio: currentUser.bio,
         website: currentUser.website,
+        coverImage: currentUser.coverImage,
         gender: currentUser.gender,
         location: currentUser.location,
         zodiac: currentUser.zodiac,
@@ -488,19 +489,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     setState(() => _tutorials = tuts);
   }
 
-  // 个人链接/背景图目前只存在本地 SharedPreferences（后端没有这几个
-  // 字段——背景图倒是可以真的传去 COS，只是没有专门的"背景图 URL"字段能
-  // 存回用户资料，只能借用 /auth/files/upload 传完之后自己存本地）
+  // 封面图 2026-07-13 起落到服务端（users.cover_image）。这里优先用
+  // profile.coverImage，兼容旧数据回退到本地 legacy key；如果服务端还没有、
+  // 本地却有（老用户之前只存了本地），且是自己的主页，就顺手迁移上去一次。
   //
-  // 星座优先用后端 profile.zodiac；后端字段没上线前这里恒为 null，
-  // 退回读本地 legacy key（只有"我自己"之前用编辑资料页存过才会命中，
-  // 别人的主页本来就读不到别人设备上的本地存储）
+  // 个人链接仍只存本地（后端没有对应字段）。星座优先用后端 profile.zodiac。
   Future<void> _loadLocalPrefs(UserProfile profile) async {
     final userId = profile.id;
     final prefs = await SharedPreferences.getInstance();
     final zodiac = profile.zodiac ?? prefs.getString('${userId}_zodiac');
     final linksJson = prefs.getString('${userId}_links') ?? '[]';
-    final coverImageUrl = prefs.getString('${userId}_cover_image');
+    final localCover = prefs.getString('${userId}_cover_image');
+    final coverImageUrl = profile.coverImage ?? localCover;
     var links = <String>[];
     try {
       final decoded = jsonDecode(linksJson);
@@ -512,6 +512,33 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       _links = links.take(3).toList();
       _coverImageUrl = coverImageUrl;
     });
+
+    // 迁移：服务端还没存、本地有旧封面、且是自己 → 补传一次到服务端
+    final currentUser = ref.read(currentUserProvider);
+    final isSelf = currentUser != null && currentUser.id == userId;
+    if (isSelf &&
+        (profile.coverImage == null || profile.coverImage!.isEmpty) &&
+        localCover != null &&
+        localCover.isNotEmpty) {
+      await _persistCover(localCover);
+    }
+  }
+
+  // 把封面URL落到服务端 PATCH /auth/me/cover——后端会顺带清掉被替换的旧
+  // COS文件。失败静默（本地已有值，不打断用户）
+  Future<void> _persistCover(String url) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .patch('/auth/me/cover', data: {'cover_image': url});
+    if (res.success) {
+      // 同步更新 currentUserProvider 里的 coverImage，避免下次进主页又触发迁移
+      final cu = ref.read(currentUserProvider);
+      if (cu != null) {
+        ref.read(currentUserProvider.notifier).state = cu.copyWith(
+          coverImage: url,
+        );
+      }
+    }
   }
 
   Future<void> _pickAndUploadCover() async {
@@ -560,6 +587,8 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('${userId}_cover_image', url);
         setState(() => _coverImageUrl = url);
+        // 落到服务端（PATCH /auth/me/cover），后端会顺带清掉被替换的旧COS文件
+        await _persistCover(url);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
