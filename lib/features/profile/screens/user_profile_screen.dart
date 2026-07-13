@@ -1282,6 +1282,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         ),
                         onCoverTap: _pickAndUploadCover,
                         onLinksTap: () => _showLinksSheet(l10n),
+                        onNotebookTap: () => context.push('/notebook'),
                         onEditProfile: () async {
                           await context.push('/edit-profile');
                           if (mounted) _loadProfile();

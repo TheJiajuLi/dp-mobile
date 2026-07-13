@@ -62,6 +62,8 @@ class ProfileHeaderWidget extends StatelessWidget {
   final VoidCallback onAvatarTap;
   final VoidCallback onCoverTap;
   final VoidCallback onLinksTap;
+  // 只在自己主页显示——头图操作行里进入 Notebook 首页（/notebook）的入口
+  final VoidCallback onNotebookTap;
   final Future<void> Function() onEditProfile;
   final VoidCallback onToggleFollow;
   final VoidCallback onStartChat;
@@ -100,6 +102,7 @@ class ProfileHeaderWidget extends StatelessWidget {
     required this.onAvatarTap,
     required this.onCoverTap,
     required this.onLinksTap,
+    required this.onNotebookTap,
     required this.onEditProfile,
     required this.onToggleFollow,
     required this.onStartChat,
@@ -451,6 +454,7 @@ class ProfileHeaderWidget extends StatelessWidget {
                         onTap: () => onEditProfile(),
                       ),
                       const SizedBox(width: 6),
+                      _heroIconButton(Icons.menu_book_rounded, onNotebookTap),
                       _heroIconButton(Icons.link_rounded, onLinksTap),
                     ] else ...[
                       _headerActionButton(
