@@ -160,7 +160,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     // 在线状态：先用会话带来的 last_seen 兜底一个初始状态，再每 60 秒
     // 用 /auth/users/online-status 的真实状态字符串覆盖
-    _otherUserStatus = _statusFromLastSeen(widget.conversation?.otherLastSeenAt);
+    _otherUserStatus = _statusFromLastSeen(
+      widget.conversation?.otherLastSeenAt,
+    );
     _refreshOtherUserStatus();
     _statusTimer = Timer.periodic(
       const Duration(seconds: 60),
@@ -1155,34 +1157,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             // 混在消息中间，先按天分组拼成一份 timeline 再渲染，不是每个
             // item 各自临时判断——分组结果每条消息只用算一次
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Builder(
-                      builder: (ctx) {
-                        final timeline = _buildTimeline();
-                        final hintOffset = _hasStrangerHint ? 1 : 0;
-                        return ListView.builder(
-                          controller: _scrollCtrl,
-                          padding: const EdgeInsets.all(12),
-                          itemCount: timeline.length + hintOffset,
-                          itemBuilder: (ctx, i) {
-                            if (_hasStrangerHint && i == 0) {
-                              return _buildStrangerHint();
-                            }
-                            final item = timeline[i - hintOffset];
-                            return switch (item) {
-                              _DateSeparator(:final day) => _buildDateSeparator(
-                                day,
-                              ),
-                              _MessageItem(:final message) => _buildBubble(
-                                message,
-                                currentUserId,
-                              ),
-                            };
-                          },
-                        );
-                      },
-                    ),
+              // 点消息列表空白处收起键盘
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : Builder(
+                        builder: (ctx) {
+                          final timeline = _buildTimeline();
+                          final hintOffset = _hasStrangerHint ? 1 : 0;
+                          return ListView.builder(
+                            controller: _scrollCtrl,
+                            padding: const EdgeInsets.all(12),
+                            itemCount: timeline.length + hintOffset,
+                            itemBuilder: (ctx, i) {
+                              if (_hasStrangerHint && i == 0) {
+                                return _buildStrangerHint();
+                              }
+                              final item = timeline[i - hintOffset];
+                              return switch (item) {
+                                _DateSeparator(:final day) =>
+                                  _buildDateSeparator(day),
+                                _MessageItem(:final message) => _buildBubble(
+                                  message,
+                                  currentUserId,
+                                ),
+                              };
+                            },
+                          );
+                        },
+                      ),
+              ),
             ),
 
             // 图片发送中提示——上传/发消息接口都要走一次网络请求，
