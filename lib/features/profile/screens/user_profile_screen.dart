@@ -29,8 +29,7 @@ import '../widgets/profile_blocked_widget.dart';
 import '../widgets/profile_header_widget.dart';
 import '../widgets/profile_painters.dart';
 import '../widgets/profile_tabs_widget.dart';
-import '../widgets/tutorial_grid_card.dart';
-import '../widgets/tutorial_list_card.dart';
+import '../../../shared/widgets/article_flow_item.dart';
 
 const _primary = Color(0xFF6366F1);
 // 网易云风格视觉语言（2026-07-05 重设计）：米白底 + 近黑正文 + 紫蓝只做
@@ -1376,16 +1375,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       ),
                                       physics:
                                           const AlwaysScrollableScrollPhysics(),
-                                      padding: const EdgeInsets.all(12),
+                                      padding: EdgeInsets.zero,
                                       itemCount: _tutorials.length,
                                       itemBuilder: (ctx, i) {
                                         final t = _tutorials[i];
-                                        return TutorialListCard(
+                                        return ArticleFlowItem(
                                           tutorial: t,
                                           onTap: () =>
                                               context.push('/tutorial/${t.id}'),
-                                          onMoreTap: () =>
-                                              _todo(l10n.comingSoonStayTuned),
                                         );
                                       },
                                     ),
@@ -1512,31 +1509,20 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                             physics:
                                                 const AlwaysScrollableScrollPhysics(),
                                             slivers: [
-                                              SliverPadding(
-                                                padding: const EdgeInsets.all(
-                                                  12,
-                                                ),
-                                                sliver: SliverGrid(
-                                                  gridDelegate:
-                                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                                        crossAxisCount: 2,
-                                                        mainAxisSpacing: 8,
-                                                        crossAxisSpacing: 8,
-                                                        childAspectRatio: 0.75,
-                                                      ),
-                                                  delegate: SliverChildBuilderDelegate((
-                                                    ctx,
-                                                    i,
-                                                  ) {
-                                                    final t = _saves[i];
-                                                    return TutorialGridCard(
-                                                      tutorial: t,
-                                                      onTap: () => context.push(
-                                                        '/tutorial/${t.id}',
-                                                      ),
-                                                    );
-                                                  }, childCount: _saves.length),
-                                                ),
+                                              SliverList(
+                                                delegate:
+                                                    SliverChildBuilderDelegate((
+                                                      ctx,
+                                                      i,
+                                                    ) {
+                                                      final t = _saves[i];
+                                                      return ArticleFlowItem(
+                                                        tutorial: t,
+                                                        onTap: () => context.push(
+                                                          '/tutorial/${t.id}',
+                                                        ),
+                                                      );
+                                                    }, childCount: _saves.length),
                                               ),
                                               if (_savesLoadingMore)
                                                 const SliverToBoxAdapter(
@@ -1588,30 +1574,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                                       physics:
                                           const AlwaysScrollableScrollPhysics(),
                                       slivers: [
-                                        SliverPadding(
-                                          padding: const EdgeInsets.all(12),
-                                          sliver: SliverGrid(
-                                            gridDelegate:
-                                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                                  crossAxisCount: 2,
-                                                  mainAxisSpacing: 8,
-                                                  crossAxisSpacing: 8,
-                                                  childAspectRatio: 0.75,
-                                                ),
-                                            delegate:
-                                                SliverChildBuilderDelegate((
-                                                  ctx,
-                                                  i,
-                                                ) {
-                                                  final t = _likes[i];
-                                                  return TutorialGridCard(
-                                                    tutorial: t,
-                                                    onTap: () => context.push(
-                                                      '/tutorial/${t.id}',
-                                                    ),
-                                                  );
-                                                }, childCount: _likes.length),
-                                          ),
+                                        SliverList(
+                                          delegate: SliverChildBuilderDelegate((
+                                            ctx,
+                                            i,
+                                          ) {
+                                            final t = _likes[i];
+                                            return ArticleFlowItem(
+                                              tutorial: t,
+                                              onTap: () => context.push(
+                                                '/tutorial/${t.id}',
+                                              ),
+                                            );
+                                          }, childCount: _likes.length),
                                         ),
                                         if (_likesLoadingMore)
                                           const SliverToBoxAdapter(

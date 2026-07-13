@@ -7,9 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
+import '../../../shared/widgets/article_flow_item.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/providers/messages_provider.dart';
 import '../providers/home_feed_provider.dart';
@@ -384,7 +384,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // "最新" tab：同一份数据在展示层按 createdAt 重新排一遍——后端确认过
     // 目前没有 sort 参数，加了也会被忽略，这里保证不管后端支不支持这个
     // tab 看到的都是真的按时间新到旧
-    var items = state.filtered.where((t) => !_hiddenIds.contains(t.id)).toList();
+    var items = state.filtered
+        .where((t) => !_hiddenIds.contains(t.id))
+        .toList();
     if (_mainTab == _MainTab.latest) {
       items = [...items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
@@ -413,9 +415,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return [
       SliverList(
         delegate: SliverChildBuilderDelegate((context, i) {
-          return _FeedItem(
+          return ArticleFlowItem(
             tutorial: items[i],
-            isDark: isDarkMode,
+            onTap: () => _openTutorial(context, items[i]),
             onHide: () => setState(() => _hiddenIds.add(items[i].id)),
           );
         }, childCount: items.length),
@@ -473,7 +475,9 @@ class _HeaderIconButton extends StatelessWidget {
               Icon(
                 icon,
                 size: 22,
-                color: isDark ? Colors.white.withValues(alpha: 0.85) : const Color(0xFF1A1A1A),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.85)
+                    : const Color(0xFF1A1A1A),
               ),
               if (showDot)
                 Positioned(
@@ -486,7 +490,9 @@ class _HeaderIconButton extends StatelessWidget {
                       color: const Color(0xFFEF4444),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isDark ? AppColors.darkBg : const Color(0xFFFAFAF8),
+                        color: isDark
+                            ? AppColors.darkBg
+                            : const Color(0xFFFAFAF8),
                         width: 1.5,
                       ),
                     ),
@@ -535,285 +541,6 @@ class _Avatar extends StatelessWidget {
               ),
             )
           : null,
-    );
-  }
-}
-
-// 无边框沉浸式 Feed 条目——知乎/Twitter 风格：没有卡片背景色、没有
-// border，条目之间只靠底部一条 0.5px 分割线分隔，内容直接浮在页面
-// 背景上
-class _FeedItem extends StatelessWidget {
-  final TutorialModel tutorial;
-  final bool isDark;
-  final VoidCallback onHide;
-  const _FeedItem({
-    required this.tutorial,
-    required this.isDark,
-    required this.onHide,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final textPrimary = isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1A1A);
-    final textSecondary = isDark ? AppColors.darkTextSecondary : const Color(0xFF888888);
-    final divider = isDark ? AppColors.darkDivider : const Color(0xFFF0F0F0);
-    final actionDivider = isDark ? AppColors.darkBorder : const Color(0xFFF5F5F5);
-    // "来源行"只在真的能确认内容来自小梦（账号 username=='小梦'）时才
-    // 显示——没有别的字段能判断一篇教程是不是小梦发的，不编造这个状态
-    final showSource = tutorial.username == '小梦';
-
-    return GestureDetector(
-      onTap: () => _openTutorial(context, tutorial),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 14, 12, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showSource) ...[
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 8,
-                        backgroundColor: _primary,
-                        child: Text(
-                          '梦',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '小梦 · 发表了文章',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark
-                              ? const Color(0xFF555555)
-                              : const Color(0xFFAAAAAA),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                Text(
-                  tutorial.title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
-                    height: 1.45,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _AuthorAvatar(
-                      avatar: tutorial.avatar,
-                      username: tutorial.username,
-                      isFoundingCreator: tutorial.isFoundingCreator,
-                      radius: 11,
-                    ),
-                    const SizedBox(width: 7),
-                    Text(
-                      tutorial.username,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF888888),
-                      ),
-                    ),
-                  ],
-                ),
-                if ((tutorial.preview?.isNotEmpty ?? false) ||
-                    tutorial.coverImage?.isNotEmpty == true) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (tutorial.preview?.isNotEmpty ?? false)
-                        Expanded(
-                          child: Text(
-                            tutorial.preview!,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: textSecondary,
-                              height: 1.7,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )
-                      else
-                        const Spacer(),
-                      // 封面只做成小卡片缩略图，不再铺满一整行——没有封面
-                      // 就完全不占位，不留空白
-                      if (tutorial.coverImage?.isNotEmpty == true) ...[
-                        const SizedBox(width: 10),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: CachedNetworkImage(
-                            imageUrl: tutorial.coverImage!,
-                            width: 76,
-                            height: 76,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: actionDivider, width: 0.5),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      _ActionBtn(
-                        icon: Icons.thumb_up_outlined,
-                        label: '${tutorial.likes}',
-                        isDark: isDark,
-                        onTap: () => _openTutorial(context, tutorial),
-                      ),
-                      _ActionBtn(
-                        icon: Icons.bookmark_outline,
-                        label: '收藏',
-                        isDark: isDark,
-                        onTap: () => _openTutorial(context, tutorial),
-                      ),
-                      _ActionBtn(
-                        icon: Icons.chat_bubble_outline,
-                        label: '评论',
-                        isDark: isDark,
-                        onTap: () => _openTutorial(context, tutorial),
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: onHide,
-                        child: Icon(
-                          Icons.close,
-                          size: 16,
-                          color: isDark
-                              ? const Color(0xFF444444)
-                              : const Color(0xFFCCCCCC),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(height: 0.5, color: divider),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isDark;
-  final VoidCallback onTap;
-  const _ActionBtn({
-    required this.icon,
-    required this.label,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isDark ? const Color(0xFF666666) : const Color(0xFF888888);
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 20),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 12, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AuthorAvatar extends StatelessWidget {
-  final String? avatar;
-  final String username;
-  final double radius;
-  final bool isFoundingCreator;
-  const _AuthorAvatar({
-    required this.avatar,
-    required this.username,
-    this.radius = 9,
-    this.isFoundingCreator = false,
-  });
-
-  Widget _letter() => CircleAvatar(
-    radius: radius,
-    backgroundColor: _primary.withValues(alpha: 0.15),
-    child: Text(
-      username.isNotEmpty ? username.substring(0, 1) : '?',
-      style: TextStyle(
-        fontSize: radius,
-        fontWeight: FontWeight.w700,
-        color: _primary,
-      ),
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return FoundingAvatarRing(
-      isFoundingCreator: isFoundingCreator,
-      size: radius * 2,
-      child: _content(context),
-    );
-  }
-
-  Widget _content(BuildContext context) {
-    if (avatar == null || avatar!.isEmpty) return _letter();
-
-    if (avatar!.startsWith('data:image')) {
-      try {
-        final raw = avatar!.split(',').last;
-        return CircleAvatar(
-          radius: radius,
-          backgroundImage: MemoryImage(base64Decode(raw)),
-        );
-      } catch (_) {
-        return _letter();
-      }
-    }
-
-    return ClipOval(
-      child: SizedBox(
-        width: radius * 2,
-        height: radius * 2,
-        child: CachedNetworkImage(
-          imageUrl: avatar!,
-          fit: BoxFit.cover,
-          placeholder: (context, url) =>
-              Container(color: Theme.of(context).dividerColor),
-          errorWidget: (context, url, error) => _letter(),
-        ),
-      ),
     );
   }
 }
