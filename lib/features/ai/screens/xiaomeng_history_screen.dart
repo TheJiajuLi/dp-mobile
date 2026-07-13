@@ -78,6 +78,43 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
     }
   }
 
+  // 清空全部——顶栏扫帚图标的handler，之前漏写了，点了就是个死按钮。
+  // 复用 DELETE /auth/xmeng/conversations（不带id，后端按当前用户清空
+  // 全部），跟单条删除同一套确认弹窗写法
+  Future<void> _confirmClearAll() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空历史对话'),
+        content: Text('将删除全部 ${_conversations.length} 条对话记录，清空后无法恢复'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清空', style: TextStyle(color: Color(0xFFDC2626))),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final res =
+        await ref.read(apiClientProvider).delete('/auth/xmeng/conversations');
+    if (!mounted) return;
+    if (res.success) {
+      setState(() => _conversations = []);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('历史对话已清空')));
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '清空失败，请稍后重试')));
+    }
+  }
+
   // 后端没有存"这个对话属于哪个类型"，用标题里的关键词粗略猜一个图标——
   // 纯客户端的近似展示，不是真的分类，猜不中就落到默认的对话图标
   IconData _iconFor(String title) {
@@ -163,15 +200,19 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
                       ),
                     ),
                   ),
-                  // 新建对话入口——回到欢迎页开始新的一轮对话
-                  GestureDetector(
-                    onTap: () => context.push('/xiaomeng'),
-                    child: const SizedBox(
-                      width: 34,
-                      height: 34,
-                      child: Icon(Icons.edit_outlined, size: 18),
+                  // 清空历史对话——有记录才显示，避免空列表时点了个寂寞；
+                  // 没记录时留一个等宽占位，保持标题居中
+                  if (_conversations.isEmpty)
+                    const SizedBox(width: 34, height: 34)
+                  else
+                    GestureDetector(
+                      onTap: _confirmClearAll,
+                      child: const SizedBox(
+                        width: 34,
+                        height: 34,
+                        child: Icon(Icons.cleaning_services_outlined, size: 18),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
