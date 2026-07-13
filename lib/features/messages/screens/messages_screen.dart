@@ -180,7 +180,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     final showDms = _filter == _PreviewFilter.all && previewConvs.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 浅色统一成首页那种偏米白的 #FAFAF8（比全局 scaffold 的冷灰白
+      // #F7F7FB 更舒服），深色维持主题背景
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFFAFAF8),
       body: SafeArea(
         child: ListView(
           children: [

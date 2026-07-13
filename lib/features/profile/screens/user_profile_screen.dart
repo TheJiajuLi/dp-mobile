@@ -37,11 +37,10 @@ const _primary = Color(0xFF6366F1);
 // 点缀，卡片用 0.5px 细线不用阴影。深色模式下这几个不跟着主题走的固定色
 // 只在浅色场景使用，深色场景仍然读 Theme.of(context) 已有的那一套
 const _ink = Color(0xFF1A1A1A);
-// 2026-07-06 起改成 AppColors.bg（跟首页/发现页/消息页/底部导航栏统一），
-// 原来自己配的 #FAFAF8 跟 Theme.of(context).scaffoldBackgroundColor 拿到的
-// #F7F7FB 是两个非常接近但不相同的浅灰白，页面之间拼接处会露出一条很淡
-// 但看得出来的接缝
-const _heroBg = AppColors.bg;
+// 浅色背景统一成首页那种偏米白的 #FAFAF8——首页实际用的就是 #FAFAF8，
+// 之前误以为是 AppColors.bg(#F7F7FB) 冷灰白，跟首页并不一致，看着偏冷。
+// 改回 #FAFAF8 跟首页真正对齐，更舒服
+const _heroBg = Color(0xFFFAFAF8);
 
 String _initial(String? name) {
   if (name == null || name.isEmpty) return '?';
