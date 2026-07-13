@@ -132,15 +132,19 @@ class ArticleFlowItem extends StatelessWidget {
                       else
                         const Spacer(),
                       // 封面只做成小卡片缩略图，不再铺满一整行——没有封面
-                      // 就完全不占位，不留空白
+                      // 就完全不占位，不留空白。缩略图之前是76，没有摘要
+                      // 文字的文章（preview为空）这一行就只有一个空
+                      // Spacer+这么高的图，整张卡片被撑得很高，操作栏被
+                      // 顶到很下面——缩小到44，摘要文字环绕在左边，图小了
+                      // 整行高度也跟着降下来，操作栏自然就上移了
                       if (tutorial.coverImage?.isNotEmpty == true) ...[
                         const SizedBox(width: 10),
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                           child: CachedNetworkImage(
                             imageUrl: tutorial.coverImage!,
-                            width: 76,
-                            height: 76,
+                            width: 44,
+                            height: 44,
                             fit: BoxFit.cover,
                           ),
                         ),
