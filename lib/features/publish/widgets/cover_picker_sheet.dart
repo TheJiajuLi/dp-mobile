@@ -7,8 +7,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/services/xmeng_image_service.dart';
-import '../../../core/utils/membership_utils.dart';
-import '../../../core/widgets/pro_gate.dart';
 import '../../../l10n/generated/app_localizations.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -98,34 +96,30 @@ Future<void> showCoverOptions(
               onPickGallery();
             },
           ),
-          ProGate(
-            check: MembershipUtils.canUseXmeng,
-            featureName: '小梦 AI',
-            child: ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF0FF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_outlined,
-                  size: 18,
-                  color: _primary,
-                ),
+          ListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF0FF),
+                borderRadius: BorderRadius.circular(10),
               ),
-              title: const Text('小梦帮我生成封面'),
-              subtitle: const Text(
-                '根据标题和标签自动生成',
-                style: TextStyle(fontSize: 11),
+              child: const Icon(
+                Icons.auto_awesome_outlined,
+                size: 18,
+                color: _primary,
               ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-              onTap: () {
-                Navigator.pop(ctx);
-                onAiGenerate();
-              },
             ),
+            title: const Text('小梦帮我生成封面'),
+            subtitle: const Text(
+              '根据标题和标签自动生成',
+              style: TextStyle(fontSize: 11),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+            onTap: () {
+              Navigator.pop(ctx);
+              onAiGenerate();
+            },
           ),
         ],
       ),
@@ -400,32 +394,28 @@ void showCoverPickerSheet(
                 ),
               ),
               const SizedBox(height: 12),
-              ProGate(
-                check: MembershipUtils.canUseXmeng,
-                featureName: '小梦 AI',
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      onRegenerate();
-                    },
-                    icon: const Icon(
-                      Icons.refresh,
-                      size: 16,
-                      color: Color(0xFF6366F1),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    onRegenerate();
+                  },
+                  icon: const Icon(
+                    Icons.refresh,
+                    size: 16,
+                    color: Color(0xFF6366F1),
+                  ),
+                  label: const Text(
+                    '重新生成',
+                    style: TextStyle(color: Color(0xFF6366F1)),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF6366F1)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    label: const Text(
-                      '重新生成',
-                      style: TextStyle(color: Color(0xFF6366F1)),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF6366F1)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
               ),
