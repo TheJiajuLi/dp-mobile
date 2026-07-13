@@ -165,28 +165,24 @@ class _SwitchAccountScreenState extends ConsumerState<SwitchAccountScreen> {
                     child: ListView(
                       children: [
                         const SizedBox(height: 8),
-                        SettingsGroup(
-                          dividerIndent: 68,
-                          _accounts
-                              .map(
-                                (a) => _AccountRow(
-                                  id: a['id']?.toString() ?? '',
-                                  username: a['username']?.toString() ?? '',
-                                  avatar: a['avatar']?.toString(),
-                                  isCurrent:
-                                      a['id']?.toString() == currentUserId,
-                                  managing: _managing,
-                                  switching:
-                                      _switchingId == a['id']?.toString(),
-                                  onSwitch: () =>
-                                      _switchTo(a['id']?.toString() ?? ''),
-                                  onRemove: () =>
-                                      _remove(a['id']?.toString() ?? ''),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                        SettingsGroup([
+                        // 账号列表 + "添加其他账号" 合进同一个 SettingsGroup，
+                        // 渲染成一整张圆角大卡片（行间只画分割线），不再是
+                        // 两张各自带间距的独立卡片块
+                        SettingsGroup(dividerIndent: 68, [
+                          ..._accounts.map(
+                            (a) => _AccountRow(
+                              id: a['id']?.toString() ?? '',
+                              username: a['username']?.toString() ?? '',
+                              avatar: a['avatar']?.toString(),
+                              isCurrent: a['id']?.toString() == currentUserId,
+                              managing: _managing,
+                              switching: _switchingId == a['id']?.toString(),
+                              onSwitch: () =>
+                                  _switchTo(a['id']?.toString() ?? ''),
+                              onRemove: () =>
+                                  _remove(a['id']?.toString() ?? ''),
+                            ),
+                          ),
                           ListTile(
                             leading: Container(
                               width: 44,
