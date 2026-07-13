@@ -48,11 +48,12 @@ String _initial(String? name) {
   return name.substring(0, 1).toUpperCase();
 }
 
-// 个人主页下半部（tab内容区）深色主题下的背景色——直接复用
-// app_theme.dart 深色 ThemeData 的 scaffoldBackgroundColor（#1C1C1E），
-// 不是自己另配一个更深的藏青色。跟全局深色主题背景不一致，会显得这个
-// 页面是另外拼上去的，不像同一个 app
-const _profileDarkBg = Color(0xFF1C1C1E);
+// 个人主页下半部（tab内容区）深色主题下的背景色——直接复用 app_theme.dart
+// 深色 ThemeData 的 scaffoldBackgroundColor（AppColors.darkBg，#0A0A0F），跟
+// 全局深色背景一致，不然这个页面看着像另外拼上去的、不像同一个 app。之前
+// 硬编码成 #1C1C1E，比真正的 scaffold 背景浅一截，整块发灰、跟底部栏/其它
+// 页面不统一
+const _profileDarkBg = AppColors.darkBg;
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   final String identifier; // username 或 handle

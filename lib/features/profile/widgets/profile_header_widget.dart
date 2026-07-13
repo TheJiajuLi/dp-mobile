@@ -18,7 +18,8 @@ import 'profile_painters.dart';
 const _primary = Color(0xFF6366F1);
 const _ink = Color(0xFF1A1A1A);
 const _heroBg = AppColors.bg;
-const _profileDarkBg = Color(0xFF1C1C1E);
+// 深色下跟全局 scaffoldBackgroundColor 一致（#0A0A0F），不再是更浅的 #1C1C1E
+const _profileDarkBg = AppColors.darkBg;
 const _kTabBarRadius = 20.0;
 
 // 头图区——封面背景铺满，内容按截图参考重排：顶部图标行、头像+用户名/

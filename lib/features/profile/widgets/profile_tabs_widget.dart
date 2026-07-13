@@ -12,7 +12,8 @@ const _primary = Color(0xFF6366F1);
 const _ink = Color(0xFF1A1A1A);
 const _muted = Color(0xFF999999);
 const _heroBg = AppColors.bg;
-const _profileDarkBg = Color(0xFF1C1C1E);
+// 深色下跟全局 scaffoldBackgroundColor 一致（#0A0A0F），不再是更浅的 #1C1C1E
+const _profileDarkBg = AppColors.darkBg;
 
 // 统计数字内联文字排列——文章/获赞/粉丝/关注挨个写在一行，last:true
 // 的最后一项右边不再留间距
