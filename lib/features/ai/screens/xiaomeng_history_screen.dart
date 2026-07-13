@@ -33,14 +33,19 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
   Future<void> _load() async {
     if (!mounted) return;
     if (_conversations.isEmpty) setState(() => _loading = true);
-    final res = await ref.read(apiClientProvider).get('/auth/xmeng/conversations');
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/xmeng/conversations');
     if (!mounted) return;
     setState(() {
       _loading = false;
       if (res.success && res.data is Map) {
         final list = ((res.data as Map)['conversations'] as List?) ?? const [];
         _conversations = list
-            .map((c) => AiConversation.fromJson(Map<String, dynamic>.from(c as Map)))
+            .map(
+              (c) =>
+                  AiConversation.fromJson(Map<String, dynamic>.from(c as Map)),
+            )
             .toList();
       }
     });
@@ -100,8 +105,9 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
       ),
     );
     if (confirm != true) return;
-    final res =
-        await ref.read(apiClientProvider).delete('/auth/xmeng/conversations');
+    final res = await ref
+        .read(apiClientProvider)
+        .delete('/auth/xmeng/conversations');
     if (!mounted) return;
     if (res.success) {
       setState(() => _conversations = []);
@@ -166,7 +172,10 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 浅色统一用首页同款米白 #FAFAF8，不再是偏冷的默认灰白；深色不变
+      backgroundColor: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFFAFAF8),
       body: SafeArea(
         child: Column(
           children: [
@@ -227,7 +236,8 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
                       child: ListView(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         children: [
-                          if (todayList.isNotEmpty) _section('今天', todayList, isDark),
+                          if (todayList.isNotEmpty)
+                            _section('今天', todayList, isDark),
                           if (yesterdayList.isNotEmpty)
                             _section('昨天', yesterdayList, isDark),
                           if (earlierList.isNotEmpty)
@@ -284,10 +294,8 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
 
   Widget _row(AiConversation conv, bool isDark) {
     return GestureDetector(
-      onTap: () => context.push(
-        '/xiaomeng/chat',
-        extra: {'conversationId': conv.id},
-      ),
+      onTap: () =>
+          context.push('/xiaomeng/chat', extra: {'conversationId': conv.id}),
       onLongPress: () => _confirmDelete(conv),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
