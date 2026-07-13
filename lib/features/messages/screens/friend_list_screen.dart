@@ -284,7 +284,10 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: Theme.of(ctx).brightness == Brightness.dark
                           ? BorderSide.none
-                          : BorderSide(color: Theme.of(ctx).dividerColor, width: 0.5),
+                          : BorderSide(
+                              color: Theme.of(ctx).dividerColor,
+                              width: 0.5,
+                            ),
                     ),
                     suffixIcon: TextButton(
                       onPressed: () => doSearch(ctrl.text),
@@ -458,9 +461,14 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildTabBody(l10n),
+              // 点空白处收起键盘
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildTabBody(l10n),
+              ),
             ),
           ],
         ),

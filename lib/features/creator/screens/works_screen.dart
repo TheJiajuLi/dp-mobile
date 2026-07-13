@@ -212,9 +212,14 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
               ),
             ),
             Expanded(
-              child: TabBarView(
-                controller: _tabCtrl,
-                children: _WorkTab.values.map(_buildTab).toList(),
+              // 点空白处收起键盘
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: TabBarView(
+                  controller: _tabCtrl,
+                  children: _WorkTab.values.map(_buildTab).toList(),
+                ),
               ),
             ),
           ],
@@ -339,12 +344,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
 
     return Row(
       children: [
-        stat(
-          Icons.grid_view_outlined,
-          _primary,
-          '${_allWorks.length}',
-          '作品数量',
-        ),
+        stat(Icons.grid_view_outlined, _primary, '${_allWorks.length}', '作品数量'),
         const SizedBox(width: 8),
         stat(
           Icons.check_circle_outline,

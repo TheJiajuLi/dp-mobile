@@ -62,7 +62,8 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
       final replies = (repliesRes.success && repliesRes.data is Map)
           ? (((repliesRes.data as Map)['replies'] as List?) ?? const [])
                 .map(
-                  (r) => ForumReply.fromJson(Map<String, dynamic>.from(r as Map)),
+                  (r) =>
+                      ForumReply.fromJson(Map<String, dynamic>.from(r as Map)),
                 )
                 .toList()
           : <ForumReply>[];
@@ -139,9 +140,9 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
     } else {
       // 失败：把清掉的文字还回去，方便重试
       _replyCtrl.text = text;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('回复失败：${res.message ?? '请稍后重试'}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('回复失败：${res.message ?? '请稍后重试'}')));
     }
   }
 
@@ -178,27 +179,32 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           : Column(
               children: [
                 Expanded(
-                  child: ListView(
-                    controller: _scrollCtrl,
-                    children: [
-                      _buildPostBody(isDark),
-                      _buildRepliesHeader(isDark),
-                      ..._replies.map(
-                        (reply) => _ReplyItem(
-                          reply: reply,
-                          isDark: isDark,
-                          onReply: () => _replyTo(reply),
-                          onLike: () async {
-                            await ref
-                                .read(apiClientProvider)
-                                .post(
-                                  '/auth/forums/likes/${reply.id}',
-                                  data: {'target_type': 'reply'},
-                                );
-                          },
+                  // 点空白处收起键盘
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => FocusScope.of(context).unfocus(),
+                    child: ListView(
+                      controller: _scrollCtrl,
+                      children: [
+                        _buildPostBody(isDark),
+                        _buildRepliesHeader(isDark),
+                        ..._replies.map(
+                          (reply) => _ReplyItem(
+                            reply: reply,
+                            isDark: isDark,
+                            onReply: () => _replyTo(reply),
+                            onLike: () async {
+                              await ref
+                                  .read(apiClientProvider)
+                                  .post(
+                                    '/auth/forums/likes/${reply.id}',
+                                    data: {'target_type': 'reply'},
+                                  );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 if (_quoteContent != null) _buildQuotePreview(isDark),

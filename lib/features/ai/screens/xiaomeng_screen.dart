@@ -95,165 +95,172 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
             ),
             const Divider(height: 20, thickness: 0.5),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                children: [
-                  Center(
-                    child: Column(
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 76,
-                              height: 76,
-                              decoration: const BoxDecoration(
-                                color: _primary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  '梦',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // 小梦是 AI，不是真实用户，没有 last_seen_at
-                            // 这种在线状态数据——不接 online_status.dart
-                            // 那套真实在线判定，就是个固定的"常驻在线"绿点
-                            Positioned(
-                              bottom: 2,
-                              right: 2,
-                              child: Container(
-                                width: 16,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF22C55E),
+              // 点空白处收起键盘
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  children: [
+                    Center(
+                      child: Column(
+                        children: [
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: 76,
+                                height: 76,
+                                decoration: const BoxDecoration(
+                                  color: _primary,
                                   shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Theme.of(
-                                      context,
-                                    ).scaffoldBackgroundColor,
-                                    width: 2.5,
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    '梦',
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
+                              // 小梦是 AI，不是真实用户，没有 last_seen_at
+                              // 这种在线状态数据——不接 online_status.dart
+                              // 那套真实在线判定，就是个固定的"常驻在线"绿点
+                              Positioned(
+                                bottom: 2,
+                                right: 2,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF22C55E),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Theme.of(
+                                        context,
+                                      ).scaffoldBackgroundColor,
+                                      width: 2.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            '你好，我是小梦',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyLarge?.color,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          '你好，我是小梦',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '博学的知识伙伴',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[500],
+                          const SizedBox(height: 8),
+                          Text(
+                            '博学的知识伙伴',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '数学·代码·人文·生活，随时问我',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[500],
-                            height: 1.5,
+                          const SizedBox(height: 2),
+                          Text(
+                            '数学·代码·人文·生活，随时问我',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
+                              height: 1.5,
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      // 1.7 算出来的格子高度跟内容实际需要的高度只差几像素，
+                      // 在真机字体度量下会被顶出来触发 "BOTTOM OVERFLOWED"——
+                      // 调宽裕一点，不是玄学调数字，是给 32(图标)+8+文字两行+
+                      // 上下 14*2 padding 留够空间
+                      childAspectRatio: 1.5,
+                      children: [
+                        _capabilityCard(
+                          isDark,
+                          icon: Icons.functions,
+                          iconColor: _primary,
+                          iconBg: const Color(0xFFEEF0FF),
+                          iconBgDark: const Color(0xFF20284A),
+                          label: '数学推导',
+                          subtitle: '公式·证明·计算',
+                          prefill: '帮我推导：',
+                        ),
+                        _capabilityCard(
+                          isDark,
+                          icon: Icons.code,
+                          iconColor: const Color(0xFF16A34A),
+                          iconBg: const Color(0xFFDCFCE7),
+                          iconBgDark: const Color(0xFF0F2A1A),
+                          label: '代码辅助',
+                          subtitle: 'Python·SQL·调试',
+                          prefill: '帮我写代码实现：',
+                        ),
+                        _capabilityCard(
+                          isDark,
+                          icon: Icons.bar_chart,
+                          iconColor: const Color(0xFFD97706),
+                          iconBg: const Color(0xFFFEF3C7),
+                          iconBgDark: const Color(0xFF2A1F00),
+                          label: '数据分析',
+                          subtitle: 'RFM·可视化·建模',
+                          prefill: '帮我分析：',
+                        ),
+                        _capabilityCard(
+                          isDark,
+                          icon: Icons.chat_bubble_outline,
+                          iconColor: const Color(0xFFEF4444),
+                          iconBg: const Color(0xFFFEE2E2),
+                          iconBgDark: const Color(0xFF2A0A0A),
+                          label: '随便聊聊',
+                          subtitle: '生活·娱乐·思考',
+                          prefill: null,
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    // 1.7 算出来的格子高度跟内容实际需要的高度只差几像素，
-                    // 在真机字体度量下会被顶出来触发 "BOTTOM OVERFLOWED"——
-                    // 调宽裕一点，不是玄学调数字，是给 32(图标)+8+文字两行+
-                    // 上下 14*2 padding 留够空间
-                    childAspectRatio: 1.5,
-                    children: [
-                      _capabilityCard(
-                        isDark,
-                        icon: Icons.functions,
-                        iconColor: _primary,
-                        iconBg: const Color(0xFFEEF0FF),
-                        iconBgDark: const Color(0xFF20284A),
-                        label: '数学推导',
-                        subtitle: '公式·证明·计算',
-                        prefill: '帮我推导：',
-                      ),
-                      _capabilityCard(
-                        isDark,
-                        icon: Icons.code,
-                        iconColor: const Color(0xFF16A34A),
-                        iconBg: const Color(0xFFDCFCE7),
-                        iconBgDark: const Color(0xFF0F2A1A),
-                        label: '代码辅助',
-                        subtitle: 'Python·SQL·调试',
-                        prefill: '帮我写代码实现：',
-                      ),
-                      _capabilityCard(
-                        isDark,
-                        icon: Icons.bar_chart,
-                        iconColor: const Color(0xFFD97706),
-                        iconBg: const Color(0xFFFEF3C7),
-                        iconBgDark: const Color(0xFF2A1F00),
-                        label: '数据分析',
-                        subtitle: 'RFM·可视化·建模',
-                        prefill: '帮我分析：',
-                      ),
-                      _capabilityCard(
-                        isDark,
-                        icon: Icons.chat_bubble_outline,
-                        iconColor: const Color(0xFFEF4444),
-                        iconBg: const Color(0xFFFEE2E2),
-                        iconBgDark: const Color(0xFF2A0A0A),
-                        label: '随便聊聊',
-                        subtitle: '生活·娱乐·思考',
-                        prefill: null,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    '试试这些',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                  ),
-                  const SizedBox(height: 8),
-                  _promptTile(
-                    isDark,
-                    icon: Icons.auto_awesome,
-                    text: '用贝叶斯定理解释医学检验的误差',
-                  ),
-                  const SizedBox(height: 8),
-                  _promptTile(
-                    isDark,
-                    icon: Icons.code,
-                    text: '帮我写一个 RFM 客户分层的 Python 代码',
-                  ),
-                  const SizedBox(height: 8),
-                  _promptTile(
-                    isDark,
-                    icon: Icons.functions,
-                    text: '证明欧拉公式 e^(iπ) + 1 = 0',
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                    const SizedBox(height: 20),
+                    Text(
+                      '试试这些',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                    ),
+                    const SizedBox(height: 8),
+                    _promptTile(
+                      isDark,
+                      icon: Icons.auto_awesome,
+                      text: '用贝叶斯定理解释医学检验的误差',
+                    ),
+                    const SizedBox(height: 8),
+                    _promptTile(
+                      isDark,
+                      icon: Icons.code,
+                      text: '帮我写一个 RFM 客户分层的 Python 代码',
+                    ),
+                    const SizedBox(height: 8),
+                    _promptTile(
+                      isDark,
+                      icon: Icons.functions,
+                      text: '证明欧拉公式 e^(iπ) + 1 = 0',
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
             _buildInputBar(isDark),

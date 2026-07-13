@@ -54,8 +54,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final l10n = AppLocalizations.of(context)!;
-    _slogan ??=
-        [l10n.appSlogan, l10n.slogan2, l10n.slogan3][Random().nextInt(3)];
+    _slogan ??= [
+      l10n.appSlogan,
+      l10n.slogan2,
+      l10n.slogan3,
+    ][Random().nextInt(3)];
   }
 
   @override
@@ -154,7 +157,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       // 别人用光/过期，服务端才是准的）
       final user = ref.read(currentUserProvider);
       setState(
-        () => _isFoundingCreator = user?.isFoundingCreator ?? _isFoundingCreator,
+        () =>
+            _isFoundingCreator = user?.isFoundingCreator ?? _isFoundingCreator,
       );
       _goToStep(3);
     } catch (e) {
@@ -165,9 +169,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -175,22 +177,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            if (_step < 3) _buildProgress(),
-            Expanded(
-              child: PageView(
-                controller: _pageCtrl,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildStep1Email(),
-                  _buildStep2Code(),
-                  _buildStep3Info(),
-                  _buildStepSuccess(),
-                ],
+        // 点空白处收起键盘
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            children: [
+              if (_step < 3) _buildProgress(),
+              Expanded(
+                child: PageView(
+                  controller: _pageCtrl,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildStep1Email(),
+                    _buildStep2Code(),
+                    _buildStep3Info(),
+                    _buildStepSuccess(),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -246,11 +253,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SvgPicture.asset(
-            'assets/images/app_icon.svg',
-            width: 72,
-            height: 72,
-          ),
+          SvgPicture.asset('assets/images/app_icon.svg', width: 72, height: 72),
           const SizedBox(height: 16),
           Text(
             _slogan ?? l10n.appSlogan,
@@ -391,7 +394,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               child: Text(
                 l10n.login,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -410,7 +416,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   style: const TextStyle(fontSize: 12, color: _primary),
                 ),
               ),
-              Text(' 与 ', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text(
+                ' 与 ',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
               GestureDetector(
                 onTap: () => context.push('/settings/privacy-policy'),
                 child: Text(
@@ -442,7 +451,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 16),
           const Text(
             '有邀请码吗？',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _ink),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _ink,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -686,7 +699,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 16),
           const Text(
             '设置账号信息',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _ink),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _ink,
+            ),
           ),
           if (_isFoundingCreator) ...[
             const SizedBox(height: 6),
@@ -808,7 +825,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 children: [
                   const Row(
                     children: [
-                      Text('★', style: TextStyle(fontSize: 14, color: Color(0xFFF59E0B))),
+                      Text(
+                        '★',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
                       SizedBox(width: 6),
                       Text(
                         '注册完成后你将获得',
@@ -826,12 +849,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         children: [
-                          const Icon(Icons.check, size: 14, color: Color(0xFF4ADE80)),
+                          const Icon(
+                            Icons.check,
+                            size: 14,
+                            color: Color(0xFF4ADE80),
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               perk,
-                              style: const TextStyle(fontSize: 13, color: Colors.white70),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.white70,
+                              ),
                             ),
                           ),
                         ],
@@ -931,7 +961,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           Text(
             _isFoundingCreator ? '你是极梦最早的一批创作者\n感谢你的信任与支持' : '欢迎加入极梦，开始你的创作之旅',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              height: 1.5,
+            ),
           ),
           if (_isFoundingCreator) ...[
             const SizedBox(height: 20),

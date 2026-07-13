@@ -116,10 +116,12 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
     // 颜色只是这个创建表单自己的预览效果——columns_table 没有存颜色的
     // 字段，创建之后列表里显示的颜色还是走上面那套按id确定性选色的规则，
     // 不是这里挑的这个，创建接口也不接受这个字段
-    final res = await ref.read(apiClientProvider).post(
-      '/auth/columns',
-      data: {'name': name, 'description': _descCtrl.text.trim()},
-    );
+    final res = await ref
+        .read(apiClientProvider)
+        .post(
+          '/auth/columns',
+          data: {'name': name, 'description': _descCtrl.text.trim()},
+        );
     if (!mounted) return;
     setState(() => _creating = false);
     if (!res.success) {
@@ -273,7 +275,9 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFEEF0FF) : Theme.of(context).cardColor,
+            color: selected
+                ? const Color(0xFFEEF0FF)
+                : Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: selected ? _primary : const Color(0xFFEBEBEB),
@@ -294,14 +298,22 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
                           width: 44,
                           height: 44,
                           color: fallbackColor,
-                          child: Icon(fallbackIcon, color: Colors.white, size: 20),
+                          child: Icon(
+                            fallbackIcon,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                       )
                     : Container(
                         width: 44,
                         height: 44,
                         color: fallbackColor,
-                        child: Icon(fallbackIcon, color: Colors.white, size: 20),
+                        child: Icon(
+                          fallbackIcon,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
               ),
               const SizedBox(width: 10),
@@ -311,7 +323,10 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
                   children: [
                     Text(
                       col.name,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -319,7 +334,10 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
                         col.articleCount,
                         col.subscriberCount,
                       ),
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF8E8E93)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF8E8E93),
+                      ),
                     ),
                   ],
                 ),
@@ -341,101 +359,148 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sheetHeader(
-              l10n.createColumnAction,
-              onBack: () => setState(() => _step = ColumnSheetStep.list),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '专栏颜色',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: List.generate(_coverColors.length, (i) {
-                      final c = _coverColors[i];
-                      final selected = _colorIndex == i;
-                      return GestureDetector(
-                        onTap: () => setState(() => _colorIndex = i),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          margin: const EdgeInsets.only(right: 10),
-                          decoration: BoxDecoration(
-                            color: c,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: selected ? Colors.white : Colors.transparent,
-                              width: 2,
+      // 点空白处收起键盘
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sheetHeader(
+                l10n.createColumnAction,
+                onBack: () => setState(() => _step = ColumnSheetStep.list),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '专栏颜色',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: List.generate(_coverColors.length, (i) {
+                        final c = _coverColors[i];
+                        final selected = _colorIndex == i;
+                        return GestureDetector(
+                          onTap: () => setState(() => _colorIndex = i),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            margin: const EdgeInsets.only(right: 10),
+                            decoration: BoxDecoration(
+                              color: c,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: selected
+                                    ? Colors.white
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                              boxShadow: selected
+                                  ? [
+                                      BoxShadow(
+                                        color: c.withValues(alpha: 0.4),
+                                        blurRadius: 6,
+                                      ),
+                                    ]
+                                  : null,
                             ),
-                            boxShadow: selected
-                                ? [BoxShadow(color: c.withValues(alpha: 0.4), blurRadius: 6)]
+                            child: selected
+                                ? const Icon(
+                                    Icons.check,
+                                    size: 16,
+                                    color: Colors.white,
+                                  )
                                 : null,
                           ),
-                          child: selected
-                              ? const Icon(Icons.check, size: 16, color: Colors.white)
-                              : null,
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Text(l10n.columnNameLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 4),
-                      const Text('*', style: TextStyle(color: Color(0xFFFF3B30), fontSize: 13)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _nameCtrl,
-                    autofocus: true,
-                    decoration: InputDecoration(hintText: l10n.columnNameHint),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(l10n.columnIntroLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _descCtrl,
-                    maxLines: 3,
-                    decoration: InputDecoration(hintText: l10n.columnDescOptionalLabel),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: ElevatedButton(
-                      onPressed: _creating ? null : _createColumn,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: _creating
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : Text(l10n.createColumnAction),
+                        );
+                      }),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Text(
+                          l10n.columnNameLabel,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          '*',
+                          style: TextStyle(
+                            color: Color(0xFFFF3B30),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _nameCtrl,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: l10n.columnNameHint,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      l10n.columnIntroLabel,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _descCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: l10n.columnDescOptionalLabel,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: ElevatedButton(
+                        onPressed: _creating ? null : _createColumn,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _creating
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(l10n.createColumnAction),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -488,7 +553,9 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFFD1D1D6)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: const Text('完成'),
             ),

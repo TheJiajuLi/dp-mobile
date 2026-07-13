@@ -66,9 +66,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         body: SafeArea(
           child: Stack(
             children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 80, 24, 32),
-                child: _sent ? _buildSuccess(isDark) : _buildForm(isDark),
+              // 点空白处收起键盘
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 80, 24, 32),
+                  child: _sent ? _buildSuccess(isDark) : _buildForm(isDark),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.only(left: 8, top: 4),
@@ -91,7 +96,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget _buildForm(bool isDark) {
     final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
     final muted = isDark ? Colors.white54 : Colors.grey[500];
-    final cardColor = isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white;
+    final cardColor = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.white;
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.10)
         : const Color(0xFFEBEBEB);
@@ -194,10 +201,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           child: ElevatedButton(
             onPressed: _loading ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDark ? AppColors.primary : const Color(0xFF1A1A1A),
+              backgroundColor: isDark
+                  ? AppColors.primary
+                  : const Color(0xFF1A1A1A),
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
             child: _loading
                 ? const SizedBox(
@@ -247,7 +258,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: 24),
         Text(
           '邮件已发送',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: ink),
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: ink,
+          ),
         ),
         const SizedBox(height: 10),
         Text(
@@ -268,10 +283,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           child: ElevatedButton(
             onPressed: () => context.go('/login'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDark ? AppColors.primary : const Color(0xFF1A1A1A),
+              backgroundColor: isDark
+                  ? AppColors.primary
+                  : const Color(0xFF1A1A1A),
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
             child: const Text(
               '返回登录',
@@ -282,7 +301,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: 16),
         GestureDetector(
           onTap: () => setState(() => _sent = false),
-          child: Text('没收到？重新发送', style: TextStyle(fontSize: 13, color: mutedLight)),
+          child: Text(
+            '没收到？重新发送',
+            style: TextStyle(fontSize: 13, color: mutedLight),
+          ),
         ),
       ],
     );

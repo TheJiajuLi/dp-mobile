@@ -168,7 +168,12 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
             _header(),
             _tabBar(),
             Expanded(
-              child: _tab == 0 ? _myColumnsBody() : _subscribedPlaceholder(),
+              // 点空白处收起键盘
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: _tab == 0 ? _myColumnsBody() : _subscribedPlaceholder(),
+              ),
             ),
           ],
         ),

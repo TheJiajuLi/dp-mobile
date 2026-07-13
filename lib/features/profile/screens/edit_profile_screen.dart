@@ -725,294 +725,306 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   ),
                 ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: Container(
-                      color: Theme.of(context).cardColor,
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 20),
-                          GestureDetector(
-                            onTap: _showAvatarOptions,
-                            child: Stack(
-                              children: [
-                                _buildAvatarPreview(),
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.45,
-                                      ),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Theme.of(context).cardColor,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.camera_alt,
-                                      color: Colors.white,
-                                      size: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            l10n.tapToChangeAvatar,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Divider(
-                            height: 1,
-                            thickness: 0.5,
-                            color: Theme.of(context).dividerColor,
-                          ),
-
-                          // 基本信息
-                          _textFieldRow(
-                            l10n.nicknameLabel,
-                            _usernameCtrl,
-                            l10n.nicknameHint,
-                          ),
-                          _textFieldRow(
-                            l10n.usernameLabel,
-                            _handleCtrl,
-                            l10n.usernameAtHint,
-                          ),
-                          _bioRow(),
-                          Divider(
-                            height: 1,
-                            thickness: 0.5,
-                            color: Theme.of(context).dividerColor,
-                          ),
-
-                          // 个人信息
-                          _formRow(
-                            label: l10n.genderLabel,
-                            showChevron: false,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: ['男', '女', '保密'].map((g) {
-                                final selected = _selectedGender == g;
-                                return GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _selectedGender = g),
-                                  child: Container(
-                                    margin: const EdgeInsets.only(left: 8),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: selected
-                                          ? const Color(0xFFEEF0FF)
-                                          : Theme.of(
-                                              context,
-                                            ).inputDecorationTheme.fillColor,
-                                      borderRadius: BorderRadius.circular(99),
-                                      border: Border.all(
-                                        color: selected
-                                            ? _primary
-                                            : Colors.transparent,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      genderDisplayLabel(l10n, g),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: selected
-                                            ? _primary
-                                            : Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall?.color,
-                                        fontWeight: selected
-                                            ? FontWeight.w600
-                                            : FontWeight.normal,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                          _textFieldRow(
-                            l10n.locationLabel,
-                            _locationCtrl,
-                            l10n.locationHint,
-                          ),
-                          _textFieldRow(
-                            l10n.occupationLabel,
-                            _occupationCtrl,
-                            l10n.occupationHint,
-                          ),
-                          _formRow(
-                            label: l10n.birthdayLabel,
-                            onTap: _showBirthdayPicker,
-                            child: _birthday == null
-                                ? Text(
-                                    l10n.selectBirthdayPlaceholder,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall?.color,
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        DateFormat.yMMMMd(
-                                          Localizations.localeOf(
-                                            context,
-                                          ).toString(),
-                                        ).format(_birthday!),
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          color: Theme.of(
-                                            context,
-                                          ).textTheme.bodyLarge?.color,
+                  // 点空白处收起键盘
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => FocusScope.of(context).unfocus(),
+                    child: SingleChildScrollView(
+                      child: Container(
+                        color: Theme.of(context).cardColor,
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            GestureDetector(
+                              onTap: _showAvatarOptions,
+                              child: Stack(
+                                children: [
+                                  _buildAvatarPreview(),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.45,
+                                        ),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Theme.of(context).cardColor,
+                                          width: 2,
                                         ),
                                       ),
-                                      const SizedBox(width: 6),
-                                      ZodiacIcon(sign: _zodiacSign!, size: 18),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        zodiacDisplayName(l10n, _zodiacSign!),
-                                        style: const TextStyle(
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        color: Colors.white,
+                                        size: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              l10n.tapToChangeAvatar,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Theme.of(context).dividerColor,
+                            ),
+
+                            // 基本信息
+                            _textFieldRow(
+                              l10n.nicknameLabel,
+                              _usernameCtrl,
+                              l10n.nicknameHint,
+                            ),
+                            _textFieldRow(
+                              l10n.usernameLabel,
+                              _handleCtrl,
+                              l10n.usernameAtHint,
+                            ),
+                            _bioRow(),
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Theme.of(context).dividerColor,
+                            ),
+
+                            // 个人信息
+                            _formRow(
+                              label: l10n.genderLabel,
+                              showChevron: false,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: ['男', '女', '保密'].map((g) {
+                                  final selected = _selectedGender == g;
+                                  return GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _selectedGender = g),
+                                    child: Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: selected
+                                            ? const Color(0xFFEEF0FF)
+                                            : Theme.of(
+                                                context,
+                                              ).inputDecorationTheme.fillColor,
+                                        borderRadius: BorderRadius.circular(99),
+                                        border: Border.all(
+                                          color: selected
+                                              ? _primary
+                                              : Colors.transparent,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        genderDisplayLabel(l10n, g),
+                                        style: TextStyle(
                                           fontSize: 13,
+                                          color: selected
+                                              ? _primary
+                                              : Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall?.color,
+                                          fontWeight: selected
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            _textFieldRow(
+                              l10n.locationLabel,
+                              _locationCtrl,
+                              l10n.locationHint,
+                            ),
+                            _textFieldRow(
+                              l10n.occupationLabel,
+                              _occupationCtrl,
+                              l10n.occupationHint,
+                            ),
+                            _formRow(
+                              label: l10n.birthdayLabel,
+                              onTap: _showBirthdayPicker,
+                              child: _birthday == null
+                                  ? Text(
+                                      l10n.selectBirthdayPlaceholder,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          DateFormat.yMMMMd(
+                                            Localizations.localeOf(
+                                              context,
+                                            ).toString(),
+                                          ).format(_birthday!),
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            color: Theme.of(
+                                              context,
+                                            ).textTheme.bodyLarge?.color,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        ZodiacIcon(
+                                          sign: _zodiacSign!,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          zodiacDisplayName(l10n, _zodiacSign!),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: _primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                            _formRow(
+                              label: '兴趣标签',
+                              onTap: _showInterestTagsSheet,
+                              child: _tags.isEmpty
+                                  ? Text(
+                                      '未设置',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color,
+                                      ),
+                                    )
+                                  : Wrap(
+                                      alignment: WrapAlignment.end,
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: _tags
+                                          .map(
+                                            (t) => InterestTag(
+                                              label: t,
+                                              glass: false,
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                            ),
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Theme.of(context).dividerColor,
+                            ),
+
+                            // 个人链接
+                            ..._linkCtrls.asMap().entries.map(
+                              (e) => _linkRow(e.key, e.value),
+                            ),
+                            if (_linkCtrls.length < 3)
+                              GestureDetector(
+                                onTap: _addLink,
+                                child: Container(
+                                  height: 52,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(
+                                            context,
+                                          ).inputDecorationTheme.fillColor,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.add,
                                           color: _primary,
+                                          size: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        l10n.addLink,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: _primary,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                     ],
                                   ),
-                          ),
-                          _formRow(
-                            label: '兴趣标签',
-                            onTap: _showInterestTagsSheet,
-                            child: _tags.isEmpty
-                                ? Text(
-                                    '未设置',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall?.color,
-                                    ),
-                                  )
-                                : Wrap(
-                                    alignment: WrapAlignment.end,
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    children: _tags
-                                        .map(
-                                          (t) => InterestTag(
-                                            label: t,
-                                            glass: false,
-                                          ),
-                                        )
-                                        .toList(),
+                                ),
+                              ),
+                            Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: Theme.of(context).dividerColor,
+                            ),
+
+                            if (_error != null)
+                              Container(
+                                margin: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFFECACA),
                                   ),
-                          ),
-                          Divider(
-                            height: 1,
-                            thickness: 0.5,
-                            color: Theme.of(context).dividerColor,
-                          ),
+                                ),
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: Color(0xFFDC2626),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
 
-                          // 个人链接
-                          ..._linkCtrls.asMap().entries.map(
-                            (e) => _linkRow(e.key, e.value),
-                          ),
-                          if (_linkCtrls.length < 3)
+                            const SizedBox(height: 24),
                             GestureDetector(
-                              onTap: _addLink,
-                              child: Container(
-                                height: 52,
+                              onTap: () => context.push('/settings/security'),
+                              child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
+                                  vertical: 12,
                                 ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 28,
-                                      height: 28,
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(
-                                          context,
-                                        ).inputDecorationTheme.fillColor,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.add,
-                                        color: _primary,
-                                        size: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      l10n.addLink,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: _primary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
+                                child: Text(
+                                  l10n.deleteAccount,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFFDC2626),
+                                  ),
                                 ),
                               ),
                             ),
-                          Divider(
-                            height: 1,
-                            thickness: 0.5,
-                            color: Theme.of(context).dividerColor,
-                          ),
-
-                          if (_error != null)
-                            Container(
-                              margin: const EdgeInsets.all(16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF2F2),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFFFECACA),
-                                ),
-                              ),
-                              child: Text(
-                                _error!,
-                                style: const TextStyle(
-                                  color: Color(0xFFDC2626),
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-
-                          const SizedBox(height: 24),
-                          GestureDetector(
-                            onTap: () => context.push('/settings/security'),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                l10n.deleteAccount,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFFDC2626),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
+                            const SizedBox(height: 24),
+                          ],
+                        ),
                       ),
                     ),
                   ),

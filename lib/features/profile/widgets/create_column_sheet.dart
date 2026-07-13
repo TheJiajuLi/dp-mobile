@@ -196,182 +196,194 @@ class _CreateColumnSheetState extends ConsumerState<CreateColumnSheet> {
               color: Color(0xFFF0F0F0),
             ),
             Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('封面'),
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        GestureDetector(
-                          onTap: _pickImage,
-                          child: Container(
-                            width: 96,
-                            height: 96,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: _coverColor ?? const Color(0xFFF5F5F5),
-                              borderRadius: BorderRadius.circular(14),
-                              image: _coverImageFile != null
-                                  ? DecorationImage(
-                                      image: FileImage(_coverImageFile!),
-                                      fit: BoxFit.cover,
+              // 点空白处收起键盘
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('封面'),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: Container(
+                              width: 96,
+                              height: 96,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _coverColor ?? const Color(0xFFF5F5F5),
+                                borderRadius: BorderRadius.circular(14),
+                                image: _coverImageFile != null
+                                    ? DecorationImage(
+                                        image: FileImage(_coverImageFile!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                                border:
+                                    _coverColor == null &&
+                                        _coverImageFile == null
+                                    ? Border.all(
+                                        color: const Color(0xFFEBEBEB),
+                                        width: 1,
+                                      )
+                                    : null,
+                              ),
+                              child: _coverImageFile != null
+                                  ? null
+                                  : _coverColor != null
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 26,
                                     )
-                                  : null,
-                              border:
-                                  _coverColor == null && _coverImageFile == null
-                                  ? Border.all(
-                                      color: const Color(0xFFEBEBEB),
-                                      width: 1,
-                                    )
-                                  : null,
-                            ),
-                            child: _coverImageFile != null
-                                ? null
-                                : _coverColor != null
-                                ? const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 26,
-                                  )
-                                : const Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.add_photo_alternate_outlined,
-                                        color: Color(0xFFBBBBBB),
-                                        size: 24,
-                                      ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        '上传封面',
-                                        style: TextStyle(
-                                          fontSize: 10,
+                                  : const Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.add_photo_alternate_outlined,
                                           color: Color(0xFFBBBBBB),
+                                          size: 24,
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          '上传封面',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFFBBBBBB),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '点左侧上传封面图，或选一个纯色',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[500],
+                                    height: 1.6,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _coverColors.map((c) {
+                                    final sel = _coverColor == c;
+                                    return GestureDetector(
+                                      onTap: () => setState(() {
+                                        _coverColor = sel ? null : c;
+                                        if (!sel) _coverImageFile = null;
+                                      }),
+                                      child: Container(
+                                        width: 30,
+                                        height: 30,
+                                        decoration: BoxDecoration(
+                                          color: c,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: sel
+                                              ? Border.all(
+                                                  color: const Color(
+                                                    0xFF1A1A1A,
+                                                  ),
+                                                  width: 2,
+                                                )
+                                              : null,
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '点左侧上传封面图，或选一个纯色',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[500],
-                                  height: 1.6,
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          _label('专栏名称'),
+                          const Text(
+                            ' *',
+                            style: TextStyle(color: Color(0xFFDC2626)),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${_nameCtrl.text.length}/30',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _field(
+                        _nameCtrl,
+                        '给你的专栏起个名字...',
+                        maxLength: 30,
+                        onChanged: () => setState(() {}),
+                      ),
+                      const SizedBox(height: 18),
+                      _label('简介'),
+                      const SizedBox(height: 8),
+                      _field(_descCtrl, '介绍一下这个专栏的内容...', maxLines: 3),
+                      const SizedBox(height: 18),
+                      _label('领域'),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _domainColors.keys.map((d) {
+                          final color = _domainColors[d]!;
+                          final sel = _selectedDomain == d;
+                          return GestureDetector(
+                            onTap: () => setState(
+                              () => _selectedDomain = sel ? null : d,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(
+                                  color: sel
+                                      ? color
+                                      : color.withValues(alpha: 0.2),
+                                  width: sel ? 1.5 : 0.5,
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: _coverColors.map((c) {
-                                  final sel = _coverColor == c;
-                                  return GestureDetector(
-                                    onTap: () => setState(() {
-                                      _coverColor = sel ? null : c;
-                                      if (!sel) _coverImageFile = null;
-                                    }),
-                                    child: Container(
-                                      width: 30,
-                                      height: 30,
-                                      decoration: BoxDecoration(
-                                        color: c,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: sel
-                                            ? Border.all(
-                                                color: const Color(0xFF1A1A1A),
-                                                width: 2,
-                                              )
-                                            : null,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        _label('专栏名称'),
-                        const Text(
-                          ' *',
-                          style: TextStyle(color: Color(0xFFDC2626)),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${_nameCtrl.text.length}/30',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _field(
-                      _nameCtrl,
-                      '给你的专栏起个名字...',
-                      maxLength: 30,
-                      onChanged: () => setState(() {}),
-                    ),
-                    const SizedBox(height: 18),
-                    _label('简介'),
-                    const SizedBox(height: 8),
-                    _field(_descCtrl, '介绍一下这个专栏的内容...', maxLines: 3),
-                    const SizedBox(height: 18),
-                    _label('领域'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _domainColors.keys.map((d) {
-                        final color = _domainColors[d]!;
-                        final sel = _selectedDomain == d;
-                        return GestureDetector(
-                          onTap: () =>
-                              setState(() => _selectedDomain = sel ? null : d),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(99),
-                              border: Border.all(
-                                color: sel
-                                    ? color
-                                    : color.withValues(alpha: 0.2),
-                                width: sel ? 1.5 : 0.5,
+                              child: Text(
+                                d,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: color,
+                                ),
                               ),
                             ),
-                            child: Text(
-                              d,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: color,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

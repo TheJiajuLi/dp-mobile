@@ -194,11 +194,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           children: [
             if (_avatarFile == null)
               const Center(
-                child: Icon(
-                  Icons.groups_outlined,
-                  size: 30,
-                  color: _primary,
-                ),
+                child: Icon(Icons.groups_outlined, size: 30, color: _primary),
               ),
             Positioned(
               bottom: 0,
@@ -390,7 +386,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
         children: [
           _buildStepBar(isDark),
           Expanded(
-            child: _step == 1 ? _buildStep1(isDark) : _buildStep2(isDark),
+            // 点空白处收起键盘
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: _step == 1 ? _buildStep1(isDark) : _buildStep2(isDark),
+            ),
           ),
         ],
       ),

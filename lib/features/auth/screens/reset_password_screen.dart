@@ -13,7 +13,8 @@ class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key, required this.token});
 
   @override
-  ConsumerState<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
 class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
@@ -85,13 +86,22 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           iconTheme: IconThemeData(color: ink),
           title: Text(
             '设置新密码',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: ink),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: ink,
+            ),
           ),
         ),
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-            child: _done ? _buildDone(isDark) : _buildForm(isDark),
+          // 点空白处收起键盘
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+              child: _done ? _buildDone(isDark) : _buildForm(isDark),
+            ),
           ),
         ),
       ),
@@ -108,7 +118,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         const SizedBox(height: 24),
         Text(
           '设置新密码',
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: ink),
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w700,
+            color: ink,
+          ),
         ),
         const SizedBox(height: 8),
         Text('请设置你的新密码', style: TextStyle(fontSize: 14, color: muted)),
@@ -116,10 +130,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         _pwField(isDark, '新密码', _pwCtrl),
         const SizedBox(height: 12),
         _pwField(isDark, '确认新密码', _confirmCtrl),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          _errorBox(_error!),
-        ],
+        if (_error != null) ...[const SizedBox(height: 12), _errorBox(_error!)],
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
@@ -127,10 +138,14 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           child: ElevatedButton(
             onPressed: _loading ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDark ? AppColors.primary : const Color(0xFF1A1A1A),
+              backgroundColor: isDark
+                  ? AppColors.primary
+                  : const Color(0xFF1A1A1A),
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
             child: _loading
                 ? const SizedBox(
@@ -154,7 +169,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   Widget _pwField(bool isDark, String label, TextEditingController ctrl) {
     final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
     final muted = isDark ? Colors.white54 : Colors.grey[600];
-    final cardColor = isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white;
+    final cardColor = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.white;
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.10)
         : const Color(0xFFEBEBEB);
@@ -166,7 +183,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: muted),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: muted,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -198,7 +219,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               GestureDetector(
                 onTap: () => setState(() => _obscure = !_obscure),
                 child: Icon(
-                  _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  _obscure
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                   size: 18,
                   color: iconColor,
                 ),
@@ -255,7 +278,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           const SizedBox(height: 24),
           Text(
             '密码已重置',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: ink),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
           ),
           const SizedBox(height: 10),
           Text('请用新密码重新登录', style: TextStyle(fontSize: 14, color: muted)),
@@ -266,10 +293,14 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             child: ElevatedButton(
               onPressed: () => context.go('/login'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isDark ? AppColors.primary : const Color(0xFF1A1A1A),
+                backgroundColor: isDark
+                    ? AppColors.primary
+                    : const Color(0xFF1A1A1A),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: const Text(
                 '去登录',

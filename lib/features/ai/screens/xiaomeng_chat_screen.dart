@@ -53,7 +53,8 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
     if (_conversationId != null) {
       _loadHistory(_conversationId!);
     }
-    if (widget.initialMessage != null && widget.initialMessage!.trim().isNotEmpty) {
+    if (widget.initialMessage != null &&
+        widget.initialMessage!.trim().isNotEmpty) {
       _inputCtrl.text = widget.initialMessage!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _focusNode.requestFocus();
@@ -213,10 +214,12 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.response?.data is Map
-              ? ((e.response!.data as Map)['message']?.toString() ??
-                  '小梦暂时休息中，请稍后再试')
-              : '小梦暂时休息中，请稍后再试'),
+          content: Text(
+            e.response?.data is Map
+                ? ((e.response!.data as Map)['message']?.toString() ??
+                      '小梦暂时休息中，请稍后再试')
+                : '小梦暂时休息中，请稍后再试',
+          ),
         ),
       );
     }
@@ -367,20 +370,25 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
             ),
             const Divider(height: 12, thickness: 0.5),
             Expanded(
-              child: _loadingHistory
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
+              // 点空白处收起键盘
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: _loadingHistory
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView.builder(
+                        controller: _scrollCtrl,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        itemCount: _messages.length + (_sending ? 1 : 0),
+                        itemBuilder: (ctx, i) {
+                          if (i == _messages.length) return _typingRow();
+                          return _messageRow(_messages[i], isDark);
+                        },
                       ),
-                      itemCount: _messages.length + (_sending ? 1 : 0),
-                      itemBuilder: (ctx, i) {
-                        if (i == _messages.length) return _typingRow();
-                        return _messageRow(_messages[i], isDark);
-                      },
-                    ),
+              ),
             ),
             _buildToolbar(isDark),
             _buildInputBar(isDark),
@@ -411,7 +419,11 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
           ),
           child: Text(
             msg.content,
-            style: const TextStyle(fontSize: 14, color: Colors.white, height: 1.4),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              height: 1.4,
+            ),
           ),
         ),
       );
@@ -439,7 +451,10 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
         Container(
           width: 26,
           height: 26,
-          decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: _primary,
+            shape: BoxShape.circle,
+          ),
           child: const Center(
             child: Text(
               '梦',
@@ -654,7 +669,9 @@ class _TypingDotsState extends State<_TypingDots>
             mainAxisSize: MainAxisSize.min,
             children: List.generate(3, (i) {
               final phase = (_ctrl.value - i * 0.2) % 1.0;
-              final dy = phase < 0.5 ? -4 * (phase * 2) : -4 * (1 - (phase - 0.5) * 2);
+              final dy = phase < 0.5
+                  ? -4 * (phase * 2)
+                  : -4 * (1 - (phase - 0.5) * 2);
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Transform.translate(

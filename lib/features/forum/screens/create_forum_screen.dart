@@ -38,8 +38,7 @@ class CreateForumScreen extends ConsumerStatefulWidget {
   const CreateForumScreen({super.key});
 
   @override
-  ConsumerState<CreateForumScreen> createState() =>
-      _CreateForumScreenState();
+  ConsumerState<CreateForumScreen> createState() => _CreateForumScreenState();
 }
 
 class _CreateForumScreenState extends ConsumerState<CreateForumScreen> {
@@ -86,19 +85,21 @@ class _CreateForumScreenState extends ConsumerState<CreateForumScreen> {
   Future<void> _submit() async {
     if (!_canSubmit || _submitting) return;
     setState(() => _submitting = true);
-    final res = await ref.read(apiClientProvider).post(
-      '/auth/forums',
-      data: {
-        'name': _nameCtrl.text.trim(),
-        if (_descCtrl.text.trim().isNotEmpty)
-          'description': _descCtrl.text.trim(),
-        'tags': _selectedTags.toList(),
-        'color_index': _colorIdx,
-        // 后端 forums 表目前没有 avatar 列，这个字段现在会被安静丢弃——
-        // 先传上，等后端加了列不用再改 Flutter
-        if (_avatarUrl != null) 'avatar': _avatarUrl,
-      },
-    );
+    final res = await ref
+        .read(apiClientProvider)
+        .post(
+          '/auth/forums',
+          data: {
+            'name': _nameCtrl.text.trim(),
+            if (_descCtrl.text.trim().isNotEmpty)
+              'description': _descCtrl.text.trim(),
+            'tags': _selectedTags.toList(),
+            'color_index': _colorIdx,
+            // 后端 forums 表目前没有 avatar 列，这个字段现在会被安静丢弃——
+            // 先传上，等后端加了列不用再改 Flutter
+            if (_avatarUrl != null) 'avatar': _avatarUrl,
+          },
+        );
     if (!mounted) return;
     if (!res.success || res.data == null) {
       setState(() => _submitting = false);
@@ -223,279 +224,284 @@ class _CreateForumScreenState extends ConsumerState<CreateForumScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
-        children: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Column(
-                children: [
-                  Stack(
-                    children: [
-                      GestureDetector(
-                        // 点头像本体循环换渐变色——上传了封面图之后颜色
-                        // 会被图片盖住看不见，但继续点也不出错，就是
-                        // 悄悄换了个不会显示的底色，不需要为此加额外
-                        // 状态去禁用它
-                        onTap: () => setState(
-                          () => _colorIdx =
-                              (_colorIdx + 1) % forumGradients.length,
-                        ),
-                        child: Container(
-                          width: 76,
-                          height: 76,
-                          decoration: BoxDecoration(
-                            gradient: _avatarUrl == null
-                                ? LinearGradient(
-                                    colors: [c1, c2],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  )
-                                : null,
-                            image: _avatarUrl != null
-                                ? DecorationImage(
-                                    image: NetworkImage(_avatarUrl!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                            borderRadius: BorderRadius.circular(20),
+      // 点空白处收起键盘
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 32),
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Column(
+                  children: [
+                    Stack(
+                      children: [
+                        GestureDetector(
+                          // 点头像本体循环换渐变色——上传了封面图之后颜色
+                          // 会被图片盖住看不见，但继续点也不出错，就是
+                          // 悄悄换了个不会显示的底色，不需要为此加额外
+                          // 状态去禁用它
+                          onTap: () => setState(
+                            () => _colorIdx =
+                                (_colorIdx + 1) % forumGradients.length,
                           ),
-                          child: _avatarUrl != null
-                              ? null
-                              : Center(
-                                  child: Text(
-                                    name.isNotEmpty ? name[0] : '论',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                      color: name.isNotEmpty
-                                          ? Colors.white
-                                          : Colors.white.withValues(
-                                              alpha: 0.4,
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ),
-                      if (_uploadingAvatar)
-                        Positioned.fill(
                           child: Container(
+                            width: 76,
+                            height: 76,
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.35),
+                              gradient: _avatarUrl == null
+                                  ? LinearGradient(
+                                      colors: [c1, c2],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : null,
+                              image: _avatarUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(_avatarUrl!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
+                            child: _avatarUrl != null
+                                ? null
+                                : Center(
+                                    child: Text(
+                                      name.isNotEmpty ? name[0] : '论',
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        color: name.isNotEmpty
+                                            ? Colors.white
+                                            : Colors.white.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        if (_uploadingAvatar)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      Positioned(
-                        bottom: -3,
-                        right: -3,
-                        child: GestureDetector(
-                          onTap: _uploadingAvatar ? null : _pickAvatarImage,
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              color: _primary,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isDark
-                                    ? const Color(0xFF1C1C1E)
-                                    : Colors.white,
-                                width: 2,
+                        Positioned(
+                          bottom: -3,
+                          right: -3,
+                          child: GestureDetector(
+                            onTap: _uploadingAvatar ? null : _pickAvatarImage,
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: _primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isDark
+                                      ? const Color(0xFF1C1C1E)
+                                      : Colors.white,
+                                  width: 2,
+                                ),
                               ),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              size: 11,
-                              color: Colors.white,
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 11,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _avatarUrl == null ? '点击头像换色 · 点相机传封面图' : '点相机重新上传',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _avatarUrl == null ? '点击头像换色 · 点相机传封面图' : '点相机重新上传',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _Label('论坛名称', required: true),
-                TextField(
-                  controller: _nameCtrl,
-                  maxLength: 20,
-                  decoration: _inputDeco('给你的论坛取个名字', isDark),
-                  style: _inputStyle(isDark),
-                ),
-                const SizedBox(height: 14),
-                const _Label('论坛简介'),
-                TextField(
-                  controller: _descCtrl,
-                  maxLength: 100,
-                  maxLines: 3,
-                  decoration: _inputDeco('介绍一下这个论坛的主题（可选）', isDark),
-                  style: _inputStyle(isDark),
-                ),
-                const SizedBox(height: 14),
-                const _Label('话题标签（最多3个）'),
-                if (_selectedTags.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _Label('论坛名称', required: true),
+                  TextField(
+                    controller: _nameCtrl,
+                    maxLength: 20,
+                    decoration: _inputDeco('给你的论坛取个名字', isDark),
+                    style: _inputStyle(isDark),
+                  ),
+                  const SizedBox(height: 14),
+                  const _Label('论坛简介'),
+                  TextField(
+                    controller: _descCtrl,
+                    maxLength: 100,
+                    maxLines: 3,
+                    decoration: _inputDeco('介绍一下这个论坛的主题（可选）', isDark),
+                    style: _inputStyle(isDark),
+                  ),
+                  const SizedBox(height: 14),
+                  const _Label('话题标签（最多3个）'),
+                  if (_selectedTags.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _selectedTags
+                          .map(
+                            (tag) => _SelectedTag(
+                              tag: tag,
+                              onRemove: () =>
+                                  setState(() => _selectedTags.remove(tag)),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: _selectedTags
+                    children: _presetTags
+                        .where((t) => !_selectedTags.contains(t))
                         .map(
-                          (tag) => _SelectedTag(
-                            tag: tag,
-                            onRemove: () =>
-                                setState(() => _selectedTags.remove(tag)),
+                          (tag) => GestureDetector(
+                            onTap: _selectedTags.length < 3
+                                ? () => setState(() => _selectedTags.add(tag))
+                                : null,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 150),
+                              opacity: _selectedTags.length >= 3 ? 0.35 : 1.0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.05)
+                                      : const Color(0xFFF5F5F5),
+                                  borderRadius: BorderRadius.circular(99),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.1)
+                                        : const Color(0xFFE0E0E0),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.5)
+                                        : const Color(0xFF555555),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         )
                         .toList(),
                   ),
                   const SizedBox(height: 8),
-                ],
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _presetTags
-                      .where((t) => !_selectedTags.contains(t))
-                      .map(
-                        (tag) => GestureDetector(
-                          onTap: _selectedTags.length < 3
-                              ? () => setState(() => _selectedTags.add(tag))
-                              : null,
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 150),
-                            opacity: _selectedTags.length >= 3 ? 0.35 : 1.0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
+                  if (_selectedTags.length < 3)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _customTagCtrl,
+                            maxLength: 10,
+                            decoration: InputDecoration(
+                              hintText: '自定义标签...',
+                              hintStyle: TextStyle(
+                                fontSize: 12,
                                 color: isDark
-                                    ? Colors.white.withValues(alpha: 0.05)
-                                    : const Color(0xFFF5F5F5),
-                                borderRadius: BorderRadius.circular(99),
-                                border: Border.all(
+                                    ? Colors.white.withValues(alpha: 0.25)
+                                    : Colors.grey[400],
+                              ),
+                              filled: false,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
                                   color: isDark
                                       ? Colors.white.withValues(alpha: 0.1)
-                                      : const Color(0xFFE0E0E0),
+                                      : const Color(0xFFEBEBEB),
                                   width: 0.5,
                                 ),
                               ),
-                              child: Text(
-                                tag,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.5)
-                                      : const Color(0xFF555555),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(
+                                  color: _primary,
+                                  width: 0.5,
                                 ),
                               ),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 8),
-                if (_selectedTags.length < 3)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _customTagCtrl,
-                          maxLength: 10,
-                          decoration: InputDecoration(
-                            hintText: '自定义标签...',
-                            hintStyle: TextStyle(
-                              fontSize: 12,
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.25)
-                                  : Colors.grey[400],
-                            ),
-                            filled: false,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.1)
-                                    : const Color(0xFFEBEBEB),
-                                width: 0.5,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
                               ),
+                              counterText: '',
+                              isDense: true,
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: _primary,
-                                width: 0.5,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            counterText: '',
-                            isDense: true,
-                          ),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.9)
-                                : const Color(0xFF1A1A1A),
-                          ),
-                          onSubmitted: (_) => _addCustomTag(),
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      GestureDetector(
-                        onTap: _addCustomTag,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 9,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _primary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            '添加',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.9)
+                                  : const Color(0xFF1A1A1A),
+                            ),
+                            onSubmitted: (_) => _addCustomTag(),
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        GestureDetector(
+                          onTap: _addCustomTag,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              '添加',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-              ],
+                      ],
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -536,7 +542,9 @@ class _CreateForumScreenState extends ConsumerState<CreateForumScreen> {
 
   TextStyle _inputStyle(bool isDark) => TextStyle(
     fontSize: 14,
-    color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1A1A1A),
+    color: isDark
+        ? Colors.white.withValues(alpha: 0.9)
+        : const Color(0xFF1A1A1A),
   );
 }
 

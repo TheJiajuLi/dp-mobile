@@ -71,14 +71,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       context.go('/home');
     } else {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.loginErrorInvalidCredentials)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.loginErrorInvalidCredentials)),
+      );
     }
   }
 
   void _placeholderSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -93,54 +95,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         backgroundColor: bg,
         body: Stack(
           children: [
-            const Positioned.fill(child: IgnorePointer(child: _AuroraGlowLayer())),
+            const Positioned.fill(
+              child: IgnorePointer(child: _AuroraGlowLayer()),
+            ),
             SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
-                child: Column(
-                  children: [
-                    const JimengLogo(size: 80),
-                    const SizedBox(height: 16),
-                    Text(
-                      l10n.appName,
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
-                        color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+              // 点空白处收起键盘
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
+                  child: Column(
+                    children: [
+                      const JimengLogo(size: 80),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.appName,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF1A1A1A),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Dreaming Polar',
-                      style: TextStyle(
-                        fontSize: 13,
-                        letterSpacing: 2,
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.4)
-                            : const Color(0xFFAAAAAA),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Dreaming Polar',
+                        style: TextStyle(
+                          fontSize: 13,
+                          letterSpacing: 2,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.4)
+                              : const Color(0xFFAAAAAA),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 48),
-                    Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          _inputCard(isDark),
-                          const SizedBox(height: 24),
-                          _loginButton(l10n, isDark),
-                        ],
+                      const SizedBox(height: 48),
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            _inputCard(isDark),
+                            const SizedBox(height: 24),
+                            _loginButton(l10n, isDark),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    _divider(isDark),
-                    const SizedBox(height: 16),
-                    _thirdPartyRow(isDark),
-                    const SizedBox(height: 24),
-                    _registerRow(isDark),
-                    const SizedBox(height: 32),
-                    _agreement(context, l10n, isDark),
-                  ],
+                      const SizedBox(height: 24),
+                      _divider(isDark),
+                      const SizedBox(height: 16),
+                      _thirdPartyRow(isDark),
+                      const SizedBox(height: 24),
+                      _registerRow(isDark),
+                      const SizedBox(height: 32),
+                      _agreement(context, l10n, isDark),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -165,7 +176,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _inputCard(bool isDark) {
-    final cardColor = isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white;
+    final cardColor = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.white;
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.10)
         : const Color(0xFFEBEBEB);
@@ -241,7 +254,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 GestureDetector(
                   onTap: () => setState(() => _obscure = !_obscure),
                   child: Icon(
-                    _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    _obscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                     size: 18,
                     color: iconColor,
                   ),
@@ -249,7 +264,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(width: 10),
                 GestureDetector(
                   onTap: () => context.push('/forgot-password'),
-                  child: Text('忘记', style: TextStyle(fontSize: 13, color: iconColor)),
+                  child: Text(
+                    '忘记',
+                    style: TextStyle(fontSize: 13, color: iconColor),
+                  ),
                 ),
               ],
             ),
@@ -269,17 +287,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           backgroundColor: isDark ? AppColors.primary : const Color(0xFF1A1A1A),
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
         child: _loading
             ? const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
               )
             : Text(
                 l10n.login,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
       ),
     );
@@ -323,7 +349,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               icon: Icon(Icons.g_mobiledata, size: 24, color: textColor),
               label: Text(
                 'Google',
-                style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -338,7 +368,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               icon: Icon(Icons.code, size: 18, color: textColor),
               label: Text(
                 'GitHub',
-                style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -357,7 +391,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           onTap: () => context.push('/register'),
           child: const Text(
             '立即注册',
-            style: TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -376,7 +414,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           onTap: () => context.push('/settings/terms'),
           child: Text(
             l10n.userAgreement,
-            style: TextStyle(fontSize: 11.5, color: linkColor, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 11.5,
+              color: linkColor,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         Text('和', style: TextStyle(fontSize: 11.5, color: textColor)),
@@ -384,7 +426,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           onTap: () => context.push('/settings/privacy-policy'),
           child: Text(
             l10n.privacyPolicy,
-            style: TextStyle(fontSize: 11.5, color: linkColor, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 11.5,
+              color: linkColor,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
