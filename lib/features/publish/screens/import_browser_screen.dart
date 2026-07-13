@@ -402,6 +402,27 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   const url = window.location.href;
   const hostname = window.location.hostname;
 
+  // 代码块 language 归一化——先按别名映射，再用白名单兜底，任何不认识的
+  // 值都降级到 python，跟 block_card.dart 的 _codeLanguages 保持一致，避免
+  // 导入后编辑器里语言下拉 value 匹配不到 item 崩溃
+  const langMap = {
+    'text': 'python', 'plaintext': 'plaintext',
+    'js': 'javascript', 'ts': 'typescript',
+    'py': 'python', 'rb': 'python',
+    'sh': 'bash', 'shell': 'bash', 'zsh': 'bash',
+    'yml': 'yaml',
+  };
+  const validLangs = [
+    'python', 'javascript', 'typescript', 'jsx', 'tsx', 'sql', 'html', 'css',
+    'json', 'yaml', 'bash', 'shell', 'markdown', 'dart', 'java', 'kotlin',
+    'swift', 'rust', 'go', 'r', 'cpp', 'c', 'plaintext',
+  ];
+  function normLang(raw) {
+    const low = (raw || 'python').toLowerCase();
+    const mapped = langMap[low] || low;
+    return validLangs.includes(mapped) ? mapped : 'python';
+  }
+
   // ── 知乎文章 ──
   if (hostname.includes('zhihu.com') && document.querySelector('h1.Post-Title')) {
     const title = document.querySelector('h1.Post-Title')?.innerText?.trim() || '';
@@ -492,8 +513,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
         if (code) {
           const langClass = (codeEl?.className || '');
           const langMatch = langClass.match(/language-(\w+)/);
-          const lang = langMatch ? langMatch[1] : 'python';
-          blocks.push({ id: genId(), type: 'code', content: code, language: lang === 'text' ? 'python' : lang });
+          blocks.push({ id: genId(), type: 'code', content: code, language: normLang(langMatch ? langMatch[1] : 'python') });
         }
         return;
       }

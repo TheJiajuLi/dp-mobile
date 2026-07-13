@@ -22,7 +22,35 @@ const _primary = Color(0xFF6366F1);
 // code block 的语言下拉里特意不放 latex——LaTeX 已经是独立的 block 类型，
 // 跟聊天那边"用独立 type='latex' 而不是 type='code'+metadata.language"
 // 是同一个道理，两条路径都能表示公式只会互相打架
-const _codeLanguages = ['python', 'javascript', 'sql', 'html', 'markdown'];
+// 代码块语言下拉的候选项。导入的代码块 language 可能是 'text'/'jsx'/'tsx'/
+// 'bash'/'json'/'yaml'/'ts' 等各种值，不在这个列表里时 DropdownButton 的
+// value 找不到对应 item 会直接 assert 崩溃——列表要尽量全，value 处再做
+// 一层 fallback 兜底（见 _safeLanguage）
+const _codeLanguages = [
+  'python',
+  'javascript',
+  'typescript',
+  'jsx',
+  'tsx',
+  'sql',
+  'html',
+  'css',
+  'json',
+  'yaml',
+  'bash',
+  'shell',
+  'markdown',
+  'dart',
+  'java',
+  'kotlin',
+  'swift',
+  'rust',
+  'go',
+  'r',
+  'cpp',
+  'c',
+  'plaintext',
+];
 
 String _formatSize(int bytes) {
   if (bytes < 1024) return '${bytes}B';
@@ -996,7 +1024,12 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                 const _MacDot(color: Color(0xFF27C93F)),
                 const SizedBox(width: 10),
                 DropdownButton<String>(
-                  value: widget.block.language ?? 'python',
+                  // language 不在候选列表里（导入的代码块常给 text/jsx/ts 等）
+                  // 就降级到 python，不然 DropdownButton value 匹配不到 item
+                  // 会 assert 崩溃
+                  value: _codeLanguages.contains(widget.block.language)
+                      ? widget.block.language
+                      : 'python',
                   dropdownColor: const Color(0xFF1A1A1A),
                   style: const TextStyle(
                     fontSize: 12,
