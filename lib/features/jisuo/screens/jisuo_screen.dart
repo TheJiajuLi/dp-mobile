@@ -105,12 +105,12 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     super.dispose();
   }
 
-  void _showAskSheet() {
+  void _showAskSheet({String prefill = ''}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _AskSheet(onPost: _postQuestion),
+      builder: (ctx) => _AskSheet(onPost: _postQuestion, prefill: prefill),
     );
   }
 
@@ -237,6 +237,8 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     if (_turns.isNotEmpty) {
       final turn = _turns.last;
       turn.status = QaTurnStatus.done;
+      // 已经吐了一部分就保留，一个字都还没来就给个占位，不然卡片空着
+      if (turn.answer.isEmpty) turn.answer = '已停止生成';
       turn.suggestions = _generateSuggestions(turn.question);
     }
   });
@@ -260,8 +262,10 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
   }
 
-  // 发布到极索：把这个问题抛给社区讨论——复用社区提问 Sheet
-  void _publishToJisuo() => _showAskSheet();
+  // 发布到极索：把这个问题抛给社区讨论——复用社区提问 Sheet，并把最新
+  // 一轮的问题预填进去，用户不用重打一遍
+  void _publishToJisuo() =>
+      _showAskSheet(prefill: _turns.isNotEmpty ? _turns.last.question : '');
 
   List<String> _generateSuggestions(String q) => const [
     '能举一个更具体的例子吗？',
@@ -585,6 +589,8 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     onTap: _tab == 'community' ? _showAskSheet : null,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _submit(),
+                    // 跟着输入内容重建，让发送键在"空=灰/有内容=紫"之间实时切
+                    onChanged: (_) => setState(() {}),
                     style: const TextStyle(fontSize: 14),
                     decoration: InputDecoration(
                       hintText: _jisuoMode != JisuoMode.idle
@@ -611,27 +617,38 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              GestureDetector(
-                onTap: _jisuoMode == JisuoMode.streaming ? null : _submit,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: _jisuoMode == JisuoMode.streaming
-                        ? Colors.grey[400]
-                        : _primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: _jisuoMode == JisuoMode.streaming
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send, size: 18, color: Colors.white),
-                ),
+              Builder(
+                builder: (context) {
+                  final streaming = _jisuoMode == JisuoMode.streaming;
+                  // ai 模式空输入时按钮置灰不可发；community 模式点了是开
+                  // 提问 Sheet，不看输入框，始终可点
+                  final disabled =
+                      !streaming &&
+                      _tab == 'ai' &&
+                      _inputCtrl.text.trim().isEmpty;
+                  return GestureDetector(
+                    // 流式中点发送键 = 停止生成；其余点了走 _submit（空输入
+                    // 时 _askQuestion 内部会自己 return，点了也没反应）
+                    onTap: streaming ? _stopStream : _submit,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: streaming
+                            ? const Color(0xFFEF4444)
+                            : disabled
+                            ? Colors.grey[400]
+                            : _primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        streaming ? Icons.stop_rounded : Icons.arrow_upward,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -783,74 +800,63 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     )
                   : AiContentRenderer(content: turn.answer, isDark: isDark),
             ),
-            Divider(height: 0.5, color: line),
-            // 操作行：流式中"停止生成"（只有正在飞的这一轮才能停）/
-            // 完成后 复制 + 发布到极索
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-              child: streaming
-                  ? Center(
-                      child: TextButton(
-                        onPressed: _stopStream,
-                        child: Text(
-                          '停止生成',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[400],
+            // 停止生成已移到底部发送键（流式中发送键变红 ■），流式中整条
+            // 操作栏隐藏；只在完成后显示 复制 + 发布到极索
+            if (!streaming) ...[
+              Divider(height: 0.5, color: line),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                child: Row(
+                  children: [
+                    _ansActionBtn(
+                      isDark,
+                      Icons.copy_outlined,
+                      '复制',
+                      () => _copyAnswer(turn),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _publishToJisuo,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? _primary.withValues(alpha: 0.1)
+                                : const Color(0xFFEEF0FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark
+                                  ? _primary.withValues(alpha: 0.2)
+                                  : const Color(0xFFD0D4FF),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: 14,
+                                color: Color(0xFF9B98FF),
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                '发布到极索让社区讨论',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF9B98FF),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    )
-                  : Row(
-                      children: [
-                        _ansActionBtn(
-                          isDark,
-                          Icons.copy_outlined,
-                          '复制',
-                          () => _copyAnswer(turn),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: _publishToJisuo,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? _primary.withValues(alpha: 0.1)
-                                    : const Color(0xFFEEF0FF),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isDark
-                                      ? _primary.withValues(alpha: 0.2)
-                                      : const Color(0xFFD0D4FF),
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.people_outline,
-                                    size: 14,
-                                    color: Color(0xFF9B98FF),
-                                  ),
-                                  SizedBox(width: 5),
-                                  Text(
-                                    '发布到极索让社区讨论',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF9B98FF),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
-            ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1200,7 +1206,9 @@ class _AskSheet extends StatefulWidget {
     bool anon,
   )
   onPost;
-  const _AskSheet({required this.onPost});
+  // 从"发布到极索"进来时带上最新一轮的问题，预填进输入框
+  final String prefill;
+  const _AskSheet({required this.onPost, this.prefill = ''});
 
   @override
   State<_AskSheet> createState() => _AskSheetState();
@@ -1214,6 +1222,12 @@ class _AskSheetState extends State<_AskSheet> {
   bool _done = false;
   int _invitedCount = 0;
   List<Map<String, dynamic>> _experts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.prefill.isNotEmpty) _ctrl.text = widget.prefill;
+  }
 
   @override
   void dispose() {
