@@ -568,14 +568,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         top: false,
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: Theme.of(context).dividerColor,
-                width: 0.5,
-              ),
-            ),
-          ),
           child: Row(
             children: [
               Expanded(

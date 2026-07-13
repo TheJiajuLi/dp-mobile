@@ -184,7 +184,14 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
                                     horizontal: 8,
                                     vertical: 3,
                                   ),
-                                  decoration: premiumPillDecoration(radius: 7),
+                                  // 跟右上角"发布"按钮同一套：浅色纯黑扁平、
+                                  // 深色才用主题渐变胶囊
+                                  decoration: isDarkMode
+                                      ? premiumPillDecoration(radius: 7)
+                                      : BoxDecoration(
+                                          color: _ink,
+                                          borderRadius: BorderRadius.circular(7),
+                                        ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
