@@ -277,10 +277,14 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
                     filled: true,
                     fillColor: Theme.of(ctx).brightness == Brightness.dark
                         ? const Color(0xFF3A3A3C)
-                        : const Color(0xFFE8E8ED),
+                        : Theme.of(ctx).cardColor,
+                    // 浅色下搜索框底色跟sheet自己的背景（同一个cardColor）
+                    // 撞色了，加一圈细描边撑轮廓，不然会跟背景糊成一片
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                      borderSide: Theme.of(ctx).brightness == Brightness.dark
+                          ? BorderSide.none
+                          : BorderSide(color: Theme.of(ctx).dividerColor, width: 0.5),
                     ),
                     suffixIcon: TextButton(
                       onPressed: () => doSearch(ctrl.text),
@@ -403,13 +407,15 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
               // 浅色模式下框和背景快融在一起，看不清——换成跟
               // search_screen.dart/group_chat_screen.dart 搜索框同一套
               // 视觉语言：外层 Container 给一个明显更深的灰色胶囊底，
-              // TextField 自己 filled:false 不再吃主题灰
+              // TextField 自己 filled:false 不再吃主题灰。浅色下这个灰底
+              // 后来又统一改成跟下方 RoundedListCard 同一个白（靠描边/
+              // 投影撑轮廓，不靠色差跟页面背景区分）
               child: Container(
                 height: 40,
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.08)
-                      : const Color(0xFFE8E8ED),
+                      : Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TextField(
