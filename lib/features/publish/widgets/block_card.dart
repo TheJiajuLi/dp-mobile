@@ -1354,12 +1354,25 @@ th{background:#1e293b;color:#94a3b8}
       child: Column(
         children: [
           widget.block.content.isNotEmpty
-              ? Math.tex(
-                  widget.block.content.replaceAll(r'$$', '').trim(),
-                  textStyle: TextStyle(fontSize: 16, color: mathColor),
-                  onErrorFallback: (err) => Text(
-                    widget.block.content,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
+              // Math.tex 不会自动换行/收缩——公式比卡片宽（长积分式/多项
+              // 连乘这类）会顶穿右边界，冒出调试态才看得到的"溢出2.4像素"
+              // 黄黑警示条。套一层横向 SingleChildScrollView，宽公式改成
+              // 左右滑动，不是硬挤爆
+              ? SizedBox(
+                  width: double.infinity,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Math.tex(
+                      widget.block.content.replaceAll(r'$$', '').trim(),
+                      textStyle: TextStyle(fontSize: 16, color: mathColor),
+                      onErrorFallback: (err) => Text(
+                        widget.block.content,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   ),
                 )
               : Text(l10n.latexBlockHint, style: TextStyle(color: hintColor)),

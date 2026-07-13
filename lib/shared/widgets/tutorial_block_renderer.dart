@@ -68,14 +68,19 @@ Widget buildTutorialBlockWidget(
       );
 
     case 'latex':
+      // Math.tex 不会自动换行/收缩——公式比屏幕宽（长积分式/多项连乘）
+      // 会顶穿右边界溢出。套一层横向滚动，宽公式改成左右滑动
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Math.tex(
-          content.replaceAll(r'$$', '').trim(),
-          textStyle: const TextStyle(fontSize: 16),
-          onErrorFallback: (err) => Text(
-            content,
-            style: const TextStyle(color: Colors.red, fontSize: 12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Math.tex(
+            content.replaceAll(r'$$', '').trim(),
+            textStyle: const TextStyle(fontSize: 16),
+            onErrorFallback: (err) => Text(
+              content,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
           ),
         ),
       );

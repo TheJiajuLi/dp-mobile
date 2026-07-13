@@ -429,20 +429,16 @@ class _PublishButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 之前用 ColorScheme.primary——M3 的 fromSeed 在深色模式下会把
-    // primary 自动调成一个更浅/更淡的色调（为了跟深色背景保持对比度），
-    // 不是品牌那个饱和的靛蓝，深色模式下这个按钮会变成一块发白的淡紫，
-    // 跟全项目其它地方（都是直接写死 #6366F1）不一致，切到深色主题时
-    // 显得像个 bug。浅色模式沿用写死品牌色；深色模式改成跟发布页顶栏
-    // 「发布」按钮同款的黑底白字胶囊，两处视觉统一
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 之前用 ColorScheme.primary/写死品牌紫——深浅色都跟发布页顶栏
+    // 「发布」按钮（黑底白字胶囊）不是一套视觉，两个同样是"主要操作入口"
+    // 的按钮长得不一样，显得不够一线。浅深色统一改成同款黑底白字胶囊
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFF6366F1),
+          color: const Color(0xFF1A1A1A),
           borderRadius: BorderRadius.circular(15),
         ),
         child: const Icon(Icons.add, color: Colors.white, size: 24),
