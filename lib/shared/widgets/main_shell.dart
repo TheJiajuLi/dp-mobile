@@ -433,14 +433,16 @@ class _PublishButton extends StatelessWidget {
     // primary 自动调成一个更浅/更淡的色调（为了跟深色背景保持对比度），
     // 不是品牌那个饱和的靛蓝，深色模式下这个按钮会变成一块发白的淡紫，
     // 跟全项目其它地方（都是直接写死 #6366F1）不一致，切到深色主题时
-    // 显得像个 bug。改成跟全项目统一的写死品牌色，不再依赖 M3 自动生成
+    // 显得像个 bug。浅色模式沿用写死品牌色；深色模式改成跟发布页顶栏
+    // 「发布」按钮同款的黑底白字胶囊，两处视觉统一
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: const Color(0xFF6366F1),
+          color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFF6366F1),
           borderRadius: BorderRadius.circular(15),
         ),
         child: const Icon(Icons.add, color: Colors.white, size: 24),
