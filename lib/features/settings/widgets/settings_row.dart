@@ -104,6 +104,87 @@ class SettingsGroup extends StatelessWidget {
   }
 }
 
+// 带图标方块的开关行——跟 SettingsRow 同一套"圆框设计"（34方块+圆角图标
+// +标题/副标题），只是右侧把 chevron 换成开关。隐私设置/通知设置这类
+// 纯开关页之前是光秃秃的 SwitchListTile（没有图标方块），跟设置主页/
+// 账号安全那套带图标方块的视觉语言对不上，用这个统一起来
+class SettingsSwitchRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const SettingsSwitchRow({
+    super.key,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = monoSwitchColors(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: iconColor, size: 17),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: colors.thumb,
+            activeTrackColor: colors.track,
+            trackOutlineColor: colors.outline,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class SettingsRow extends StatelessWidget {
   final IconData icon;
   final Color iconColor;

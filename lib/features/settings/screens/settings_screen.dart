@@ -490,55 +490,42 @@ class _NotifSettingsSheet extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          SettingsGroup(
-            dividerIndent: 16,
-            [
-              _toggle(
-                context,
-                l10n.likeNotifications,
-                settings.likes,
-                (v) => notifier.toggle('likes', v),
-              ),
-              _toggle(
-                context,
-                l10n.commentNotifications,
-                settings.comments,
-                (v) => notifier.toggle('comments', v),
-              ),
-              _toggle(
-                context,
-                l10n.followNotifications,
-                settings.follows,
-                (v) => notifier.toggle('follows', v),
-              ),
-              _toggle(
-                context,
-                l10n.systemNotifications,
-                settings.system,
-                (v) => notifier.toggle('system', v),
-              ),
-            ],
-          ),
+          SettingsGroup(dividerIndent: 62, [
+            SettingsSwitchRow(
+              icon: Icons.favorite_border,
+              iconColor: const Color(0xFF6366F1),
+              iconBg: const Color(0xFFEEF0FF),
+              title: l10n.likeNotifications,
+              value: settings.likes,
+              onChanged: (v) => notifier.toggle('likes', v),
+            ),
+            SettingsSwitchRow(
+              icon: Icons.chat_bubble_outline,
+              iconColor: const Color(0xFF2563EB),
+              iconBg: const Color(0xFFE6F1FB),
+              title: l10n.commentNotifications,
+              value: settings.comments,
+              onChanged: (v) => notifier.toggle('comments', v),
+            ),
+            SettingsSwitchRow(
+              icon: Icons.person_add_alt_1,
+              iconColor: const Color(0xFF16A34A),
+              iconBg: const Color(0xFFE8F8F0),
+              title: l10n.followNotifications,
+              value: settings.follows,
+              onChanged: (v) => notifier.toggle('follows', v),
+            ),
+            SettingsSwitchRow(
+              icon: Icons.campaign_outlined,
+              iconColor: Colors.grey,
+              iconBg: Theme.of(context).dividerColor,
+              title: l10n.systemNotifications,
+              value: settings.system,
+              onChanged: (v) => notifier.toggle('system', v),
+            ),
+          ]),
         ],
       ),
     );
   }
-
-  Widget _toggle(
-    BuildContext context,
-    String title,
-    bool value,
-    ValueChanged<bool> onChanged,
-  ) {
-    final colors = monoSwitchColors(context);
-    return SwitchListTile(
-      title: Text(title, style: const TextStyle(fontSize: 15)),
-      value: value,
-      onChanged: onChanged,
-      activeThumbColor: colors.thumb,
-      activeTrackColor: colors.track,
-      trackOutlineColor: colors.outline,
-    );
-  }
 }
-

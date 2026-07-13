@@ -75,12 +75,9 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final colors = monoSwitchColors(context);
-    // 顶栏+页面背景统一用 scaffoldBackgroundColor（不再是 cardColor）。
-    // 四行开关跟设置页 SettingsGroup 一样浮在页面背景上的圆角卡片——
-    // 分割线缩进跟着 SwitchListTile 默认的 16 内边距对齐，而不是
-    // SettingsRow 那种带图标方块的 62（这里没有图标，62 会显得分割线
-    // 凭空从空白处开始）
+    // 四行开关跟设置页 SettingsGroup 一样浮在页面背景上的圆角卡片，
+    // 每行加上跟设置主页/账号安全统一的"圆框图标"（SettingsSwitchRow），
+    // 分割线缩进 62 对齐图标右侧文字
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.privacySettings),
@@ -92,59 +89,56 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
       body: ListView(
         children: [
           const SizedBox(height: 8),
-          SettingsGroup(
-            dividerIndent: 16,
-            [
-              SwitchListTile(
-                title: Text(l10n.publicProfile),
-                subtitle: Text(l10n.publicProfileSubtitle),
-                value: _publicProfile,
-                activeThumbColor: colors.thumb,
-                activeTrackColor: colors.track,
-                trackOutlineColor: colors.outline,
-                onChanged: (v) {
-                  setState(() => _publicProfile = v);
-                  _save('privacy_public_profile', v);
-                },
-              ),
-              SwitchListTile(
-                title: Text(l10n.publicFavorites),
-                subtitle: Text(l10n.publicFavoritesSubtitle),
-                value: _publicFavorites,
-                activeThumbColor: colors.thumb,
-                activeTrackColor: colors.track,
-                trackOutlineColor: colors.outline,
-                onChanged: (v) {
-                  setState(() => _publicFavorites = v);
-                  _save('privacy_public_favorites', v);
-                },
-              ),
-              SwitchListTile(
-                title: Text(l10n.allowComments),
-                subtitle: Text(l10n.allowCommentsSubtitle),
-                value: _allowComments,
-                activeThumbColor: colors.thumb,
-                activeTrackColor: colors.track,
-                trackOutlineColor: colors.outline,
-                onChanged: (v) {
-                  setState(() => _allowComments = v);
-                  _save('privacy_allow_comments', v);
-                },
-              ),
-              SwitchListTile(
-                title: Text(l10n.allowMessages),
-                subtitle: Text(l10n.allowMessagesSubtitle),
-                value: _allowMessages,
-                activeThumbColor: colors.thumb,
-                activeTrackColor: colors.track,
-                trackOutlineColor: colors.outline,
-                onChanged: (v) {
-                  setState(() => _allowMessages = v);
-                  _save('privacy_allow_messages', v);
-                },
-              ),
-            ],
-          ),
+          SettingsGroup(dividerIndent: 62, [
+            SettingsSwitchRow(
+              icon: Icons.public,
+              iconColor: const Color(0xFF2563EB),
+              iconBg: const Color(0xFFE6F1FB),
+              title: l10n.publicProfile,
+              subtitle: l10n.publicProfileSubtitle,
+              value: _publicProfile,
+              onChanged: (v) {
+                setState(() => _publicProfile = v);
+                _save('privacy_public_profile', v);
+              },
+            ),
+            SettingsSwitchRow(
+              icon: Icons.bookmark_outline,
+              iconColor: const Color(0xFF16A34A),
+              iconBg: const Color(0xFFE8F8F0),
+              title: l10n.publicFavorites,
+              subtitle: l10n.publicFavoritesSubtitle,
+              value: _publicFavorites,
+              onChanged: (v) {
+                setState(() => _publicFavorites = v);
+                _save('privacy_public_favorites', v);
+              },
+            ),
+            SettingsSwitchRow(
+              icon: Icons.chat_bubble_outline,
+              iconColor: const Color(0xFF6366F1),
+              iconBg: const Color(0xFFEEF0FF),
+              title: l10n.allowComments,
+              subtitle: l10n.allowCommentsSubtitle,
+              value: _allowComments,
+              onChanged: (v) {
+                setState(() => _allowComments = v);
+                _save('privacy_allow_comments', v);
+              },
+            ),
+            SettingsSwitchRow(
+              icon: Icons.mail_outline,
+              iconColor: const Color(0xFF2563EB),
+              iconBg: const Color(0xFFE6F1FB),
+              title: l10n.allowMessages,
+              subtitle: l10n.allowMessagesSubtitle,
+              value: _allowMessages,
+              onChanged: (v) {
+                setState(() => _allowMessages = v);
+                _save('privacy_allow_messages', v);
+              },
+            ),
+          ]),
         ],
       ),
     );
