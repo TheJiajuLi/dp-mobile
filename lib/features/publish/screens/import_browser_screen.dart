@@ -187,55 +187,65 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
               ),
             ),
             Expanded(
-              child: InAppWebView(
-                initialUrlRequest: URLRequest(url: WebUri('about:blank')),
-                initialSettings: InAppWebViewSettings(
-                  userAgent:
-                      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
-                      'AppleWebKit/605.1.15 (KHTML, like Gecko) '
-                      'Version/17.0 Mobile/15E148 Safari/604.1',
-                  javaScriptEnabled: true,
-                  domStorageEnabled: true,
-                  allowsInlineMediaPlayback: true,
+              // WebView 原生初始化到 loadData 引导页跑完这段空档，安卓/iOS
+              // 底层默认背景是纯黑，看起来像"闪一下黑屏"——WebView 本身设
+              // transparentBackground，外面套一层跟 Scaffold 同色的
+              // Container 兜底，这段空档也是页面背景色，不再露黑
+              child: Container(
+                color: isDark
+                    ? const Color(0xFF0A0A0F)
+                    : const Color(0xFFF5F5F5),
+                child: InAppWebView(
+                  initialUrlRequest: URLRequest(url: WebUri('about:blank')),
+                  initialSettings: InAppWebViewSettings(
+                    userAgent:
+                        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+                        'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+                        'Version/17.0 Mobile/15E148 Safari/604.1',
+                    javaScriptEnabled: true,
+                    domStorageEnabled: true,
+                    allowsInlineMediaPlayback: true,
+                    transparentBackground: true,
+                  ),
+                  onWebViewCreated: (ctrl) {
+                    _webCtrl = ctrl;
+                    ctrl.loadData(
+                      data: _guideHtml,
+                      mimeType: 'text/html',
+                      encoding: 'utf-8',
+                    );
+                  },
+                  // 单靠 onLoadStop 的 url 参数不可靠——知乎是 SPA 路由，
+                  // 客户端跳转经常不触发一次干净的"整页加载完成"事件，
+                  // 或者事件触发了但参数拿到的还是旧 URL。四路一起盯：
+                  // 1) onLoadStop 主动用 ctrl.getUrl() 查一遍，不信参数
+                  // 2) onUpdateVisitedHistory 专门抓 SPA 的 pushState 跳转
+                  // 3) shouldOverrideUrlLoading 拦截跳转的最早时机，同时
+                  //    顺手拦掉"在App内打开"这种 zhihu://等 scheme 跳转
+                  //    （不拦的话知乎会试图拉起知乎App，内置浏览器直接被晾在原地）
+                  // 4) onLoadStart 加载一开始就更新，不用等加载完
+                  onLoadStart: (ctrl, url) => _updateUrl(url?.toString()),
+                  onLoadStop: (ctrl, url) async {
+                    final u = await ctrl.getUrl();
+                    _updateUrl(u?.toString());
+                  },
+                  onUpdateVisitedHistory: (ctrl, url, isReload) async {
+                    final u = await ctrl.getUrl();
+                    _updateUrl(u?.toString());
+                  },
+                  shouldOverrideUrlLoading: (ctrl, action) async {
+                    final u = action.request.url?.toString() ?? '';
+                    // "在App内打开"拦截——不让它跳去 zhihu://weixin:// 这类
+                    // App scheme，内置浏览器留在原地，不然知乎会试图拉起App
+                    if (u.startsWith('zhihu://') ||
+                        u.startsWith('snssdk') ||
+                        u.startsWith('weixin://')) {
+                      return NavigationActionPolicy.CANCEL;
+                    }
+                    _updateUrl(u);
+                    return NavigationActionPolicy.ALLOW;
+                  },
                 ),
-                onWebViewCreated: (ctrl) {
-                  _webCtrl = ctrl;
-                  ctrl.loadData(
-                    data: _guideHtml,
-                    mimeType: 'text/html',
-                    encoding: 'utf-8',
-                  );
-                },
-                // 单靠 onLoadStop 的 url 参数不可靠——知乎是 SPA 路由，
-                // 客户端跳转经常不触发一次干净的"整页加载完成"事件，
-                // 或者事件触发了但参数拿到的还是旧 URL。四路一起盯：
-                // 1) onLoadStop 主动用 ctrl.getUrl() 查一遍，不信参数
-                // 2) onUpdateVisitedHistory 专门抓 SPA 的 pushState 跳转
-                // 3) shouldOverrideUrlLoading 拦截跳转的最早时机，同时
-                //    顺手拦掉"在App内打开"这种 zhihu://等 scheme 跳转
-                //    （不拦的话知乎会试图拉起知乎App，内置浏览器直接被晾在原地）
-                // 4) onLoadStart 加载一开始就更新，不用等加载完
-                onLoadStart: (ctrl, url) => _updateUrl(url?.toString()),
-                onLoadStop: (ctrl, url) async {
-                  final u = await ctrl.getUrl();
-                  _updateUrl(u?.toString());
-                },
-                onUpdateVisitedHistory: (ctrl, url, isReload) async {
-                  final u = await ctrl.getUrl();
-                  _updateUrl(u?.toString());
-                },
-                shouldOverrideUrlLoading: (ctrl, action) async {
-                  final u = action.request.url?.toString() ?? '';
-                  // "在App内打开"拦截——不让它跳去 zhihu://weixin:// 这类
-                  // App scheme，内置浏览器留在原地，不然知乎会试图拉起App
-                  if (u.startsWith('zhihu://') ||
-                      u.startsWith('snssdk') ||
-                      u.startsWith('weixin://')) {
-                    return NavigationActionPolicy.CANCEL;
-                  }
-                  _updateUrl(u);
-                  return NavigationActionPolicy.ALLOW;
-                },
               ),
             ),
           ],
@@ -302,16 +312,58 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                 Row(
                   children: [
                     Expanded(
+                      // 之前用默认 OutlineInputBorder——一圈实心描边+
+                      // 聚焦时整圈变紫，跟这个页面其它地方（顶部网址栏/
+                      // 快捷链接都是"填充色胶囊、不描边"）不是一套语言，
+                      // 显得像个没改过样式的原生Material控件。改成同一套
+                      // 填充胶囊，只在聚焦时给一圈很淡的品牌色提示，不是
+                      // 一整圈实描边
                       child: TextField(
                         controller: ctrl,
                         autofocus: true,
                         keyboardType: TextInputType.url,
                         textInputAction: TextInputAction.go,
-                        decoration: const InputDecoration(
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark
+                              ? const Color(0xFFE0E2F0)
+                              : const Color(0xFF1A1A1A),
+                        ),
+                        decoration: InputDecoration(
                           hintText: '输入网址...',
-                          prefixIcon: Icon(Icons.search, size: 18),
+                          hintStyle: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[400],
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            size: 18,
+                            color: Colors.grey[400],
+                          ),
+                          filled: true,
+                          fillColor: isDark
+                              ? const Color(0xFF111118)
+                              : const Color(0xFFF5F5F5),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: const Color(
+                                0xFF6366F1,
+                              ).withValues(alpha: 0.25),
+                              width: 1,
+                            ),
                           ),
                         ),
                         onSubmitted: (url) {
@@ -322,11 +374,17 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                     ),
                     const SizedBox(width: 8),
                     TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF6366F1),
+                      ),
                       onPressed: () {
                         Navigator.pop(sheetCtx);
                         _loadUrl(ctrl.text);
                       },
-                      child: const Text('前往'),
+                      child: const Text(
+                        '前往',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -397,7 +455,8 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     setState(() => _importing = true);
 
     try {
-      final result = await ctrl.evaluateJavascript(source: r'''
+      final result = await ctrl.evaluateJavascript(
+        source: r'''
 (function() {
   const url = window.location.href;
   const hostname = window.location.hostname;
@@ -668,7 +727,8 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     block_count: blocks.length
   });
 })()
-''');
+''',
+      );
 
       if (result == null) {
         _showError('提取失败，请重试');
