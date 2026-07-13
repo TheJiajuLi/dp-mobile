@@ -482,6 +482,104 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     return validLangs.includes(mapped) ? mapped : 'python';
   }
 
+  // ── 共用工具：知乎分支和通用 fallback 都用这一套 ──
+
+  // 公式感知的混合内容提取：文字用 textContent（不产生换行），公式优先
+  // 读 data-tex / ztext-math / MathJax script 输出 $...$，跳过 SVG 和
+  // katex/MathJax 渲染字形容器，知乎实体词去掉 SVG 只取文字
+  function extractMixed(el) {
+    let text = '';
+    el.childNodes.forEach(node => {
+      if (node.nodeType === 3) {
+        text += node.textContent || '';
+        return;
+      }
+      if (node.nodeType !== 1) return;
+      const tag = node.tagName ? node.tagName.toLowerCase() : '';
+      if (tag === 'svg' || tag === 'style') return;
+      const cls = typeof node.className === 'string' ? node.className : '';
+      if (cls.includes('ztext-math')) {
+        const tex = node.getAttribute('data-tex') || '';
+        if (tex) text += ' $' + tex + '$ ';
+        return;
+      }
+      if (node.hasAttribute('data-tex')) {
+        const tex = node.getAttribute('data-tex');
+        if (tex) text += ' $' + tex + '$ ';
+        return;
+      }
+      if (tag === 'script') {
+        if ((node.type || '').includes('math/tex')) {
+          const tex = (node.textContent || '').trim();
+          if (tex) text += ' $' + tex + '$ ';
+        }
+        return;
+      }
+      if (cls.includes('katex') || cls.includes('MathJax') || cls.includes('mjx-') || cls.includes('MJX')) {
+        return;
+      }
+      if (cls.includes('RichContent-EntityWord')) {
+        node.querySelectorAll('svg').forEach(s => s.remove());
+        text += node.textContent || '';
+        return;
+      }
+      text += extractMixed(node);
+    });
+    return text;
+  }
+
+  // 图片真实 URL——知乎/多数站点懒加载，真址在 data-* 上、src 常是占位图
+  function getImgSrc(img) {
+    return img.getAttribute('data-original')
+      || img.getAttribute('data-actualsrc')
+      || img.getAttribute('data-src')
+      || img.getAttribute('data-lazy-src')
+      || img.getAttribute('data-lazy')
+      || (img.src && !img.src.includes('data:image') ? img.src : '')
+      || '';
+  }
+
+  function isValidContentImg(src) {
+    if (!src) return false;
+    if (!src.startsWith('http')) return false;
+    if (src.startsWith('data:')) return false;
+    if (src.includes('1x1') || src.includes('pixel') || src.includes('track') || src.includes('analytics')) return false;
+    return true;
+  }
+
+  // 排除作者头像——URL 特征 + 所在容器特征
+  function isAvatarUrl(src, el) {
+    if (src.includes('/avatar/') || src.includes('_xs.') || src.includes('_s.') || src.includes('50_50') || src.includes('_is_head') || src.includes('qlogo.cn')) return true;
+    if (el && el.closest && el.closest('.AuthorInfo, .Post-Author, .UserLink, .Avatar, .author-info, .js_profile_container')) return true;
+    return false;
+  }
+
+  // 元素是否"只含一个公式、没别的实质文字"→ 该独占一个 latex block
+  function isSoleLatexEl(el) {
+    const children = Array.from(el.childNodes).filter(n => {
+      if (n.nodeType === 3) return n.textContent.trim() !== '';
+      if (n.nodeType === 1) {
+        const t = n.tagName ? n.tagName.toLowerCase() : '';
+        if (t === 'script' || t === 'svg') return false;
+        return true;
+      }
+      return false;
+    });
+    if (children.length !== 1) return false;
+    const child = children[0];
+    if (child.nodeType !== 1) return false;
+    const cls = typeof child.className === 'string' ? child.className : '';
+    return cls.includes('ztext-math')
+      || child.hasAttribute('data-tex')
+      || (child.tagName && child.tagName.toLowerCase() === 'script' && (child.type || '').includes('math/tex'));
+  }
+
+  function getSoleLatex(el) {
+    const mathEl = el.querySelector('[data-tex]') || el.querySelector('script[type*="math/tex"]');
+    if (!mathEl) return null;
+    return mathEl.getAttribute('data-tex') || (mathEl.textContent ? mathEl.textContent.trim() : '') || null;
+  }
+
   // ── 知乎文章 ──
   // 触发条件放宽成"知乎域名 + 存在 .Post-RichText 正文容器"——原来强绑
   // h1.Post-Title，专栏/回答/新版页面标题类名不同就会漏掉、掉进通用
@@ -494,39 +592,27 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       || document.title.replace(/\s*[-_|].*$/, '').trim()
       || '';
 
-    const coverEl = document.querySelector('.Post-Header img[src*="zhimg.com"]');
-    const coverImage = coverEl ? coverEl.src.split('?')[0] : null;
-
     const container = document.querySelector('.Post-RichText');
     if (!container) {
       return JSON.stringify({ error: '未找到文章正文，请确认已打开文章详情页' });
     }
 
+    // 封面：优先 og:image（最准），否则取正文第一张有效大图（排除头像）——
+    // 原来抓 .Post-Header 里的图，命中的是作者头像
+    let coverImage = null;
+    const ogImg = document.querySelector('meta[property="og:image"]');
+    if (ogImg) coverImage = ogImg.getAttribute('content') || null;
+    if (!coverImage) {
+      const cImgs = container.querySelectorAll('img');
+      for (const img of cImgs) {
+        const s = getImgSrc(img);
+        if (isValidContentImg(s) && !isAvatarUrl(s, img)) { coverImage = s; break; }
+      }
+    }
+
     const blocks = [];
     let idCounter = 0;
     const genId = () => 'b' + (++idCounter) + '_' + Date.now();
-
-    // 提取混合内容（文字 + 行内 LaTeX）
-    function extractMixed(el) {
-      let text = '';
-      el.childNodes.forEach(node => {
-        if (node.nodeType === 3) {
-          text += node.textContent || '';
-        } else if (node.nodeType === 1) {
-          const cls = node.className || '';
-          if (cls.includes('ztext-math')) {
-            const tex = node.getAttribute('data-tex') || '';
-            if (tex) text += ' $' + tex + '$ ';
-          } else if (cls.includes('RichContent-EntityWord')) {
-            node.querySelectorAll('svg').forEach(s => s.remove());
-            text += node.textContent || '';
-          } else {
-            text += extractMixed(node);
-          }
-        }
-      });
-      return text;
-    }
 
     function processEl(el) {
       const tag = el.tagName?.toLowerCase();
@@ -543,6 +629,13 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
 
       if (tag === 'ul' || tag === 'ol') {
         el.querySelectorAll('li').forEach(li => {
+          if (isSoleLatexEl(li)) {
+            const latex = getSoleLatex(li);
+            if (latex && latex.trim()) {
+              blocks.push({ id: genId(), type: 'latex', content: latex.trim() });
+              return;
+            }
+          }
           const content = extractMixed(li).trim();
           if (content) blocks.push({ id: genId(), type: 'text', content: '• ' + content });
         });
@@ -550,6 +643,13 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       }
 
       if (tag === 'li') {
+        if (isSoleLatexEl(el)) {
+          const latex = getSoleLatex(el);
+          if (latex && latex.trim()) {
+            blocks.push({ id: genId(), type: 'latex', content: latex.trim() });
+            return;
+          }
+        }
         const content = extractMixed(el).trim();
         if (content) blocks.push({ id: genId(), type: 'text', content: '• ' + content });
         return;
@@ -558,8 +658,8 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       if (tag === 'figure') {
         const img = el.querySelector('img.zh-lightbox-thumb, img');
         if (img) {
-          const src = img.getAttribute('data-original') || img.src || '';
-          if (src && src.includes('zhimg.com')) {
+          const src = getImgSrc(img);
+          if (isValidContentImg(src) && !isAvatarUrl(src, img)) {
             blocks.push({ id: genId(), type: 'image', content: src, imageUrl: src });
           }
         }
@@ -567,8 +667,8 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       }
 
       if (tag === 'img') {
-        const src = el.getAttribute('data-original') || el.src || '';
-        if (src && src.includes('zhimg.com')) {
+        const src = getImgSrc(el);
+        if (isValidContentImg(src) && !isAvatarUrl(src, el)) {
           blocks.push({ id: genId(), type: 'image', content: src, imageUrl: src });
         }
         return;
@@ -586,16 +686,13 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       }
 
       if (tag === 'p') {
-        const children = Array.from(el.children).filter(c => c.tagName !== 'SCRIPT');
-        const onlyMath = children.length === 1 && children[0].className?.includes('ztext-math');
-        const hasOtherText = el.childNodes && Array.from(el.childNodes).some(n => n.nodeType === 3 && n.textContent.trim());
-
-        if (onlyMath && !hasOtherText) {
-          const tex = children[0].getAttribute('data-tex') || '';
-          if (tex.trim()) blocks.push({ id: genId(), type: 'latex', content: tex.trim() });
-          return;
+        if (isSoleLatexEl(el)) {
+          const latex = getSoleLatex(el);
+          if (latex && latex.trim()) {
+            blocks.push({ id: genId(), type: 'latex', content: latex.trim() });
+            return;
+          }
         }
-
         const content = extractMixed(el).trim();
         if (content) blocks.push({ id: genId(), type: 'text', content: content });
         return;
@@ -621,51 +718,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     });
   }
 
-  // ── 其它平台通用提取 ──
-  // 通用版混合内容提取：跟知乎 extractMixed 一样用 textContent（不用
-  // innerText——innerText 会按渲染布局把 KaTeX 公式的字形逐个拆成一行，
-  // 就是"一个字符一行"乱码的根因），并优先读公式元素的 data-tex 源码
-  // 输出 $...$，跳过 SVG / katex 字形容器避免把渲染字形重复吐出来
-  function extractMixedGeneral(el) {
-    let text = '';
-    el.childNodes.forEach(node => {
-      if (node.nodeType === 3) {
-        text += node.textContent || '';
-      } else if (node.nodeType === 1) {
-        const tag = node.tagName ? node.tagName.toLowerCase() : '';
-        // SVG / script / style 放最前跳过——SVG 的 className 不是普通
-        // 字符串，先拦掉免得后面 .includes 抛错；MathJax 的
-        // <script type="math/tex"> 例外，要取里面的源码
-        if (tag === 'svg' || tag === 'script' || tag === 'style') {
-          if (tag === 'script' && (node.type || '').includes('math/tex')) {
-            const tex = node.textContent || '';
-            if (tex.trim()) text += ' $' + tex.trim() + '$ ';
-          }
-          return;
-        }
-        const cls = typeof node.className === 'string' ? node.className : '';
-        // 带 data-tex 的公式元素（KaTeX/知乎 ztext-math/通用）直接取源码
-        if (node.hasAttribute('data-tex')) {
-          const tex = node.getAttribute('data-tex');
-          if (tex) text += ' $' + tex + '$ ';
-          return;
-        }
-        if (cls.includes('ztext-math')) {
-          const tex = node.getAttribute('data-tex') || '';
-          if (tex) text += ' $' + tex + '$ ';
-          return;
-        }
-        // KaTeX/MathJax 渲染容器：源码在带 data-tex 的祖先上已取过，整棵
-        // 子树跳过，不然会把渲染字形一个个吐出来
-        if (cls.includes('katex') || cls.includes('MathJax') || cls.includes('mjx-')) {
-          return;
-        }
-        text += extractMixedGeneral(node);
-      }
-    });
-    return text;
-  }
-
+  // ── 其它平台通用提取 ──（复用上面那套共用工具，不再单独一份）
   const container = document.querySelector('article')
     || document.querySelector('main')
     || document.querySelector('.content, #content, .article')
@@ -675,44 +728,44 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
 
   const blocks = [];
   let id = 0;
+  const gid = () => 'g' + (++id);
 
-  container.querySelectorAll('h1,h2,h3,p,pre,li,img,figure').forEach(el => {
+  // figure 里的 img 会被 img 选择器重复命中，所以通用路径不单独处理
+  // figure，统一交给 img 分支（getImgSrc 已能读懒加载真址）
+  container.querySelectorAll('h1,h2,h3,p,pre,li,img').forEach(el => {
     const tag = el.tagName.toLowerCase();
-    // 跳过嵌套在 pre 里的非 pre 元素
     if (el.closest('pre') && tag !== 'pre') return;
 
     if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
-      const content = extractMixedGeneral(el).trim();
-      if (content) {
-        blocks.push({ id: 'g' + (++id), type: 'heading', content: content, level: parseInt(tag[1]) });
-      }
+      const content = extractMixed(el).trim();
+      if (content) blocks.push({ id: gid(), type: 'heading', content: content, level: parseInt(tag[1]) });
     } else if (tag === 'pre') {
-      // 代码保留 innerText——要的就是它按行渲染的换行
       const code = el.innerText.trim();
-      if (code) blocks.push({ id: 'g' + (++id), type: 'code', content: code, language: 'python' });
+      if (code) blocks.push({ id: gid(), type: 'code', content: code, language: 'python' });
     } else if (tag === 'p') {
-      // 独立公式段落（只有一个公式元素、没有其它正文）→ latex block
-      const mathEl = el.querySelector('[data-tex]');
-      const allChildren = Array.from(el.children).filter(c => c.tagName !== 'SCRIPT');
-      if (mathEl && allChildren.length === 1 &&
-          !el.textContent.trim().replace(mathEl.textContent, '').trim()) {
-        const tex = mathEl.getAttribute('data-tex') || '';
-        if (tex.trim()) {
-          blocks.push({ id: 'g' + (++id), type: 'latex', content: tex.trim() });
+      if (isSoleLatexEl(el)) {
+        const latex = getSoleLatex(el);
+        if (latex && latex.trim()) {
+          blocks.push({ id: gid(), type: 'latex', content: latex.trim() });
           return;
         }
       }
-      const content = extractMixedGeneral(el).trim();
-      if (content.length > 5) {
-        blocks.push({ id: 'g' + (++id), type: 'text', content: content });
-      }
+      const content = extractMixed(el).trim();
+      if (content.length > 5) blocks.push({ id: gid(), type: 'text', content: content });
     } else if (tag === 'li') {
-      const content = extractMixedGeneral(el).trim();
-      if (content) blocks.push({ id: 'g' + (++id), type: 'text', content: '• ' + content });
+      if (isSoleLatexEl(el)) {
+        const latex = getSoleLatex(el);
+        if (latex && latex.trim()) {
+          blocks.push({ id: gid(), type: 'latex', content: latex.trim() });
+          return;
+        }
+      }
+      const content = extractMixed(el).trim();
+      if (content) blocks.push({ id: gid(), type: 'text', content: '• ' + content });
     } else if (tag === 'img') {
-      const src = el.src || '';
-      if (src.startsWith('http')) {
-        blocks.push({ id: 'g' + (++id), type: 'image', content: src, imageUrl: src });
+      const src = getImgSrc(el);
+      if (isValidContentImg(src) && !isAvatarUrl(src, el)) {
+        blocks.push({ id: gid(), type: 'image', content: src, imageUrl: src });
       }
     }
   });
