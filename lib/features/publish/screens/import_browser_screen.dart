@@ -585,12 +585,17 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     '您的浏览器不支持', '退出全屏', '进入全屏', '切换到竖屏', '切换到横屏',
     '横屏模式', '竖屏', '倍速播放', '0.5倍', '0.75倍', '1.5倍', '2.0倍',
     '超清', '流畅', '百分之', '进度条', '已同步到看一看', '视频详情',
-    '观看更多', '重播', '继续播放', '继续观看',
+    '观看更多', '重播', '继续播放', '继续观看', '写下你的评论', '已关注',
+    '倍速全屏',
   ];
   function isPlayerNoise(text) {
     if (!text) return false;
     // 纯数字/时间/百分比（播放进度：00:48 / 100% 之类）
     if (/^[\d\s%:：\/.]+$/.test(text)) return true;
+    // 播放器控件文字没有被跳过容器拦住时，是直接混进正文文字节点的一长
+    // 串——控件之间用大量连续空白分隔（这不是正常段落会有的排版），
+    // 命中就当噪声
+    if (/\s{10,}/.test(text)) return true;
     return playerNoisePatterns.some(p => text.includes(p));
   }
 
@@ -755,8 +760,11 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     const ogImg = document.querySelector('meta[property="og:image"]');
     if (ogImg) coverImage = ogImg.getAttribute('content') || null;
 
-    const container = document.querySelector('#js_content')
-      || document.querySelector('.rich_media_content');
+    // 只认 #js_content，不用 .rich_media_content 兜底——.rich_media_content
+    // 是 #js_content 的外层容器（包含标题/作者条这些不该抓的东西），两者
+    // 不会同时命中所以本身不是重复的根因，但范围更小更精准，没必要留一个
+    // 可能带来噪声的更大兜底范围
+    const container = document.querySelector('#js_content');
     if (!container) {
       return JSON.stringify({ error: '未找到文章正文，请确认已完整加载文章' });
     }
@@ -843,6 +851,22 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
         return;
       }
 
+      // 公众号编辑器爱用 section 当通用容器套娃——一个 section 里嵌
+      // h2/p/section 很常见。之前 section 跟 p 一样直接整体 extractMixed，
+      // 把嵌在里面的标题/段落文字整段吞进去当一个大text block，而这些
+      // 嵌套的 h2/p 本身又会被这个 querySelectorAll 单独命中再提取一次
+      // ——同一段内容重复两三遍就是这么来的。改成：section 内部如果还有
+      // 别的块级元素（h1-3/p/section/blockquote/pre/ul/ol/figure），就不
+      // 直接整体提取，让内部这些块级元素各自独立命中提取，不重复；只有
+      // "叶子section"（里面没有更细的块级结构，文字直接铺在span/纯文本里）
+      // 才整体当一段文字提取，不然这段文字没有任何其它选择器会去抓它
+      if (tag === 'section') {
+        const hasNestedBlock = el.querySelector(
+          'h1,h2,h3,p,section,blockquote,pre,ul,ol,figure'
+        );
+        if (hasNestedBlock) return;
+      }
+
       if (tag === 'p' || tag === 'section') {
         if (isSoleLatexEl(el)) {
           const latex = getSoleLatex(el);
@@ -860,13 +884,33 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       }
     });
 
+    // 保险丝——即便还有别的路径漏产生重复（比如同一段文字恰好在两个不
+    // 相邻的叶子节点各出现一次），完全相同的text block只保留第一份
+    const seenTexts = new Set();
+    const textDeduped = blocks.filter(b => {
+      if (b.type !== 'text') return true;
+      const key = b.content.trim();
+      if (seenTexts.has(key)) return false;
+      seenTexts.add(key);
+      return true;
+    });
+
     // 图片去重——section/p 嵌套下同一张图可能被多次命中
     const seenUrls = new Set();
-    const deduped = blocks.filter(b => {
+    const imageDeduped = textDeduped.filter(b => {
       if (b.type !== 'image') return true;
       if (seenUrls.has(b.content)) return false;
       seenUrls.add(b.content);
       return true;
+    });
+
+    // 播放器噪声二次过滤——有些播放器控件文字不在被跳过的容器里，是直接
+    // 混在正文文字节点里的一长串（大量连续空白分隔的按钮标签），
+    // isPlayerNoise 在提取当下已经拦过一轮，这里对最终 blocks 再扫一遍
+    // 兜底
+    const deduped = imageDeduped.filter(b => {
+      if (b.type !== 'text') return true;
+      return !isPlayerNoise(b.content);
     });
 
     const firstText = deduped.find(b => b.type === 'text');
