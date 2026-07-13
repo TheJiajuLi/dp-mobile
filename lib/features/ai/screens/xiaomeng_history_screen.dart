@@ -210,7 +210,7 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
                       child: const SizedBox(
                         width: 34,
                         height: 34,
-                        child: Icon(Icons.cleaning_services_outlined, size: 18),
+                        child: Icon(Icons.delete_sweep_outlined, size: 18),
                       ),
                     ),
                 ],
