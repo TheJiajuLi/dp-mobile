@@ -1,22 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/network/api_client.dart';
-
 // 内置浏览器导入——URL 直接抓取（/auth/import/url）在知乎/公众号这类
 // 反爬平台经常吃闭门羹（403），这个是给这种情况用的备选方案：用户在
-// 这个内嵌浏览器里自己登录/翻到想导入的文章页，点"导入"，直接把当前
-// 页面已经渲染好的完整 DOM（document.documentElement.outerHTML）发给
-// 后端解析——不再依赖服务器自己发请求抓页面，天然绕开反爬。
+// 这个内嵌浏览器里自己登录/翻到想导入的文章页，点"导入"。
 //
-// 实测确认（2026-07-13）后端 /auth/import/html 只吃 {html, source_url}
-// 两个字段，不接受 title/cover_image/platform——它固定用通用的
-// extractBlocks 解析，不会走知乎专用的 parseZhihuContent（那套只在
-// /auth/import/url 里根据自动探测的 platform 触发），所以这里不用再
-// 费劲用知乎专属的 querySelector('.Post-Title')/('.Post-RichText') 去
-// 精确抠内容——抓整页 HTML 直接扔给后端，后端自己按 article > main >
-// 常见正文容器 > body 的顺序找正文，效果一样，代码还更简单
+// 现在**不再把原始 HTML 发给后端**——直接在页面里注入一段 JS，就地把已经
+// 渲染好的 DOM 抠成结构化 blocks（知乎走 .Post-RichText 精准解析：标题/
+// 段落/行内公式 ztext-math/独立公式块/代码/图片/列表都分门别类；其它站点
+// 走 article>main>常见容器的通用 fallback），JSON.stringify 后回传，Flutter
+// jsonDecode 直接拿去发布页用，整条链路不经后端、也绕开了反爬。
 class ImportBrowserScreen extends ConsumerStatefulWidget {
   const ImportBrowserScreen({super.key});
 
@@ -271,18 +267,6 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     }
   }
 
-  // 只是给"已经确认真实存在的" /auth/import/html 顺带带一个 platform
-  // 字段——实测确认（2026-07-13）后端这个接口目前固定回 platform:
-  // 'paste'，不会因为传了这个字段就切到知乎专用解析器（那套只在
-  // /auth/import/url 里根据服务端自己探测的 URL 触发）。传了不会更准，
-  // 但也无害，后端以后如果把这个接口也接上按 platform 分流解析，前端
-  // 不用再改一次
-  String _detectPlatform(String url) {
-    if (url.contains('zhihu.com')) return 'zhihu';
-    if (url.contains('mp.weixin.qq.com')) return 'wechat';
-    return 'general';
-  }
-
   void _showUrlInput() {
     final ctrl = TextEditingController(text: _currentUrl);
     showModalBottomSheet(
@@ -404,37 +388,217 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     _webCtrl?.loadUrl(urlRequest: URLRequest(url: WebUri(finalUrl)));
   }
 
+  // 在页面里注入 JS 就地把 DOM 抠成结构化 blocks 回传，不经后端。
+  // 注意：图片 block 的 URL 写在 imageUrl 字段（EditorBlock.fromJson 和
+  // 编辑器渲染都读 imageUrl，不是 content），顺带也塞一份到 content 兜底
   Future<void> _doImport() async {
     final ctrl = _webCtrl;
     if (ctrl == null) return;
     setState(() => _importing = true);
 
     try {
-      final html = await ctrl.evaluateJavascript(
-        source: 'document.documentElement.outerHTML',
-      );
-      if (html == null || html.toString().trim().isEmpty) {
+      final result = await ctrl.evaluateJavascript(source: r'''
+(function() {
+  const url = window.location.href;
+  const hostname = window.location.hostname;
+
+  // ── 知乎文章 ──
+  if (hostname.includes('zhihu.com') && document.querySelector('h1.Post-Title')) {
+    const title = document.querySelector('h1.Post-Title')?.innerText?.trim() || '';
+
+    const coverEl = document.querySelector('.Post-Header img[src*="zhimg.com"]');
+    const coverImage = coverEl ? coverEl.src.split('?')[0] : null;
+
+    const container = document.querySelector('.Post-RichText');
+    if (!container) {
+      return JSON.stringify({ error: '未找到文章正文，请确认已打开文章详情页' });
+    }
+
+    const blocks = [];
+    let idCounter = 0;
+    const genId = () => 'b' + (++idCounter) + '_' + Date.now();
+
+    // 提取混合内容（文字 + 行内 LaTeX）
+    function extractMixed(el) {
+      let text = '';
+      el.childNodes.forEach(node => {
+        if (node.nodeType === 3) {
+          text += node.textContent || '';
+        } else if (node.nodeType === 1) {
+          const cls = node.className || '';
+          if (cls.includes('ztext-math')) {
+            const tex = node.getAttribute('data-tex') || '';
+            if (tex) text += ' $' + tex + '$ ';
+          } else if (cls.includes('RichContent-EntityWord')) {
+            node.querySelectorAll('svg').forEach(s => s.remove());
+            text += node.textContent || '';
+          } else {
+            text += extractMixed(node);
+          }
+        }
+      });
+      return text;
+    }
+
+    function processEl(el) {
+      const tag = el.tagName?.toLowerCase();
+      if (!tag) return;
+      if (tag === 'hr') return;
+
+      if (tag === 'h2' || tag === 'h3') {
+        const content = extractMixed(el).trim();
+        if (content) {
+          blocks.push({ id: genId(), type: 'heading', content: content, level: tag === 'h2' ? 2 : 3 });
+        }
+        return;
+      }
+
+      if (tag === 'ul' || tag === 'ol') {
+        el.querySelectorAll('li').forEach(li => {
+          const content = extractMixed(li).trim();
+          if (content) blocks.push({ id: genId(), type: 'text', content: '• ' + content });
+        });
+        return;
+      }
+
+      if (tag === 'li') {
+        const content = extractMixed(el).trim();
+        if (content) blocks.push({ id: genId(), type: 'text', content: '• ' + content });
+        return;
+      }
+
+      if (tag === 'figure') {
+        const img = el.querySelector('img.zh-lightbox-thumb, img');
+        if (img) {
+          const src = img.getAttribute('data-original') || img.src || '';
+          if (src && src.includes('zhimg.com')) {
+            blocks.push({ id: genId(), type: 'image', content: src, imageUrl: src });
+          }
+        }
+        return;
+      }
+
+      if (tag === 'img') {
+        const src = el.getAttribute('data-original') || el.src || '';
+        if (src && src.includes('zhimg.com')) {
+          blocks.push({ id: genId(), type: 'image', content: src, imageUrl: src });
+        }
+        return;
+      }
+
+      if (tag === 'pre') {
+        const codeEl = el.querySelector('code');
+        const code = (codeEl || el).innerText.trim();
+        if (code) {
+          const langClass = (codeEl?.className || '');
+          const langMatch = langClass.match(/language-(\w+)/);
+          const lang = langMatch ? langMatch[1] : 'python';
+          blocks.push({ id: genId(), type: 'code', content: code, language: lang === 'text' ? 'python' : lang });
+        }
+        return;
+      }
+
+      if (tag === 'p') {
+        const children = Array.from(el.children).filter(c => c.tagName !== 'SCRIPT');
+        const onlyMath = children.length === 1 && children[0].className?.includes('ztext-math');
+        const hasOtherText = el.childNodes && Array.from(el.childNodes).some(n => n.nodeType === 3 && n.textContent.trim());
+
+        if (onlyMath && !hasOtherText) {
+          const tex = children[0].getAttribute('data-tex') || '';
+          if (tex.trim()) blocks.push({ id: genId(), type: 'latex', content: tex.trim() });
+          return;
+        }
+
+        const content = extractMixed(el).trim();
+        if (content) blocks.push({ id: genId(), type: 'text', content: content });
+        return;
+      }
+
+      if (tag === 'div' || tag === 'section') {
+        Array.from(el.children).forEach(processEl);
+        return;
+      }
+    }
+
+    Array.from(container.children).forEach(processEl);
+
+    const firstText = blocks.find(b => b.type === 'text');
+    const summary = firstText ? firstText.content.slice(0, 120) : '';
+
+    return JSON.stringify({
+      title, summary, blocks,
+      cover_image: coverImage,
+      source_url: url,
+      platform: 'zhihu',
+      block_count: blocks.length
+    });
+  }
+
+  // ── 其它平台通用提取 ──
+  const container = document.querySelector('article')
+    || document.querySelector('main')
+    || document.querySelector('.content, #content, .article')
+    || document.body;
+
+  const title = document.querySelector('h1')?.innerText?.trim() || document.title || '';
+
+  const blocks = [];
+  let id = 0;
+
+  container.querySelectorAll('h1,h2,h3,p,pre,li,img,figure').forEach(el => {
+    const tag = el.tagName.toLowerCase();
+    const text = el.innerText?.trim() || '';
+
+    if (text.length < 5 && tag !== 'img' && tag !== 'figure') return;
+    if (el.closest('pre') && tag !== 'pre') return;
+
+    if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
+      blocks.push({ id: 'g' + (++id), type: 'heading', content: text, level: parseInt(tag[1]) });
+    } else if (tag === 'pre') {
+      blocks.push({ id: 'g' + (++id), type: 'code', content: el.innerText.trim(), language: 'python' });
+    } else if (tag === 'p' && text.length > 10) {
+      blocks.push({ id: 'g' + (++id), type: 'text', content: text });
+    } else if (tag === 'li') {
+      blocks.push({ id: 'g' + (++id), type: 'text', content: '• ' + text });
+    } else if (tag === 'img') {
+      const src = el.src || '';
+      if (src.startsWith('http')) {
+        blocks.push({ id: 'g' + (++id), type: 'image', content: src, imageUrl: src });
+      }
+    }
+  });
+
+  const summary = blocks.find(b => b.type === 'text')?.content.slice(0, 120) || '';
+
+  return JSON.stringify({
+    title, summary, blocks,
+    cover_image: null,
+    source_url: url,
+    platform: 'general',
+    block_count: blocks.length
+  });
+})()
+''');
+
+      if (result == null) {
         _showError('提取失败，请重试');
         return;
       }
 
-      final res = await ref
-          .read(apiClientProvider)
-          .post(
-            '/auth/import/html',
-            data: {
-              'html': html.toString(),
-              'source_url': _currentUrl,
-              'platform': _detectPlatform(_currentUrl),
-            },
-          );
+      final data = jsonDecode(result.toString()) as Map<String, dynamic>;
 
-      if (!res.success || res.data == null) {
-        _showError(res.message ?? '解析失败');
+      if (data['error'] != null) {
+        _showError(data['error'] as String);
         return;
       }
 
-      if (mounted) Navigator.pop(context, res.data);
+      if ((data['blocks'] as List?)?.isEmpty ?? true) {
+        _showError('没提取到内容，请确认已打开文章详情页');
+        return;
+      }
+
+      // 不再调后端接口，直接把结构化 blocks 返回给发布页
+      if (mounted) Navigator.pop(context, data);
     } catch (e) {
       _showError('提取失败：$e');
     } finally {
