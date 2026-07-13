@@ -37,14 +37,11 @@ class MainShell extends ConsumerWidget {
     // 极索进入"回答态"时隐藏底部导航栏，让它变成沉浸式全屏（靠页内左上角
     // 返回键退出）
     final immersive = ref.watch(jisuoImmersiveProvider);
-    // 首页/消息/我的 三个tab浅色背景都是 #FAFAF8（比主题默认
-    // scaffoldBackgroundColor 更暖的米白，home_screen.dart/
-    // messages_screen.dart/user_profile_screen.dart 各自都单独设了这个
-    // 背景色）——底部栏之前只在首页tab跟着换米白，消息/我的这两个tab还
-    // 是主题默认色，同样会露出接缝。只有极索（index 1）没有覆盖背景，
-    // 用的就是主题默认色，这个tab底部栏保持默认色不变
-    final usesWarmBg = navigationShell.currentIndex != 1;
-    final bottomBarColor = (!isDark && usesWarmBg)
+    // 四个tab浅色背景现在都是 #FAFAF8（比主题默认 scaffoldBackgroundColor
+    // 更暖的米白，home_screen.dart/messages_screen.dart/
+    // user_profile_screen.dart/jisuo_screen.dart 各自都单独设了这个
+    // 背景色）——底部栏跟着统一换米白，不然会露出接缝
+    final bottomBarColor = !isDark
         ? const Color(0xFFFAFAF8)
         : Theme.of(context).scaffoldBackgroundColor;
 

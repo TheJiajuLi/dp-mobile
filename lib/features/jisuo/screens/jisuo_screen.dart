@@ -314,7 +314,11 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 浅色统一成首页那种偏米白的 #FAFAF8（比全局 scaffold 的冷灰白
+      // #F7F7FB 更舒服），深色维持主题背景
+      backgroundColor: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFFAFAF8),
       // 装饰性星云/光晕要铺到状态栏后面才是完整的背景——之前包在
       // SafeArea 里面，SafeArea 顶部内边距会把这层背景一起往下推，
       // 状态栏那一条就会露出 scaffoldBackgroundColor 的纯色，跟下面
