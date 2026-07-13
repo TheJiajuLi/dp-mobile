@@ -56,7 +56,7 @@ Widget buildTutorialBlockWidget(
       );
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: _headingContent(content, headingStyle),
+        child: inlineLatexText(content, headingStyle),
       );
 
     case 'code':
@@ -294,48 +294,47 @@ Widget buildTutorialBlockWidget(
       );
 
     default: // text
+      final textStyle = applyBlockTextFormat(
+        TextStyle(
+          // 阅读页对标 Apple Books 的舒适度：16px、行高 1.85、正文用比
+          // 纯黑/纯白更柔和的颜色
+          fontSize: readingMode ? 16 : 15,
+          height: readingMode ? 1.85 : 1.7,
+          letterSpacing: readingMode ? 0.01 : null,
+          color: readingMode
+              ? (Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFC8CAD8)
+                    : const Color(0xFF2A2A2A))
+              : Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+        isBold: block['bold'] == true,
+        isItalic: block['italic'] == true,
+        isUnderline: block['underline'] == true,
+        isStrike: block['strike'] == true,
+        textColorValue: (block['textColor'] as num?)?.toInt(),
+        highlightColorValue: (block['highlightColor'] as num?)?.toInt(),
+        fontFamily: block['fontFamily'] as String?,
+        fontSizeStep: (block['fontSizeStep'] as num?)?.toInt() ?? 1,
+        lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
+      );
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Text(
-          content,
-          style: applyBlockTextFormat(
-            TextStyle(
-              // 阅读页对标 Apple Books 的舒适度：16px、行高 1.85、正文用比
-              // 纯黑/纯白更柔和的颜色
-              fontSize: readingMode ? 16 : 15,
-              height: readingMode ? 1.85 : 1.7,
-              letterSpacing: readingMode ? 0.01 : null,
-              color: readingMode
-                  ? (Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFFC8CAD8)
-                        : const Color(0xFF2A2A2A))
-                  : Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-            isBold: block['bold'] == true,
-            isItalic: block['italic'] == true,
-            isUnderline: block['underline'] == true,
-            isStrike: block['strike'] == true,
-            textColorValue: (block['textColor'] as num?)?.toInt(),
-            highlightColorValue: (block['highlightColor'] as num?)?.toInt(),
-            fontFamily: block['fontFamily'] as String?,
-            fontSizeStep: (block['fontSizeStep'] as num?)?.toInt() ?? 1,
-            lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
-          ),
-        ),
+        child: inlineLatexText(content, textStyle),
       );
   }
 }
 
-// heading block 支持行内 $...$ LaTeX——纯文字用 Text 走原来的路径，含
-// 公式的才切到 Text.rich + WidgetSpan（跟 AiContentRenderer 里行内公式
-// 一个思路）。headingStyle 已经套了 applyBlockTextFormat（加粗/颜色/
-// 高亮等），公式片段字号跟着缩小一档，视觉上不会比正文字还抢眼
-Widget _headingContent(String content, TextStyle headingStyle) {
+// text/heading block 支持行内 $...$ LaTeX——纯文字用 Text 走原来的路径，
+// 含公式的才切到 Text.rich + WidgetSpan（跟 AiContentRenderer 里行内
+// 公式一个思路，text/heading 两处共用，不用各写一份）。baseStyle 已经
+// 套了 applyBlockTextFormat（加粗/颜色/高亮等），公式片段字号跟着缩小
+// 一档，视觉上不会比正文字还抢眼
+Widget inlineLatexText(String content, TextStyle baseStyle) {
   final pattern = RegExp(r'\$([^$]+)\$');
   final matches = pattern.allMatches(content).toList();
-  if (matches.isEmpty) return Text(content, style: headingStyle);
+  if (matches.isEmpty) return Text(content, style: baseStyle);
 
-  final mathFontSize = (headingStyle.fontSize ?? 20) * 0.85;
+  final mathFontSize = (baseStyle.fontSize ?? 15) * 0.9;
   final spans = <InlineSpan>[];
   var last = 0;
   for (final m in matches) {
@@ -347,16 +346,13 @@ Widget _headingContent(String content, TextStyle headingStyle) {
         alignment: PlaceholderAlignment.middle,
         child: Math.tex(
           m.group(1)!,
-          textStyle: TextStyle(
-            fontSize: mathFontSize,
-            color: headingStyle.color,
-          ),
+          textStyle: TextStyle(fontSize: mathFontSize, color: baseStyle.color),
           onErrorFallback: (_) => Text(
             m.group(1)!,
             style: TextStyle(
               fontSize: mathFontSize * 0.9,
               fontFamily: 'monospace',
-              color: headingStyle.color,
+              color: baseStyle.color,
             ),
           ),
         ),
@@ -367,7 +363,7 @@ Widget _headingContent(String content, TextStyle headingStyle) {
   if (last < content.length) {
     spans.add(TextSpan(text: content.substring(last)));
   }
-  return Text.rich(TextSpan(style: headingStyle, children: spans));
+  return Text.rich(TextSpan(style: baseStyle, children: spans));
 }
 
 // 教程详情页（阅读视角）里可运行的代码块——只有 python/javascript/sql

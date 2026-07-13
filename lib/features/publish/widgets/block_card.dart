@@ -15,6 +15,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/block_text_style.dart';
 import '../../../shared/utils/code_highlight.dart';
 import '../../../shared/utils/premium_button.dart';
+import '../../../shared/widgets/tutorial_block_renderer.dart' show inlineLatexText;
 import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
@@ -331,19 +332,10 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     }
   }
 
-  Widget _buildTextBlock(AppLocalizations l10n) => TextFormField(
-    key: ValueKey('text_${widget.block.id}_$_textRevision'),
-    focusNode: widget.block.focusNode,
-    initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
-    decoration: InputDecoration(
-      filled: false,
-      hintText: l10n.textBlockHint,
-      hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
-      border: InputBorder.none,
-      isDense: true,
-      contentPadding: EdgeInsets.zero,
-    ),
-    style: applyBlockTextFormat(
+  static final _inlineLatexPattern = RegExp(r'\$[^$\n]+\$');
+
+  Widget _buildTextBlock(AppLocalizations l10n) {
+    final style = applyBlockTextFormat(
       TextStyle(
         fontSize: 14,
         height: 1.7,
@@ -358,15 +350,51 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       fontFamily: widget.block.fontFamily,
       fontSizeStep: widget.block.fontSizeStep,
       lineHeightStep: widget.block.lineHeightStep,
-    ),
-    maxLines: null,
-    onChanged: (v) {
-      widget.block.content = v;
-      widget.onChanged();
-    },
-    onTap: () => setState(() => _focused = true),
-    onEditingComplete: () => setState(() => _focused = false),
-  );
+    );
+
+    // 含 $...$ 的文字段——没聚焦时渲染成真正的公式（跟阅读页
+    // inlineLatexText 同一份逻辑），不然编辑器里永远只能看到原始
+    // $公式$ 源码，写完公式也不知道对不对。一点上去切回原始
+    // TextFormField 改源码，光标一收起（onEditingComplete）就切回渲染态。
+    // 没有公式的普通段落不受影响，还是原来那个一直可编辑的 TextFormField
+    final hasInlineLatex = _inlineLatexPattern.hasMatch(widget.block.content);
+    if (!_focused && hasInlineLatex) {
+      return GestureDetector(
+        onTap: () {
+          setState(() => _focused = true);
+          widget.block.focusNode.requestFocus();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: inlineLatexText(widget.block.content, style),
+        ),
+      );
+    }
+
+    return TextFormField(
+      key: ValueKey('text_${widget.block.id}_$_textRevision'),
+      focusNode: widget.block.focusNode,
+      initialValue: widget.block.content.isNotEmpty
+          ? widget.block.content
+          : null,
+      decoration: InputDecoration(
+        filled: false,
+        hintText: l10n.textBlockHint,
+        hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
+      ),
+      style: style,
+      maxLines: null,
+      onChanged: (v) {
+        widget.block.content = v;
+        widget.onChanged();
+      },
+      onTap: () => setState(() => _focused = true),
+      onEditingComplete: () => setState(() => _focused = false),
+    );
+  }
 
   void _showAiMenu() {
     switch (widget.block.type) {
