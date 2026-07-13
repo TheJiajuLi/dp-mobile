@@ -461,25 +461,60 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   const url = window.location.href;
   const hostname = window.location.hostname;
 
-  // 代码块 language 归一化——先按别名映射，再用白名单兜底，任何不认识的
-  // 值都降级到 python，跟 block_card.dart 的 _codeLanguages 保持一致，避免
-  // 导入后编辑器里语言下拉 value 匹配不到 item 崩溃
+  // 代码块 language 归一化——别名映射 + 白名单兜底。任何不认识的值都降级，
+  // 逻辑见 detectLanguage()。validLangs 必须跟 block_card.dart 的
+  // _codeLanguages 保持一致：编辑器语言下拉只认这一组，给出组外的值下拉会
+  // 匹配不到 item（有 .contains 兜底不会崩，但会静默显示成 python，反而误导），
+  // 所以"认识但编辑器不支持的语言"（php/ruby/csharp/matlab 等）不进白名单，
+  // 会走 detectLanguage 的 plaintext 分支，而不是伪装成 python
   const langMap = {
-    'text': 'python', 'plaintext': 'plaintext',
     'js': 'javascript', 'ts': 'typescript',
     'py': 'python', 'rb': 'python',
     'sh': 'bash', 'shell': 'bash', 'zsh': 'bash',
-    'yml': 'yaml',
+    'yml': 'yaml', 'golang': 'go', 'c++': 'cpp', 'c#': 'csharp',
+    'text': 'plaintext', 'plain': 'plaintext', 'plaintext': 'plaintext',
+    'txt': 'plaintext', 'none': 'plaintext',
+    'jsx': 'jsx', 'tsx': 'tsx',
+    'vue': 'javascript', 'svelte': 'javascript', 'coffee': 'javascript',
+    'react': 'javascript', 'nextjs': 'javascript', 'nuxt': 'javascript',
+    'angular': 'typescript',
+    'erb': 'html', 'haml': 'html',
+    'scss': 'css', 'sass': 'css', 'less': 'css',
+    'ps1': 'bash', 'powershell': 'bash', 'dockerfile': 'bash',
+    'makefile': 'bash', 'nginx': 'bash', 'apache': 'bash',
+    'ini': 'plaintext', 'toml': 'plaintext', 'env': 'plaintext',
+    'diff': 'plaintext', 'patch': 'plaintext',
   };
   const validLangs = [
     'python', 'javascript', 'typescript', 'jsx', 'tsx', 'sql', 'html', 'css',
     'json', 'yaml', 'bash', 'shell', 'markdown', 'dart', 'java', 'kotlin',
     'swift', 'rust', 'go', 'r', 'cpp', 'c', 'plaintext',
   ];
-  function normLang(raw) {
-    const low = (raw || 'python').toLowerCase();
-    const mapped = langMap[low] || low;
-    return validLangs.includes(mapped) ? mapped : 'python';
+
+  // 从代码块元素多来源识别语言：class（language-/lang-/highlight-/brush:）→
+  // data 属性 → 别名映射 → 白名单验证。有语言名但不认识→plaintext，完全没有
+  // 语言名→python（默认）。el 传 pre，内部会顺带看它的 code 子节点
+  function detectLanguage(el) {
+    const allClasses = [
+      el.className || '',
+      el.querySelector('code')?.className || '',
+    ].join(' ');
+    const langMatch = allClasses.match(/language-(\w+)/i)
+      || allClasses.match(/lang-(\w+)/i)
+      || allClasses.match(/highlight-(\w+)/i)
+      || allClasses.match(/brush:\s*(\w+)/i); // SyntaxHighlighter
+    let rawLang = langMatch ? langMatch[1].toLowerCase() : '';
+    if (!rawLang) {
+      rawLang = el.getAttribute('data-lang')
+        || el.getAttribute('data-language')
+        || el.querySelector('code')?.getAttribute('data-lang')
+        || '';
+      rawLang = rawLang.toLowerCase();
+    }
+    const mapped = langMap[rawLang] || rawLang;
+    return validLangs.includes(mapped)
+      ? mapped
+      : (rawLang ? 'plaintext' : 'python');
   }
 
   // ── 共用工具：知乎分支和通用 fallback 都用这一套 ──
@@ -708,9 +743,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
         const codeEl = el.querySelector('code');
         const code = (codeEl || el).innerText.trim();
         if (code) {
-          const langClass = (codeEl?.className || '');
-          const langMatch = langClass.match(/language-(\w+)/);
-          blocks.push({ id: genId(), type: 'code', content: code, language: normLang(langMatch ? langMatch[1] : 'python') });
+          blocks.push({ id: genId(), type: 'code', content: code, language: detectLanguage(el) });
         }
         return;
       }
@@ -813,7 +846,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
 
       if (tag === 'pre') {
         const code = el.innerText.trim();
-        if (code) blocks.push({ id: genId(), type: 'code', content: code, language: 'python' });
+        if (code) blocks.push({ id: genId(), type: 'code', content: code, language: detectLanguage(el) });
         return;
       }
 
@@ -960,7 +993,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       if (content) blocks.push({ id: gid(), type: 'heading', content: content, level: parseInt(tag[1]) });
     } else if (tag === 'pre') {
       const code = el.innerText.trim();
-      if (code) blocks.push({ id: gid(), type: 'code', content: code, language: 'python' });
+      if (code) blocks.push({ id: gid(), type: 'code', content: code, language: detectLanguage(el) });
     } else if (tag === 'p') {
       if (isSoleLatexEl(el)) {
         const latex = getSoleLatex(el);
