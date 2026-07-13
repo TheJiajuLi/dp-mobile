@@ -37,6 +37,14 @@ class MainShell extends ConsumerWidget {
     // 极索进入"回答态"时隐藏底部导航栏，让它变成沉浸式全屏（靠页内左上角
     // 返回键退出）
     final immersive = ref.watch(jisuoImmersiveProvider);
+    // 首页浅色背景是 #FAFAF8（比主题默认 scaffoldBackgroundColor 更暖的
+    // 米白），底部栏之前统一用主题默认色，在首页会露出一条肉眼可见的
+    // 接缝——只在首页tab+浅色模式下跟着换成同一个米白，其它页面保持
+    // 主题默认色不变
+    final isHomeTab = navigationShell.currentIndex == 0;
+    final bottomBarColor = (!isDark && isHomeTab)
+        ? const Color(0xFFFAFAF8)
+        : Theme.of(context).scaffoldBackgroundColor;
 
     // iPad（宽度>=600）改成左侧竖排导航栏——iPhone 底部导航完全不动。这是
     // 重新搭的精简版：4个真实目的地 + 发布，跟手机底部 Tab 完全对应，
@@ -71,9 +79,7 @@ class MainShell extends ConsumerWidget {
           : DecoratedBox(
               // 底部栏跟页面内容统一用同一个实色背景、平铺不圆角、也不留
               // 顶部分隔线，深浅色都跟内容彻底融为一体
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-              ),
+              decoration: BoxDecoration(color: bottomBarColor),
               child: SafeArea(
                 top: false,
                 child: SizedBox(
