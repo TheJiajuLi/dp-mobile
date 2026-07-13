@@ -21,7 +21,6 @@ class ColumnsTabView extends StatelessWidget {
   final bool isSelfView;
   final List<ColumnModel> columns;
   final Future<void> Function() onRefresh;
-  final VoidCallback onCreateColumn;
   final void Function(ColumnModel column) onColumnTap;
   // 点击 Tab 时才闪现数量，随后收起——由父级 user_profile_screen 控制
   final bool showCount;
@@ -34,7 +33,6 @@ class ColumnsTabView extends StatelessWidget {
     required this.isSelfView,
     required this.columns,
     required this.onRefresh,
-    required this.onCreateColumn,
     required this.onColumnTap,
     required this.onDeleteColumn,
     this.showCount = true,
@@ -66,8 +64,6 @@ class ColumnsTabView extends StatelessWidget {
         ),
       );
     }
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final placeholderColor = isDark ? Colors.white54 : const Color(0xFFC7C7CC);
     return RefreshIndicator(
       color: _primary,
       onRefresh: onRefresh,
@@ -79,47 +75,21 @@ class ColumnsTabView extends StatelessWidget {
             showCount: showCount,
           ),
           Expanded(
-            child: ListView.builder(
+            // 专栏列表跟"文章流"统一成同一套克制的设计语言——不再是each
+            // 各自一张带边框圆角的卡片，改成整行铺满+行间细分割线，没有
+            // "新建专栏"这个虚线框占位项了（自己主页创建专栏走发布页
+            // "更多设置→专栏"那个入口，这里只展示已有的）
+            child: ListView.separated(
               key: const PageStorageKey('profile-tab-columns'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(12),
-              itemCount: columns.length + (isSelfView ? 1 : 0),
+              padding: EdgeInsets.zero,
+              itemCount: columns.length,
+              separatorBuilder: (ctx, i) => Container(
+                height: 0.5,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                color: Theme.of(context).dividerColor,
+              ),
               itemBuilder: (ctx, i) {
-                if (isSelfView && i == columns.length) {
-                  return GestureDetector(
-                    onTap: onCreateColumn,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white24
-                              : const Color(0xFFD1D1D6),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.add_circle_outline,
-                            color: placeholderColor,
-                            size: 28,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            l10n.createColumnAction,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: placeholderColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
                 final col = columns[i];
                 return ColumnCard(
                   column: col,
@@ -416,20 +386,14 @@ class ColumnCard extends StatelessWidget {
         : 0;
     final gradient = _gradients[ci];
 
+    // 跟"文章流"统一成同一套克制的设计语言——不再是each自己一张带边框
+    // 圆角背景色的卡片，去掉Container的color/border，行间距靠父级
+    // ListView.separated的细分割线，不靠这里的卡片边界
     return GestureDetector(
       onTap: onTap,
       onLongPress: onDelete != null ? () => _showActions(context) : null,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? Colors.white12 : const Color(0xFFF0F0F0),
-            width: 0.5,
-          ),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

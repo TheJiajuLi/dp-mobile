@@ -1397,12 +1397,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                         columns: _columns,
                         showCount: _showTabCount,
                         onRefresh: _onRefresh,
-                        onCreateColumn: () => showCreateColumnSheet(
-                          context,
-                          ref,
-                          profileId: _profile?.id,
-                          onCreated: _loadColumns,
-                        ),
                         onColumnTap: (col) async {
                           final result = await context.push(
                             '/columns/${col.id}',
