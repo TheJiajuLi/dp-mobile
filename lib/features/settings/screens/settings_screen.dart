@@ -104,6 +104,7 @@ class SettingsScreen extends ConsumerWidget {
                       subtitle: l10n.notificationSettingsSubtitle,
                       onTap: () => showModalBottomSheet(
                         context: context,
+                        backgroundColor: Colors.transparent,
                         builder: (_) => const _NotifSettingsSheet(),
                       ),
                     ),
@@ -457,12 +458,17 @@ class _NotifSettingsSheet extends ConsumerWidget {
     final settings = ref.watch(notifProvider);
     final notifier = ref.read(notifProvider.notifier);
 
+    // 四个开关之前直接平铺在sheet自己的白底容器里，没有独立的卡片边界，
+    // 跟隐私设置/账号安全那两个已经改成 SettingsGroup 圆角卡片的设置页
+    // 不是同一套视觉语言。这里把sheet背景换成跟设置页一样的
+    // scaffoldBackgroundColor（中性灰白），开关组用同一个 SettingsGroup
+    // 浮在上面，弹窗和常规设置页才是统一的一线产品视觉
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(top: 20, bottom: 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -483,28 +489,32 @@ class _NotifSettingsSheet extends ConsumerWidget {
               color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
-          const SizedBox(height: 8),
-          _toggle(
-            l10n.likeNotifications,
-            settings.likes,
-            (v) => notifier.toggle('likes', v),
+          const SizedBox(height: 16),
+          SettingsGroup(
+            dividerIndent: 16,
+            [
+              _toggle(
+                l10n.likeNotifications,
+                settings.likes,
+                (v) => notifier.toggle('likes', v),
+              ),
+              _toggle(
+                l10n.commentNotifications,
+                settings.comments,
+                (v) => notifier.toggle('comments', v),
+              ),
+              _toggle(
+                l10n.followNotifications,
+                settings.follows,
+                (v) => notifier.toggle('follows', v),
+              ),
+              _toggle(
+                l10n.systemNotifications,
+                settings.system,
+                (v) => notifier.toggle('system', v),
+              ),
+            ],
           ),
-          _toggle(
-            l10n.commentNotifications,
-            settings.comments,
-            (v) => notifier.toggle('comments', v),
-          ),
-          _toggle(
-            l10n.followNotifications,
-            settings.follows,
-            (v) => notifier.toggle('follows', v),
-          ),
-          _toggle(
-            l10n.systemNotifications,
-            settings.system,
-            (v) => notifier.toggle('system', v),
-          ),
-          const SizedBox(height: 8),
         ],
       ),
     );
