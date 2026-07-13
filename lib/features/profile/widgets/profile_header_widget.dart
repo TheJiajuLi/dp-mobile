@@ -454,7 +454,6 @@ class ProfileHeaderWidget extends StatelessWidget {
                         onTap: () => onEditProfile(),
                       ),
                       const SizedBox(width: 6),
-                      _heroIconButton(Icons.menu_book_rounded, onNotebookTap),
                       _heroIconButton(Icons.link_rounded, onLinksTap),
                     ] else ...[
                       _headerActionButton(
@@ -475,7 +474,20 @@ class ProfileHeaderWidget extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                if (isSelfView) _buildStatsRow(context, l10n),
+                // 统计卡右侧那块空白挂一个 Notebook 通道——两者等高并排，
+                // 统计卡占满剩余宽度（内部本来就能横向滚动），Notebook 入口
+                // 固定 96 宽，点击进 /notebook（新建/打开笔记本→编辑器）
+                if (isSelfView)
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: _buildStatsRow(context, l10n)),
+                        const SizedBox(width: 10),
+                        SizedBox(width: 96, child: _buildNotebookEntry()),
+                      ],
+                    ),
+                  ),
                 // 给下面圆角"卡片沿"留出空间——内容到这里为止，圆角沿贴在
                 // 正下方，不会互相压着
                 const SizedBox(height: _kTabBarRadius),
@@ -659,6 +671,66 @@ class ProfileHeaderWidget extends StatelessWidget {
       ),
     );
   }
+
+  // Notebook 入口——跟统计卡同款毛玻璃圆角，但叠一层极梦紫渐变+白色
+  // 图标方块，从一排中性统计里"跳"出来，是个可点的功能通道而不是数字。
+  // 点击走 onNotebookTap（/notebook 首页：新建/打开笔记本再进编辑器）
+  Widget _buildNotebookEntry() => GestureDetector(
+    onTap: onNotebookTap,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                _primary.withValues(alpha: 0.34),
+                const Color(0xFF8B5CF6).withValues(alpha: 0.20),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.20),
+              width: 0.5,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.auto_stories_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Notebook',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   Widget _infoChip(IconData icon, String text) => Row(
     mainAxisSize: MainAxisSize.min,
