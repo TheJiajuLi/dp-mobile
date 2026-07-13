@@ -204,9 +204,16 @@ Future<void> aiGenerateCover(
 
 // 生成接口现在只返回上游临时URL（24小时后失效，不落COS）——选中哪张
 // 之前是直接把这个临时URL存进 _coverImageUrl，教程发布后过一段时间
-// 封面图就会失效变成 broken image。选中时先调
-// POST /auth/xmeng/confirm-image 把这一张转存到 COS，拿真正永久的URL
-// 再回填，另外没被选中的临时URL就放着过期，不用管
+// 封面图就会失效变成 broken image。选中时要转存成永久URL再回填，另外
+// 没被选中的临时URL就放着过期，不用管。
+//
+// 转存本来是调 POST /auth/xmeng/confirm-image，让后端自己去抓这个临时
+// URL——但后端对这个接口做了域名白名单校验（只认生成接口配置的那个
+// 域名，防SSRF），而候选图的临时URL实际来自上游模型服务商自己的CDN，
+// 域名对不上白名单，一律被拒（400 "url来源不合法"）。改成客户端自己
+// 下载这张图的字节，再走已经在用、没有域名限制的通用上传接口
+// POST /auth/files/upload（跟"从相册选择"封面用的是同一个接口），从
+// 根上绕开这个域名不匹配的问题，不需要动后端
 void showCoverPickerSheet(
   BuildContext context,
   WidgetRef ref,
@@ -228,30 +235,56 @@ void showCoverPickerSheet(
         Future<void> confirmAndSelect(int i) async {
           if (confirmingIndex != null) return;
           setSheetState(() => confirmingIndex = i);
-          final res = await ref
-              .read(apiClientProvider)
-              .post(
-                '/auth/xmeng/confirm-image',
-                data: {'url': urls[i], 'type': 'cover'},
-              );
-          if (!context.mounted) return;
-          if (!res.success || res.data?['url'] == null) {
-            setSheetState(() => confirmingIndex = null);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(res.message ?? '保存失败，请重试')),
+          try {
+            // 临时URL来自上游模型服务商自己的CDN，不是我们后端的域名——
+            // 客户端直接下载字节，不经后端转发抓取，就不会撞上后端那边
+            // 给 confirm-image 接口做的域名白名单校验
+            final imageBytes = await Dio().get<List<int>>(
+              urls[i],
+              options: Options(responseType: ResponseType.bytes),
             );
-            return;
+            final bytes = imageBytes.data;
+            if (bytes == null || bytes.isEmpty) {
+              throw Exception('封面图下载失败');
+            }
+            final formData = FormData.fromMap({
+              'file': MultipartFile.fromBytes(
+                bytes,
+                filename: 'ai_cover_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                contentType: DioMediaType('image', 'jpeg'),
+              ),
+            });
+            final res = await ref
+                .read(apiClientProvider)
+                .post('/auth/files/upload', data: formData);
+            if (!context.mounted) return;
+            String? permanentUrl;
+            if (res.success && res.data is Map) {
+              permanentUrl = (res.data as Map)['url'] as String?;
+            }
+            if (permanentUrl == null || permanentUrl.isEmpty) {
+              setSheetState(() => confirmingIndex = null);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(res.message ?? '保存失败，请重试')),
+              );
+              return;
+            }
+            onSelect(permanentUrl);
+            Navigator.pop(ctx);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('封面已应用'),
+                backgroundColor: Color(0xFF16A34A),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } catch (e) {
+            if (!context.mounted) return;
+            setSheetState(() => confirmingIndex = null);
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
           }
-          final permanentUrl = (res.data as Map)['url'] as String;
-          onSelect(permanentUrl);
-          Navigator.pop(ctx);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('封面已应用'),
-              backgroundColor: Color(0xFF16A34A),
-              duration: Duration(seconds: 2),
-            ),
-          );
         }
 
         return Container(
