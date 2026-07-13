@@ -19,8 +19,8 @@ const _primary = Color(0xFF6366F1);
 // 封面走 /auth/files/upload 拿 url → coverImage 落库。为避免"上传了又取消"
 // 的孤儿文件，图片只在真正点「创建」时才上传（选图阶段只留本地预览）。
 //
-// 纯色封面(cover_color)和领域(domain)后端暂时还没有对应列——这两个先当纯
-// 前端展示、暂不入库，等后端加了字段再把它们加进 body 即可。
+// 纯色封面(coverColor, hex)和领域(domain, 中文标签)后端(commit 63d8759)已
+// 加列并接收，跟着 name/description/coverImage 一起发即可入库。
 class CreateColumnSheet extends ConsumerStatefulWidget {
   final String? profileId;
   final Future<void> Function(String userId) onCreated;
@@ -70,6 +70,10 @@ class _CreateColumnSheetState extends ConsumerState<CreateColumnSheet> {
     super.dispose();
   }
 
+  // Color → #RRGGBB（后端 cover_color 存 hex 字符串）
+  String _hexOf(Color c) =>
+      '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
   Future<void> _pickImage() async {
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
@@ -118,8 +122,8 @@ class _CreateColumnSheetState extends ConsumerState<CreateColumnSheet> {
       }
     }
 
-    // 后端接受 {name, description, coverImage}；cover_color/domain 后端还没
-    // 列，先不发，等加了字段再补进来
+    // 后端(commit 63d8759)已接受 coverImage / coverColor(hex) / domain(中文
+    // 标签)。封面图片和纯色互斥，前端保证只发其中一个
     final res = await ref
         .read(apiClientProvider)
         .post(
@@ -128,6 +132,8 @@ class _CreateColumnSheetState extends ConsumerState<CreateColumnSheet> {
             'name': name,
             'description': _descCtrl.text.trim(),
             if (coverUrl != null) 'coverImage': coverUrl,
+            if (_coverColor != null) 'coverColor': _hexOf(_coverColor!),
+            if (_selectedDomain != null) 'domain': _selectedDomain,
           },
         );
     if (!mounted) return;
