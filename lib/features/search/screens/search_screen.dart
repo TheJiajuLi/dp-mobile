@@ -137,9 +137,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     if (res.success) {
       setState(() => _history = []);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res.message ?? '清空失败，请稍后重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '清空失败，请稍后重试')));
     }
   }
 
@@ -336,7 +336,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               children: [
                 _buildSearchBar(),
                 if (_currentQuery.isEmpty)
-                  Expanded(child: _buildEmptyState())
+                  // 点最近搜索/热门话题区的空白处收起键盘——ListView 默认
+                  // 不 unfocus，opaque 让整块空状态（含条目间空隙）都接住
+                  // tap；话题/历史 chip 是各自的 GestureDetector，子级优先命中
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _focusNode.unfocus(),
+                      child: _buildEmptyState(),
+                    ),
+                  )
                 else if (_loading)
                   const Expanded(
                     child: Center(
