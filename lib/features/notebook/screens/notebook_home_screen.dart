@@ -6,7 +6,20 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/greeting.dart';
 import '../services/notebook_service.dart';
 
-const _primary = Color(0xFF6366F1);
+// 中性主色（原品牌紫 #6366F1 已下线）：主按钮/强调用近黑，图标用中性灰。
+const _accent = Color(0xFF1A1A1A);
+
+// leading 图标容器的浅色底：按 notebook 的语言/类型分组取中性色调
+// （不再是品牌色或饱和色）。
+Color _langTint(String lang) => switch (lang) {
+  'python' ||
+  'sql' ||
+  'javascript' ||
+  'r' ||
+  'julia' => const Color(0xFFF0F0F8),
+  'latex' || 'math' || 'markdown' => const Color(0xFFF0F8F0),
+  _ => const Color(0xFFFFF8F0),
+};
 
 class NotebookHomeScreen extends ConsumerStatefulWidget {
   const NotebookHomeScreen({super.key});
@@ -115,12 +128,12 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                             // 未选中不再用填充背景（深色下会糊成白块），
                             // 跟选中态一样只用边框区分
                             color: type == t.$1
-                                ? _primary.withValues(alpha: 0.1)
+                                ? _accent.withValues(alpha: 0.08)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: type == t.$1
-                                  ? _primary
+                                  ? _accent
                                   : Colors.grey.withValues(alpha: 0.35),
                             ),
                           ),
@@ -128,7 +141,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                             children: [
                               Icon(
                                 t.$3,
-                                color: type == t.$1 ? _primary : Colors.grey,
+                                color: type == t.$1 ? _accent : Colors.grey,
                                 size: 20,
                               ),
                               const SizedBox(height: 4),
@@ -138,7 +151,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                   color: type == t.$1
-                                      ? _primary
+                                      ? _accent
                                       : Colors.grey[600],
                                 ),
                               ),
@@ -162,7 +175,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                     if (mounted) context.push('/notebook/${nb.id}');
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _primary,
+                    backgroundColor: _accent,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -217,13 +230,13 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                             const Icon(
                               Icons.arrow_back_ios,
                               size: 16,
-                              color: _primary,
+                              color: _accent,
                             ),
                             Text(
                               l10n.back,
                               style: const TextStyle(
                                 fontSize: 13,
-                                color: _primary,
+                                color: _accent,
                               ),
                             ),
                           ],
@@ -244,13 +257,13 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: _primary,
-                            borderRadius: BorderRadius.circular(8),
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
                             Icons.add,
                             color: Colors.white,
-                            size: 20,
+                            size: 18,
                           ),
                         ),
                       ),
@@ -321,7 +334,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                         ),
                                       ),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: _primary,
+                                        backgroundColor: _accent,
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
@@ -369,44 +382,36 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                     (
                                       l10n.tagDataAnalysis,
                                       Icons.bar_chart,
-                                      const Color(0xFF6366F1),
-                                      const Color(0xFFEEF0FF),
                                       'python',
                                     ),
                                     (
                                       l10n.tagMachineLearning,
                                       Icons.psychology,
-                                      const Color(0xFF16A34A),
-                                      const Color(0xFFE8F8F0),
                                       'python',
                                     ),
                                     (
                                       l10n.templateMathDerivation,
                                       Icons.functions,
-                                      const Color(0xFFC026D3),
-                                      const Color(0xFFFDF0F8),
                                       'latex',
                                     ),
                                     (
                                       l10n.tagVisualization,
                                       Icons.show_chart,
-                                      const Color(0xFF2563EB),
-                                      const Color(0xFFE6F1FB),
                                       'python',
                                     ),
                                   ])
                                     _TemplateCard(
                                       name: t.$1,
                                       icon: t.$2,
-                                      color: t.$3,
-                                      bg: t.$4,
+                                      lang: t.$3,
                                       onTap: () async {
                                         final nb = await _svc!.create(
                                           t.$1,
-                                          t.$5,
+                                          t.$3,
                                         );
-                                        if (context.mounted)
+                                        if (context.mounted) {
                                           context.push('/notebook/${nb.id}');
+                                        }
                                       },
                                     ),
                                 ],
@@ -443,7 +448,7 @@ class _SectionHeader extends StatelessWidget {
           onTap: onAction,
           child: Text(
             action!,
-            style: const TextStyle(fontSize: 14, color: _primary),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF888888)),
           ),
         ),
     ],
@@ -463,13 +468,8 @@ class _RecentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final colors = [
-      [const Color(0xFFEEF0FF), const Color(0xFF6366F1)],
-      [const Color(0xFFE8F8F0), const Color(0xFF16A34A)],
-      [const Color(0xFFFFF7E6), const Color(0xFFD97706)],
-      [const Color(0xFFFDF0F8), const Color(0xFFC026D3)],
-      [const Color(0xFFE6F1FB), const Color(0xFF2563EB)],
-    ];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 图标字形仍按稳定 hash 取，只是颜色统一为中性灰、底色按语言分组
     final icons = [
       Icons.bar_chart,
       Icons.functions,
@@ -479,13 +479,8 @@ class _RecentCard extends StatelessWidget {
     ];
     final idx = (nb['id'] as String).hashCode.abs() % 5;
     final lang = nb['lang'] ?? 'python';
-    final badgeColor =
-        {
-          'python': _primary,
-          'latex': const Color(0xFFC026D3),
-          'mixed': const Color(0xFF16A34A),
-        }[lang] ??
-        _primary;
+    // 语言标签用中性灰，不再用品牌/饱和色
+    const badgeColor = Color(0xFF888888);
     final updatedAt = nb['updatedAt'] as int? ?? 0;
     final diff = DateTime.now().millisecondsSinceEpoch ~/ 1000 - updatedAt;
     final timeStr = diff < 3600
@@ -513,9 +508,14 @@ class _RecentCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            color: isDark ? Theme.of(context).cardColor : Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Theme.of(context).dividerColor),
+            border: Border.all(
+              width: 0.5,
+              color: isDark
+                  ? Theme.of(context).dividerColor
+                  : const Color(0xFFEBEBEB),
+            ),
           ),
           child: Row(
             children: [
@@ -523,10 +523,14 @@ class _RecentCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: colors[idx][0],
+                  color: _langTint(lang),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icons[idx], color: colors[idx][1], size: 24),
+                child: Icon(
+                  icons[idx],
+                  color: const Color(0xFF888888),
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -535,9 +539,10 @@ class _RecentCard extends StatelessWidget {
                   children: [
                     Text(
                       nb['name'] ?? '',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -560,7 +565,7 @@ class _RecentCard extends StatelessWidget {
                                 : lang == 'mixed'
                                 ? l10n.langMixed
                                 : 'Python',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: badgeColor,
@@ -570,17 +575,17 @@ class _RecentCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           '${nb['cellCount'] ?? 0} cells',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[400],
+                            color: Color(0xFFCCCCCC),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           timeStr,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[400],
+                            color: Color(0xFFCCCCCC),
                           ),
                         ),
                       ],
@@ -604,55 +609,66 @@ class _RecentCard extends StatelessWidget {
 class _TemplateCard extends StatelessWidget {
   final String name;
   final IconData icon;
-  final Color color, bg;
+  final String lang;
   final VoidCallback onTap;
   const _TemplateCard({
     required this.name,
     required this.icon,
-    required this.color,
-    required this.bg,
+    required this.lang,
     required this.onTap,
   });
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    // 英文文案（如"Machine Learning"）比中文长不少，固定95宽+不限行数的
-    // Text 在英文下会把卡片撑到底部溢出——加宽一点，并且把文字限制在2行
-    // 内、超出省略号收尾。上一版只加了maxLines/ellipsis没提高度，2行文字
-    // 实测还是比留给它的34px高2px放不下——这次把卡片和外层横向ListView
-    // 的SizedBox都从110提到122，留出实打实的余量，不再卡在临界值上
-    child: Container(
-      width: 108,
-      height: 122,
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(10),
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      // 英文文案（如"Machine Learning"）比中文长不少，固定95宽+不限行数的
+      // Text 在英文下会把卡片撑到底部溢出——加宽一点，并且把文字限制在2行
+      // 内、超出省略号收尾。上一版只加了maxLines/ellipsis没提高度，2行文字
+      // 实测还是比留给它的34px高2px放不下——这次把卡片和外层横向ListView
+      // 的SizedBox都从110提到122，留出实打实的余量，不再卡在临界值上
+      child: Container(
+        width: 108,
+        height: 122,
+        margin: const EdgeInsets.only(right: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? Theme.of(context).cardColor : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            width: 0.5,
+            color: isDark
+                ? Theme.of(context).dividerColor
+                : const Color(0xFFEBEBEB),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _langTint(lang),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: const Color(0xFF888888), size: 22),
             ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            name,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

@@ -9,488 +9,15 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../publish/models/block_model.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
-import '../models/notebook_language.dart';
 import '../models/notebook_model.dart';
 import '../services/notebook_service.dart';
-import '../widgets/add_cell_bar.dart';
-import '../widgets/keyboard_toolbar.dart';
-import '../widgets/language_selector.dart';
-import '../widgets/notebook_topbar.dart';
-import '../widgets/snippet_bar.dart';
 
 const _primary = Color(0xFF6366F1);
-
-// 单页 CodeMirror 6 编辑器，所有 cell 共用同一个 WebView 实例——不是每个
-// cell 各开一个 WebView（那样 N 个 cell 就要重复加载 N 份 esm.sh 模块，
-// 内存/性能开销随 cell 数线性增长）。点开某个 cell 时用这份 HTML 起一个
-// 全屏编辑页，setCode/setLanguage 灌入内容，编辑页关掉后 WebView 也随之
-// 销毁，不会有多个实例同时占着内存。
-//
-// 快捷片段栏/键盘辅助栏改成 Flutter 侧的 SnippetBar/KeyboardToolbar 之后，
-// WebView 内部不再需要自己的 #toolbar——所有插入操作统一走 window.ins()
-// 这一个 JS 桥（Flutter 用 evaluateJavascript 调用），不重复维护两套UI。
-//
-// 深浅主题不是靠 JS 运行时切换，而是 build 时把颜色值插进这份 HTML 里
-// 生成两份不同内容——WebView 的 initialData 本来就是一次性灌入，没有
-// "已经在跑的 WebView 里切主题"这个需求（切主题会整页重建），没必要
-// 用 CSS 变量 + JS toggle 这种更复杂的方案
-String _buildEditorHtml({required bool isDark}) {
-  final bg = isDark ? '#0A0A1A' : '#FAFAF8';
-  final gutterBg = isDark ? '#0A0A1A' : '#FAFAF8';
-  final gutterBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  final gutterText = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.25)';
-  final contentText = isDark ? '#E2E8F0' : '#1A1A1A';
-  final tooltipBg = isDark ? '#16162A' : '#FFFFFF';
-  final tooltipText = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.75)';
-  final loadingText = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
-  // token 配色——深色是原来那套霓虹色系；浅色换成对应的加深版本，避免
-  // 直接照搬深色那套在白底上糊成一片看不清
-  final tokKeyword = isDark ? '#818CF8' : '#4F46E5';
-  final tokString = isDark ? '#4ADE80' : '#15803D';
-  final tokComment = isDark ? '#6B7280' : '#9CA3AF';
-  final tokNumber = isDark ? '#F59E0B' : '#B45309';
-  final tokFunction = isDark ? '#60A5FA' : '#1D4ED8';
-  final tokClassName = isDark ? '#F472B6' : '#BE185D';
-  final tokOperator = isDark ? '#C084FC' : '#7E22CE';
-  final tokVariableName = isDark ? '#E2E8F0' : '#1F2937';
-  final tokTypeName = isDark ? '#34D399' : '#047857';
-  final tokBoolNull = isDark ? '#FB923C' : '#C2410C';
-  final tokPunctuation = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
-
-  return '''
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport"
-  content="width=device-width,
-  initial-scale=1.0, maximum-scale=1.0">
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  background: $bg;
-  font-family: 'JetBrains Mono', 'Fira Code',
-    'Cascadia Code', monospace;
-  overscroll-behavior: none;
-}
-
-.cm-editor {
-  height: 100vh;
-  font-size: 14px;
-  line-height: 1.6;
-  padding-bottom: 16px;
-}
-
-.cm-editor.cm-focused {
-  outline: none;
-}
-
-.cm-scroller {
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.cm-editor .cm-content {
-  padding: 12px 0;
-  caret-color: #6366F1;
-  color: $contentText;
-}
-
-.cm-editor .cm-activeLine {
-  background: rgba(99,102,241,0.08) !important;
-}
-
-.cm-editor .cm-gutters {
-  background: $gutterBg;
-  border-right: 1px solid $gutterBorder;
-  color: $gutterText;
-  min-width: 40px;
-}
-
-.cm-editor .cm-activeLineGutter {
-  background: rgba(99,102,241,0.12);
-  color: #6366F1;
-}
-
-.cm-editor .cm-selectionBackground {
-  background: rgba(99,102,241,0.25) !important;
-}
-
-.cm-editor .cm-matchingBracket {
-  background: rgba(99,102,241,0.3);
-  border: 1px solid #6366F1;
-  border-radius: 2px;
-}
-
-.cm-tooltip-autocomplete {
-  background: $tooltipBg !important;
-  border: 1px solid rgba(99,102,241,0.3) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
-  font-size: 13px !important;
-}
-
-.cm-tooltip-autocomplete > ul > li {
-  padding: 5px 12px !important;
-  color: $tooltipText !important;
-}
-
-.cm-tooltip-autocomplete > ul > li[aria-selected] {
-  background: rgba(99,102,241,0.3) !important;
-  color: #fff !important;
-}
-
-.cm-searchMatch {
-  background: rgba(245,158,11,0.3);
-  border-radius: 2px;
-}
-
-.tok-keyword    { color: $tokKeyword; font-weight: 500; }
-.tok-string     { color: $tokString; }
-.tok-comment    { color: $tokComment; font-style: italic; }
-.tok-number     { color: $tokNumber; }
-.tok-function   { color: $tokFunction; }
-.tok-className  { color: $tokClassName; }
-.tok-operator   { color: $tokOperator; }
-.tok-variableName { color: $tokVariableName; }
-.tok-typeName   { color: $tokTypeName; }
-.tok-bool       { color: $tokBoolNull; }
-.tok-null       { color: $tokBoolNull; }
-.tok-regexp     { color: $tokString; }
-.tok-punctuation { color: $tokPunctuation; }
-
-#loading {
-  position: fixed;
-  inset: 0;
-  background: $bg;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: $loadingText;
-  font-size: 13px;
-  z-index: 200;
-}
-</style>
-</head>
-<body>
-<div id="editor"></div>
-<div id="loading">正在加载编辑器…</div>
-
-<script type="module">
-import {EditorView, keymap, lineNumbers,
-  highlightActiveLineGutter,
-  highlightActiveLine, drawSelection,
-  dropCursor, rectangularSelection,
-  crosshairCursor, highlightSpecialChars}
-  from 'https://esm.sh/@codemirror/view@6';
-import {EditorState, Compartment}
-  from 'https://esm.sh/@codemirror/state@6';
-import {defaultKeymap, historyKeymap, history,
-  indentWithTab, cursorLineUp, cursorLineDown}
-  from 'https://esm.sh/@codemirror/commands@6';
-import {python}
-  from 'https://esm.sh/@codemirror/lang-python@6';
-import {javascript}
-  from 'https://esm.sh/@codemirror/lang-javascript@6';
-import {sql}
-  from 'https://esm.sh/@codemirror/lang-sql@6';
-import {markdown}
-  from 'https://esm.sh/@codemirror/lang-markdown@6';
-import {autocompletion, completionKeymap,
-  closeBrackets, closeBracketsKeymap}
-  from 'https://esm.sh/@codemirror/autocomplete@6';
-import {foldGutter, foldKeymap,
-  indentOnInput, syntaxHighlighting,
-  defaultHighlightStyle, bracketMatching,
-  StreamLanguage}
-  from 'https://esm.sh/@codemirror/language@6';
-import {lintKeymap}
-  from 'https://esm.sh/@codemirror/lint@6';
-import {classHighlighter}
-  from 'https://esm.sh/@lezer/highlight@1';
-// R/Julia 官方没有 @codemirror/lang-* 包，用 CodeMirror 团队自己维护的
-// legacy-modes（CodeMirror 5 时代模式的移植版）通过 StreamLanguage 接入，
-// 不是拿一个不知道谁维护的三方包赌
-import {r as rMode}
-  from 'https://esm.sh/@codemirror/legacy-modes@6/mode/r';
-import {julia as juliaMode}
-  from 'https://esm.sh/@codemirror/legacy-modes@6/mode/julia';
-
-// 语言切换器
-const langConf = new Compartment();
-
-// Python关键字自动补全
-const pythonCompletions = [
-  'import','from','as','def','class',
-  'return','if','elif','else','for',
-  'while','try','except','finally',
-  'with','lambda','yield','pass',
-  'break','continue','True','False',
-  'None','and','or','not','in','is',
-  'print','len','range','list','dict',
-  'set','tuple','str','int','float',
-  'bool','type','input','open','sum',
-  'max','min','sorted','enumerate',
-  'zip','map','filter','isinstance',
-  'hasattr','getattr','setattr',
-  'super','self','cls',
-].map(label => ({label, type: 'keyword'}));
-
-function pythonCompletion(context) {
-  const word = context.matchBefore(/\\w*/);
-  if (!word || (word.from == word.to &&
-      !context.explicit)) return null;
-  return {
-    from: word.from,
-    options: pythonCompletions,
-  };
-}
-
-const extensions = [
-  lineNumbers(),
-  highlightActiveLineGutter(),
-  highlightSpecialChars(),
-  history(),
-  foldGutter(),
-  drawSelection(),
-  dropCursor(),
-  EditorState.allowMultipleSelections.of(true),
-  indentOnInput(),
-  syntaxHighlighting(defaultHighlightStyle),
-  syntaxHighlighting(classHighlighter),
-  bracketMatching(),
-  closeBrackets(),
-  autocompletion({
-    override: [pythonCompletion],
-    activateOnTyping: true,
-  }),
-  rectangularSelection(),
-  crosshairCursor(),
-  highlightActiveLine(),
-  keymap.of([
-    ...closeBracketsKeymap,
-    ...defaultKeymap,
-    ...historyKeymap,
-    ...foldKeymap,
-    ...completionKeymap,
-    ...lintKeymap,
-    indentWithTab,
-  ]),
-  langConf.of(python()),
-  EditorView.updateListener.of(v => {
-    if (v.docChanged) {
-      const content = v.state.doc.toString();
-      if (window.flutter_inappwebview) {
-        window.flutter_inappwebview
-          .callHandler('onContentChange', content);
-      }
-    }
-  }),
-];
-
-const view = new EditorView({
-  state: EditorState.create({
-    doc: '',
-    extensions,
-  }),
-  parent: document.getElementById('editor'),
-});
-
-window.setCode = (code) => {
-  view.dispatch({
-    changes: {
-      from: 0,
-      to: view.state.doc.length,
-      insert: code,
-    }
-  });
-};
-
-window.getCode = () =>
-  view.state.doc.toString();
-
-window.setLanguage = (lang) => {
-  const langMap = {
-    python: python(),
-    javascript: javascript(),
-    sql: sql(),
-    markdown: markdown(),
-    r: StreamLanguage.define(rMode),
-    julia: StreamLanguage.define(juliaMode),
-  };
-  view.dispatch({
-    effects: langConf.reconfigure(
-      langMap[lang] || python())
-  });
-};
-
-window.focusEditor = () => view.focus();
-
-// 键盘辅助栏的上下方向键——按行移动光标，不是移动选区
-window.moveCursor = (dir) => {
-  const cmd = dir < 0 ? cursorLineUp : cursorLineDown;
-  cmd(view);
-  view.focus();
-};
-
-// 工具栏插入字符——括号/引号类是"包住选区"，其余是纯文本插入
-window.ins = (text) => {
-  const sel = view.state.selection.main;
-  const pairs = {
-    '()': ['(', ')'],
-    '[]': ['[', ']'],
-    '{}': ['{', '}'],
-    "''": ["'", "'"],
-    '""': ['"', '"'],
-  };
-  if (pairs[text]) {
-    const [l, r] = pairs[text];
-    const selected = view.state.sliceDoc(
-      sel.from, sel.to);
-    view.dispatch({
-      changes: {
-        from: sel.from, to: sel.to,
-        insert: l + selected + r,
-      },
-      selection: {
-        anchor: sel.from + 1,
-        head: sel.to + 1,
-      }
-    });
-  } else {
-    view.dispatch({
-      changes: {
-        from: sel.from, to: sel.to,
-        insert: text,
-      },
-      selection: {
-        anchor: sel.from + text.length
-      }
-    });
-  }
-  view.focus();
-};
-
-const loadingEl = document.getElementById('loading');
-setTimeout(() => {
-  if (loadingEl) loadingEl.remove();
-  if (window.flutter_inappwebview) {
-    window.flutter_inappwebview
-      .callHandler('editorReady');
-  }
-}, 300);
-</script>
-</body>
-</html>
-''';
-}
-
-// cell 输出的渲染逻辑跟 cell 列表页/单 cell 全屏编辑页共用，提成顶层函数
-// 而不是 State 的方法，两边都能调
-Widget buildCellOutput(BuildContext context, String output, String? type) {
-  switch (type) {
-    case 'latex':
-      final tex = output
-          .replaceAll(r'$$', '')
-          .replaceAll(r'\[', '')
-          .replaceAll(r'\]', '')
-          .trim();
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Math.tex(
-          tex,
-          textStyle: const TextStyle(fontSize: 16),
-          onErrorFallback: (err) => Text(
-            output,
-            style: const TextStyle(color: Colors.red, fontSize: 12),
-          ),
-        ),
-      );
-    case 'markdown':
-      return MarkdownBody(data: output);
-    case 'info':
-      // 去掉胶囊底色——跟下面 error 分支同一套"左侧细竖线强调，不填色"
-      // 的克制风格，不再是一块显眼的橙色底
-      return Container(
-        padding: const EdgeInsets.only(left: 8),
-        decoration: const BoxDecoration(
-          border: Border(left: BorderSide(color: Color(0xFFD97706), width: 2)),
-        ),
-        child: Text(
-          output,
-          style: const TextStyle(fontSize: 13, color: Color(0xFFD97706)),
-        ),
-      );
-    case 'error':
-      return Container(
-        padding: const EdgeInsets.only(left: 8),
-        decoration: const BoxDecoration(
-          border: Border(left: BorderSide(color: Color(0xFFFCA5A5), width: 2)),
-        ),
-        child: SelectableText(
-          output,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 12,
-            color: Color(0xFFDC2626),
-            height: 1.5,
-          ),
-        ),
-      );
-    case 'image':
-      try {
-        final base64Data = output.contains(',')
-            ? output.split(',').last
-            : output;
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.memory(base64Decode(base64Data), fit: BoxFit.contain),
-        );
-      } catch (e) {
-        return Text(
-          AppLocalizations.of(context)!.chartRenderFailedWithReason('$e'),
-          style: const TextStyle(color: Colors.red),
-        );
-      }
-    case 'html':
-      return SizedBox(
-        height: 200,
-        child: InAppWebView(
-          initialData: InAppWebViewInitialData(
-            data:
-                '''
-<html>
-<head>
-<style>
-body{font-family:monospace;font-size:12px;margin:0}
-table{border-collapse:collapse;width:100%}
-th,td{border:1px solid #e5e5e5;padding:4px 8px;text-align:left}
-th{background:#f5f5f5;font-weight:600}
-</style>
-</head>
-<body>$output</body>
-</html>
-              ''',
-          ),
-        ),
-      );
-    default:
-      return SelectableText(
-        output,
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 12,
-          height: 1.6,
-          color: Theme.of(context).textTheme.bodyLarge?.color,
-        ),
-      );
-  }
-}
 
 class NotebookEditorScreen extends ConsumerStatefulWidget {
   final String nbId;
@@ -508,6 +35,11 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   final Map<String, String?> _outputTypes = {};
   final Map<String, bool> _running = {};
   final ScrollController _scrollCtrl = ScrollController();
+  // 原地编辑：每个 cell 一个 FocusNode（按 cell.id），_activeIndex 记当前
+  // 选中的 cell 下标（-1=无）。标题也可直接改，单独一个 controller
+  final Map<String, FocusNode> _focusNodes = {};
+  int _activeIndex = -1;
+  final TextEditingController _titleCtrl = TextEditingController();
 
   InAppWebViewController? _webCtrl;
   bool _webReady = false;
@@ -571,10 +103,12 @@ setTimeout(() => {
       });
       for (final cell in nb.cells) {
         _controllers[cell.id] = TextEditingController(text: cell.code);
+        _focusNodes[cell.id] = FocusNode();
         _outputs[cell.id] = cell.output;
         _outputTypes[cell.id] = cell.outputType;
         _running[cell.id] = false;
       }
+      _titleCtrl.text = nb.name;
     }
   }
 
@@ -590,44 +124,6 @@ setTimeout(() => {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // 打开 CodeMirror 6 全屏编辑页。所有 cell 共用同一份编辑器 HTML，编辑页
-  // 关掉时 WebView 也随之销毁——不会同时有多个 WebView 实例常驻。运行
-  // 走的还是现有 _runCell（Pyodide 隐藏 WebView 那条链路），不是另起一套。
-  // 返回值非 null 时说明用户在编辑页里点了"+代码/文本/LaTeX"，弹回来
-  // 之后接着帮它新建一个 cell 并滚过去，不用用户自己再点一次
-  Future<void> _openCellEditor(NotebookCell cell) async {
-    final ctrl =
-        _controllers[cell.id] ??
-        (_controllers[cell.id] = TextEditingController(text: cell.code));
-    final addType = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
-        builder: (_) => _CodeEditorPage(
-          initialCode: cell.code,
-          language: cell.type,
-          notebookTitle: _nb?.name ?? 'Notebook',
-          initialOutput: _outputs[cell.id],
-          initialOutputType: _outputTypes[cell.id],
-          onContentChanged: (code) {
-            cell.code = code;
-            ctrl.text = code;
-            _scheduleSave();
-          },
-          onLanguageChanged: (lang) {
-            setState(() => cell.type = lang.cmKey);
-            _scheduleSave();
-          },
-          onRun: (code) async {
-            cell.code = code;
-            ctrl.text = code;
-            await _runCell(cell);
-            return (_outputs[cell.id], _outputTypes[cell.id]);
-          },
-        ),
-      ),
-    );
-    if (addType != null) _addCell(addType);
-  }
-
   // 统一更新单个 cell 的输出：同步进内存态 map（驱动 UI）和 cell 字段（用于持久化）。
   // 加 mounted 守卫——cell 执行途中用户可能已经退出这个页面
   void _setOutput(NotebookCell cell, String? output, String? outputType) {
@@ -640,7 +136,9 @@ setTimeout(() => {
     });
   }
 
-  void _addCell(String type) {
+  // at 为 null=追加到末尾；否则插到该下标。新建后自动选中并聚焦，直接原地
+  // 编辑（不再跳页）
+  void _addCell(String type, {int? at}) {
     if (_nb == null) return;
     final cell = NotebookCell(
       id: 'cell_${DateTime.now().millisecondsSinceEpoch}',
@@ -648,21 +146,21 @@ setTimeout(() => {
       code: '',
     );
     final ctrl = TextEditingController();
+    final focus = FocusNode();
+    final index = at ?? _nb!.cells.length;
     setState(() {
-      _nb!.cells.add(cell);
+      _nb!.cells.insert(index, cell);
       _controllers[cell.id] = ctrl;
+      _focusNodes[cell.id] = focus;
       _outputs[cell.id] = null;
       _outputTypes[cell.id] = null;
       _running[cell.id] = false;
+      _activeIndex = index;
     });
     _scheduleSave();
-    // 滚动到底部
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _scrollCtrl.animateTo(
-        _scrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+    // markdown/latex 是渲染态，新建时直接进编辑态才好打字；代码类也聚焦
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (mounted) focus.requestFocus();
     });
   }
 
@@ -670,11 +168,38 @@ setTimeout(() => {
     if (_nb == null) return;
     _controllers[cellId]?.dispose();
     _controllers.remove(cellId);
+    _focusNodes[cellId]?.dispose();
+    _focusNodes.remove(cellId);
     _outputs.remove(cellId);
     _outputTypes.remove(cellId);
     _running.remove(cellId);
-    setState(() => _nb!.cells.removeWhere((c) => c.id == cellId));
+    setState(() {
+      _nb!.cells.removeWhere((c) => c.id == cellId);
+      _activeIndex = -1;
+    });
     _scheduleSave();
+  }
+
+  // 拖拽重排——ReorderableListView 回调，同步 cell 顺序并保存
+  void _onReorder(int oldIndex, int newIndex) {
+    if (_nb == null) return;
+    setState(() {
+      if (newIndex > oldIndex) newIndex--;
+      final cell = _nb!.cells.removeAt(oldIndex);
+      _nb!.cells.insert(newIndex, cell);
+      _activeIndex = newIndex;
+    });
+    _scheduleSave();
+  }
+
+  // 选中并聚焦某个 cell——原地编辑的入口，替代原来的跳页
+  void _activateCell(int index) {
+    if (index < 0 || index >= (_nb?.cells.length ?? 0)) return;
+    final id = _nb!.cells[index].id;
+    setState(() => _activeIndex = index);
+    Future.delayed(const Duration(milliseconds: 60), () {
+      if (mounted) _focusNodes[id]?.requestFocus();
+    });
   }
 
   // SQL cell 自动包装成 Python，通过 sqlite3 执行；如果前面的 cell 已经产出了
@@ -1242,6 +767,10 @@ finally:
     for (final c in _controllers.values) {
       c.dispose();
     }
+    for (final f in _focusNodes.values) {
+      f.dispose();
+    }
+    _titleCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -1330,6 +859,7 @@ finally:
     // 察觉但确实存在的接缝，暗色下更明显。跟论坛主页那次一样，统一改用
     // scaffoldBackgroundColor，不再另起一个颜色
     final bg = Theme.of(context).scaffoldBackgroundColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: bg,
       body: Stack(
@@ -1339,7 +869,17 @@ finally:
               children: [
                 // 顶部栏
                 Container(
-                  color: bg,
+                  decoration: BoxDecoration(
+                    color: bg,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : const Color(0xFFEBEBEB),
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 10,
@@ -1351,80 +891,87 @@ finally:
                           if (_nb != null) _svc!.save(_nb!);
                           Navigator.pop(context);
                         },
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.arrow_back_ios,
-                              size: 16,
-                              color: _primary,
-                            ),
-                            Text(
-                              l10n.back,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: _primary,
-                              ),
-                            ),
-                          ],
+                        behavior: HitTestBehavior.opaque,
+                        child: Icon(
+                          Icons.arrow_back_ios,
+                          size: 18,
+                          color: isDark
+                              ? const Color(0xFF7A80A0)
+                              : const Color(0xFF888888),
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // 标题可直接点击编辑
                       Expanded(
-                        child: Text(
-                          _nb?.name ?? 'Notebook',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                        child: TextField(
+                          controller: _titleCtrl,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? const Color(0xFFE0E2F0)
+                                : const Color(0xFF1A1A1A),
                           ),
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          textInputAction: TextInputAction.done,
+                          decoration: const InputDecoration.collapsed(
+                            hintText: '未命名 Notebook',
+                          ),
+                          onChanged: (v) {
+                            if (_nb != null) {
+                              _nb!.name = v;
+                              _scheduleSave();
+                            }
+                          },
                         ),
                       ),
-                      GestureDetector(
+                      // 运行全部：中性灰底
+                      _topBarChip(
+                        isDark: isDark,
+                        label: l10n.runAll,
+                        icon: Icons.play_arrow,
                         onTap: _runAll,
+                      ),
+                      const SizedBox(width: 6),
+                      // 保存：同款灰底
+                      _topBarChip(
+                        isDark: isDark,
+                        label: l10n.save,
+                        onTap: () {
+                          if (_nb != null) _svc!.save(_nb!);
+                          _showSnack(l10n.saved);
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      // 一键发布为文章——黑底白字（不是紫）
+                      GestureDetector(
+                        onTap: _publishAsArticle,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            border: Border.all(color: _primary, width: 1),
+                            color: const Color(0xFF1A1A1A),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             children: [
                               const Icon(
-                                Icons.play_arrow,
-                                color: _primary,
-                                size: 15,
+                                Icons.ios_share,
+                                color: Colors.white,
+                                size: 14,
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                l10n.runAll,
+                                l10n.publish,
                                 style: const TextStyle(
                                   fontSize: 12,
-                                  color: _primary,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      // 一键发布为文章
-                      GestureDetector(
-                        onTap: _publishAsArticle,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: _primary, width: 1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.ios_share,
-                            color: _primary,
-                            size: 16,
                           ),
                         ),
                       ),
@@ -1468,50 +1015,26 @@ finally:
                   ),
                 ),
 
-                // Cell列表
+                // Cell 画布——单一滚动、原地编辑，支持拖拽重排；末尾挂一个
+                // 「添加内容块」按钮
                 Expanded(
                   child: _nb == null
                       ? const Center(child: CircularProgressIndicator())
-                      : ListView.builder(
-                          controller: _scrollCtrl,
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _nb!.cells.length,
-                          itemBuilder: (ctx, i) =>
-                              _buildCell(_nb!.cells[i], i + 1),
+                      : ReorderableListView(
+                          scrollController: _scrollCtrl,
+                          buildDefaultDragHandles: false,
+                          padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
+                          onReorder: _onReorder,
+                          footer: _buildFinalAddButton(isDark),
+                          children: [
+                            for (int i = 0; i < _nb!.cells.length; i++)
+                              _buildCell(_nb!.cells[i], i),
+                          ],
                         ),
                 ),
 
-                // 底部工具栏
-                Container(
-                  color: bg,
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final t in [
-                          ('Python', Icons.code, 'python'),
-                          ('SQL', Icons.storage, 'sql'),
-                          ('JS', Icons.javascript, 'javascript'),
-                          ('LaTeX', Icons.functions, 'latex'),
-                          ('Markdown', Icons.text_fields, 'markdown'),
-                          ('R', Icons.bar_chart, 'r'),
-                          ('Julia', Icons.change_history, 'julia'),
-                        ])
-                          _ToolBtn(
-                            label: t.$1,
-                            icon: t.$2,
-                            onTap: () => _addCell(t.$3),
-                          ),
-                        _ToolBtn(
-                          label: l10n.import,
-                          icon: Icons.upload_file,
-                          onTap: _openFileImport,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                // 底部浮动工具栏
+                _buildFloatingToolbar(isDark),
               ],
             ),
           ),
@@ -1572,543 +1095,629 @@ finally:
     );
   }
 
+  // ── Cell 原地编辑 ────────────────────────────────────────────────
+  // 每个 cell 是画布里一张可原地编辑的卡片，不再跳页。markdown/latex 未
+  // 选中时显示渲染结果、点进去变成纯文本编辑；代码类始终是等宽编辑框
   Widget _buildCell(NotebookCell cell, int index) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isActive = _activeIndex == index;
     final ctrl =
         _controllers[cell.id] ??
         (_controllers[cell.id] = TextEditingController(text: cell.code));
-    final isRunning = _running[cell.id] ?? false;
+    final focus = _focusNodes[cell.id] ?? (_focusNodes[cell.id] = FocusNode());
     final output = _outputs[cell.id];
     final outputType = _outputTypes[cell.id];
-    final hasOutput = output != null;
-    final isError = outputType == 'error';
-    final isSuccess = hasOutput && !isError;
 
-    final badgeColor =
-        {
-          'python': _primary,
-          'sql': const Color(0xFF0EA5E9),
-          'javascript': const Color(0xFFF59E0B),
-          'r': const Color(0xFF2563EB),
-          'julia': const Color(0xFF9333EA),
-          'latex': const Color(0xFFC026D3),
-          'markdown': const Color(0xFF16A34A),
-          'html': const Color(0xFFD97706),
-        }[cell.type] ??
-        _primary;
-
-    final badgeLabel =
-        {
-          'python': 'Python',
-          'sql': 'SQL',
-          'javascript': 'JavaScript',
-          'r': 'R',
-          'julia': 'Julia',
-          'latex': 'LaTeX',
-          'markdown': 'Markdown',
-          'html': 'HTML',
-        }[cell.type] ??
-        cell.type;
+    final activeBorder = isDark
+        ? const Color(0xFF6366F1).withValues(alpha: 0.4)
+        : const Color(0xFF1A1A1A);
+    final idleBorder = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFEBEBEB);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      key: ValueKey(cell.id),
+      margin: const EdgeInsets.fromLTRB(4, 0, 4, 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF1A1A2A) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isRunning
-              ? _primary
-              : isError
-              ? const Color(0xFFDC2626)
-              : isSuccess
-              ? const Color(0xFF16A34A)
-              : Theme.of(context).dividerColor,
-          width: isRunning ? 1.5 : 0.5,
+          color: isActive ? activeBorder : idleBorder,
+          width: isActive ? 1 : 0.5,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cell头部
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              children: [
-                // 序号/语言标签去掉胶囊底色，只留文字本身的颜色——跟卡片
-                // 整体"细描边、不填色"的克制风格统一，不再是每个cell头顶
-                // 一排彩色小药丸
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: isRunning
-                      ? const Padding(
-                          padding: EdgeInsets.all(5),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: _primary,
-                          ),
-                        )
-                      : Center(
-                          child: Text(
-                            '$index',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(
-                                context,
-                              ).textTheme.bodyLarge?.color,
-                            ),
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Text(
-                      badgeLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: badgeColor,
-                      ),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                // 运行按钮
-                GestureDetector(
-                  onTap: isRunning
-                      ? null
-                      : () {
-                          final code = ctrl.text;
-                          cell.code = code;
-                          _runCell(cell);
-                        },
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: _primary, width: 1),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow,
-                      color: _primary,
-                      size: 17,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                // 删除按钮——去掉灰底胶囊，跟运行按钮一样只留图标本身
-                GestureDetector(
-                  onTap: () => _deleteCell(cell.id),
-                  child: SizedBox(
-                    width: 30,
-                    height: 30,
-                    child: Icon(Icons.close, color: Colors.grey[500], size: 15),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // 代码输入区
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: TextField(
-              controller: ctrl,
-              readOnly: true,
-              showCursor: false,
-              onTap: () => _openCellEditor(cell),
-              maxLines: null,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 13,
-                height: 1.6,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText:
-                    {
-                      'python': AppLocalizations.of(context)!.pythonCodeHint,
-                      'sql': AppLocalizations.of(context)!.sqlQueryHint,
-                      'javascript': AppLocalizations.of(context)!.jsCodeHint,
-                      'r': AppLocalizations.of(context)!.rCodeHint,
-                      'julia': AppLocalizations.of(context)!.juliaCodeHint,
-                      'latex': AppLocalizations.of(context)!.latexFormulaHint,
-                      'markdown': AppLocalizations.of(
-                        context,
-                      )!.markdownTextHint,
-                      'html': AppLocalizations.of(context)!.htmlContentHint,
-                    }[cell.type] ??
-                    AppLocalizations.of(context)!.genericCodeHint,
-                hintStyle: TextStyle(
-                  color: Colors.grey[300],
-                  fontSize: 13,
-                  fontFamily: 'monospace',
-                ),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-
-          // 输出区
-          if (output != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(12),
-                ),
-                border: Border(
-                  top: BorderSide(color: Theme.of(context).dividerColor),
-                ),
-              ),
-              child: _buildOutput(output, outputType),
-            ),
+          _buildCellHeader(cell, index, isDark),
+          _buildCellBody(cell, index, ctrl, focus, isDark, isActive),
+          if (output != null && output.isNotEmpty)
+            _buildOutput(output, outputType, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildOutput(String output, String? type) =>
-      buildCellOutput(context, output, type);
-}
+  // markdown/latex：未选中=渲染，选中=纯文本编辑；代码类：始终等宽编辑
+  Widget _buildCellBody(
+    NotebookCell cell,
+    int index,
+    TextEditingController ctrl,
+    FocusNode focus,
+    bool isDark,
+    bool isActive,
+  ) {
+    // 图片块没有可编辑正文，图片本身走输出区渲染
+    if (cell.type == 'image') return const SizedBox.shrink();
 
-// CodeMirror 6 全屏编辑页——所有 cell 打开编辑时复用这一个 widget/WebView，
-// 不是每个 cell 各自常驻一个 WebView 实例。进页面时 setCode/setLanguage
-// 灌入内容，每次改动通过 onContentChanged 实时同步回 cell，关闭页面时
-// WebView 随路由一起销毁。语言选择器/快捷片段/键盘辅助栏只在"代码"类
-// cell（python/r/julia/sql）出现——latex/markdown/html 不是这几种语言的
-// 变体，没有对应的 NotebookLanguage 值，onLanguageChanged 为 null
-class _CodeEditorPage extends StatefulWidget {
-  final String initialCode;
-  final String language;
-  final String notebookTitle;
-  final String? initialOutput;
-  final String? initialOutputType;
-  final ValueChanged<String> onContentChanged;
-  final ValueChanged<NotebookLanguage>? onLanguageChanged;
-  final Future<(String?, String?)> Function(String code) onRun;
-
-  const _CodeEditorPage({
-    required this.initialCode,
-    required this.language,
-    required this.notebookTitle,
-    required this.initialOutput,
-    required this.initialOutputType,
-    required this.onContentChanged,
-    required this.onLanguageChanged,
-    required this.onRun,
-  });
-
-  @override
-  State<_CodeEditorPage> createState() => _CodeEditorPageState();
-}
-
-class _CodeEditorPageState extends State<_CodeEditorPage> {
-  InAppWebViewController? _webCtrl;
-  bool _ready = false;
-  bool _timedOut = false;
-  bool _running = false;
-  Timer? _timeoutTimer;
-  late NotebookLanguage? _lang = notebookLanguageFromCellType(widget.language);
-  late String? _output = widget.initialOutput;
-  late String? _outputType = widget.initialOutputType;
-
-  @override
-  void initState() {
-    super.initState();
-    _armTimeout();
-  }
-
-  void _armTimeout() {
-    _timeoutTimer?.cancel();
-    _timeoutTimer = Timer(const Duration(seconds: 12), () {
-      if (mounted && !_ready) setState(() => _timedOut = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timeoutTimer?.cancel();
-    super.dispose();
-  }
-
-  void _insert(String code) {
-    _webCtrl?.evaluateJavascript(source: 'window.ins(${jsonEncode(code)})');
-  }
-
-  void _moveCursor(int dir) {
-    _webCtrl?.evaluateJavascript(source: 'window.moveCursor($dir)');
-  }
-
-  void _onLanguageSelected(NotebookLanguage lang) {
-    setState(() => _lang = lang);
-    _webCtrl?.evaluateJavascript(
-      source: 'window.setLanguage(${jsonEncode(lang.cmKey)})',
-    );
-    widget.onLanguageChanged?.call(lang);
-  }
-
-  Future<void> _save() async {
-    final code = await _webCtrl?.evaluateJavascript(source: 'window.getCode()');
-    widget.onContentChanged((code as String?) ?? '');
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
-    );
-  }
-
-  Future<void> _run() async {
-    final code = await _webCtrl?.evaluateJavascript(source: 'window.getCode()');
-    final codeStr = (code as String?) ?? '';
-    widget.onContentChanged(codeStr);
-    setState(() => _running = true);
-    final (output, outputType) = await widget.onRun(codeStr);
-    if (!mounted) return;
-    setState(() {
-      _running = false;
-      _output = output;
-      _outputType = outputType;
-    });
-  }
-
-  Future<void> _addCell(String type) async {
-    if (!mounted) return;
-    Navigator.of(context).pop(type);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0A0A1A) : const Color(0xFFFAFAF8);
-    final lang = _lang;
-
-    return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            NotebookTopBar(
-              title: widget.notebookTitle,
-              isRunning: _running,
-              onBack: () => Navigator.pop(context),
-              onSave: _save,
-              onRunAll: _run,
-            ),
-            if (lang != null)
-              LanguageSelector(current: lang, onChanged: _onLanguageSelected),
-            Expanded(
-              child: Stack(
-                children: [
-                  InAppWebView(
-                    initialData: InAppWebViewInitialData(
-                      data: _buildEditorHtml(isDark: isDark),
-                      baseUrl: WebUri('https://dreamingpolar.com'),
-                    ),
-                    initialSettings: InAppWebViewSettings(
-                      javaScriptEnabled: true,
-                      allowUniversalAccessFromFileURLs: true,
-                      allowFileAccessFromFileURLs: true,
-                      allowsInlineMediaPlayback: true,
-                      mediaPlaybackRequiresUserGesture: false,
-                    ),
-                    onWebViewCreated: (ctrl) {
-                      _webCtrl = ctrl;
-                      ctrl.addJavaScriptHandler(
-                        handlerName: 'onContentChange',
-                        callback: (args) {
-                          widget.onContentChanged(
-                            args.isNotEmpty ? (args[0] as String? ?? '') : '',
-                          );
-                          return null;
-                        },
-                      );
-                      ctrl.addJavaScriptHandler(
-                        handlerName: 'editorReady',
-                        callback: (args) {
-                          _timeoutTimer?.cancel();
-                          if (!mounted) return null;
-                          setState(() {
-                            _ready = true;
-                            _timedOut = false;
-                          });
-                          ctrl.evaluateJavascript(
-                            source:
-                                'window.setLanguage(${jsonEncode(lang?.cmKey ?? widget.language)})',
-                          );
-                          ctrl.evaluateJavascript(
-                            source:
-                                'window.setCode(${jsonEncode(widget.initialCode)})',
-                          );
-                          return null;
-                        },
-                      );
-                    },
-                  ),
-                  if (!_ready)
-                    Container(
-                      color: bg,
-                      alignment: Alignment.center,
-                      child: _timedOut
-                          ? Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.wifi_off,
-                                  color: isDark
-                                      ? Colors.white38
-                                      : Colors.black26,
-                                  size: 32,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '加载较慢，请检查网络',
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white54
-                                        : Colors.black45,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextButton(
-                                  onPressed: () {
-                                    setState(() => _timedOut = false);
-                                    _armTimeout();
-                                    _webCtrl?.reload();
-                                  },
-                                  child: const Text('重试'),
-                                ),
-                              ],
-                            )
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const CircularProgressIndicator(
-                                  color: _primary,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '正在加载编辑器…',
-                                  style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white54
-                                        : Colors.black45,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                ],
-              ),
-            ),
-            if (_output != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 140),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
+    final isRendered =
+        (cell.type == 'markdown' || cell.type == 'latex') && !isActive;
+    if (isRendered) {
+      return GestureDetector(
+        onTap: () => _activateCell(index),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          child: cell.code.trim().isEmpty
+              ? Text(
+                  cell.type == 'latex' ? '点击输入 LaTeX 公式…' : '点击输入 Markdown…',
+                  style: TextStyle(
+                    fontSize: 13,
                     color: isDark
-                        ? Colors.white.withValues(alpha: 0.04)
-                        : const Color(0xFFF0FDF4),
-                    border: Border(
-                      top: BorderSide(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : const Color(0xFFE5E5E5),
-                        width: 0.5,
-                      ),
+                        ? const Color(0xFF444444)
+                        : const Color(0xFFCCCCCC),
+                  ),
+                )
+              : cell.type == 'latex'
+              ? Math.tex(
+                  cell.code.trim(),
+                  textStyle: TextStyle(
+                    fontSize: 16,
+                    color: isDark
+                        ? const Color(0xFFE0E2F0)
+                        : const Color(0xFF1A1A1A),
+                  ),
+                  onErrorFallback: (err) => Text(
+                    cell.code,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      color: Color(0xFFDC2626),
                     ),
                   ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'OUTPUT',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: .08,
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.3)
-                                : const Color(0xFFAAAAAA),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        buildCellOutput(context, _output!, _outputType),
-                      ],
+                )
+              : MarkdownBody(
+                  data: cell.code,
+                  styleSheet: MarkdownStyleSheet(
+                    p: TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: isDark
+                          ? const Color(0xFFE0E2F0)
+                          : const Color(0xFF1A1A1A),
                     ),
                   ),
                 ),
-              ),
-            if (lang != null) SnippetBar(language: lang, onInsert: _insert),
-            KeyboardToolbar(
-              onInsert: _insert,
-              onMoveUp: () => _moveCursor(-1),
-              onMoveDown: () => _moveCursor(1),
+        ),
+      );
+    }
+
+    // 编辑态：代码类等宽 + 浅灰底，文字类普通
+    final isCode = cell.type != 'markdown' && cell.type != 'latex';
+    return Container(
+      width: double.infinity,
+      color: isCode
+          ? (isDark ? Colors.transparent : const Color(0xFFF8F9FC))
+          : Colors.transparent,
+      child: TextField(
+        controller: ctrl,
+        focusNode: focus,
+        maxLines: null,
+        onTap: () => setState(() => _activeIndex = index),
+        style: TextStyle(
+          fontFamily: isCode ? 'monospace' : null,
+          fontSize: isCode ? 12 : 14,
+          height: isCode ? 1.7 : 1.6,
+          color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
+        ),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.all(12),
+          hintText: _cellHint(cell.type),
+          hintStyle: TextStyle(
+            fontFamily: isCode ? 'monospace' : null,
+            fontSize: isCode ? 12 : 14,
+            color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
+          ),
+        ),
+        onChanged: (v) {
+          cell.code = v;
+          _scheduleSave();
+        },
+      ),
+    );
+  }
+
+  String _cellHint(String type) => switch (type) {
+    'markdown' => '输入 Markdown 内容…',
+    'latex' => '输入 LaTeX 公式…',
+    'sql' => '-- 输入 SQL…',
+    _ => '# 输入代码…',
+  };
+
+  // Cell 头部（统一）：语言点 + 标签 + 运行(可执行才有) + 拖拽/菜单(选中才有)
+  Widget _buildCellHeader(NotebookCell cell, int index, bool isDark) {
+    final isActive = _activeIndex == index;
+    final isRunning = _running[cell.id] ?? false;
+    final dotColor = _getCellDotColor(cell.type);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isDark
+            ? (isActive
+                  ? const Color(0xFF6366F1).withValues(alpha: 0.08)
+                  : Colors.white.withValues(alpha: 0.02))
+            : (isActive ? const Color(0xFFF5F5F5) : const Color(0xFFFAFAFA)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : const Color(0xFFF0F0F0),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _getCellLabel(cell.type),
+            style: TextStyle(
+              fontSize: 10,
+              color: isActive
+                  ? (isDark ? const Color(0xFF6366F1) : const Color(0xFF555555))
+                  : (isDark
+                        ? const Color(0xFF444444)
+                        : const Color(0xFFAAAAAA)),
             ),
-            AddCellBar(
-              onAddCode: () => _addCell(widget.language),
-              onAddText: () => _addCell('markdown'),
-              onAddLatex: () => _addCell('latex'),
+          ),
+          const Spacer(),
+          if (_isExecutable(cell.type)) ...[
+            GestureDetector(
+              onTap: isRunning
+                  ? null
+                  : () {
+                      cell.code = _controllers[cell.id]?.text ?? cell.code;
+                      _runCell(cell);
+                    },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  isRunning ? '运行中…' : '▶ 运行',
+                  style: const TextStyle(fontSize: 9, color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          if (isActive) ...[
+            ReorderableDragStartListener(
+              index: index,
+              child: Icon(
+                Icons.drag_handle,
+                size: 15,
+                color: isDark
+                    ? const Color(0xFF555555)
+                    : const Color(0xFFCCCCCC),
+              ),
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => _showCellMenu(index),
+              child: Icon(
+                Icons.more_horiz,
+                size: 15,
+                color: isDark
+                    ? const Color(0xFF555555)
+                    : const Color(0xFFCCCCCC),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _getCellDotColor(String type) => switch (type) {
+    'python' ||
+    'javascript' ||
+    'sql' ||
+    'r' ||
+    'julia' ||
+    'html' => const Color(0xFF16A34A),
+    _ => const Color(0xFF888888),
+  };
+
+  String _getCellLabel(String type) => switch (type) {
+    'python' => 'Python',
+    'sql' => 'SQL',
+    'javascript' => 'JavaScript',
+    'r' => 'R',
+    'julia' => 'Julia',
+    'latex' => 'LaTeX',
+    'markdown' => 'Markdown',
+    'html' => 'HTML',
+    'image' => '图片',
+    _ => type,
+  };
+
+  bool _isExecutable(String type) =>
+      const {'python', 'sql', 'javascript', 'r', 'julia'}.contains(type);
+
+  // 输出区：文字=绿左线浅绿底 / 图片=浅紫底 / 错误=红左线
+  Widget _buildOutput(String output, String? type, bool isDark) {
+    if (type == 'image') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF13131F) : const Color(0xFFEEF0FF),
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(10),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(
+            base64Decode(output),
+            fit: BoxFit.contain,
+            errorBuilder: (c, e, s) => Text(
+              '图片解码失败',
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            ),
+          ),
+        ),
+      );
+    }
+    final isError = type == 'error';
+    final accent = isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
+    final lightBg = isError ? const Color(0xFFFEF2F2) : const Color(0xFFF0FFF5);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: isDark ? accent.withValues(alpha: 0.06) : lightBg,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+        border: Border(left: BorderSide(color: accent, width: 2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isError ? '✗ 错误' : '✓ 输出',
+            style: TextStyle(
+              fontSize: 9,
+              color: accent,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            output,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              height: 1.5,
+              color: isDark ? const Color(0xFFB0B0C0) : const Color(0xFF555555),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Cell ⋯ 菜单：下方添加各类型 / 删除
+  void _showCellMenu(int index) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final t in const [
+              ('markdown', '下方添加文字'),
+              ('python', '下方添加代码'),
+              ('latex', '下方添加公式'),
+            ])
+              ListTile(
+                leading: const Icon(Icons.add, size: 20),
+                title: Text(t.$2),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _addCell(t.$1, at: index + 1);
+                },
+              ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Color(0xFFDC2626),
+              ),
+              title: const Text(
+                '删除此块',
+                style: TextStyle(color: Color(0xFFDC2626)),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteCell(_nb!.cells[index].id);
+              },
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _ToolBtn extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  const _ToolBtn({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      margin: const EdgeInsets.only(right: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Theme.of(context).inputDecorationTheme.fillColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: _primary),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
+  // 末尾「添加内容块」按钮
+  Widget _buildFinalAddButton(bool isDark) {
+    return GestureDetector(
+      key: const ValueKey('__final_add__'),
+      onTap: () => _addCell('markdown'),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFDDDDDD),
+            width: 0.5,
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.add,
+              size: 14,
+              color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '添加内容块',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark
+                    ? const Color(0xFF444444)
+                    : const Color(0xFFCCCCCC),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
+
+  // 顶栏中性灰底按钮（运行全部/保存）
+  Widget _topBarChip({
+    required bool isDark,
+    required String label,
+    IconData? icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFF0F0F0),
+          borderRadius: BorderRadius.circular(8),
+          border: isDark
+              ? null
+              : Border.all(color: const Color(0xFFE5E5E5), width: 0.5),
+        ),
+        child: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 14,
+                color: isDark
+                    ? const Color(0xFF7A80A0)
+                    : const Color(0xFF555555),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? const Color(0xFF7A80A0)
+                    : const Color(0xFF555555),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 底部浮动工具栏：文字/代码/公式/图片/SQL/更多
+  static const _toolbarItems = [
+    (Icons.title, '文字', 'markdown'),
+    (Icons.code, '代码', 'python'),
+    (Icons.functions, '公式', 'latex'),
+    (Icons.image_outlined, '图片', 'image'),
+    (Icons.storage_outlined, 'SQL', 'sql'),
+    (Icons.more_horiz, '更多', 'more'),
+  ];
+
+  String? _getActiveToolType() {
+    if (_activeIndex < 0 || _activeIndex >= (_nb?.cells.length ?? 0)) {
+      return null;
+    }
+    final t = _nb!.cells[_activeIndex].type;
+    return switch (t) {
+      'markdown' => 'markdown',
+      'latex' => 'latex',
+      'sql' => 'sql',
+      'image' => 'image',
+      'python' || 'javascript' || 'r' || 'julia' || 'html' => 'python',
+      _ => null,
+    };
+  }
+
+  void _onToolbarTap(String type) {
+    switch (type) {
+      case 'image':
+        _addImageCell();
+        break;
+      case 'more':
+        _showMoreLanguages();
+        break;
+      default:
+        _addCell(type);
+    }
+  }
+
+  Widget _buildFloatingToolbar(bool isDark) {
+    final active = _getActiveToolType();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF17171F) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFEBEBEB),
+          width: 0.5,
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: _toolbarItems.map((item) {
+          final isActive = active == item.$3;
+          final fg = isActive
+              ? (isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A))
+              : (isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC));
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _onToolbarTap(item.$3),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? (isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF5F5F5))
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(item.$1, size: 19, color: fg),
+                    const SizedBox(height: 2),
+                    Text(item.$2, style: TextStyle(fontSize: 9, color: fg)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showMoreLanguages() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final t in const [
+              ('javascript', 'JavaScript', Icons.javascript),
+              ('r', 'R', Icons.bar_chart),
+              ('julia', 'Julia', Icons.change_history),
+              ('html', 'HTML', Icons.html),
+            ])
+              ListTile(
+                leading: Icon(t.$3, size: 20),
+                title: Text(t.$2),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _addCell(t.$1);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.upload_file, size: 20),
+              title: Text(AppLocalizations.of(ctx)!.import),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openFileImport();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 图片块：从相册选图，base64 存进 cell.output（outputType=image）
+  Future<void> _addImageCell() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked == null || _nb == null) return;
+    final bytes = await picked.readAsBytes();
+    final b64 = base64Encode(bytes);
+    final cell = NotebookCell(
+      id: 'cell_${DateTime.now().millisecondsSinceEpoch}',
+      type: 'image',
+      code: '',
+      output: b64,
+      outputType: 'image',
+    );
+    setState(() {
+      _nb!.cells.add(cell);
+      _controllers[cell.id] = TextEditingController();
+      _focusNodes[cell.id] = FocusNode();
+      _outputs[cell.id] = b64;
+      _outputTypes[cell.id] = 'image';
+      _running[cell.id] = false;
+      _activeIndex = _nb!.cells.length - 1;
+    });
+    _scheduleSave();
+  }
 }

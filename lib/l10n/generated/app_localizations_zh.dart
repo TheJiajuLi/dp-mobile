@@ -311,6 +311,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get save => '保存';
 
   @override
+  String get saved => '已保存';
+
+  @override
   String get cancel => '取消';
 
   @override
