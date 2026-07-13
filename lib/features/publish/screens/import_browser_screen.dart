@@ -424,8 +424,16 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   }
 
   // ── 知乎文章 ──
-  if (hostname.includes('zhihu.com') && document.querySelector('h1.Post-Title')) {
-    const title = document.querySelector('h1.Post-Title')?.innerText?.trim() || '';
+  // 触发条件放宽成"知乎域名 + 存在 .Post-RichText 正文容器"——原来强绑
+  // h1.Post-Title，专栏/回答/新版页面标题类名不同就会漏掉、掉进通用
+  // fallback 把公式搞坏。标题选择器同时多路兜底
+  if (hostname.includes('zhihu.com') && document.querySelector('.Post-RichText')) {
+    const title = document.querySelector('h1.Post-Title')?.innerText?.trim()
+      || document.querySelector('h1.QuestionHeader-title')?.innerText?.trim()
+      || document.querySelector('.Post-Title')?.innerText?.trim()
+      || document.querySelector('h1')?.innerText?.trim()
+      || document.title.replace(/\s*[-_|].*$/, '').trim()
+      || '';
 
     const coverEl = document.querySelector('.Post-Header img[src*="zhimg.com"]');
     const coverImage = coverEl ? coverEl.src.split('?')[0] : null;
@@ -555,6 +563,50 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   }
 
   // ── 其它平台通用提取 ──
+  // 通用版混合内容提取：跟知乎 extractMixed 一样用 textContent（不用
+  // innerText——innerText 会按渲染布局把 KaTeX 公式的字形逐个拆成一行，
+  // 就是"一个字符一行"乱码的根因），并优先读公式元素的 data-tex 源码
+  // 输出 $...$，跳过 SVG / katex 字形容器避免把渲染字形重复吐出来
+  function extractMixedGeneral(el) {
+    let text = '';
+    el.childNodes.forEach(node => {
+      if (node.nodeType === 3) {
+        text += node.textContent || '';
+      } else if (node.nodeType === 1) {
+        const tag = node.tagName ? node.tagName.toLowerCase() : '';
+        // SVG / script / style 放最前跳过——SVG 的 className 不是普通
+        // 字符串，先拦掉免得后面 .includes 抛错；MathJax 的
+        // <script type="math/tex"> 例外，要取里面的源码
+        if (tag === 'svg' || tag === 'script' || tag === 'style') {
+          if (tag === 'script' && (node.type || '').includes('math/tex')) {
+            const tex = node.textContent || '';
+            if (tex.trim()) text += ' $' + tex.trim() + '$ ';
+          }
+          return;
+        }
+        const cls = typeof node.className === 'string' ? node.className : '';
+        // 带 data-tex 的公式元素（KaTeX/知乎 ztext-math/通用）直接取源码
+        if (node.hasAttribute('data-tex')) {
+          const tex = node.getAttribute('data-tex');
+          if (tex) text += ' $' + tex + '$ ';
+          return;
+        }
+        if (cls.includes('ztext-math')) {
+          const tex = node.getAttribute('data-tex') || '';
+          if (tex) text += ' $' + tex + '$ ';
+          return;
+        }
+        // KaTeX/MathJax 渲染容器：源码在带 data-tex 的祖先上已取过，整棵
+        // 子树跳过，不然会把渲染字形一个个吐出来
+        if (cls.includes('katex') || cls.includes('MathJax') || cls.includes('mjx-')) {
+          return;
+        }
+        text += extractMixedGeneral(node);
+      }
+    });
+    return text;
+  }
+
   const container = document.querySelector('article')
     || document.querySelector('main')
     || document.querySelector('.content, #content, .article')
@@ -567,19 +619,37 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
 
   container.querySelectorAll('h1,h2,h3,p,pre,li,img,figure').forEach(el => {
     const tag = el.tagName.toLowerCase();
-    const text = el.innerText?.trim() || '';
-
-    if (text.length < 5 && tag !== 'img' && tag !== 'figure') return;
+    // 跳过嵌套在 pre 里的非 pre 元素
     if (el.closest('pre') && tag !== 'pre') return;
 
     if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
-      blocks.push({ id: 'g' + (++id), type: 'heading', content: text, level: parseInt(tag[1]) });
+      const content = extractMixedGeneral(el).trim();
+      if (content) {
+        blocks.push({ id: 'g' + (++id), type: 'heading', content: content, level: parseInt(tag[1]) });
+      }
     } else if (tag === 'pre') {
-      blocks.push({ id: 'g' + (++id), type: 'code', content: el.innerText.trim(), language: 'python' });
-    } else if (tag === 'p' && text.length > 10) {
-      blocks.push({ id: 'g' + (++id), type: 'text', content: text });
+      // 代码保留 innerText——要的就是它按行渲染的换行
+      const code = el.innerText.trim();
+      if (code) blocks.push({ id: 'g' + (++id), type: 'code', content: code, language: 'python' });
+    } else if (tag === 'p') {
+      // 独立公式段落（只有一个公式元素、没有其它正文）→ latex block
+      const mathEl = el.querySelector('[data-tex]');
+      const allChildren = Array.from(el.children).filter(c => c.tagName !== 'SCRIPT');
+      if (mathEl && allChildren.length === 1 &&
+          !el.textContent.trim().replace(mathEl.textContent, '').trim()) {
+        const tex = mathEl.getAttribute('data-tex') || '';
+        if (tex.trim()) {
+          blocks.push({ id: 'g' + (++id), type: 'latex', content: tex.trim() });
+          return;
+        }
+      }
+      const content = extractMixedGeneral(el).trim();
+      if (content.length > 5) {
+        blocks.push({ id: 'g' + (++id), type: 'text', content: content });
+      }
     } else if (tag === 'li') {
-      blocks.push({ id: 'g' + (++id), type: 'text', content: '• ' + text });
+      const content = extractMixedGeneral(el).trim();
+      if (content) blocks.push({ id: 'g' + (++id), type: 'text', content: '• ' + content });
     } else if (tag === 'img') {
       const src = el.src || '';
       if (src.startsWith('http')) {
