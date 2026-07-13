@@ -32,27 +32,33 @@ class AccountSecurityScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           // 跟隐私设置/设置页一样，收进浮在页面背景上的圆角卡片（16 圆角 +
           // 组内分割线），对齐当前视觉语言，不再是贴边到底的扁平列表
-          SettingsGroup(
-            dividerIndent: 16,
-            [
-              _SecurityRow(
-                title: l10n.changePassword,
-                subtitle: l10n.changePasswordSubtitle,
-                onTap: () => _showChangePassword(context, ref),
-              ),
-              _SecurityRow(
-                title: l10n.loginHistory,
-                subtitle: l10n.loginHistorySubtitle,
-                onTap: () => context.push('/settings/security/history'),
-              ),
-              _SecurityRow(
-                title: l10n.deleteAccount,
-                subtitle: l10n.deleteAccountSubtitle,
-                titleColor: const Color(0xFFDC2626),
-                onTap: () => _showDeleteAccount(context, ref),
-              ),
-            ],
-          ),
+          SettingsGroup([
+            SettingsRow(
+              icon: Icons.lock_outline,
+              iconColor: Colors.grey,
+              iconBg: Theme.of(context).dividerColor,
+              title: l10n.changePassword,
+              subtitle: l10n.changePasswordSubtitle,
+              onTap: () => _showChangePassword(context, ref),
+            ),
+            SettingsRow(
+              icon: Icons.history,
+              iconColor: Colors.grey,
+              iconBg: Theme.of(context).dividerColor,
+              title: l10n.loginHistory,
+              subtitle: l10n.loginHistorySubtitle,
+              onTap: () => context.push('/settings/security/history'),
+            ),
+            SettingsRow(
+              icon: Icons.person_remove_outlined,
+              iconColor: const Color(0xFFDC2626),
+              iconBg: const Color(0xFFFEE2E2),
+              title: l10n.deleteAccount,
+              titleColor: const Color(0xFFDC2626),
+              subtitle: l10n.deleteAccountSubtitle,
+              onTap: () => _showDeleteAccount(context, ref),
+            ),
+          ]),
         ],
       ),
     );
@@ -288,34 +294,4 @@ class AccountSecurityScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _SecurityRow extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color? titleColor;
-  final VoidCallback onTap;
-
-  const _SecurityRow({
-    required this.title,
-    required this.subtitle,
-    this.titleColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    title: Text(
-      title,
-      style: TextStyle(
-        color: titleColor ?? Theme.of(context).textTheme.bodyLarge?.color,
-      ),
-    ),
-    subtitle: Text(
-      subtitle,
-      style: const TextStyle(fontSize: 12, color: Colors.grey),
-    ),
-    trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-    onTap: onTap,
-  );
 }

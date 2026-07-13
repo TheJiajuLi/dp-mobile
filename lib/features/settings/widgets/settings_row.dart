@@ -109,6 +109,8 @@ class SettingsRow extends StatelessWidget {
   final Color iconColor;
   final Color iconBg;
   final String title;
+  // 标题色——默认跟随主题正文色，危险操作（如注销账号）传红色做强调
+  final Color? titleColor;
   final String? subtitle;
   final String? trailing;
   final VoidCallback onTap;
@@ -119,6 +121,7 @@ class SettingsRow extends StatelessWidget {
     required this.iconColor,
     required this.iconBg,
     required this.title,
+    this.titleColor,
     this.subtitle,
     this.trailing,
     required this.onTap,
@@ -151,7 +154,9 @@ class SettingsRow extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 15,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                      color:
+                          titleColor ??
+                          Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   if (subtitle != null)
