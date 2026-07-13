@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +52,11 @@ const _codeLanguages = [
   'c',
   'plaintext',
 ];
+
+// 语言下拉里显示成首字母大写（python → Python），value 仍用小写原值，
+// 不影响 _codeLanguages 匹配
+String _capLang(String l) =>
+    l.isEmpty ? l : l[0].toUpperCase() + l.substring(1);
 
 String _formatSize(int bytes) {
   if (bytes < 1024) return '${bytes}B';
@@ -163,13 +169,20 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // 代码块整张卡片直接用深底——不再是白卡片里再套一个深色小块（白框
+    // 套深块两层嵌套很割裂），整块深色跟里面的代码区连成一体
+    final isCode = widget.block.type == BlockType.code;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: isCode ? const Color(0xFF1A1A1A) : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: _focused ? _primary : const Color(0xFFEBEBEB),
+          color: _focused
+              ? _primary
+              : isCode
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFEBEBEB),
           width: _focused ? 1.0 : 0.5,
         ),
       ),
@@ -278,7 +291,10 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
+            // 代码块铺满整张深色卡片，其它类型保持原来的四周留白
+            padding: isCode
+                ? const EdgeInsets.fromLTRB(0, 4, 0, 0)
+                : const EdgeInsets.fromLTRB(10, 6, 10, 10),
             child: _buildContent(l10n),
           ),
         ],
@@ -1001,6 +1017,13 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     onEditingComplete: () => setState(() => _focused = false),
   );
 
+  void _copyCode() {
+    Clipboard.setData(ClipboardData(text: widget.block.content));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已复制代码')));
+  }
+
   // 外面套一层 ClipRRect 统一裁出四角圆角——header/body/output 内部各自
   // 保持矩形不用再各管一次"只圆某几个角"，没有输出内容时底部也不会再
   // 露出一条直角硬边（之前那条 0.5px 分隔线本身是矩形，紧贴在只做了
@@ -1012,16 +1035,19 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             color: const Color(0xFF1A1A1A),
             child: Row(
               children: [
-                // macOS 窗口三色点装饰，跟阅读态/预览态的代码块保持一致
-                const _MacDot(color: Color(0xFFFF5F56)),
-                const SizedBox(width: 6),
-                const _MacDot(color: Color(0xFFFFBD2E)),
-                const SizedBox(width: 6),
-                const _MacDot(color: Color(0xFF27C93F)),
+                // 单个状态圆点，替代原来的 macOS 三色点，视觉更克制
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: const BoxDecoration(
+                    color: _primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
                 const SizedBox(width: 10),
                 DropdownButton<String>(
                   // language 不在候选列表里（导入的代码块常给 text/jsx/ts 等）
@@ -1035,6 +1061,11 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                     fontSize: 12,
                     color: Color(0xFFE5E7EB),
                   ),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 16,
+                    color: Color(0xFF888888),
+                  ),
                   underline: const SizedBox(),
                   isDense: true,
                   items: _codeLanguages
@@ -1042,7 +1073,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                         (l) => DropdownMenuItem(
                           value: l,
                           child: Text(
-                            l,
+                            _capLang(l),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFFE5E7EB),
@@ -1060,16 +1091,21 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   },
                 ),
                 const Spacer(),
+                // 运行按钮——深色底 + 细描边 + 空心播放，不再是亮紫实心胶囊
                 PressableScale(
                   onTap: _running ? null : _runCode,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+                      horizontal: 11,
+                      vertical: 5,
                     ),
-                    decoration: premiumPillDecoration(
-                      radius: 7,
-                      muted: _running,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2E),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        width: 0.5,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1080,25 +1116,38 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                             height: 11,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
-                              color: Colors.white,
+                              color: Color(0xFF9B98FF),
                             ),
                           )
                         else
                           const Icon(
-                            Icons.play_arrow,
-                            size: 13,
-                            color: Colors.white,
+                            Icons.play_arrow_outlined,
+                            size: 15,
+                            color: Color(0xFF9B98FF),
                           ),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 4),
                         Text(
                           _running ? l10n.runningLabel : l10n.runAction,
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Colors.white,
+                            color: Color(0xFFE5E7EB),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // 复制代码
+                GestureDetector(
+                  onTap: _copyCode,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.copy_outlined,
+                      size: 15,
+                      color: Color(0xFF888888),
                     ),
                   ),
                 ),
@@ -2053,20 +2102,6 @@ th{background:#1e293b;color:#94a3b8}
           ),
         ],
       ),
-    );
-  }
-}
-
-class _MacDot extends StatelessWidget {
-  final Color color;
-  const _MacDot({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
