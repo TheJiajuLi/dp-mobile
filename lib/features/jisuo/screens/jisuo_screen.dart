@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -65,11 +66,17 @@ class JisuoScreen extends ConsumerStatefulWidget {
 
 class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final _inputCtrl = TextEditingController();
+  final _inputFocusNode = FocusNode();
   final _scrollCtrl = ScrollController();
 
   // 底部输入框的 tab：ai=问问小梦 / community=社区提问。只影响 hint 文案和
   // 发送后的落点
   String _tab = 'ai';
+
+  // 输入栏折叠态——默认展开（跟原来行为一致），点空白区域收起成一个
+  // 小球，把空间让给上面的回答内容；点小球再展开。收起不清空已经打
+  // 的字（_inputCtrl不受折叠影响，收起只是不显示，展开还在）
+  bool _composerCollapsed = false;
 
   // 页内直答状态机：idle=落地页(Hero+示例) / streaming=流式生成中 /
   // done=回答完成。全程不跳转、不隐藏底部栏，就在极索页内展开
@@ -101,6 +108,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   @override
   void dispose() {
     _inputCtrl.dispose();
+    _inputFocusNode.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -343,13 +351,19 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               children: [
                 _buildTopBar(isDark),
                 Expanded(
-                  // 键盘展开后点正文空白处收起键盘——输入框在
-                  // bottomNavigationBar 里，正文是独立的 ListView，默认
-                  // 点空白不会 unfocus。opaque 让整块正文（含 ListView
+                  // 键盘展开后点正文空白处收起键盘，同时把输入栏收起成
+                  // 小球——输入栏现在是浮在内容上面的 Positioned，不是
+                  // bottomNavigationBar，正文是独立的 ListView，默认点
+                  // 空白不会 unfocus。opaque 让整块正文（含 ListView
                   // 条目之间的空隙）都能接住 tap
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => FocusScope.of(context).unfocus(),
+                    onTap: () {
+                      FocusScope.of(context).unfocus();
+                      if (!_composerCollapsed) {
+                        setState(() => _composerCollapsed = true);
+                      }
+                    },
                     child: _tab == 'community'
                         ? _buildCommunityView(isDark)
                         : (_jisuoMode == JisuoMode.idle
@@ -360,9 +374,76 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               ],
             ),
           ),
+          // 输入栏浮在内容上面（不是 bottomNavigationBar），收起时只是
+          // 屏幕角落一个小球，把原来一整条常驻输入栏的高度让给上面的
+          // 回答区——右下角贴 SafeArea，展开态和收起态共用同一个锚点位置
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: _composerCollapsed
+                  ? Align(
+                      alignment: Alignment.bottomRight,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
+                        child: _buildComposerBall(isDark),
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      child: _buildBottomInput(isDark),
+                    ),
+            ),
+          ),
         ],
       ),
-      bottomNavigationBar: _buildBottomInput(isDark),
+    );
+  }
+
+  // 收起态——一个悬浮小球，点了展开成完整输入胶囊并直接拉起键盘
+  Widget _buildComposerBall(bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _composerCollapsed = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_tab == 'ai') _inputFocusNode.requestFocus();
+        });
+      },
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.65),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.white.withValues(alpha: 0.8),
+                width: 0.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.edit_outlined,
+              size: 20,
+              color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -410,8 +491,18 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
+  // 输入栏改成浮在内容上面的 Positioned 之后，滚动到底的内容会被玻璃
+  // 胶囊挡住——统一给每个可滚动视图留出这么多底部空间，跟输入栏展开态
+  // 大致高度对齐
+  static const _composerClearance = 96.0;
+
   Widget _buildIdleView(bool isDark) {
-    return ListView(children: [_buildHero(isDark), const SizedBox(height: 20)]);
+    return ListView(
+      children: [
+        _buildHero(isDark),
+        const SizedBox(height: _composerClearance),
+      ],
+    );
   }
 
   Widget _buildHero(bool isDark) {
@@ -571,114 +662,107 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     _askQuestion(_inputCtrl.text);
   }
 
+  // 输入框和发送键合成同一个胶囊（发送键收进胶囊右侧，不再是外面单独
+  // 一个圆），整条胶囊套 BackdropFilter 做成 iOS 风格的毛玻璃——展开态
+  // 是浮在内容上面的，玻璃质感能让底下滚动的回答内容透出来，不是一块
+  // 完全不透明的实色条
   Widget _buildBottomInput(bool isDark) {
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SafeArea(
-        top: false,
+    final streaming = _jisuoMode == JisuoMode.streaming;
+    // ai 模式空输入时按钮置灰不可发；community 模式点了是开提问 Sheet，
+    // 不看输入框，始终可点
+    final disabled =
+        !streaming && _tab == 'ai' && _inputCtrl.text.trim().isEmpty;
+    final iconColor = streaming
+        ? const Color(0xFFEF4444)
+        : disabled
+        ? Colors.grey[400]!
+        : (isDark ? Colors.white : const Color(0xFF1A1A1A));
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(26),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          constraints: const BoxConstraints(maxHeight: 120),
+          padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.white.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.8),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: Container(
-                  constraints: const BoxConstraints(maxHeight: 100),
-                  // 浅色改成纯白胶囊 + 一圈极淡描边（纯白底在近白页面背景上
-                  // 会糊掉，靠描边把控件边界勾出来）；深色不变
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: isDark
-                          ? Theme.of(context).dividerColor
-                          : const Color(0xFFEAEAEA),
-                      width: 0.5,
+                child: TextField(
+                  controller: _inputCtrl,
+                  focusNode: _inputFocusNode,
+                  minLines: 1,
+                  maxLines: 4,
+                  // community 模式输入框只当"打开提问 Sheet"的按钮用
+                  readOnly: _tab == 'community',
+                  onTap: _tab == 'community' ? _showAskSheet : null,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _submit(),
+                  // 跟着输入内容重建，让发送键在"空=灰/有内容=黑"之间实时切
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: _jisuoMode != JisuoMode.idle
+                        ? '继续追问小梦...'
+                        : _tab == 'ai'
+                        ? '问小梦任何问题...'
+                        : '提问，让社区来回答...',
+                    hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                    prefixIcon: Icon(
+                      Icons.edit_outlined,
+                      size: 16,
+                      color: Colors.grey[400],
                     ),
-                  ),
-                  child: TextField(
-                    controller: _inputCtrl,
-                    minLines: 1,
-                    maxLines: 4,
-                    // community 模式输入框只当"打开提问 Sheet"的按钮用
-                    readOnly: _tab == 'community',
-                    onTap: _tab == 'community' ? _showAskSheet : null,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _submit(),
-                    // 跟着输入内容重建，让发送键在"空=灰/有内容=紫"之间实时切
-                    onChanged: (_) => setState(() {}),
-                    style: const TextStyle(fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: _jisuoMode != JisuoMode.idle
-                          ? '继续追问小梦...'
-                          : _tab == 'ai'
-                          ? '问小梦任何问题...'
-                          : '提问，让社区来回答...',
-                      hintStyle: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[400],
-                      ),
-                      prefixIcon: Icon(
-                        Icons.edit_outlined,
-                        size: 16,
-                        color: Colors.grey[400],
-                      ),
-                      prefixIconConstraints: const BoxConstraints(minWidth: 40),
-                      filled: false,
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 40),
+                    filled: false,
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Builder(
-                builder: (context) {
-                  final streaming = _jisuoMode == JisuoMode.streaming;
-                  // ai 模式空输入时按钮置灰不可发；community 模式点了是开
-                  // 提问 Sheet，不看输入框，始终可点
-                  final disabled =
-                      !streaming &&
-                      _tab == 'ai' &&
-                      _inputCtrl.text.trim().isEmpty;
-                  // 发送键跟左边输入框用同一套灰色胶囊视觉：一样的灰底 +
-                  // dividerColor 描边，不再用突出的紫色实心圆。状态只靠图标
-                  // 区分：停止=红 ■、可发=前景色 ↑、禁用=更淡的灰 ↑
-                  final iconColor = streaming
-                      ? const Color(0xFFEF4444)
-                      : disabled
-                      ? Colors.grey[400]!
-                      : (isDark ? Colors.white : const Color(0xFF1A1A1A));
-                  return GestureDetector(
-                    // 流式中点发送键 = 停止生成；其余点了走 _submit（空输入
-                    // 时 _askQuestion 内部会自己 return，点了也没反应）
-                    onTap: streaming ? _stopStream : _submit,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      // 跟左边输入框保持同一套胶囊视觉：浅色纯白底 + 极淡描边
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isDark
-                              ? Theme.of(context).dividerColor
-                              : const Color(0xFFEAEAEA),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Icon(
-                        streaming ? Icons.stop_rounded : Icons.arrow_upward,
-                        size: 18,
-                        color: iconColor,
-                      ),
-                    ),
-                  );
-                },
+              // 流式中点发送键 = 停止生成；其余点了走 _submit（空输入时
+              // _askQuestion 内部会自己 return，点了也没反应）
+              GestureDetector(
+                onTap: streaming ? _stopStream : _submit,
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  margin: const EdgeInsets.only(left: 4),
+                  decoration: BoxDecoration(
+                    color: disabled
+                        ? Colors.transparent
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.black.withValues(alpha: 0.06)),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    streaming ? Icons.stop_rounded : Icons.arrow_upward,
+                    size: 18,
+                    color: iconColor,
+                  ),
+                ),
               ),
             ],
           ),
@@ -698,7 +782,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         : const Color(0xFFEBEBEB);
     return ListView(
       controller: _scrollCtrl,
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, _composerClearance),
       children: [
         for (final turn in _turns)
           ..._buildTurn(
@@ -1068,7 +1152,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       color: _primary,
       onRefresh: () => _loadCommunityQuestions(refresh: true),
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, _composerClearance),
         itemCount: _communityQuestions.length,
         separatorBuilder: (_, _) => Divider(height: 1, color: line),
         itemBuilder: (context, i) {
