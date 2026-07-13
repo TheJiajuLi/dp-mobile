@@ -626,6 +626,14 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                       !streaming &&
                       _tab == 'ai' &&
                       _inputCtrl.text.trim().isEmpty;
+                  // 发送键跟左边输入框用同一套灰色胶囊视觉：一样的灰底 +
+                  // dividerColor 描边，不再用突出的紫色实心圆。状态只靠图标
+                  // 区分：停止=红 ■、可发=前景色 ↑、禁用=更淡的灰 ↑
+                  final iconColor = streaming
+                      ? const Color(0xFFEF4444)
+                      : disabled
+                      ? Colors.grey[400]!
+                      : (isDark ? Colors.white : const Color(0xFF1A1A1A));
                   return GestureDetector(
                     // 流式中点发送键 = 停止生成；其余点了走 _submit（空输入
                     // 时 _askQuestion 内部会自己 return，点了也没反应）
@@ -634,17 +642,19 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: streaming
-                            ? const Color(0xFFEF4444)
-                            : disabled
-                            ? Colors.grey[400]
-                            : _primary,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF0F0F8),
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                          width: 0.5,
+                        ),
                       ),
                       child: Icon(
                         streaming ? Icons.stop_rounded : Icons.arrow_upward,
                         size: 18,
-                        color: Colors.white,
+                        color: iconColor,
                       ),
                     ),
                   );
