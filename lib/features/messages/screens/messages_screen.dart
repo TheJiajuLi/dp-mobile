@@ -532,6 +532,12 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
           const SizedBox(height: 6),
           Text(
             label,
+            // 之前没设 maxLines/overflow——英文长单词（"Notifications"）
+            // 在72px窄格里会自动换成两行，把下面的副标题挤出固定高度的
+            // SizedBox，就是截图里"BOTTOM OVERFLOWED"的根因。跟下面
+            // subtitle同一套处理，单行截断不换行
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 2),

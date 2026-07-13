@@ -1259,8 +1259,12 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       // padding 加在 Container 外面，白色背景到不了 home indicator 那圈
       // 安全区，露出 Scaffold 背景，跟之前设置页/Notebook页同一个坑
       bottomNavigationBar: Container(
+        // 之前用 cardColor（浅色纯白/深色 darkCard），跟正文区域的
+        // scaffoldBackgroundColor 不是同一个色阶，底部这条栏会跟上面
+        // 内容拼出一条能看出来的接缝——统一改成跟正文同一个背景色，
+        // 靠上面这条细描边分隔，不靠色差
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: Theme.of(context).scaffoldBackgroundColor,
           border: Border(
             top: BorderSide(color: Theme.of(context).dividerColor),
           ),
