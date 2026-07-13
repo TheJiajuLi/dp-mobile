@@ -343,11 +343,19 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               children: [
                 _buildTopBar(isDark),
                 Expanded(
-                  child: _tab == 'community'
-                      ? _buildCommunityView(isDark)
-                      : (_jisuoMode == JisuoMode.idle
-                            ? _buildIdleView(isDark)
-                            : _buildAnswerView(isDark)),
+                  // 键盘展开后点正文空白处收起键盘——输入框在
+                  // bottomNavigationBar 里，正文是独立的 ListView，默认
+                  // 点空白不会 unfocus。opaque 让整块正文（含 ListView
+                  // 条目之间的空隙）都能接住 tap
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => FocusScope.of(context).unfocus(),
+                    child: _tab == 'community'
+                        ? _buildCommunityView(isDark)
+                        : (_jisuoMode == JisuoMode.idle
+                              ? _buildIdleView(isDark)
+                              : _buildAnswerView(isDark)),
+                  ),
                 ),
               ],
             ),
