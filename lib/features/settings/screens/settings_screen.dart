@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -415,37 +417,215 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _confirmLogout(
+  // 退出登录改成重设计的底部弹层：拖拽条 + 当前账号信息（头像/用户名/
+  // 邮箱）+ 数据保留提示 + 红色「退出登录」+ 中性「取消」，比原来干巴巴的
+  // AlertDialog 更贴合一线产品的退出体验
+  void _confirmLogout(
     BuildContext context,
     WidgetRef ref,
     AppLocalizations l10n,
-  ) async {
-    final confirm = await showDialog<bool>(
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentUser = ref.read(currentUserProvider);
+
+    // 头像可能是 data:image base64（app 内不少头像是内联的），NetworkImage
+    // 处理不了这种，分流：base64 走 MemoryImage，http(s) 走 NetworkImage，
+    // 都没有就退回首字母占位
+    ImageProvider? avatarImage;
+    final avatar = currentUser?.avatar;
+    if (avatar != null && avatar.isNotEmpty) {
+      if (avatar.startsWith('data:image')) {
+        try {
+          avatarImage = MemoryImage(base64Decode(avatar.split(',').last));
+        } catch (_) {}
+      } else {
+        avatarImage = NetworkImage(avatar);
+      }
+    }
+    final username = currentUser?.username ?? '';
+
+    showModalBottomSheet(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text(l10n.logout),
-        content: Text(l10n.confirmLogoutMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
-            child: Text(
-              l10n.cancel,
-              style: const TextStyle(color: Colors.grey),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF17171F) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: isDark
+              ? Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    width: 0.5,
+                  ),
+                )
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 拖拽条
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF333333)
+                      : const Color(0xFFE0E0E0),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, true),
-            child: Text(
-              l10n.exit,
-              style: const TextStyle(color: Color(0xFFDC2626)),
+
+            // 用户信息
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 14),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: const Color(0xFF6366F1),
+                    backgroundImage: avatarImage,
+                    child: avatarImage == null
+                        ? Text(
+                            username.isNotEmpty
+                                ? username.substring(0, 1).toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          username,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? const Color(0xFFF0F2F8)
+                                : const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          currentUser?.email ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? const Color(0xFF555555)
+                                : Colors.grey[400],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            // 分割线
+            Divider(
+              height: 0.5,
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : const Color(0xFFF0F0F0),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 提示文字
+            Text(
+              l10n.logoutDataRetainedHint,
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? const Color(0xFF555555) : Colors.grey[500],
+                height: 1.6,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 退出登录按钮
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () async {
+                  Navigator.pop(sheetCtx);
+                  await ref.read(authServiceProvider).logout();
+                  if (context.mounted) context.go('/login');
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: isDark
+                      ? const Color(0xFFEF4444).withValues(alpha: 0.12)
+                      : const Color(0xFFFEF2F2),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isDark
+                          ? const Color(0xFFEF4444).withValues(alpha: 0.25)
+                          : const Color(0xFFFECACA),
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  l10n.logout,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // 取消按钮
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(sheetCtx),
+                style: TextButton.styleFrom(
+                  backgroundColor: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFF5F5F5),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  l10n.cancel,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: isDark
+                        ? const Color(0xFF7A80A0)
+                        : const Color(0xFF555555),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-    if (confirm != true) return;
-    await ref.read(authServiceProvider).logout();
-    if (context.mounted) context.go('/login');
   }
 }
 

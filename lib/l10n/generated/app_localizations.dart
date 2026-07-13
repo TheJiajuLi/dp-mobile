@@ -938,6 +938,12 @@ abstract class AppLocalizations {
   /// **'Are you sure you want to log out?'**
   String get confirmLogoutMessage;
 
+  /// No description provided for @logoutDataRetainedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your data stays in the cloud after you log out — sign back in anytime to pick up where you left off.'**
+  String get logoutDataRetainedHint;
+
   /// No description provided for @exit.
   ///
   /// In en, this message translates to:

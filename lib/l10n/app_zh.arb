@@ -140,6 +140,7 @@
   "allSettingsSubtitle": "账号安全 / 通知 / 主题 / 会员中心等",
   "logout": "退出登录",
   "confirmLogoutMessage": "确定要退出登录吗？",
+  "logoutDataRetainedHint": "退出后你的数据将保留在云端，下次登录可以继续使用。",
   "exit": "退出",
   "userNotFound": "用户不存在",
   "profileIsPrivate": "该用户已设置主页不公开",

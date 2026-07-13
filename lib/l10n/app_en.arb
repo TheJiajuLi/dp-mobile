@@ -203,6 +203,7 @@
   "allSettingsSubtitle": "Account security / Notifications / Theme / Membership, etc.",
   "logout": "Log out",
   "confirmLogoutMessage": "Are you sure you want to log out?",
+  "logoutDataRetainedHint": "Your data stays in the cloud after you log out — sign back in anytime to pick up where you left off.",
   "exit": "Log Out",
   "userNotFound": "User not found",
   "profileIsPrivate": "This user has set their profile to private",

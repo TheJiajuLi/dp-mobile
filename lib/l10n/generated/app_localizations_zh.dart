@@ -449,6 +449,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get confirmLogoutMessage => '确定要退出登录吗？';
 
   @override
+  String get logoutDataRetainedHint => '退出后你的数据将保留在云端，下次登录可以继续使用。';
+
+  @override
   String get exit => '退出';
 
   @override

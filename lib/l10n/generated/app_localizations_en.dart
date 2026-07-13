@@ -456,6 +456,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmLogoutMessage => 'Are you sure you want to log out?';
 
   @override
+  String get logoutDataRetainedHint =>
+      'Your data stays in the cloud after you log out — sign back in anytime to pick up where you left off.';
+
+  @override
   String get exit => 'Log Out';
 
   @override
