@@ -42,6 +42,11 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
 
   final List<EditorBlock> _blocks = [];
   final List<String> _tags = [];
+  // 本次编辑会话里新上传到 COS 的文件 id（封面/正文图片/视频/音频/文件）。
+  // 退出时如果没保存草稿/发布，就把这些还没跟文章绑定的孤儿文件删掉；
+  // 保存/发布成功后清空（文件已绑定文章，不该再删）。只追踪本次新上传的，
+  // 编辑模式下不碰文章原有的文件
+  final List<String> _uploadedFileIds = [];
   bool _saving = false;
   bool _generatingSummary = false;
   String? _coverImageUrl;
@@ -759,6 +764,9 @@ result
 
       if (!mounted) return;
       if (res.success) {
+        // 保存/发布成功——本次上传的文件已经随 blocks/cover 绑定进文章，
+        // 不再是孤儿，退出时不该被清理
+        _uploadedFileIds.clear();
         final savedId =
             (res.data as Map?)?['id'] as String? ?? _editingTutorialId;
         if (savedId != null) _editingTutorialId = savedId;
@@ -796,6 +804,147 @@ result
     }
   }
 
+  // COS 清理：删掉本次上传但还没绑定进文章的孤儿文件（并行，删失败不
+  // 阻塞退出）。只删 _uploadedFileIds 里本次新上传的，不碰文章原有文件
+  Future<void> _cleanupUnsavedFiles() async {
+    if (_uploadedFileIds.isEmpty) return;
+    final apiClient = ref.read(apiClientProvider);
+    final ids = List<String>.from(_uploadedFileIds);
+    _uploadedFileIds.clear();
+    await Future.wait(
+      ids.map((id) async {
+        try {
+          await apiClient.delete('/auth/files/$id');
+        } catch (_) {
+          // 删除失败不影响退出
+        }
+      }),
+    );
+  }
+
+  // 退出（X 或系统返回）：完全空白直接退；有内容/有未保存上传就弹三选一
+  Future<void> _handleExit() async {
+    final hasContent =
+        _titleCtrl.text.trim().isNotEmpty ||
+        _summaryCtrl.text.trim().isNotEmpty ||
+        _blocks.any(
+          (b) =>
+              b.content.trim().isNotEmpty || (b.imageUrl?.isNotEmpty ?? false),
+        );
+    if (!hasContent && _uploadedFileIds.isEmpty) {
+      if (mounted) context.pop();
+      return;
+    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _buildExitSheet(ctx, isDark),
+    );
+    if (!mounted) return;
+    if (action == 'draft') {
+      await _saveDraft(); // 成功后 _save 内部已清空 _uploadedFileIds
+      if (mounted) context.pop();
+    } else if (action == 'discard') {
+      await _cleanupUnsavedFiles();
+      if (mounted) context.pop();
+    }
+    // cancel / null：继续编辑，不退出
+  }
+
+  Widget _buildExitSheet(BuildContext ctx, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF17171F) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 32,
+            height: 3,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          Text(
+            '保存这篇文章吗？',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '不保存的话，本次上传的图片等文件会被清除',
+            style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, 'draft'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A1A1A),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                '保存草稿',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx, 'discard'),
+              style: TextButton.styleFrom(
+                backgroundColor: isDark
+                    ? const Color(0xFF1A1A2E)
+                    : const Color(0xFFF5F5F5),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                '不保存，直接退出',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text(
+              '继续编辑',
+              style: TextStyle(
+                color: Color(0xFF6366F1),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -815,243 +964,266 @@ result
       );
     }
 
-    return Scaffold(
-      backgroundColor: isDarkMode
-          ? Theme.of(context).scaffoldBackgroundColor
-          : _bg,
-      endDrawer: PreviewDrawer(
-        title: _titleCtrl.text,
-        summary: _summaryCtrl.text,
-        tags: _tags,
-        blocks: _blocks,
-        coverImageUrl: _coverImageUrl,
-      ),
-      body: Stack(
-        children: [
-          // top/bottom 都不在这层留白——顶栏/底部工具栏自己各用一层
-          // SafeArea 处理状态栏/home indicator 那圈安全区。顶栏、工具栏都
-          // 不再有自己的一块底色（透明，直接露出 Scaffold 背景），跟正文
-          // 是同一块背景——整屏只有元信息卡片和"今日灵感"这类卡片浮在上面
-          // 是有边框的"灵动岛"，不会再出现顶栏/工具栏跟正文颜色不一样、
-          // 拼出一道横向分割线的"拼接感"
-          SafeArea(
-            top: false,
-            bottom: false,
-            child: Column(
-              children: [
-                PublishTopBar(
-                  l10n: l10n,
-                  isDarkMode: isDarkMode,
-                  titleController: _titleCtrl,
-                  saving: _saving,
-                  onTitleChanged: () => setState(() {}),
-                  onSaveDraft: _saveDraft,
-                  onPublish: _publish,
-                ),
-                PublishMetaSection(
-                  l10n: l10n,
-                  isDarkMode: isDarkMode,
-                  tags: _tags,
-                  onAddTag: _addTag,
-                  onRemoveTag: (tag) => setState(() => _tags.remove(tag)),
-                  coverImageUrl: _coverImageUrl,
-                  onCoverTap: () => showCoverOptions(
-                    context,
-                    onPickGallery: () => pickCoverImage(
-                      context,
-                      ref,
-                      onUploaded: (url) => setState(() => _coverImageUrl = url),
-                    ),
-                    onAiGenerate: () => aiGenerateCover(
-                      context,
-                      ref,
-                      title: _titleCtrl.text,
-                      tags: _tags,
-                      summary: _summaryCtrl.text,
-                      onCoverSelected: (url) =>
-                          setState(() => _coverImageUrl = url),
-                    ),
-                  ),
-                  summaryController: _summaryCtrl,
-                  onSummaryChanged: () => setState(() {}),
-                  generatingSummary: _generatingSummary,
-                  onAiGenerateSummary: _aiGenerateSummary,
-                  seriesTag: _seriesTag,
-                  subtitle: _subtitle,
-                  onTitleInsertionTap: () => showTitleInsertionSheet(
-                    context,
+    return PopScope(
+      // 拦截系统返回手势/返回键——统一走 _handleExit（询问保存/清理未保存
+      // 的 COS 文件），不让默认返回直接 pop 掉页面丢内容
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleExit();
+      },
+      child: Scaffold(
+        backgroundColor: isDarkMode
+            ? Theme.of(context).scaffoldBackgroundColor
+            : _bg,
+        endDrawer: PreviewDrawer(
+          title: _titleCtrl.text,
+          summary: _summaryCtrl.text,
+          tags: _tags,
+          blocks: _blocks,
+          coverImageUrl: _coverImageUrl,
+        ),
+        body: Stack(
+          children: [
+            // top/bottom 都不在这层留白——顶栏/底部工具栏自己各用一层
+            // SafeArea 处理状态栏/home indicator 那圈安全区。顶栏、工具栏都
+            // 不再有自己的一块底色（透明，直接露出 Scaffold 背景），跟正文
+            // 是同一块背景——整屏只有元信息卡片和"今日灵感"这类卡片浮在上面
+            // 是有边框的"灵动岛"，不会再出现顶栏/工具栏跟正文颜色不一样、
+            // 拼出一道横向分割线的"拼接感"
+            SafeArea(
+              top: false,
+              bottom: false,
+              child: Column(
+                children: [
+                  PublishTopBar(
                     l10n: l10n,
-                    currentTitle: _titleCtrl.text,
-                    initialSubtitle: _subtitle,
-                    initialSeriesTag: _seriesTag,
-                    initialIssueNumber: _issueNumber,
-                    onSaved:
-                        ({
-                          required subtitle,
-                          required seriesTag,
-                          required issueNumber,
-                        }) => setState(() {
-                          _subtitle = subtitle;
-                          _seriesTag = seriesTag;
-                          _issueNumber = issueNumber;
-                        }),
+                    isDarkMode: isDarkMode,
+                    titleController: _titleCtrl,
+                    saving: _saving,
+                    onTitleChanged: () => setState(() {}),
+                    onSaveDraft: _saveDraft,
+                    onPublish: _publish,
+                    onClose: _handleExit,
                   ),
-                  selectedColumnId: _selectedColumnId,
-                  selectedColumnName: _selectedColumnName,
-                  onColumnTap: _showColumnSheet,
-                  onColumnCancel: () => setState(() {
-                    _selectedColumnId = null;
-                    _selectedColumnName = null;
-                  }),
-                ),
-                Expanded(
-                  child: _blocks.isEmpty
-                      ? _buildEmptyState(l10n, isDarkMode)
-                      : ReorderableListView.builder(
-                          scrollController: _scrollCtrl,
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                          itemCount: _blocks.length,
-                          onReorder: _onReorder,
-                          // 拖拽只从 BlockCard 里那个手柄图标触发（见
-                          // ReorderableDragStartListener），关掉默认的
-                          // "长按列表项任意位置拖拽"——不然长按 block 里的
-                          // 文字/代码输入框想选中文本时会跟这个默认拖拽
-                          // 手势抢
-                          buildDefaultDragHandles: false,
-                          itemBuilder: (ctx, i) => BlockCard(
-                            key: ValueKey(_blocks[i].id),
-                            block: _blocks[i],
-                            index: i,
-                            total: _blocks.length,
-                            membership: membership,
-                            onRunCode: _runBlockCode,
-                            onDelete: () => _deleteBlock(_blocks[i].id),
-                            onMoveUp: i > 0
-                                ? () => _swapBlocks(i, i - 1)
-                                : null,
-                            onMoveDown: i < _blocks.length - 1
-                                ? () => _swapBlocks(i, i + 1)
-                                : null,
-                            onChanged: () => setState(() {}),
-                            onFocusGained: () =>
-                                setState(() => _focusedBlockId = _blocks[i].id),
+                  PublishMetaSection(
+                    l10n: l10n,
+                    isDarkMode: isDarkMode,
+                    tags: _tags,
+                    onAddTag: _addTag,
+                    onRemoveTag: (tag) => setState(() => _tags.remove(tag)),
+                    coverImageUrl: _coverImageUrl,
+                    onCoverTap: () => showCoverOptions(
+                      context,
+                      onPickGallery: () => pickCoverImage(
+                        context,
+                        ref,
+                        onUploaded: (url, fileId) {
+                          setState(() => _coverImageUrl = url);
+                          if (fileId != null) _uploadedFileIds.add(fileId);
+                        },
+                      ),
+                      onAiGenerate: () => aiGenerateCover(
+                        context,
+                        ref,
+                        title: _titleCtrl.text,
+                        tags: _tags,
+                        summary: _summaryCtrl.text,
+                        onCoverSelected: (url, fileId) {
+                          setState(() => _coverImageUrl = url);
+                          if (fileId != null) _uploadedFileIds.add(fileId);
+                        },
+                      ),
+                    ),
+                    summaryController: _summaryCtrl,
+                    onSummaryChanged: () => setState(() {}),
+                    generatingSummary: _generatingSummary,
+                    onAiGenerateSummary: _aiGenerateSummary,
+                    seriesTag: _seriesTag,
+                    subtitle: _subtitle,
+                    onTitleInsertionTap: () => showTitleInsertionSheet(
+                      context,
+                      l10n: l10n,
+                      currentTitle: _titleCtrl.text,
+                      initialSubtitle: _subtitle,
+                      initialSeriesTag: _seriesTag,
+                      initialIssueNumber: _issueNumber,
+                      onSaved:
+                          ({
+                            required subtitle,
+                            required seriesTag,
+                            required issueNumber,
+                          }) => setState(() {
+                            _subtitle = subtitle;
+                            _seriesTag = seriesTag;
+                            _issueNumber = issueNumber;
+                          }),
+                    ),
+                    selectedColumnId: _selectedColumnId,
+                    selectedColumnName: _selectedColumnName,
+                    onColumnTap: _showColumnSheet,
+                    onColumnCancel: () => setState(() {
+                      _selectedColumnId = null;
+                      _selectedColumnName = null;
+                    }),
+                  ),
+                  Expanded(
+                    child: _blocks.isEmpty
+                        ? _buildEmptyState(l10n, isDarkMode)
+                        : ReorderableListView.builder(
+                            scrollController: _scrollCtrl,
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                            itemCount: _blocks.length,
+                            onReorder: _onReorder,
+                            // 拖拽只从 BlockCard 里那个手柄图标触发（见
+                            // ReorderableDragStartListener），关掉默认的
+                            // "长按列表项任意位置拖拽"——不然长按 block 里的
+                            // 文字/代码输入框想选中文本时会跟这个默认拖拽
+                            // 手势抢
+                            buildDefaultDragHandles: false,
+                            itemBuilder: (ctx, i) => BlockCard(
+                              key: ValueKey(_blocks[i].id),
+                              block: _blocks[i],
+                              index: i,
+                              total: _blocks.length,
+                              membership: membership,
+                              onRunCode: _runBlockCode,
+                              onDelete: () => _deleteBlock(_blocks[i].id),
+                              onMoveUp: i > 0
+                                  ? () => _swapBlocks(i, i - 1)
+                                  : null,
+                              onMoveDown: i < _blocks.length - 1
+                                  ? () => _swapBlocks(i, i + 1)
+                                  : null,
+                              onChanged: () => setState(() {}),
+                              onFocusGained: () => setState(
+                                () => _focusedBlockId = _blocks[i].id,
+                              ),
+                              onFileUploaded: (id) => _uploadedFileIds.add(id),
+                            ),
+                          ),
+                  ),
+                  // "添加内容块"——放在列表下方常驻（不跟着滚动进 Reorderable
+                  // 列表里，那样会跟拖拽排序的下标数学搅在一起），打开紧凑的
+                  // 4列 Block 选择器，跟顶栏那排图标是两个不同入口：图标行是
+                  // "直接加"，这个是给已经滚到底部、不想再滚回顶栏的场景用
+                  if (_blocks.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: GestureDetector(
+                        onTap: () => showBlockPickerSheet(
+                          context,
+                          l10n: l10n,
+                          isDarkMode: isDarkMode,
+                          onPick: _addBlock,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : const Color(0xFFDDDDF0),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add,
+                                size: 16,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                l10n.addContentBlockLabel,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                ),
-                // "添加内容块"——放在列表下方常驻（不跟着滚动进 Reorderable
-                // 列表里，那样会跟拖拽排序的下标数学搅在一起），打开紧凑的
-                // 4列 Block 选择器，跟顶栏那排图标是两个不同入口：图标行是
-                // "直接加"，这个是给已经滚到底部、不想再滚回顶栏的场景用
-                if (_blocks.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: GestureDetector(
-                      onTap: () => showBlockPickerSheet(
+                      ),
+                    ),
+                  BlockFormattingToolbar(
+                    l10n: l10n,
+                    isDarkMode: isDarkMode,
+                    block: _focusedBlock,
+                    onChanged: () => setState(() {}),
+                    onShowFontSheet: () {
+                      final b = _focusedBlock;
+                      if (b == null) return;
+                      showFontSheet(
                         context,
                         l10n: l10n,
                         isDarkMode: isDarkMode,
-                        onPick: _addBlock,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isDarkMode
-                                ? Colors.white.withValues(alpha: 0.1)
-                                : const Color(0xFFDDDDF0),
-                            width: 0.5,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add, size: 16, color: Colors.grey[400]),
-                            const SizedBox(width: 6),
-                            Text(
-                              l10n.addContentBlockLabel,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey[400],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                        block: b,
+                        onChanged: () => setState(() {}),
+                      );
+                    },
+                    onConvertHeading: (level) {
+                      final id = _focusedBlockId;
+                      if (id == null) return;
+                      _convertHeading(id, level);
+                    },
                   ),
-                BlockFormattingToolbar(
-                  l10n: l10n,
-                  isDarkMode: isDarkMode,
-                  block: _focusedBlock,
-                  onChanged: () => setState(() {}),
-                  onShowFontSheet: () {
-                    final b = _focusedBlock;
-                    if (b == null) return;
-                    showFontSheet(
-                      context,
-                      l10n: l10n,
-                      isDarkMode: isDarkMode,
-                      block: b,
-                      onChanged: () => setState(() {}),
-                    );
-                  },
-                  onConvertHeading: (level) {
-                    final id = _focusedBlockId;
-                    if (id == null) return;
-                    _convertHeading(id, level);
-                  },
-                ),
-                PublishBottomToolbar(
-                  l10n: l10n,
-                  isDarkMode: isDarkMode,
-                  blocks: _blocks,
-                  activeToolbarType: _activeToolbarType,
-                  onAddBlock: _addBlock,
-                  onImport: _openImportBrowser,
-                ),
-              ],
-            ),
-          ),
-          // 隐藏的 WebView，承载 Pyodide/compiler.js——跟 Notebook 编辑器
-          // 那边一样放到屏幕外、给一个 1x1 的极小尺寸，不能用 Offstage/
-          // 0 尺寸，部分平台下 WebView 尺寸为 0 时不会正常初始化
-          Positioned(
-            left: -9999,
-            top: -9999,
-            width: 1,
-            height: 1,
-            child: InAppWebView(
-              initialData: InAppWebViewInitialData(
-                data: _compilerHtml,
-                baseUrl: WebUri('https://dreamingpolar.com'),
-              ),
-              onWebViewCreated: (ctrl) {
-                _webCtrl = ctrl;
-                ctrl.addJavaScriptHandler(
-                  handlerName: 'compilerReady',
-                  callback: (args) {
-                    if (mounted) setState(() => _webReady = true);
-                    debugPrint('[Publish] Pyodide就绪');
-                  },
-                );
-                ctrl.addJavaScriptHandler(
-                  handlerName: 'onRunResult',
-                  callback: (args) {
-                    final blockId = args.isNotEmpty ? args[0].toString() : '';
-                    final result = args.length > 1 ? args[1].toString() : '[]';
-                    _pendingRuns[blockId]?.complete(result);
-                  },
-                );
-              },
-              initialSettings: InAppWebViewSettings(
-                javaScriptEnabled: true,
-                allowsInlineMediaPlayback: true,
-                mediaPlaybackRequiresUserGesture: false,
+                  PublishBottomToolbar(
+                    l10n: l10n,
+                    isDarkMode: isDarkMode,
+                    blocks: _blocks,
+                    activeToolbarType: _activeToolbarType,
+                    onAddBlock: _addBlock,
+                    onImport: _openImportBrowser,
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            // 隐藏的 WebView，承载 Pyodide/compiler.js——跟 Notebook 编辑器
+            // 那边一样放到屏幕外、给一个 1x1 的极小尺寸，不能用 Offstage/
+            // 0 尺寸，部分平台下 WebView 尺寸为 0 时不会正常初始化
+            Positioned(
+              left: -9999,
+              top: -9999,
+              width: 1,
+              height: 1,
+              child: InAppWebView(
+                initialData: InAppWebViewInitialData(
+                  data: _compilerHtml,
+                  baseUrl: WebUri('https://dreamingpolar.com'),
+                ),
+                onWebViewCreated: (ctrl) {
+                  _webCtrl = ctrl;
+                  ctrl.addJavaScriptHandler(
+                    handlerName: 'compilerReady',
+                    callback: (args) {
+                      if (mounted) setState(() => _webReady = true);
+                      debugPrint('[Publish] Pyodide就绪');
+                    },
+                  );
+                  ctrl.addJavaScriptHandler(
+                    handlerName: 'onRunResult',
+                    callback: (args) {
+                      final blockId = args.isNotEmpty ? args[0].toString() : '';
+                      final result = args.length > 1
+                          ? args[1].toString()
+                          : '[]';
+                      _pendingRuns[blockId]?.complete(result);
+                    },
+                  );
+                },
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  allowsInlineMediaPlayback: true,
+                  mediaPlaybackRequiresUserGesture: false,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1416,4 +1588,3 @@ class _QuickStartBtn extends StatelessWidget {
     );
   }
 }
-

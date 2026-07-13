@@ -14,7 +14,7 @@ const _primary = Color(0xFF6366F1);
 Future<void> pickCoverImage(
   BuildContext context,
   WidgetRef ref, {
-  required void Function(String url) onUploaded,
+  required void Function(String url, String? fileId) onUploaded,
 }) async {
   final picker = ImagePicker();
   final file = await picker.pickImage(
@@ -37,8 +37,9 @@ Future<void> pickCoverImage(
         .read(apiClientProvider)
         .post('/auth/files/upload', data: formData);
     if (!res.success || res.data == null) return;
-    final url = (res.data as Map)['url'] as String?;
-    if (url != null && context.mounted) onUploaded(url);
+    final map = res.data as Map;
+    final url = map['url'] as String?;
+    if (url != null && context.mounted) onUploaded(url, map['id'] as String?);
   } catch (e) {
     if (context.mounted) {
       final l10n = AppLocalizations.of(context)!;
@@ -111,10 +112,7 @@ Future<void> showCoverOptions(
               ),
             ),
             title: const Text('小梦帮我生成封面'),
-            subtitle: const Text(
-              '根据标题和标签自动生成',
-              style: TextStyle(fontSize: 11),
-            ),
+            subtitle: const Text('根据标题和标签自动生成', style: TextStyle(fontSize: 11)),
             trailing: const Icon(Icons.chevron_right, color: Colors.grey),
             onTap: () {
               Navigator.pop(ctx);
@@ -133,7 +131,7 @@ Future<void> aiGenerateCover(
   required String title,
   required List<String> tags,
   required String summary,
-  required void Function(String url) onCoverSelected,
+  required void Function(String url, String? fileId) onCoverSelected,
 }) async {
   if (title.trim().isEmpty) {
     ScaffoldMessenger.of(
@@ -154,7 +152,11 @@ Future<void> aiGenerateCover(
   try {
     final urls = await ref
         .read(xmengImageServiceProvider)
-        .generateCover(title: title.trim(), tags: tags, summary: summary.trim());
+        .generateCover(
+          title: title.trim(),
+          tags: tags,
+          summary: summary.trim(),
+        );
 
     if (context.mounted && dialogShowing) {
       dialogShowing = false;
@@ -212,7 +214,7 @@ void showCoverPickerSheet(
   BuildContext context,
   WidgetRef ref,
   List<String> urls, {
-  required void Function(String url) onSelect,
+  required void Function(String url, String? fileId) onSelect,
   required VoidCallback onRegenerate,
 }) {
   // 必须声明在 StatefulBuilder 的 builder 函数外面——builder 每次
@@ -244,7 +246,8 @@ void showCoverPickerSheet(
             final formData = FormData.fromMap({
               'file': MultipartFile.fromBytes(
                 bytes,
-                filename: 'ai_cover_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                filename:
+                    'ai_cover_${DateTime.now().millisecondsSinceEpoch}.jpg',
                 contentType: DioMediaType('image', 'jpeg'),
               ),
             });
@@ -253,8 +256,10 @@ void showCoverPickerSheet(
                 .post('/auth/files/upload', data: formData);
             if (!context.mounted) return;
             String? permanentUrl;
+            String? fileId;
             if (res.success && res.data is Map) {
               permanentUrl = (res.data as Map)['url'] as String?;
+              fileId = (res.data as Map)['id'] as String?;
             }
             if (permanentUrl == null || permanentUrl.isEmpty) {
               setSheetState(() => confirmingIndex = null);
@@ -263,7 +268,7 @@ void showCoverPickerSheet(
               );
               return;
             }
-            onSelect(permanentUrl);
+            onSelect(permanentUrl, fileId);
             Navigator.pop(ctx);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(

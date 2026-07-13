@@ -93,6 +93,9 @@ class BlockCard extends ConsumerStatefulWidget {
   // 颜色/字体等）只在"当前正在编辑哪个 block"明确的时候才有意义，这个
   // 状态本来就该由父级持有，不是 BlockCard 自己的事
   final VoidCallback? onFocusGained;
+  // 每次上传文件成功（图片/视频/音频/文件）把后端返回的 file id 报给
+  // PublishScreen 收集，退出未保存时用来清理 COS 里这些孤儿文件
+  final void Function(String fileId)? onFileUploaded;
 
   const BlockCard({
     super.key,
@@ -106,6 +109,7 @@ class BlockCard extends ConsumerStatefulWidget {
     this.onMoveDown,
     required this.onChanged,
     this.onFocusGained,
+    this.onFileUploaded,
   });
 
   @override
@@ -1564,6 +1568,8 @@ th{background:#1e293b;color:#94a3b8}
           .post('/auth/files/upload', data: formData);
       if (!res.success || res.data == null) return;
       final url = (res.data as Map)['url'] as String?;
+      final uploadedId = (res.data as Map)['id'] as String?;
+      if (uploadedId != null) widget.onFileUploaded?.call(uploadedId);
       if (url != null && mounted) {
         setState(() => widget.block.imageUrl = url);
         widget.onChanged();
@@ -1719,6 +1725,8 @@ th{background:#1e293b;color:#94a3b8}
           .post('/auth/files/upload', data: formData);
       if (!res.success || res.data == null) return;
       final url = (res.data as Map)['url'] as String?;
+      final uploadedId = (res.data as Map)['id'] as String?;
+      if (uploadedId != null) widget.onFileUploaded?.call(uploadedId);
       if (url != null && mounted) {
         setState(() {
           widget.block.content = url;
@@ -1842,6 +1850,8 @@ th{background:#1e293b;color:#94a3b8}
           .post('/auth/files/upload', data: formData);
       if (!res.success || res.data == null) return;
       final url = (res.data as Map)['url'] as String?;
+      final uploadedId = (res.data as Map)['id'] as String?;
+      if (uploadedId != null) widget.onFileUploaded?.call(uploadedId);
       if (url != null && mounted) {
         setState(() {
           widget.block.content = url;
@@ -1904,6 +1914,8 @@ th{background:#1e293b;color:#94a3b8}
               .post('/auth/files/upload', data: formData);
           if (!res.success || res.data == null) return;
           final url = (res.data as Map)['url'] as String?;
+          final uploadedId = (res.data as Map)['id'] as String?;
+          if (uploadedId != null) widget.onFileUploaded?.call(uploadedId);
           if (url != null && mounted) {
             setState(() {
               widget.block.content = url;

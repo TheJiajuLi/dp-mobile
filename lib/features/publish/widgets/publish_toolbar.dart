@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/membership_utils.dart';
 import '../../../core/widgets/pro_gate.dart';
@@ -19,6 +18,9 @@ class PublishTopBar extends StatelessWidget {
   final VoidCallback onTitleChanged;
   final VoidCallback onSaveDraft;
   final VoidCallback onPublish;
+  // 关闭（X）走 PublishScreen 的退出处理——退出前询问保存/清理未保存的
+  // COS 文件，不再直接 context.pop()
+  final VoidCallback onClose;
 
   const PublishTopBar({
     super.key,
@@ -29,6 +31,7 @@ class PublishTopBar extends StatelessWidget {
     required this.onTitleChanged,
     required this.onSaveDraft,
     required this.onPublish,
+    required this.onClose,
   });
 
   @override
@@ -44,7 +47,7 @@ class PublishTopBar extends StatelessWidget {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => context.pop(),
+                onTap: onClose,
                 child: const Icon(
                   Icons.close,
                   size: 22,
