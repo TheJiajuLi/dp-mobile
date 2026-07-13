@@ -416,9 +416,11 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   Widget _buildHero(bool isDark) {
     // 星云/光晕装饰层挪到 Scaffold body 的 Stack 底层了（build()
-    // 里，SafeArea 外面），这里只剩文字内容本身
+    // 里，SafeArea 外面），这里只剩文字内容本身。高度之前是屏幕的一半，
+    // 标题+示例问题一起撑不满，顶栏和内容之间空出一大截——收紧到0.4，
+    // 内容密度更高，不再显得像个landing page的英雄区
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.5,
+      height: MediaQuery.of(context).size.height * 0.4,
       child: Stack(
         children: [
           Padding(
