@@ -177,9 +177,7 @@ class AiContentRenderer extends StatelessWidget {
   // 行内公式流排：无公式走 MarkdownBody（标题/加粗/列表），含公式走
   // Text.rich + WidgetSpan 把 Math.tex 嵌进文字行内
   Widget _buildTextParagraph(List<AiSegment> segs) {
-    final hasInlineLatex = segs.any(
-      (s) => s.type == AiSegmentType.latexInline,
-    );
+    final hasInlineLatex = segs.any((s) => s.type == AiSegmentType.latexInline);
     // 纯文字（无行内公式）走 MarkdownBody，标题/加粗/列表/表格全套都有
     if (!hasInlineLatex) {
       return MarkdownBody(
@@ -340,8 +338,20 @@ class AiContentRenderer extends StatelessWidget {
       color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
     ),
     blockquoteDecoration: BoxDecoration(
-      border: const Border(left: BorderSide(color: Color(0xFF6366F1), width: 3)),
+      border: const Border(
+        left: BorderSide(color: Color(0xFF6366F1), width: 3),
+      ),
       color: isDark ? const Color(0xFF1A1A35) : const Color(0xFFEEF0FF),
+    ),
+    // 不设置的话 flutter_markdown 的 --- 分割线默认渲染成一整条实心灰
+    // 色块，很显眼、像一条"带子"横在正文中间——改成克制的 0.5px 细线
+    horizontalRuleDecoration: BoxDecoration(
+      border: Border(
+        top: BorderSide(
+          color: isDark ? const Color(0xFF3A3A5C) : const Color(0xFFE0E0E0),
+          width: 0.5,
+        ),
+      ),
     ),
   );
 }
