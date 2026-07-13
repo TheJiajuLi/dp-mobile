@@ -165,6 +165,12 @@ class PublishBottomToolbar extends StatelessWidget {
   final BlockType activeToolbarType;
   final void Function(BlockType type) onAddBlock;
   final VoidCallback onImport;
+  // 非空时，"文字"这个类型按钮点击不再新建文字block，改成收起/展开
+  // 格式工具栏（BlockFormattingToolbar）——当前正编辑text/heading block
+  // 时，"Tt"按钮再点一次去新建一个文字block没有意义，用户更需要的是
+  // 把格式行收起腾地方；没有正在编辑的文字/标题block时（null）还是
+  // 老行为，点了新建
+  final VoidCallback? onToggleFormatBar;
 
   const PublishBottomToolbar({
     super.key,
@@ -174,6 +180,7 @@ class PublishBottomToolbar extends StatelessWidget {
     required this.activeToolbarType,
     required this.onAddBlock,
     required this.onImport,
+    this.onToggleFormatBar,
   });
 
   @override
@@ -194,12 +201,16 @@ class PublishBottomToolbar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 children: [
                   ..._toolbarTypes.map((type) {
+                    final isFormatBarToggle =
+                        type == BlockType.text && onToggleFormatBar != null;
                     final button = _toolbarButton(
                       icon: blockTypeIcon(type),
                       tooltip: blockTypeLabel(l10n, type),
                       selected: activeToolbarType == type,
                       isDarkMode: isDarkMode,
-                      onTap: () => onAddBlock(type),
+                      onTap: isFormatBarToggle
+                          ? onToggleFormatBar!
+                          : () => onAddBlock(type),
                     );
                     // 音频/视频 Block 是 Pro 权益（跟会员页
                     // subscription_screen.dart 列出的权益一致），文字/

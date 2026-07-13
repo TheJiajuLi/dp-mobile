@@ -38,6 +38,9 @@ class BlockFormattingToolbar extends StatelessWidget {
   // PublishScreen 那层把整个 block 换成新实例（同 id、同 content，
   // FocusNode 也要跟着重建），传 null 表示"转回普通文字段落"
   final void Function(int? headingLevel) onConvertHeading;
+  // 底部工具栏"Tt"按钮点一下收起、再点一下展开——由父级 PublishScreen
+  // 持有这个开关状态，这里只负责按它显示/隐藏，不自己管理状态
+  final bool expanded;
 
   const BlockFormattingToolbar({
     super.key,
@@ -47,6 +50,7 @@ class BlockFormattingToolbar extends StatelessWidget {
     required this.onChanged,
     required this.onShowFontSheet,
     required this.onConvertHeading,
+    this.expanded = true,
   });
 
   bool get _applicable =>
@@ -55,7 +59,7 @@ class BlockFormattingToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!_applicable) return const SizedBox.shrink();
+    if (!_applicable || !expanded) return const SizedBox.shrink();
     final b = block!;
     final dividerColor = isDarkMode
         ? const Color(0xFF1E1E3A)

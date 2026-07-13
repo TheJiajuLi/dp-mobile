@@ -75,6 +75,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   // 现在真的接上了（BlockCard 的 FocusNode 监听器），上面那条"链路太长"
   // 的注释是旧决定，格式工具栏这个新功能必须要有这份状态才能工作
   String? _focusedBlockId;
+  // 底部工具栏"Tt"按钮收起/展开格式工具栏（粗体/颜色那行）用——默认展开，
+  // 跟以前一样一聚焦文字/标题block就直接看得到
+  bool _formatBarExpanded = true;
 
   EditorBlock? get _focusedBlock {
     for (final b in _blocks) {
@@ -968,6 +971,72 @@ result
     // 小梦AI入口能跟着更新
     final membership = ref.watch(currentUserProvider)?.membership ?? 'free';
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    // 摘要/更多设置这张卡之前跟顶栏一样固定在Column里，不跟着列表滚动——
+    // 上滑时一直贴在顶部占位置，跟其它block表现不一致。抽成局部变量，
+    // 当 ReorderableListView.builder 的 header 传进去，让它变成列表的
+    // 第一项，随内容一起滚走；空状态下也塞进同一个 SingleChildScrollView
+    // 顶部，两条路径行为保持一致
+    final metaSection = PublishMetaSection(
+      l10n: l10n,
+      isDarkMode: isDarkMode,
+      tags: _tags,
+      onAddTag: _addTag,
+      onRemoveTag: (tag) => setState(() => _tags.remove(tag)),
+      coverImageUrl: _coverImageUrl,
+      onCoverTap: () => showCoverOptions(
+        context,
+        onPickGallery: () => pickCoverImage(
+          context,
+          ref,
+          onUploaded: (url, fileId) {
+            setState(() => _coverImageUrl = url);
+            if (fileId != null) _uploadedFileIds.add(fileId);
+          },
+        ),
+        onAiGenerate: () => aiGenerateCover(
+          context,
+          ref,
+          title: _titleCtrl.text,
+          tags: _tags,
+          summary: _summaryCtrl.text,
+          onCoverSelected: (url, fileId) {
+            setState(() => _coverImageUrl = url);
+            if (fileId != null) _uploadedFileIds.add(fileId);
+          },
+        ),
+      ),
+      summaryController: _summaryCtrl,
+      onSummaryChanged: () => setState(() {}),
+      generatingSummary: _generatingSummary,
+      onAiGenerateSummary: _aiGenerateSummary,
+      seriesTag: _seriesTag,
+      subtitle: _subtitle,
+      onTitleInsertionTap: () => showTitleInsertionSheet(
+        context,
+        l10n: l10n,
+        currentTitle: _titleCtrl.text,
+        initialSubtitle: _subtitle,
+        initialSeriesTag: _seriesTag,
+        initialIssueNumber: _issueNumber,
+        onSaved:
+            ({
+              required subtitle,
+              required seriesTag,
+              required issueNumber,
+            }) => setState(() {
+              _subtitle = subtitle;
+              _seriesTag = seriesTag;
+              _issueNumber = issueNumber;
+            }),
+      ),
+      selectedColumnId: _selectedColumnId,
+      selectedColumnName: _selectedColumnName,
+      onColumnTap: _showColumnSheet,
+      onColumnCancel: () => setState(() {
+        _selectedColumnId = null;
+        _selectedColumnName = null;
+      }),
+    );
 
     if (_loadingExisting) {
       return Scaffold(
@@ -1020,67 +1089,6 @@ result
                     onPublish: _publish,
                     onClose: _handleExit,
                   ),
-                  PublishMetaSection(
-                    l10n: l10n,
-                    isDarkMode: isDarkMode,
-                    tags: _tags,
-                    onAddTag: _addTag,
-                    onRemoveTag: (tag) => setState(() => _tags.remove(tag)),
-                    coverImageUrl: _coverImageUrl,
-                    onCoverTap: () => showCoverOptions(
-                      context,
-                      onPickGallery: () => pickCoverImage(
-                        context,
-                        ref,
-                        onUploaded: (url, fileId) {
-                          setState(() => _coverImageUrl = url);
-                          if (fileId != null) _uploadedFileIds.add(fileId);
-                        },
-                      ),
-                      onAiGenerate: () => aiGenerateCover(
-                        context,
-                        ref,
-                        title: _titleCtrl.text,
-                        tags: _tags,
-                        summary: _summaryCtrl.text,
-                        onCoverSelected: (url, fileId) {
-                          setState(() => _coverImageUrl = url);
-                          if (fileId != null) _uploadedFileIds.add(fileId);
-                        },
-                      ),
-                    ),
-                    summaryController: _summaryCtrl,
-                    onSummaryChanged: () => setState(() {}),
-                    generatingSummary: _generatingSummary,
-                    onAiGenerateSummary: _aiGenerateSummary,
-                    seriesTag: _seriesTag,
-                    subtitle: _subtitle,
-                    onTitleInsertionTap: () => showTitleInsertionSheet(
-                      context,
-                      l10n: l10n,
-                      currentTitle: _titleCtrl.text,
-                      initialSubtitle: _subtitle,
-                      initialSeriesTag: _seriesTag,
-                      initialIssueNumber: _issueNumber,
-                      onSaved:
-                          ({
-                            required subtitle,
-                            required seriesTag,
-                            required issueNumber,
-                          }) => setState(() {
-                            _subtitle = subtitle;
-                            _seriesTag = seriesTag;
-                            _issueNumber = issueNumber;
-                          }),
-                    ),
-                    selectedColumnId: _selectedColumnId,
-                    selectedColumnName: _selectedColumnName,
-                    onColumnTap: _showColumnSheet,
-                    onColumnCancel: () => setState(() {
-                      _selectedColumnId = null;
-                      _selectedColumnName = null;
-                    }),
-                  ),
                   Expanded(
                     // 点空白区域（block之间的空隙、列表末尾没有block的地方）
                     // 收起格式工具栏——ReorderableListView本身不认"点了空白"
@@ -1094,10 +1102,16 @@ result
                       },
                       behavior: HitTestBehavior.translucent,
                       child: _blocks.isEmpty
-                          ? _buildEmptyState(l10n, isDarkMode)
+                          ? _buildEmptyState(l10n, isDarkMode, metaSection)
                           : ReorderableListView.builder(
                               scrollController: _scrollCtrl,
                               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                              // 摘要/更多设置卡当列表的header——随内容一起滚走，
+                              // 不再固定占位在顶部
+                              header: Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: metaSection,
+                              ),
                               itemCount: _blocks.length,
                               onReorder: _onReorder,
                               // 拖拽只从 BlockCard 里那个手柄图标触发（见
@@ -1190,6 +1204,7 @@ result
                     l10n: l10n,
                     isDarkMode: isDarkMode,
                     block: _focusedBlock,
+                    expanded: _formatBarExpanded,
                     onChanged: () => setState(() {}),
                     onShowFontSheet: () {
                       final b = _focusedBlock;
@@ -1215,6 +1230,16 @@ result
                     activeToolbarType: _activeToolbarType,
                     onAddBlock: _addBlock,
                     onImport: _openImportBrowser,
+                    // 有正在编辑的文字/标题block时，"Tt"按钮改成收起/展开
+                    // 格式工具栏；没有的话传null，按钮退回老行为（新建
+                    // 文字block）
+                    onToggleFormatBar:
+                        _focusedBlock != null &&
+                            (_focusedBlock!.type == BlockType.text ||
+                                _focusedBlock!.type == BlockType.heading)
+                        ? () =>
+                              setState(() => _formatBarExpanded = !_formatBarExpanded)
+                        : null,
                   ),
                 ],
               ),
@@ -1268,12 +1293,17 @@ result
   // 一个 block 都没有时的引导区——不是一片空白，而是问候语+快速开始+
   // 今日灵感，让用户一打开就知道从哪下手，不会有"不知道写什么"的
   // 空白焦虑。加了第一个 block 之后就自动切回正常的 block 列表
-  Widget _buildEmptyState(AppLocalizations l10n, bool isDarkMode) {
+  Widget _buildEmptyState(
+    AppLocalizations l10n,
+    bool isDarkMode,
+    Widget metaSection,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          metaSection,
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
             child: Column(

@@ -85,12 +85,12 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
       children: [
         // 封面图缩小成一个小方块，塞进摘要这一行左边，跟摘要输入框合并
         // 成一行——不再单独占一整张 140px 高的卡，省下来的空间让整个
-        // 元信息区更紧凑。这一整张卡是固定在 Block 列表上方、不跟着滚动
-        // 的，之前几行加起来接近半屏，把"今日灵感"挤得只剩一条缝——摘要
-        // 输入框行高/每行内边距/封面图尺寸都再压缩一档，让整张卡大概只
-        // 占以前的三分之一
+        // 元信息区更紧凑。这张卡现在是 ReorderableListView 的 header，
+        // 随 block 列表一起滚动（不再固定占位），横向留白交给外层列表
+        // 自己的 padding，这里只留纵向间距，不然横向会跟列表的padding
+        // 叠加变成两倍
         Container(
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          margin: const EdgeInsets.only(top: 8),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(14),
