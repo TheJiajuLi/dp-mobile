@@ -2,11 +2,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
-import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
+import 'create_column_sheet.dart';
 
 const _primary = Color(0xFF6366F1);
 const _ink = Color(0xFF1A1A1A);
@@ -185,120 +184,20 @@ Widget _tabCountHeader(
 
 // "新建专栏"弹层——名称必填/简介可选，创建成功后回调 onCreated 让调用方
 // 重新拉一次专栏列表
+// 重设计版新建专栏弹窗抽到 create_column_sheet.dart，这里只负责弹出。
+// ref 形参保留是为了不动调用点（新弹窗自己走 ConsumerStatefulWidget 的 ref）
 void showCreateColumnSheet(
   BuildContext context,
   WidgetRef ref, {
   required String? profileId,
   required Future<void> Function(String userId) onCreated,
 }) {
-  final l10n = AppLocalizations.of(context)!;
-  final nameCtrl = TextEditingController();
-  final descCtrl = TextEditingController();
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  l10n.createColumnAction,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () async {
-                    if (nameCtrl.text.trim().isEmpty) return;
-                    final res = await ref
-                        .read(apiClientProvider)
-                        .post(
-                          '/auth/columns',
-                          data: {
-                            'name': nameCtrl.text.trim(),
-                            'description': descCtrl.text.trim(),
-                          },
-                        );
-                    if (!context.mounted) return;
-                    if (res.success) {
-                      Navigator.pop(ctx);
-                      final userId =
-                          profileId ?? ref.read(currentUserProvider)?.id;
-                      if (userId != null) await onCreated(userId);
-                    } else if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            l10n.actionFailedWithReason('${res.message}'),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(
-                    l10n.createColumnAction,
-                    style: const TextStyle(
-                      color: _primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: l10n.columnNameLabel,
-                hintText: l10n.columnNameHint,
-                filled: true,
-                fillColor: Colors.grey[50],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: _primary),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: descCtrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: l10n.columnDescOptionalLabel,
-                filled: true,
-                fillColor: Colors.grey[50],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: _primary),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
+    builder: (_) =>
+        CreateColumnSheet(profileId: profileId, onCreated: onCreated),
   );
 }
 
