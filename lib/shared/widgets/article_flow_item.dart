@@ -37,9 +37,6 @@ class ArticleFlowItem extends StatelessWidget {
     final actionDivider = isDark
         ? AppColors.darkBorder
         : const Color(0xFFF5F5F5);
-    // "来源行"只在真的能确认内容来自小梦（账号 username=='小梦'）时才
-    // 显示——没有别的字段能判断一篇教程是不是小梦发的，不编造这个状态
-    final showSource = tutorial.username == '小梦';
 
     return GestureDetector(
       onTap: onTap,
@@ -51,35 +48,6 @@ class ArticleFlowItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (showSource) ...[
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 8,
-                        backgroundColor: _primary,
-                        child: Text(
-                          '梦',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '小梦 · 发表了文章',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark
-                              ? const Color(0xFF555555)
-                              : const Color(0xFFAAAAAA),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                ],
                 Text(
                   tutorial.title,
                   style: TextStyle(
