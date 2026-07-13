@@ -443,43 +443,12 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   // （现在也真实了）两个独立按钮，这里不重复塞一遍，只加真正落地的
   // "导出 PDF"，不为了凑活截图 Demo 里的四项菜单去编一个不存在的
   // "举报"功能
-  void _showMoreMenu() {
+  // 顶栏 PDF 图标直接打开导出面板（PDF/Markdown + 版面样式），不再套一层
+  // 只有单个"导出 PDF"项的「...」浮层菜单
+  void _openExportSheet() {
     final tutorial = _tutorial;
     if (tutorial == null) return;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.picture_as_pdf_outlined,
-                  color: _primary,
-                ),
-                title: const Text('导出 PDF'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  showTutorialExportSheet(
-                    context,
-                    tutorial: tutorial,
-                    blocks: _blocks,
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    showTutorialExportSheet(context, tutorial: tutorial, blocks: _blocks);
   }
 
   void _toggleCommentLike(String commentId, StateSetter? sheetSetState) {
@@ -899,8 +868,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   onPressed: _showFontSheet,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.more_horiz),
-                  onPressed: _showMoreMenu,
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  tooltip: '导出 PDF',
+                  onPressed: _openExportSheet,
                 ),
               ],
               bottom: PreferredSize(
