@@ -554,30 +554,28 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     return false;
   }
 
-  // 元素是否"只含一个公式、没别的实质文字"→ 该独占一个 latex block
+  // 找元素里的公式元素（穿透嵌套：知乎常把展示公式包在 p/span/li 里）
+  function findMathEl(el) {
+    return el.querySelector('[data-tex]')
+      || el.querySelector('.ztext-math')
+      || el.querySelector('script[type*="math/tex"]');
+  }
+
+  // 元素是否"只含一个公式、没别的实质文字"→ 该独占一个 latex block。
+  // 不再要求公式是直接子节点（之前 li > p > 公式 这种嵌套会漏判成行内），
+  // 改成：去掉公式那部分文字后，没有其它非空白文字就算纯公式
   function isSoleLatexEl(el) {
-    const children = Array.from(el.childNodes).filter(n => {
-      if (n.nodeType === 3) return n.textContent.trim() !== '';
-      if (n.nodeType === 1) {
-        const t = n.tagName ? n.tagName.toLowerCase() : '';
-        if (t === 'script' || t === 'svg') return false;
-        return true;
-      }
-      return false;
-    });
-    if (children.length !== 1) return false;
-    const child = children[0];
-    if (child.nodeType !== 1) return false;
-    const cls = typeof child.className === 'string' ? child.className : '';
-    return cls.includes('ztext-math')
-      || child.hasAttribute('data-tex')
-      || (child.tagName && child.tagName.toLowerCase() === 'script' && (child.type || '').includes('math/tex'));
+    const m = findMathEl(el);
+    if (!m) return false;
+    const rest = (el.textContent || '').replace(m.textContent || '', '').trim();
+    // 剩余为空、或只剩项目符号/标点也算独立公式
+    return rest === '' || /^[•·\-\*\s，。、：:]+$/.test(rest);
   }
 
   function getSoleLatex(el) {
-    const mathEl = el.querySelector('[data-tex]') || el.querySelector('script[type*="math/tex"]');
-    if (!mathEl) return null;
-    return mathEl.getAttribute('data-tex') || (mathEl.textContent ? mathEl.textContent.trim() : '') || null;
+    const m = findMathEl(el);
+    if (!m) return null;
+    return m.getAttribute('data-tex') || (m.textContent ? m.textContent.trim() : '') || null;
   }
 
   // ── 知乎文章 ──
@@ -619,6 +617,17 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       if (!tag) return;
       if (tag === 'hr') return;
 
+      // 引用块——原来没处理，整块（含里面的公式）会被丢掉。提成一段引用
+      // 内容（type=quote，编辑器无此类型时安全退化成文字），行内公式照常
+      // 走 extractMixed 输出 $...$
+      if (tag === 'blockquote') {
+        const content = extractMixed(el).trim();
+        if (content) {
+          blocks.push({ id: genId(), type: 'quote', content: content });
+        }
+        return;
+      }
+
       if (tag === 'h2' || tag === 'h3') {
         const content = extractMixed(el).trim();
         if (content) {
@@ -628,7 +637,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
       }
 
       if (tag === 'ul' || tag === 'ol') {
-        el.querySelectorAll('li').forEach(li => {
+        el.querySelectorAll(':scope > li').forEach(li => {
           if (isSoleLatexEl(li)) {
             const latex = getSoleLatex(li);
             if (latex && latex.trim()) {
