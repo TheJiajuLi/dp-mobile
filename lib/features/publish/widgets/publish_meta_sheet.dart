@@ -11,7 +11,7 @@ const _seriesTagOptions = ['连载', '独立', '翻译', '深度', '快讯'];
 
 // 封面 + 摘要 + 标签，固定在 Block 列表上方（不跟着一起滚动）——发布
 // 前一眼就知道这篇要发的是什么，不用滚到最上面确认
-class PublishMetaSection extends StatelessWidget {
+class PublishMetaSection extends StatefulWidget {
   final AppLocalizations l10n;
   final bool isDarkMode;
   final List<String> tags;
@@ -54,7 +54,31 @@ class PublishMetaSection extends StatelessWidget {
   });
 
   @override
+  State<PublishMetaSection> createState() => _PublishMetaSectionState();
+}
+
+class _PublishMetaSectionState extends State<PublishMetaSection> {
+  // 元信息区默认折叠——只留封面+摘要那一行，标签/标题植入/加入专栏这些
+  // 二级设置收起来，需要时点底部"更多设置"再展开。之前一进发布页这块
+  // 就占掉小半屏，把下面的正文编辑区挤得很靠下
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    final isDarkMode = widget.isDarkMode;
+    final tags = widget.tags;
+    final onAddTag = widget.onAddTag;
+    final onRemoveTag = widget.onRemoveTag;
+    final coverImageUrl = widget.coverImageUrl;
+    final onCoverTap = widget.onCoverTap;
+    final summaryController = widget.summaryController;
+    final onSummaryChanged = widget.onSummaryChanged;
+    final generatingSummary = widget.generatingSummary;
+    final onAiGenerateSummary = widget.onAiGenerateSummary;
+    final seriesTag = widget.seriesTag;
+    final subtitle = widget.subtitle;
+    final onTitleInsertionTap = widget.onTitleInsertionTap;
     final topicRule = matchedTopicRuleFor(tags);
 
     return Column(
@@ -95,7 +119,7 @@ class PublishMetaSection extends StatelessWidget {
                           borderRadius: BorderRadius.circular(9),
                           image: coverImageUrl != null
                               ? DecorationImage(
-                                  image: NetworkImage(coverImageUrl!),
+                                  image: NetworkImage(coverImageUrl),
                                   fit: BoxFit.cover,
                                 )
                               : null,
@@ -104,8 +128,9 @@ class PublishMetaSection extends StatelessWidget {
                             ? Icon(
                                 Icons.add_photo_alternate_outlined,
                                 size: 18,
-                                color: (topicRule?.fg ?? _primary)
-                                    .withValues(alpha: 0.6),
+                                color: (topicRule?.fg ?? _primary).withValues(
+                                  alpha: 0.6,
+                                ),
                               )
                             : null,
                       ),
@@ -188,99 +213,135 @@ class PublishMetaSection extends StatelessWidget {
                   ],
                 ),
               ),
-              _rowDivider(context, isDarkMode),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    ...tags.map(
-                      (tag) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? _primary.withValues(alpha: 0.15)
-                              : const Color(0xFFEEF0FF),
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(color: _primary, width: 0.5),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '#$tag',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: _primary,
-                                fontWeight: FontWeight.w500,
+              if (_expanded) ...[
+                _rowDivider(context, isDarkMode),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      ...tags.map(
+                        (tag) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDarkMode
+                                ? _primary.withValues(alpha: 0.15)
+                                : const Color(0xFFEEF0FF),
+                            borderRadius: BorderRadius.circular(99),
+                            border: Border.all(color: _primary, width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '#$tag',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: _primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () => onRemoveTag(tag),
-                              behavior: HitTestBehavior.opaque,
-                              child: const Icon(
-                                Icons.close,
-                                size: 14,
-                                color: _primary,
+                              const SizedBox(width: 4),
+                              GestureDetector(
+                                onTap: () => onRemoveTag(tag),
+                                behavior: HitTestBehavior.opaque,
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: _primary,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    GestureDetector(
-                      onTap: onAddTag,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFD1D1D6)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.add, size: 12, color: Colors.grey),
-                            const SizedBox(width: 3),
-                            Text(
-                              l10n.addTagAction,
-                              style: const TextStyle(
-                                fontSize: 12,
+                      GestureDetector(
+                        onTap: onAddTag,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFD1D1D6)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.add,
+                                size: 12,
                                 color: Colors.grey,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 3),
+                              Text(
+                                l10n.addTagAction,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                _rowDivider(context, isDarkMode),
+                _metaEntryRow(
+                  context,
+                  icon: Icons.sell_outlined,
+                  iconBg: const Color(0xFFF5F5F5),
+                  iconColor: const Color(0xFF888888),
+                  title: l10n.titleInsertionAction,
+                  subtitle: seriesTag.isNotEmpty || subtitle.isNotEmpty
+                      ? [
+                          if (seriesTag.isNotEmpty) seriesTag,
+                          if (subtitle.isNotEmpty) subtitle,
+                        ].join(' · ')
+                      : l10n.titleInsertionSubtitleShortHint,
+                  onTap: onTitleInsertionTap,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                  child: _joinColumnEntry(context),
+                ),
+              ],
+              // 折叠开关——默认收起，点这行展开/收起标签/标题植入/专栏
               _rowDivider(context, isDarkMode),
-              _metaEntryRow(
-                context,
-                icon: Icons.sell_outlined,
-                iconBg: const Color(0xFFF5F5F5),
-                iconColor: const Color(0xFF888888),
-                title: l10n.titleInsertionAction,
-                subtitle: seriesTag.isNotEmpty || subtitle.isNotEmpty
-                    ? [
-                        if (seriesTag.isNotEmpty) seriesTag,
-                        if (subtitle.isNotEmpty) subtitle,
-                      ].join(' · ')
-                    : l10n.titleInsertionSubtitleShortHint,
-                onTap: onTitleInsertionTap,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-                child: _joinColumnEntry(context),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune, size: 15, color: Colors.grey[500]),
+                      const SizedBox(width: 6),
+                      Text(
+                        _expanded ? '收起设置' : '更多设置（标签 / 标题植入 / 专栏）',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        _expanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        size: 18,
+                        color: Colors.grey[500],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -292,6 +353,11 @@ class PublishMetaSection extends StatelessWidget {
   // 未选：虚线边框+书本图标；已选：实线紫色边框+专栏名+×直接取消，不用
   // 重新打开sheet选"不加入专栏"那条
   Widget _joinColumnEntry(BuildContext context) {
+    final selectedColumnId = widget.selectedColumnId;
+    final selectedColumnName = widget.selectedColumnName;
+    final onColumnTap = widget.onColumnTap;
+    final onColumnCancel = widget.onColumnCancel;
+    final l10n = widget.l10n;
     final selected = selectedColumnId != null;
     return GestureDetector(
       onTap: onColumnTap,
@@ -350,7 +416,11 @@ class PublishMetaSection extends StatelessWidget {
                 ),
               )
             else
-              const Icon(Icons.chevron_right, size: 18, color: Color(0xFFBBBBBB)),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: Color(0xFFBBBBBB),
+              ),
           ],
         ),
       ),
