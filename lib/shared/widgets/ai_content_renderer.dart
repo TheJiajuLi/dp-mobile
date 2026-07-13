@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
-import 'formula_error.dart';
 import 'tutorial_block_renderer.dart';
 
 // 小梦回复内容的统一解析 + 渲染——极索页内直答和小梦对话页共用这一份，
@@ -37,7 +36,8 @@ class _RawSegment {
 
 // 返回段落列表，每个段落是一串 AiSegment：
 // - 代码块 / 块级公式各自独占一个单元素段落
-// - 文字按换行拆成段，段内再解析行内公式，做到行内流排
+// - 两个块级元素之间的整段文字一起解析行内公式（不按行拆，跨行 \(...\)
+//   也能配上闭合），渲染层再按行补 Markdown（标题/加粗/列表）
 List<List<AiSegment>> parseAiContent(String text) {
   final paragraphs = <List<AiSegment>>[];
 
@@ -97,45 +97,51 @@ List<List<AiSegment>> parseAiContent(String text) {
       ]);
       continue;
     }
-    // 文字段：按行拆，行内解析 \(...\)/$...$
-    for (final line in seg.content.split('\n')) {
-      if (line.trim().isEmpty) continue;
-      paragraphs.add(_parseInline(line));
-    }
+    // 文字段：整段一起解析行内公式，**不按行拆**——不然跨行的 \(...\)
+    // （开定界在这行、闭定界在下一行）永远配不上闭合，会原样露出 \( 和
+    // 公式源码（Bug 2）。块级 Markdown（标题/加粗/列表）留到渲染层处理
+    if (seg.content.trim().isEmpty) continue;
+    paragraphs.add(_parseInlineMultiline(seg.content));
   }
 
   return paragraphs;
 }
 
-List<AiSegment> _parseInline(String line) {
+// 整段（可能多行）解析行内公式。\(...\) 用 [\s\S]*? 可跨行；单 $...$ 仍
+// 限定在同一行（[^\$\n]+），因为真实数学里 $…$ 几乎不跨行，放开跨行反而
+// 容易被正文里落单的一个 $ 吃掉一大段
+List<AiSegment> _parseInlineMultiline(String text) {
   final result = <AiSegment>[];
-  // 同理行内 \(...\) 也用 \\+ 容忍双重转义的 \\(...\\)
   final inlinePattern = RegExp(
     r'\\+\(([\s\S]*?)\\+\)'
     r'|\$([^\$\n]+)\$',
+    multiLine: true,
+    dotAll: true,
   );
   var last = 0;
-  for (final m in inlinePattern.allMatches(line)) {
+  for (final m in inlinePattern.allMatches(text)) {
     if (m.start > last) {
-      final t = line.substring(last, m.start);
+      final t = text.substring(last, m.start);
       if (t.isNotEmpty) {
         result.add(AiSegment(type: AiSegmentType.text, content: t));
       }
     }
     final latex = m.group(1) ?? m.group(2) ?? '';
-    if (latex.isNotEmpty) {
-      result.add(AiSegment(type: AiSegmentType.latexInline, content: latex));
+    if (latex.trim().isNotEmpty) {
+      result.add(
+        AiSegment(type: AiSegmentType.latexInline, content: latex.trim()),
+      );
     }
     last = m.end;
   }
-  if (last < line.length) {
-    final t = line.substring(last);
+  if (last < text.length) {
+    final t = text.substring(last);
     if (t.isNotEmpty) {
       result.add(AiSegment(type: AiSegmentType.text, content: t));
     }
   }
   return result.isEmpty
-      ? [AiSegment(type: AiSegmentType.text, content: line)]
+      ? [AiSegment(type: AiSegmentType.text, content: text)]
       : result;
 }
 
@@ -174,55 +180,95 @@ class AiContentRenderer extends StatelessWidget {
     final hasInlineLatex = segs.any(
       (s) => s.type == AiSegmentType.latexInline,
     );
+    // 纯文字（无行内公式）走 MarkdownBody，标题/加粗/列表/表格全套都有
     if (!hasInlineLatex) {
       return MarkdownBody(
         data: segs.map((s) => s.content).join(),
         styleSheet: _mdStyle(),
       );
     }
-    return Text.rich(
-      TextSpan(
-        children: segs.map((seg) {
-          if (seg.type == AiSegmentType.text) {
-            return TextSpan(
-              text: seg.content,
-              style: TextStyle(
-                fontSize: 15,
-                height: 1.8,
-                color: isDark
-                    ? const Color(0xFFE0E2F0)
-                    : const Color(0xFF1A1A1A),
-              ),
-            );
-          }
-          return WidgetSpan(
+    // 含行内公式：必须走 Text.rich 才能把公式嵌进文字流，但 Text.rich 不
+    // 认 Markdown，所以对文字片段做一层轻量 Markdown（行首 #/##/### 标题、
+    // -/* 列表、行内 **加粗**）——不然 ###、** 会原样露出来（Bug 1）
+    final spans = <InlineSpan>[];
+    for (final seg in segs) {
+      if (seg.type == AiSegmentType.latexInline) {
+        spans.add(
+          WidgetSpan(
             alignment: PlaceholderAlignment.middle,
-            // 行内公式字色跟正文一致，不再用品牌紫——之前公式在句子里
-            // 一片紫，跟黑色正文割裂
             child: Math.tex(
               seg.content.trim(),
               mathStyle: MathStyle.text,
-              textStyle: TextStyle(
-                fontSize: 14,
-                color: isDark
-                    ? const Color(0xFFE0E2F0)
-                    : const Color(0xFF1A1A1A),
-              ),
-              onErrorFallback: (_) => Text(
-                seg.content,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark
-                      ? const Color(0xFFE0E2F0)
-                      : const Color(0xFF1A1A1A),
-                ),
-              ),
+              textStyle: _bodyStyle(),
+              onErrorFallback: (_) => _latexError(seg.content),
             ),
-          );
-        }).toList(),
-      ),
-    );
+          ),
+        );
+      } else {
+        spans.addAll(_markdownLiteSpans(seg.content));
+      }
+    }
+    return Text.rich(TextSpan(children: spans));
   }
+
+  // 混排段落里的文字片段可能是多行的（整段一起解析，不再按行拆），逐行
+  // 判断行首标题/列表标记，行内再处理 **加粗**，其余原样。换行用 \n span
+  // 保留，公式片段由调用方以 WidgetSpan 插在这些 span 之间
+  List<InlineSpan> _markdownLiteSpans(String text) {
+    final spans = <InlineSpan>[];
+    final lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var base = _bodyStyle();
+      final heading = RegExp(r'^(#{1,3})\s+').firstMatch(line);
+      if (heading != null) {
+        final level = heading.group(1)!.length;
+        line = line.substring(heading.end);
+        const sizes = [20.0, 17.0, 15.0];
+        base = TextStyle(
+          fontSize: sizes[level - 1],
+          fontWeight: FontWeight.w600,
+          height: 1.8,
+          color: isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A),
+        );
+      } else {
+        final bullet = RegExp(r'^\s*[-*]\s+').firstMatch(line);
+        if (bullet != null) {
+          line = '•  ${line.substring(bullet.end)}';
+        }
+      }
+      // 行内 **加粗**：按 ** 切，落在奇数段的是加粗内容
+      final parts = line.split('**');
+      for (var j = 0; j < parts.length; j++) {
+        if (parts[j].isEmpty) continue;
+        spans.add(
+          TextSpan(
+            text: parts[j],
+            style: j.isOdd ? base.copyWith(fontWeight: FontWeight.w600) : base,
+          ),
+        );
+      }
+      if (i < lines.length - 1) spans.add(const TextSpan(text: '\n'));
+    }
+    return spans;
+  }
+
+  TextStyle _bodyStyle() => TextStyle(
+    fontSize: 15,
+    height: 1.8,
+    color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
+  );
+
+  // 公式渲染失败时不弹"公式渲染失败"红提示，直接把原始 LaTeX 源码用等宽
+  // 字体露出来——用户至少能看到内容，也方便反馈是哪条公式挂了（Bug 3）
+  Widget _latexError(String src) => Text(
+    src,
+    style: TextStyle(
+      fontSize: 13,
+      fontFamily: 'monospace',
+      color: isDark ? const Color(0xFFB8BAD0) : const Color(0xFF555555),
+    ),
+  );
 
   Widget _buildLatexBlock(String latex) {
     return Container(
@@ -250,7 +296,7 @@ class AiContentRenderer extends StatelessWidget {
             fontSize: 16,
             color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
           ),
-          onErrorFallback: (_) => const FormulaErrorPlaceholder(),
+          onErrorFallback: (_) => _latexError(latex.trim()),
         ),
       ),
     );
