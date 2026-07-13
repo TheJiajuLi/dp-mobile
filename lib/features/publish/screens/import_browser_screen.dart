@@ -727,9 +727,142 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     });
   }
 
+  // ── 微信公众号 ──（正文在 #js_content / .rich_media_content，只在正文
+  // 容器内提取，天然排除阅读器 UI/工具栏/身份面板/点赞条等）
+  if (hostname.includes('mp.weixin.qq.com')) {
+    const title = document.querySelector('#activity-name')?.innerText?.trim()
+      || document.querySelector('.rich_media_title')?.innerText?.trim()
+      || document.title.trim()
+      || '';
+
+    let coverImage = null;
+    const ogImg = document.querySelector('meta[property="og:image"]');
+    if (ogImg) coverImage = ogImg.getAttribute('content') || null;
+
+    const container = document.querySelector('#js_content')
+      || document.querySelector('.rich_media_content');
+    if (!container) {
+      return JSON.stringify({ error: '未找到文章正文，请确认已完整加载文章' });
+    }
+
+    if (!coverImage) {
+      const firstImg = container.querySelector('img[data-src], img');
+      if (firstImg) {
+        const src = getImgSrc(firstImg);
+        if (isValidContentImg(src) && !isAvatarUrl(src, firstImg)) coverImage = src;
+      }
+    }
+
+    const blocks = [];
+    let idCounter = 0;
+    const genId = () => 'wx' + (++idCounter) + '_' + Date.now();
+
+    container.querySelectorAll('h1,h2,h3,p,section,blockquote,pre,ul,ol,img,figure').forEach(el => {
+      const tag = el.tagName.toLowerCase();
+      if (el.closest('pre') && tag !== 'pre') return;
+      if (el.closest('ul,ol') && tag === 'li') return;
+      // 跳过公众号里的 UI 垃圾容器（二维码/名片/小程序卡片等）
+      if (el.closest('.wx_tap_card, .weapp_display_element, .js_profile_container, #js_pc_qr_code, .qr_code_pc')) return;
+
+      if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
+        const content = extractMixed(el).trim();
+        if (content) blocks.push({ id: genId(), type: 'heading', content: content, level: parseInt(tag[1]) });
+        return;
+      }
+
+      if (tag === 'blockquote') {
+        const content = extractMixed(el).trim();
+        if (content) blocks.push({ id: genId(), type: 'quote', content: content });
+        return;
+      }
+
+      if (tag === 'pre') {
+        const code = el.innerText.trim();
+        if (code) blocks.push({ id: genId(), type: 'code', content: code, language: 'python' });
+        return;
+      }
+
+      if (tag === 'ul' || tag === 'ol') {
+        el.querySelectorAll(':scope > li').forEach(li => {
+          if (isSoleLatexEl(li)) {
+            const latex = getSoleLatex(li);
+            if (latex && latex.trim()) {
+              blocks.push({ id: genId(), type: 'latex', content: latex.trim() });
+              return;
+            }
+          }
+          const content = extractMixed(li).trim();
+          if (content) blocks.push({ id: genId(), type: 'text', content: '• ' + content });
+        });
+        return;
+      }
+
+      if (tag === 'img') {
+        const src = getImgSrc(el);
+        if (isValidContentImg(src) && !isAvatarUrl(src, el) && src !== coverImage) {
+          blocks.push({ id: genId(), type: 'image', content: src, imageUrl: src });
+        }
+        return;
+      }
+
+      if (tag === 'figure') {
+        const img = el.querySelector('img');
+        if (img) {
+          const src = getImgSrc(img);
+          if (isValidContentImg(src) && !isAvatarUrl(src, img) && src !== coverImage) {
+            blocks.push({ id: genId(), type: 'image', content: src, imageUrl: src });
+          }
+        }
+        return;
+      }
+
+      if (tag === 'p' || tag === 'section') {
+        if (isSoleLatexEl(el)) {
+          const latex = getSoleLatex(el);
+          if (latex && latex.trim()) {
+            blocks.push({ id: genId(), type: 'latex', content: latex.trim() });
+            return;
+          }
+        }
+        const content = extractMixed(el).trim();
+        // 过滤太短/纯数字（点赞条、阅读数这类噪声）
+        if (content.length > 5 && !/^\d+$/.test(content)) {
+          blocks.push({ id: genId(), type: 'text', content: content });
+        }
+        return;
+      }
+    });
+
+    // 图片去重——section/p 嵌套下同一张图可能被多次命中
+    const seenUrls = new Set();
+    const deduped = blocks.filter(b => {
+      if (b.type !== 'image') return true;
+      if (seenUrls.has(b.content)) return false;
+      seenUrls.add(b.content);
+      return true;
+    });
+
+    const firstText = deduped.find(b => b.type === 'text');
+    const summary = firstText ? firstText.content.slice(0, 120) : '';
+
+    return JSON.stringify({
+      title, summary,
+      blocks: deduped,
+      cover_image: coverImage,
+      source_url: url,
+      platform: 'wechat',
+      block_count: deduped.length
+    });
+  }
+
   // ── 其它平台通用提取 ──（复用上面那套共用工具，不再单独一份）
   const container = document.querySelector('article')
     || document.querySelector('main')
+    || document.querySelector('#js_content')
+    || document.querySelector('.rich_media_content')
+    || document.querySelector('.article-content')
+    || document.querySelector('.post-content')
+    || document.querySelector('.entry-content')
     || document.querySelector('.content, #content, .article')
     || document.body;
 
@@ -744,6 +877,10 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
   container.querySelectorAll('h1,h2,h3,p,pre,li,img').forEach(el => {
     const tag = el.tagName.toLowerCase();
     if (el.closest('pre') && tag !== 'pre') return;
+    // 跳过导航/工具栏/评论/侧栏/广告/身份面板等 UI 垃圾容器
+    if (el.closest('nav, header, footer, .toolbar, .tabbar, .comment, .comments, .sidebar, .ad, .advertisement, .js_profile_container, #js_pc_qr_code')) return;
+    // 纯数字段落（点赞/阅读数这类噪声）跳过
+    if (tag === 'p' && /^\d+$/.test((el.innerText || '').trim())) return;
 
     if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
       const content = extractMixed(el).trim();
@@ -781,9 +918,21 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
 
   const summary = blocks.find(b => b.type === 'text')?.content.slice(0, 120) || '';
 
+  // 封面：og:image 优先，否则正文容器第一张有效大图（排除头像）
+  let coverImageGeneral = null;
+  const ogImgEl = document.querySelector('meta[property="og:image"]');
+  if (ogImgEl) coverImageGeneral = ogImgEl.getAttribute('content') || null;
+  if (!coverImageGeneral) {
+    const gImgs = container.querySelectorAll('img[data-src], img');
+    for (const img of gImgs) {
+      const s = getImgSrc(img);
+      if (isValidContentImg(s) && !isAvatarUrl(s, img)) { coverImageGeneral = s; break; }
+    }
+  }
+
   return JSON.stringify({
     title, summary, blocks,
-    cover_image: null,
+    cover_image: coverImageGeneral,
     source_url: url,
     platform: 'general',
     block_count: blocks.length
