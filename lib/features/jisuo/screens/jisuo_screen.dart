@@ -571,12 +571,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 100),
                   decoration: BoxDecoration(
+                    // 浅色下用跟落地页示例问题气泡同款的淡紫（_primary@6%），
+                    // 不再是发灰的 #F0F0F8
                     color: isDark
                         ? Colors.white.withValues(alpha: 0.06)
-                        : const Color(0xFFF0F0F8),
+                        : _primary.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Theme.of(context).dividerColor,
+                      color: isDark
+                          ? Theme.of(context).dividerColor
+                          : _primary.withValues(alpha: 0.15),
                       width: 0.5,
                     ),
                   ),
@@ -641,13 +645,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     child: Container(
                       width: 44,
                       height: 44,
+                      // 跟左边输入框保持同一套胶囊视觉：浅色也用淡紫
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF0F0F8),
+                            : _primary.withValues(alpha: 0.06),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Theme.of(context).dividerColor,
+                          color: isDark
+                              ? Theme.of(context).dividerColor
+                              : _primary.withValues(alpha: 0.15),
                           width: 0.5,
                         ),
                       ),
