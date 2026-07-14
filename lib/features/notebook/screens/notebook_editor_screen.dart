@@ -12,6 +12,7 @@ import '../../../core/network/api_client.dart';
 import '../../publish/models/block_model.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/pro_access.dart';
 import '../models/notebook_model.dart';
 import '../services/notebook_service.dart';
 import '../widgets/notebook_add_divider.dart';
@@ -581,6 +582,8 @@ finally:
 
   Future<void> _runAll() async {
     if (_nb == null) return;
+    // 运行代码是 Pro 权益
+    if (!requirePro(context, ref, feature: '运行代码')) return;
     // 顺序执行：SQL cell 依赖前面 cell 产出的 df，并发跑会互相踩
     for (final cell in _nb!.cells) {
       await _runCell(cell);
@@ -783,6 +786,8 @@ finally:
   void _publishAsArticle() {
     final nb = _nb;
     if (nb == null) return;
+    // 一键发布为文章是 Pro 权益
+    if (!requirePro(context, ref, feature: '一键发布为文章')) return;
     final blocks = <EditorBlock>[];
     var idc = 0;
     String nid() => 'nb${++idc}_${DateTime.now().microsecondsSinceEpoch}';
@@ -1180,6 +1185,8 @@ finally:
         _scheduleSave();
       },
       onRun: () {
+        // 运行代码是 Pro 权益——点了才校验，非 Pro 弹会员 Sheet
+        if (!requirePro(context, ref, feature: '运行代码')) return;
         cell.code = ctrl.text;
         _runCell(cell);
       },

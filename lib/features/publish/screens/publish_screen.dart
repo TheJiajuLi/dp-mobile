@@ -587,6 +587,12 @@ result
       'block_${DateTime.now().millisecondsSinceEpoch}_${_blocks.length}';
 
   void _addBlock(BlockType type) {
+    // 音频/视频块是 Pro 权益——按设计原则按钮照常显示，点了才校验，
+    // 非 Pro 弹会员 Sheet，不新建块
+    if ((type == BlockType.audio || type == BlockType.video) &&
+        !requirePro(context, ref, feature: '音视频发布')) {
+      return;
+    }
     final newBlock = EditorBlock(
       id: _uid(),
       type: type,

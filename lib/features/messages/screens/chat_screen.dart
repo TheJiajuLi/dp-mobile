@@ -16,6 +16,7 @@ import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/online_status.dart';
+import '../../../shared/utils/pro_access.dart';
 import '../../../shared/widgets/formula_error.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
@@ -815,11 +816,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   l10n.attachFile,
                   () {
                     Navigator.pop(ctx);
+                    // 发送文件（含音视频媒体）是 Pro 权益
+                    if (!requirePro(context, ref, feature: '发送文件')) return;
                     _sendFile();
                   },
                 ),
                 _attachBtn(Icons.code, l10n.attachCode, () {
                   Navigator.pop(ctx);
+                  // 发送代码片段是 Pro 权益
+                  if (!requirePro(context, ref, feature: '发送代码')) return;
                   _showCodeInput();
                 }),
               ],
@@ -830,6 +835,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               children: [
                 _attachBtn(Icons.functions, l10n.attachFormula, () {
                   Navigator.pop(ctx);
+                  // 发送 LaTeX 公式是 Pro 权益
+                  if (!requirePro(context, ref, feature: '发送公式')) return;
                   _showLatexInput();
                 }),
                 _attachBtn(Icons.article_outlined, '文章', () {

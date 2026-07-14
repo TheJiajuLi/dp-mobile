@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/block_text_style.dart';
+import '../../../shared/utils/pro_access.dart';
 import '../../../shared/utils/code_highlight.dart';
 import '../../../shared/utils/premium_button.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart'
@@ -1955,19 +1956,19 @@ th{background:#1e293b;color:#94a3b8}
         if (file == null) return;
         final bytes = await file.readAsBytes();
 
-        final maxSize = widget.membership == 'pro_max'
-            ? 100 * 1024 * 1024
-            : 50 * 1024 * 1024;
-        if (bytes.length > maxSize) {
+        // Pro 视频上限 50MB、Pro Max 100MB。Pro 用户超过 50MB → 弹 Pro Max
+        // 升级 Sheet（不是干巴巴的报错）；Pro Max 超过 100MB 才是硬上限提示
+        final isMax = widget.membership == 'pro_max';
+        if (!isMax && bytes.length > 50 * 1024 * 1024) {
+          if (mounted) {
+            showProUpgradeSheet(context, feature: '上传 50MB 以上视频', proMax: true);
+          }
+          return;
+        }
+        if (isMax && bytes.length > 100 * 1024 * 1024) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  l10n.videoSizeExceedsLimit(
-                    widget.membership == 'pro_max' ? '100MB' : '50MB',
-                  ),
-                ),
-              ),
+              SnackBar(content: Text(l10n.videoSizeExceedsLimit('100MB'))),
             );
           }
           return;

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/utils/membership_utils.dart';
-import '../../../core/widgets/pro_gate.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/premium_button.dart';
 import '../models/block_model.dart';
@@ -214,16 +212,9 @@ class PublishBottomToolbar extends StatelessWidget {
                           ? onToggleFormatBar!
                           : () => onAddBlock(type),
                     );
-                    // 音频/视频 Block 是 Pro 权益（跟会员页
-                    // subscription_screen.dart 列出的权益一致），文字/
-                    // 代码/公式/引用/图片/链接这些免费档本来就能用，不用包
-                    if (type == BlockType.audio || type == BlockType.video) {
-                      return ProGate(
-                        check: MembershipUtils.canPublishMedia,
-                        featureName: '音视频发布',
-                        child: button,
-                      );
-                    }
+                    // 音频/视频 Block 是 Pro 权益，但按设计原则不做视觉加锁
+                    // （不灰、不锁）——按钮照常显示，点了在 onAddBlock 里
+                    // （publish_screen._addBlock）才校验，非 Pro 弹会员 Sheet
                     return button;
                   }),
                   _toolbarButton(

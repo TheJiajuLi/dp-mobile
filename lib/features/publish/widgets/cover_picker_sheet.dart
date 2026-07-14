@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/xmeng_image_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/pro_access.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -133,6 +134,8 @@ Future<void> aiGenerateCover(
   required String summary,
   required void Function(String url, String? fileId) onCoverSelected,
 }) async {
+  // AI 封面生成是 Pro 权益——非 Pro 弹会员 Sheet
+  if (!requirePro(context, ref, feature: 'AI 生成封面')) return;
   if (title.trim().isEmpty) {
     ScaffoldMessenger.of(
       context,

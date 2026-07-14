@@ -13,6 +13,7 @@ import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/utils/topic_badge.dart';
+import '../../../shared/widgets/pro_badge.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart';
@@ -43,6 +44,9 @@ class TutorialComment {
   final bool isFoundingCreator;
   // 极光创作者标识——评论接口的 SELECT 已经加上 is_aurora_creator 了
   final bool isAuroraCreator;
+  // 会员档位——后端评论接口目前还没在 SELECT 里带 membership，这里先把
+  // 解析+渲染逻辑接好（null 时 ProBadge 自动隐藏），字段一上线自动生效
+  final String? membership;
 
   TutorialComment({
     required this.id,
@@ -56,6 +60,7 @@ class TutorialComment {
     this.replies = const [],
     this.isFoundingCreator = false,
     this.isAuroraCreator = false,
+    this.membership,
   });
 
   factory TutorialComment.fromJson(Map<String, dynamic> j) {
@@ -73,6 +78,7 @@ class TutorialComment {
           j['is_founding_creator'] == true || j['is_founding_creator'] == 1,
       isAuroraCreator:
           j['is_aurora_creator'] == true || j['is_aurora_creator'] == 1,
+      membership: j['membership'] as String?,
       replies: repliesRaw
           .map(
             (r) =>
@@ -615,6 +621,11 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                       ),
                       if (c.isFoundingCreator) const FoundingBadgeSmall(),
                       if (c.isAuroraCreator) const AuroraBadgeSmall(),
+                      if (c.membership == 'pro' ||
+                          c.membership == 'pro_max') ...[
+                        const SizedBox(width: 4),
+                        ProBadge(membership: c.membership),
+                      ],
                       if (isAuthor) ...[
                         const SizedBox(width: 4),
                         Container(

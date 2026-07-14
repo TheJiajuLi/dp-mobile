@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/pro_access.dart';
 import '../../../shared/widgets/formula_error.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
@@ -2027,11 +2028,19 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                             '文件',
                             () {
                               _closeAttachPanel();
+                              // 发送文件（含音视频媒体）是 Pro 权益
+                              if (!requirePro(context, ref, feature: '发送文件')) {
+                                return;
+                              }
                               _sendFile();
                             },
                           ),
                           _attachBtn(Icons.code, '代码', () {
                             _closeAttachPanel();
+                            // 发送代码片段是 Pro 权益
+                            if (!requirePro(context, ref, feature: '发送代码')) {
+                              return;
+                            }
                             _showCodeInput();
                           }),
                         ],
@@ -2042,6 +2051,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                         children: [
                           _attachBtn(Icons.functions, '公式', () {
                             _closeAttachPanel();
+                            // 发送 LaTeX 公式是 Pro 权益
+                            if (!requirePro(context, ref, feature: '发送公式')) {
+                              return;
+                            }
                             _showLatexInput();
                           }),
                           _attachBtn(Icons.article_outlined, '文章', () {

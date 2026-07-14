@@ -27,9 +27,21 @@ bool requirePro(BuildContext context, WidgetRef ref, {String? feature}) {
   return false;
 }
 
+// 需要 Pro Max 的更高档权益（如大视频 >50MB）——同款无视觉加锁，点了才校验
+bool requireProMax(BuildContext context, WidgetRef ref, {String? feature}) {
+  final user = ref.read(currentUserProvider);
+  if (user?.isProMax ?? false) return true;
+  showProUpgradeSheet(context, feature: feature, proMax: true);
+  return false;
+}
+
 // 底部会员 Sheet：解锁提示 + 三条核心权益 + 立即升级 / 暂不。轻柔弹出、
 // 不打断心流、不破坏界面美观
-void showProUpgradeSheet(BuildContext context, {String? feature}) {
+void showProUpgradeSheet(
+  BuildContext context, {
+  String? feature,
+  bool proMax = false,
+}) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -87,37 +99,61 @@ void showProUpgradeSheet(BuildContext context, {String? feature}) {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const ProBadge(membership: 'pro', fontSize: 11),
+                ProBadge(membership: proMax ? 'pro_max' : 'pro', fontSize: 11),
               ],
             ),
             const SizedBox(height: 4),
             Text(
-              '升级极梦 PRO，解锁全部创作与阅读增强',
+              proMax ? '升级极梦 PRO MAX，解锁无限 AI 与大文件' : '升级极梦 PRO，解锁全部创作与阅读增强',
               style: TextStyle(fontSize: 13, color: muted, height: 1.5),
             ),
             const SizedBox(height: 18),
             // 三条核心权益
-            _benefit(
-              ink,
-              muted,
-              Icons.play_circle_outline,
-              '他人 Notebook 代码可运行',
-              '免费只能看代码，Pro 能交互运行',
-            ),
-            _benefit(
-              ink,
-              muted,
-              Icons.auto_awesome_outlined,
-              '小梦 AI 摘要 · 封面 · 头像',
-              '一键生成，告别空白页',
-            ),
-            _benefit(
-              ink,
-              muted,
-              Icons.workspace_premium_outlined,
-              '5 GB 云端存储 · 一键导出 PDF',
-              '专属 Pro 角标与创作者字体',
-            ),
+            if (proMax) ...[
+              _benefit(
+                ink,
+                muted,
+                Icons.all_inclusive,
+                'AI 生成次数无限',
+                '摘要 / 封面 / 头像不再有每日上限',
+              ),
+              _benefit(
+                ink,
+                muted,
+                Icons.cloud_outlined,
+                '20 GB 云端存储',
+                '海量音视频、数据集无压力',
+              ),
+              _benefit(
+                ink,
+                muted,
+                Icons.videocam_outlined,
+                '视频上限 100 MB',
+                '高清视频随意传 + 新功能优先体验',
+              ),
+            ] else ...[
+              _benefit(
+                ink,
+                muted,
+                Icons.play_circle_outline,
+                '他人 Notebook 代码可运行',
+                '免费只能看代码，Pro 能交互运行',
+              ),
+              _benefit(
+                ink,
+                muted,
+                Icons.auto_awesome_outlined,
+                '小梦 AI 摘要 · 封面 · 头像',
+                '一键生成，告别空白页',
+              ),
+              _benefit(
+                ink,
+                muted,
+                Icons.workspace_premium_outlined,
+                '5 GB 云端存储 · 一键导出 PDF',
+                '专属 Pro 角标与创作者字体',
+              ),
+            ],
             const SizedBox(height: 22),
             SizedBox(
               width: double.infinity,
