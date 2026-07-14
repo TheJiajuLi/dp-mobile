@@ -687,21 +687,29 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     if (theyFollowMe) {
       _showMutualFollowDialog();
     } else {
+      // 深色模式下别用突兀的实心紫，跟着主题走：深色用深表面色+浅紫图标，
+      // 浅色仍保留品牌紫底白字
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.info_outline, color: Colors.white, size: 16),
+              Icon(
+                Icons.info_outline,
+                color: isDark ? _primary : Colors.white,
+                size: 16,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   l10n.followedWaitingForFollowBack(_profile!.username),
+                  style: const TextStyle(color: Colors.white),
                 ),
               ),
             ],
           ),
           duration: const Duration(seconds: 3),
-          backgroundColor: _primary,
+          backgroundColor: isDark ? const Color(0xFF1C1C1E) : _primary,
         ),
       );
     }
