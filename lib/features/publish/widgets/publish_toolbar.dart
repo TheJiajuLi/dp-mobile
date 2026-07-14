@@ -112,7 +112,10 @@ class PublishTopBar extends StatelessWidget {
                       ? premiumPillDecoration(radius: 10, muted: saving)
                       : BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: _ink, width: 1),
+                          border: Border.all(
+                            color: const Color(0xFFDDDDDD),
+                            width: 0.5,
+                          ),
                         ),
                   child: saving
                       ? SizedBox(

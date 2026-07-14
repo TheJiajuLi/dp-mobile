@@ -232,8 +232,10 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
                                                 borderRadius:
                                                     BorderRadius.circular(7),
                                                 border: Border.all(
-                                                  color: _ink,
-                                                  width: 1,
+                                                  color: const Color(
+                                                    0xFFDDDDDD,
+                                                  ),
+                                                  width: 0.5,
                                                 ),
                                               ),
                                         child: Row(
