@@ -865,6 +865,29 @@ finally:
       backgroundColor: bg,
       body: Stack(
         children: [
+          // 右下角一团很淡的品牌紫光晕——跟 Notebook 首页 Hero 卡同一个
+          // 紫色语言，但这里是浅色语境下的氛围点缀，不是首页那种深色渐变
+          // 卡片，alpha 压得很低，卡片间的缝隙、底部工具栏周围若隐若现就够。
+          // 放右下角而不是顶部——顶栏底色不透明会直接把光晕挡住
+          Positioned(
+            right: -80,
+            bottom: -60,
+            child: IgnorePointer(
+              child: Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      _primary.withValues(alpha: isDark ? 0.10 : 0.07),
+                      _primary.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           // 点空白处收起键盘——之前只包在 Cell 画布(ReorderableListView)
           // 外面一层，ReorderableListView 内部为拖拽排序自带一套手势识别，
           // 会在"空白但仍在列表边界内"的区域抢先吃掉tap，不冒泡到外层。
@@ -943,12 +966,13 @@ finally:
                         // 标题(Expanded)和按钮组之间留一段间距——否则标题末字会
                         // 紧贴「全部运行」胶囊、被圆角盖住，看着像被遮挡
                         const SizedBox(width: 10),
-                        // 运行全部：中性灰底
+                        // 运行全部：淡紫底
                         _topBarChip(
                           isDark: isDark,
                           label: l10n.runAll,
                           icon: Icons.play_arrow,
                           onTap: _runAll,
+                          accent: true,
                         ),
                         const SizedBox(width: 6),
                         // 保存：同款灰底
@@ -967,11 +991,18 @@ finally:
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 6,
+                              vertical: 7,
                             ),
                             decoration: BoxDecoration(
                               color: _primary,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _primary.withValues(alpha: 0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -1157,36 +1188,37 @@ finally:
     );
   }
 
-  // 顶栏中性灰底按钮（运行全部/保存）
+  // 顶栏按钮——保存是中性灰底，运行全部换成淡紫底+紫字（accent:true），
+  // 跟发布按钮的实心紫呼应但更轻，三个按钮形成"灰→浅紫→实紫"的层级
   Widget _topBarChip({
     required bool isDark,
     required String label,
     IconData? icon,
     required VoidCallback onTap,
+    bool accent = false,
   }) {
+    final fg = accent
+        ? _primary
+        : (isDark ? const Color(0xFF7A80A0) : const Color(0xFF555555));
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0xFFF0F0F0),
-          borderRadius: BorderRadius.circular(8),
-          border: isDark
+          color: accent
+              ? _primary.withValues(alpha: isDark ? 0.16 : 0.1)
+              : (isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFF0F0F0)),
+          borderRadius: BorderRadius.circular(12),
+          border: accent || isDark
               ? null
               : Border.all(color: const Color(0xFFE5E5E5), width: 0.5),
         ),
         child: Row(
           children: [
             if (icon != null) ...[
-              Icon(
-                icon,
-                size: 14,
-                color: isDark
-                    ? const Color(0xFF7A80A0)
-                    : const Color(0xFF555555),
-              ),
+              Icon(icon, size: 14, color: fg),
               const SizedBox(width: 4),
             ],
             Text(
@@ -1194,9 +1226,7 @@ finally:
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isDark
-                    ? const Color(0xFF7A80A0)
-                    : const Color(0xFF555555),
+                color: fg,
               ),
             ),
           ],

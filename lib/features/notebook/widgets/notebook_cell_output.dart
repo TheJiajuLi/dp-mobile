@@ -11,7 +11,7 @@ Widget buildNotebookCellOutput(String output, String? type, bool isDark) {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF13131F) : const Color(0xFFEEF0FF),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -34,7 +34,7 @@ Widget buildNotebookCellOutput(String output, String? type, bool isDark) {
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
     decoration: BoxDecoration(
       color: isDark ? accent.withValues(alpha: 0.06) : lightBg,
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
       border: Border(left: BorderSide(color: accent, width: 2)),
     ),
     child: Column(
@@ -42,7 +42,11 @@ Widget buildNotebookCellOutput(String output, String? type, bool isDark) {
       children: [
         Text(
           isError ? '✗ 错误' : '✓ 输出',
-          style: TextStyle(fontSize: 9, color: accent, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 9,
+            color: accent,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 3),
         Text(

@@ -6,7 +6,11 @@ class NotebookAddDivider extends StatelessWidget {
   final bool isDark;
   final VoidCallback onTap;
 
-  const NotebookAddDivider({super.key, required this.isDark, required this.onTap});
+  const NotebookAddDivider({
+    super.key,
+    required this.isDark,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -15,30 +19,30 @@ class NotebookAddDivider extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(4, 2, 4, 8),
-        padding: const EdgeInsets.all(11),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          color: const Color(
+            0xFF6366F1,
+          ).withValues(alpha: isDark ? 0.08 : 0.05),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : const Color(0xFFDDDDDD),
-            width: 0.5,
+            color: const Color(
+              0xFF6366F1,
+            ).withValues(alpha: isDark ? 0.2 : 0.15),
+            width: 1,
           ),
         ),
-        child: Row(
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.add,
-              size: 14,
-              color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
-            ),
-            const SizedBox(width: 6),
+            Icon(Icons.add, size: 15, color: Color(0xFF6366F1)),
+            SizedBox(width: 6),
             Text(
               '添加内容块',
               style: TextStyle(
                 fontSize: 12,
-                color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF6366F1),
               ),
             ),
           ],
