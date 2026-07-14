@@ -772,7 +772,14 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Scaffold(
+        // 加载态背景也统一成首页米白 #FAFAF8（浅色），不再是默认的偏冷灰白
+        backgroundColor: isDark
+            ? Theme.of(context).scaffoldBackgroundColor
+            : const Color(0xFFFAFAF8),
+        body: const Center(child: CircularProgressIndicator(color: _primary)),
+      );
     }
 
     if (_tutorial == null) {
@@ -1419,8 +1426,13 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 backgroundColor: _isFollowing!
                     ? (isDark ? Colors.white10 : Colors.grey[200])
                     : _primary,
-                foregroundColor: _isFollowing! ? Colors.grey[600] : Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                foregroundColor: _isFollowing!
+                    ? Colors.grey[600]
+                    : Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(
