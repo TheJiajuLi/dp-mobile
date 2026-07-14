@@ -903,9 +903,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   // 清空按钮，不是自己另起一套没有图标、纯边框的输入框。命中数/翻页也
   // 包一个胶囊容器，不是三个元素干巴巴地散在 AppBar actions 里
   PreferredSizeWidget _buildSearchBar(bool isDark) {
-    final pillBg = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : const Color(0xFFF0F0F0);
+    // 深色下去掉那层灰胶囊底——它在近黑 AppBar 上糊成一个突兀的深灰长方
+    // 块，很影响观感；深色直接用透明底、放大镜+输入内联在 AppBar 上更干净。
+    // 浅色保留浅灰胶囊（跟搜索页/私信列表的搜索框一套，且不是"深灰"）
+    final pillBg = isDark ? Colors.transparent : const Color(0xFFF0F0F0);
     final muted = isDark
         ? Colors.white.withValues(alpha: 0.4)
         : Colors.grey[500];
@@ -1335,7 +1336,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                     GroupMessageType.image => _buildImageBubble(msg),
                     GroupMessageType.file => _buildFileBubble(msg, isDark),
                     GroupMessageType.code => _buildCodeBubble(msg),
-                    GroupMessageType.formula => _buildFormulaBubble(msg, isDark),
+                    GroupMessageType.formula => _buildFormulaBubble(
+                      msg,
+                      isDark,
+                    ),
                     GroupMessageType.shareTutorial ||
                     GroupMessageType.shareQuestion => _buildShareCard(
                       msg,
@@ -1642,7 +1646,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         style: TextStyle(
           fontSize: 12,
           fontStyle: FontStyle.italic,
-          color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey[400],
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.3)
+              : Colors.grey[400],
         ),
       ),
     );
@@ -1736,7 +1742,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                     color: _primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.code_rounded, size: 15, color: _primary),
+                  child: const Icon(
+                    Icons.code_rounded,
+                    size: 15,
+                    color: _primary,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -1754,7 +1764,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => _showCodeMessageMenu(msg.content),
-                  child: const Icon(Icons.more_horiz, size: 18, color: Colors.white54),
+                  child: const Icon(
+                    Icons.more_horiz,
+                    size: 18,
+                    color: Colors.white54,
+                  ),
                 ),
               ],
             ),
@@ -1815,7 +1829,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         decoration: BoxDecoration(
           color: isMe ? _primary : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
+          border: isMe
+              ? null
+              : Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -1844,12 +1860,17 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+                      color: isMe
+                          ? Colors.white
+                          : Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   Text(
                     _formatBytes(size),
-                    style: TextStyle(fontSize: 11, color: isMe ? Colors.white70 : Colors.grey),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isMe ? Colors.white70 : Colors.grey,
+                    ),
                   ),
                 ],
               ),
@@ -1865,8 +1886,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     final ageMs = DateTime.now().millisecondsSinceEpoch - msg.createdAt;
     final canRecall = ageMs < 2 * 60 * 1000; // 2分钟内，跟后端一致
     final canCopy =
-        msg.type == GroupMessageType.text ||
-        msg.type == GroupMessageType.code;
+        msg.type == GroupMessageType.text || msg.type == GroupMessageType.code;
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).cardColor,
@@ -1928,9 +1948,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         if (i >= 0) _messages[i] = _copyRecalled(_messages[i]);
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('撤回失败：${res.message ?? '请重试'}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('撤回失败：${res.message ?? '请重试'}')));
     }
   }
 
@@ -1982,46 +2002,50 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
                   child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _attachBtn(Icons.image, '图片', () {
-                        _closeAttachPanel();
-                        _sendImage();
-                      }),
-                      _attachBtn(Icons.camera_alt_outlined, '拍照', () {
-                        _closeAttachPanel();
-                        _sendImage(source: ImageSource.camera);
-                      }),
-                      _attachBtn(Icons.insert_drive_file_outlined, '文件', () {
-                        _closeAttachPanel();
-                        _sendFile();
-                      }),
-                      _attachBtn(Icons.code, '代码', () {
-                        _closeAttachPanel();
-                        _showCodeInput();
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _attachBtn(Icons.functions, '公式', () {
-                        _closeAttachPanel();
-                        _showLatexInput();
-                      }),
-                      _attachBtn(Icons.article_outlined, '文章', () {
-                        _closeAttachPanel();
-                        _shareContent('share_tutorial');
-                      }),
-                      _attachBtn(Icons.help_outline, '问题', () {
-                        _closeAttachPanel();
-                        _shareContent('share_question');
-                      }),
-                    ],
-                  ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _attachBtn(Icons.image, '图片', () {
+                            _closeAttachPanel();
+                            _sendImage();
+                          }),
+                          _attachBtn(Icons.camera_alt_outlined, '拍照', () {
+                            _closeAttachPanel();
+                            _sendImage(source: ImageSource.camera);
+                          }),
+                          _attachBtn(
+                            Icons.insert_drive_file_outlined,
+                            '文件',
+                            () {
+                              _closeAttachPanel();
+                              _sendFile();
+                            },
+                          ),
+                          _attachBtn(Icons.code, '代码', () {
+                            _closeAttachPanel();
+                            _showCodeInput();
+                          }),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _attachBtn(Icons.functions, '公式', () {
+                            _closeAttachPanel();
+                            _showLatexInput();
+                          }),
+                          _attachBtn(Icons.article_outlined, '文章', () {
+                            _closeAttachPanel();
+                            _shareContent('share_tutorial');
+                          }),
+                          _attachBtn(Icons.help_outline, '问题', () {
+                            _closeAttachPanel();
+                            _shareContent('share_question');
+                          }),
+                        ],
+                      ),
                     ],
                   ),
                 ),
