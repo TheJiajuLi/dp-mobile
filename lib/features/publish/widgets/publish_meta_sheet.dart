@@ -184,28 +184,35 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
                                     horizontal: 8,
                                     vertical: 3,
                                   ),
-                                  // 跟右上角"发布"按钮同一套：浅色纯黑扁平、
-                                  // 深色才用主题渐变胶囊
+                                  // 跟右上角"发布"按钮同一套：浅色去掉纯黑填充
+                                  // 改用描边（内容色转黑），深色才用主题渐变胶囊
                                   decoration: isDarkMode
                                       ? premiumPillDecoration(radius: 7)
                                       : BoxDecoration(
-                                          color: _ink,
-                                          borderRadius: BorderRadius.circular(7),
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
+                                          border: Border.all(
+                                            color: _ink,
+                                            width: 1,
+                                          ),
                                         ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         Icons.auto_awesome,
                                         size: 10,
-                                        color: Colors.white,
+                                        color: isDarkMode ? Colors.white : _ink,
                                       ),
-                                      SizedBox(width: 3),
+                                      const SizedBox(width: 3),
                                       Text(
                                         '小梦生成',
                                         style: TextStyle(
                                           fontSize: 10,
-                                          color: Colors.white,
+                                          color: isDarkMode
+                                              ? Colors.white
+                                              : _ink,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),

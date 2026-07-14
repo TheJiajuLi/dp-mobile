@@ -108,25 +108,27 @@ class PublishTopBar extends StatelessWidget {
                   // 几乎是同一个颜色，纯黑底会把发布按钮"吃掉"；改用带
                   // 渐变/高光/投影的主题色胶囊按钮，浅色模式沿用原来的
                   // 纯黑扁平按钮（跟参考截图一致，不是紫色，不用这套）
+                  // 深色沿用主题渐变胶囊；浅色去掉纯黑填充改用描边，内容色
+                  // 随之从白改成黑，才在透明底上看得见
                   decoration: isDarkMode
                       ? premiumPillDecoration(radius: 10, muted: saving)
                       : BoxDecoration(
-                          color: _ink,
                           borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _ink, width: 1),
                         ),
                   child: saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
+                            color: isDarkMode ? Colors.white : _ink,
                             strokeWidth: 2,
                           ),
                         )
                       : Text(
                           l10n.publish,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.white : _ink,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
