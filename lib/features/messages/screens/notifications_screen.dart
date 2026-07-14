@@ -35,6 +35,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   List<Map<String, dynamic>> _invites = [];
   bool _loadingInvites = false;
 
+  // 「回关」按钮状态：通知不带 fromUserId，靠 fromUsername 现查一次解析出
+  // userId + 我是否已关注（isFollowing），点按钮就在原地关注/取关，切换成
+  // 绿色「已回关」。都按 username 缓存，同一个人只查一次。
+  final Map<String, String> _followUserId = {}; // username -> userId
+  final Map<String, bool> _isFollowing = {}; // username -> 我是否已关注
+  final Set<String> _resolvingFollow = {}; // 正在解析状态的 username
+  final Set<String> _togglingFollow = {}; // 关注/取关请求在途的 username
+
   String _activeFilter = 'all';
   // 顶部「排序/筛选」（tune 图标）落地：时间倒序/正序 + 只看未读
   bool _newestFirst = true;
@@ -776,6 +784,127 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     ),
   );
 
+  // 懒解析某个"关注了你"通知里对方的 userId + 我是否已回关。结果缓存，
+  // 同一个 username 在途/已完成都跳过，不会重复请求（build 里 fire-and-forget
+  // 调用也安全）。profile 接口可能因对方"主页不公开"403，退回不受隐私影响的
+  // 旧接口兜底；都解析不出 id 时静默放弃，按钮退回"跳对方主页"的老行为。
+  Future<void> _ensureFollowState(String username) async {
+    if (username.isEmpty ||
+        _isFollowing.containsKey(username) ||
+        _resolvingFollow.contains(username)) {
+      return;
+    }
+    _resolvingFollow.add(username);
+    final api = ref.read(apiClientProvider);
+    String? userId;
+    final res = await api.get('/auth/users/profile/$username');
+    if (res.success && res.data is Map) {
+      userId = (res.data as Map)['id']?.toString();
+    }
+    if (userId == null) {
+      final alt = await api.get('/auth/users/$username');
+      if (alt.success && alt.data is Map) {
+        final d = alt.data as Map;
+        userId = (d['id'] ?? (d['user'] is Map ? d['user']['id'] : null))
+            ?.toString();
+      }
+    }
+    if (userId == null) {
+      _resolvingFollow.remove(username);
+      return;
+    }
+    final statusRes = await api.get('/auth/users/$userId/follow-status');
+    final following = statusRes.success && statusRes.data is Map
+        ? (statusRes.data as Map)['isFollowing'] == true
+        : false;
+    if (!mounted) {
+      _resolvingFollow.remove(username);
+      return;
+    }
+    setState(() {
+      _followUserId[username] = userId!;
+      _isFollowing[username] = following;
+      _resolvingFollow.remove(username);
+    });
+  }
+
+  // 点「回关/已回关」：原地关注/取关切换。乐观更新 + 失败回滚；还没解析出
+  // id（如对方主页不公开）时退回跳对方主页让用户在那边操作。
+  Future<void> _toggleFollowBack(String username) async {
+    if (username.isEmpty || _togglingFollow.contains(username)) return;
+    if (_followUserId[username] == null) {
+      await _ensureFollowState(username);
+    }
+    final userId = _followUserId[username];
+    if (userId == null) {
+      if (mounted) context.push('/users/$username');
+      return;
+    }
+    final following = _isFollowing[username] ?? false;
+    setState(() {
+      _togglingFollow.add(username);
+      _isFollowing[username] = !following;
+    });
+    final api = ref.read(apiClientProvider);
+    final res = following
+        ? await api.delete('/auth/users/$userId/follow')
+        : await api.post('/auth/users/$userId/follow');
+    if (!mounted) return;
+    setState(() {
+      _togglingFollow.remove(username);
+      if (!res.success) _isFollowing[username] = following; // 回滚
+    });
+    if (!res.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('操作失败：${res.message ?? '请稍后重试'}')),
+      );
+    }
+  }
+
+  // 「关注了你」通知右侧的回关按钮：已回关=绿色胶囊，未回关=紫色胶囊，
+  // 请求在途显示转圈。首次渲染顺手 fire-and-forget 解析一次真实关注状态。
+  Widget _followBackButton(AppNotification n, bool isDark) {
+    final username = n.fromUsername ?? '';
+    if (username.isNotEmpty) unawaited(_ensureFollowState(username));
+    final following = _isFollowing[username] ?? false;
+    final toggling = _togglingFollow.contains(username);
+    const green = Color(0xFF16A34A);
+    final fg = following ? green : _primary;
+    final bg = following
+        ? (isDark ? green.withValues(alpha: 0.18) : const Color(0xFFE8F8F0))
+        : (isDark ? const Color(0xFF1A1A35) : const Color(0xFFF0F0FF));
+    final borderColor = following
+        ? green.withValues(alpha: isDark ? 0.5 : 0.35)
+        : (isDark ? const Color(0xFF3A3A5C) : const Color(0xFFDDDDFF));
+    return GestureDetector(
+      onTap: (username.isEmpty || toggling)
+          ? null
+          : () => _toggleFollowBack(username),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: 0.5),
+        ),
+        child: toggling
+            ? SizedBox(
+                width: 11,
+                height: 11,
+                child: CircularProgressIndicator(strokeWidth: 1.4, color: fg),
+              )
+            : Text(
+                following ? '已回关' : '回关',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: fg,
+                ),
+              ),
+      ),
+    );
+  }
+
   Widget _notificationCard(
     AppNotification n,
     bool isDark,
@@ -905,40 +1034,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   ),
                 if (!n.isRead) const SizedBox(height: 6),
                 if (n.type == 'follow')
-                  // 后端通知不带 fromUserId，没法在这里直接一键关注；点「回关」
-                  // 跳到对方主页去关注（跟点整条通知的落点一致，是真实可用的
-                  // 动作，不做假的一键成功）
-                  GestureDetector(
-                    onTap: (n.fromUsername?.isNotEmpty ?? false)
-                        ? () => context.push('/users/${n.fromUsername}')
-                        : null,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF1A1A35)
-                            : const Color(0xFFF0F0FF),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isDark
-                              ? const Color(0xFF3A3A5C)
-                              : const Color(0xFFDDDDFF),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: const Text(
-                        '回关',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: _primary,
-                        ),
-                      ),
-                    ),
-                  )
+                  _followBackButton(n, isDark)
                 else
                   Container(
                     width: 36,
