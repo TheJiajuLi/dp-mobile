@@ -1653,12 +1653,7 @@ th{background:#1e293b;color:#94a3b8}
   }
 
   Widget _buildFileBlock(AppLocalizations l10n) {
-    final isPro = widget.membership != 'free';
-
-    if (!isPro) {
-      return _membershipLockNotice(l10n.fileBlockMembershipLock);
-    }
-
+    // 不做视觉加锁：块照常渲染，点上传时才在 _pickFile 里 requirePro
     if (widget.block.fileName != null) {
       return Container(
         padding: const EdgeInsets.all(12),
@@ -1748,6 +1743,8 @@ th{background:#1e293b;color:#94a3b8}
   }
 
   Future<void> _pickFile() async {
+    // 文件附件是 Pro 权益——点了才校验，非 Pro 弹会员 Sheet
+    if (!requirePro(context, ref, feature: '文件附件')) return;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [
@@ -1815,12 +1812,7 @@ th{background:#1e293b;color:#94a3b8}
   }
 
   Widget _buildAudioBlock(AppLocalizations l10n) {
-    if (widget.membership == 'free') {
-      return _membershipLockNotice(
-        l10n.audioBlockMembershipLock,
-        color: const Color(0xFFA855F7),
-      );
-    }
+    // 不做视觉加锁：块照常渲染，点上传时才在 _pickAudio 里 requirePro
 
     if (widget.block.fileName != null) {
       return Container(
@@ -1902,6 +1894,8 @@ th{background:#1e293b;color:#94a3b8}
   }
 
   Future<void> _pickAudio() async {
+    // 音频块是 Pro 权益——点了才校验，非 Pro 弹会员 Sheet
+    if (!requirePro(context, ref, feature: '音频块')) return;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['mp3', 'wav', 'm4a', 'aac', 'flac'],
@@ -1939,15 +1933,11 @@ th{background:#1e293b;color:#94a3b8}
   }
 
   Widget _buildVideoBlock(AppLocalizations l10n) {
-    if (widget.membership == 'free') {
-      return _membershipLockNotice(
-        l10n.videoBlockMembershipLock,
-        color: const Color(0xFFC2410C),
-      );
-    }
-
+    // 不做视觉加锁：块照常渲染，点上传时才 requirePro
     return GestureDetector(
       onTap: () async {
+        // 视频块是 Pro 权益——非 Pro 弹会员 Sheet
+        if (!requirePro(context, ref, feature: '视频块')) return;
         final picker = ImagePicker();
         final file = await picker.pickVideo(
           source: ImageSource.gallery,
@@ -2176,29 +2166,6 @@ th{background:#1e293b;color:#94a3b8}
           widget.block.content = v;
           widget.onChanged();
         },
-      ),
-    );
-  }
-
-  Widget _membershipLockNotice(
-    String message, {
-    Color color = const Color(0xFFD97706),
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.lock_outline, color: color, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(message, style: TextStyle(fontSize: 13, color: color)),
-          ),
-        ],
       ),
     );
   }
