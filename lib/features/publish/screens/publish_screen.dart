@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/pro_access.dart';
 import '../../auth/auth_service.dart';
 import '../models/block_model.dart';
 import '../widgets/block_card.dart';
@@ -1019,15 +1020,12 @@ result
         initialSeriesTag: _seriesTag,
         initialIssueNumber: _issueNumber,
         onSaved:
-            ({
-              required subtitle,
-              required seriesTag,
-              required issueNumber,
-            }) => setState(() {
-              _subtitle = subtitle;
-              _seriesTag = seriesTag;
-              _issueNumber = issueNumber;
-            }),
+            ({required subtitle, required seriesTag, required issueNumber}) =>
+                setState(() {
+                  _subtitle = subtitle;
+                  _seriesTag = seriesTag;
+                  _issueNumber = issueNumber;
+                }),
       ),
       selectedColumnId: _selectedColumnId,
       selectedColumnName: _selectedColumnName,
@@ -1237,8 +1235,9 @@ result
                         _focusedBlock != null &&
                             (_focusedBlock!.type == BlockType.text ||
                                 _focusedBlock!.type == BlockType.heading)
-                        ? () =>
-                              setState(() => _formatBarExpanded = !_formatBarExpanded)
+                        ? () => setState(
+                            () => _formatBarExpanded = !_formatBarExpanded,
+                          )
                         : null,
                   ),
                 ],
@@ -1538,6 +1537,8 @@ result
   }
 
   Future<void> _aiGenerateSummary() async {
+    // 小梦 AI 摘要是 Pro 权益——点了才校验，非 Pro 弹会员 Sheet
+    if (!requirePro(context, ref, feature: '小梦 AI 摘要')) return;
     final content = [
       if (_titleCtrl.text.isNotEmpty) '标题：${_titleCtrl.text}',
       ..._blocks

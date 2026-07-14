@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/pro_access.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
@@ -448,6 +449,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   void _openExportSheet() {
     final tutorial = _tutorial;
     if (tutorial == null) return;
+    // 一键导出 PDF 是 Pro 权益——点了才校验，非 Pro 弹会员 Sheet 引导升级
+    if (!requirePro(context, ref, feature: '一键导出 PDF')) return;
     showTutorialExportSheet(context, tutorial: tutorial, blocks: _blocks);
   }
 

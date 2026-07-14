@@ -17,6 +17,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
+import '../../../shared/utils/pro_access.dart';
 import '../../../shared/utils/avatar_upload.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
@@ -1283,10 +1284,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
                               _pickAndUploadAvatar(ImageSource.gallery),
                           onPickCamera: () =>
                               _pickAndUploadAvatar(ImageSource.camera),
-                          onAiAvatar: () => showAiAvatarSheet(
-                            context,
-                            onGenerate: _aiGenerateAvatar,
-                          ),
+                          onAiAvatar: () {
+                            // AI 生成头像是 Pro 权益——非 Pro 弹会员 Sheet
+                            if (!requirePro(context, ref, feature: 'AI 生成头像')) {
+                              return;
+                            }
+                            showAiAvatarSheet(
+                              context,
+                              onGenerate: _aiGenerateAvatar,
+                            );
+                          },
                         ),
                         onCoverTap: _pickAndUploadCover,
                         onLinksTap: () => _showLinksSheet(l10n),
