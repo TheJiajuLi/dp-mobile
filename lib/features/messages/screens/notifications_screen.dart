@@ -471,7 +471,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final filtered = base.where(_matchesFilter).toList();
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 浅色跟首页统一用米白 #FAFAF8（不是全局 scaffold 的 #F7F7FB），
+      // 深色仍走主题的 darkBg
+      backgroundColor: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFFAFAF8),
       body: SafeArea(
         child: Column(
           children: [
