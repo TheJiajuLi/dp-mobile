@@ -165,9 +165,11 @@ class PreviewDrawer extends ConsumerWidget {
                               ),
                               if (summary.isNotEmpty) ...[
                                 const SizedBox(height: 8),
-                                Text(
+                                // 摘要跟正文/标题一样走 inlineLatexText，$...$
+                                // 行内公式才能在读者视角渲染出来，不再是原始源码
+                                inlineLatexText(
                                   summary,
-                                  style: TextStyle(
+                                  TextStyle(
                                     fontSize: 14,
                                     color: Theme.of(
                                       context,
