@@ -949,6 +949,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                 decoration: InputDecoration(
                   hintText: '搜索消息',
                   hintStyle: TextStyle(fontSize: 14, color: muted),
+                  // 不关掉全局 filled 会在灰色搜索胶囊里透出一层白色方块
+                  // （踩坑#13）
+                  filled: false,
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
