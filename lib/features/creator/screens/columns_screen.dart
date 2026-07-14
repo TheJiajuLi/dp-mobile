@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../column/models/column_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -43,6 +44,17 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
   bool _searching = false;
   final _searchCtrl = TextEditingController();
   String _query = '';
+
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _bg => _isDark ? AppColors.darkBg : const Color(0xFFFAFAF8);
+  Color get _card => _isDark ? AppColors.darkCard : Colors.white;
+  Color get _ink =>
+      _isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1A1A);
+  Color get _muted =>
+      _isDark ? AppColors.darkTextSecondary : const Color(0xFF999999);
+  Color get _border => _isDark ? AppColors.darkBorder : const Color(0xFFF0F0F0);
+  Color get _fill =>
+      _isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF5F5F7);
 
   @override
   void initState() {
@@ -160,7 +172,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAF8),
+      backgroundColor: _bg,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -184,25 +196,21 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
   Widget _header() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      color: const Color(0xFFFAFAF8),
+      color: _bg,
       child: Row(
         children: [
           GestureDetector(
             onTap: () => context.pop(),
-            child: const Icon(
-              Icons.arrow_back,
-              size: 20,
-              color: Color(0xFF1A1A1A),
-            ),
+            child: Icon(Icons.arrow_back, size: 20, color: _ink),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
               '专栏管理',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
+                color: _ink,
               ),
             ),
           ),
@@ -217,7 +225,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
             child: Icon(
               _searching ? Icons.close : Icons.search,
               size: 20,
-              color: const Color(0xFF555555),
+              color: _isDark ? Colors.white70 : const Color(0xFF555555),
             ),
           ),
           const SizedBox(width: 14),
@@ -259,7 +267,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-              color: active ? _primary : const Color(0xFF999999),
+              color: active ? _primary : _muted,
             ),
           ),
         ),
@@ -267,7 +275,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     }
 
     return Container(
-      color: const Color(0xFFFAFAF8),
+      color: _bg,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(children: [tab('我的专栏', 0), tab('收藏的专栏', 1)]),
     );
@@ -290,7 +298,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
               hintText: '搜索专栏名称',
               prefixIcon: const Icon(Icons.search, size: 18),
               filled: true,
-              fillColor: const Color(0xFFF5F5F7),
+              fillColor: _fill,
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -308,10 +316,10 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
           children: [
             Text(
               '全部专栏 (${_columns.length})',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1A1A),
+                color: _ink,
               ),
             ),
             const Spacer(),
@@ -322,18 +330,11 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
               }),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.swap_vert,
-                    size: 15,
-                    color: Color(0xFF999999),
-                  ),
+                  Icon(Icons.swap_vert, size: 15, color: _muted),
                   const SizedBox(width: 3),
                   Text(
                     _sort.label,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF999999),
-                    ),
+                    style: TextStyle(fontSize: 12, color: _muted),
                   ),
                 ],
               ),
@@ -347,7 +348,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
             child: Center(
               child: Text(
                 _query.isNotEmpty ? '没有匹配的专栏' : '还没有专栏，创建一个开始连载吧',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF999999)),
+                style: TextStyle(fontSize: 13, color: _muted),
               ),
             ),
           )
@@ -368,9 +369,9 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _card,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+            border: Border.all(color: _border, width: 0.5),
           ),
           child: Column(
             children: [
@@ -386,20 +387,14 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
               const SizedBox(height: 8),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A),
+                  color: _ink,
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: Color(0xFF999999),
-                ),
-              ),
+              Text(label, style: TextStyle(fontSize: 10.5, color: _muted)),
             ],
           ),
         ),
@@ -468,9 +463,9 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+        border: Border.all(color: _border, width: 0.5),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,10 +507,10 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
               children: [
                 Text(
                   c.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
+                    color: _ink,
                   ),
                 ),
                 if ((c.description ?? '').isNotEmpty) ...[
@@ -524,10 +519,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
                     c.description!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: Color(0xFF999999),
-                    ),
+                    style: TextStyle(fontSize: 12.5, color: _muted),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -535,10 +527,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
                   children: [
                     Text(
                       '${c.articleCount}篇文章 · ${_formatCount(c.viewCount)}阅读 · ${c.subscriberCount}订阅',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: Color(0xFF999999),
-                      ),
+                      style: TextStyle(fontSize: 11.5, color: _muted),
                     ),
                     const Spacer(),
                     GestureDetector(
@@ -549,15 +538,12 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F7),
+                          color: _fill,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
+                        child: Text(
                           '管理',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF1A1A1A),
-                          ),
+                          style: TextStyle(fontSize: 11.5, color: _ink),
                         ),
                       ),
                     ),
@@ -576,12 +562,13 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.bookmark_border, size: 44, color: Colors.grey[300]),
-          const SizedBox(height: 12),
-          const Text(
-            '收藏的专栏即将上线，敬请期待',
-            style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
+          Icon(
+            Icons.bookmark_border,
+            size: 44,
+            color: _isDark ? Colors.white24 : Colors.grey[300],
           ),
+          const SizedBox(height: 12),
+          Text('收藏的专栏即将上线，敬请期待', style: TextStyle(fontSize: 13, color: _muted)),
         ],
       ),
     );
