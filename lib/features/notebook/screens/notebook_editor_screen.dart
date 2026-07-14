@@ -5,8 +5,6 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,6 +14,9 @@ import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../models/notebook_model.dart';
 import '../services/notebook_service.dart';
+import '../widgets/notebook_add_divider.dart';
+import '../widgets/notebook_bottom_toolbar.dart';
+import '../widgets/notebook_cell_card.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -1036,17 +1037,24 @@ finally:
                             buildDefaultDragHandles: false,
                             padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
                             onReorder: _onReorder,
-                            footer: _buildFinalAddButton(isDark),
+                            footer: NotebookAddDivider(
+                              isDark: isDark,
+                              onTap: () => _addCell('markdown'),
+                            ),
                             children: [
                               for (int i = 0; i < _nb!.cells.length; i++)
-                                _buildCell(_nb!.cells[i], i),
+                                _buildCellCard(_nb!.cells[i], i),
                             ],
                           ),
                         ),
                 ),
 
                 // 底部浮动工具栏
-                _buildFloatingToolbar(isDark),
+                NotebookBottomToolbar(
+                  isDark: isDark,
+                  activeType: _getActiveToolType(),
+                  onTap: _onToolbarTap,
+                ),
               ],
             ),
           ),
@@ -1107,419 +1115,36 @@ finally:
     );
   }
 
-  // ── Cell 原地编辑 ────────────────────────────────────────────────
-  // 每个 cell 是画布里一张可原地编辑的卡片，不再跳页。markdown/latex 未
-  // 选中时显示渲染结果、点进去变成纯文本编辑；代码类始终是等宽编辑框
-  Widget _buildCell(NotebookCell cell, int index) {
+  // 单张 Cell 卡片——把状态（controller/focusNode/output/isActive等）
+  // 打包成 NotebookCellCard 的参数，具体渲染搬到
+  // widgets/notebook_cell_card.dart，这里只做"取状态→传参数→接回调"
+  Widget _buildCellCard(NotebookCell cell, int index) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isActive = _activeIndex == index;
     final ctrl =
         _controllers[cell.id] ??
         (_controllers[cell.id] = TextEditingController(text: cell.code));
     final focus = _focusNodes[cell.id] ?? (_focusNodes[cell.id] = FocusNode());
-    final output = _outputs[cell.id];
-    final outputType = _outputTypes[cell.id];
-
-    final activeBorder = isDark
-        ? const Color(0xFF6366F1).withValues(alpha: 0.4)
-        : const Color(0xFF1A1A1A);
-    final idleBorder = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : const Color(0xFFEBEBEB);
-
-    return Container(
-      key: ValueKey(cell.id),
-      margin: const EdgeInsets.fromLTRB(4, 0, 4, 6),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A2A) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isActive ? activeBorder : idleBorder,
-          width: isActive ? 1 : 0.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCellHeader(cell, index, isDark),
-          _buildCellBody(cell, index, ctrl, focus, isDark, isActive),
-          if (output != null && output.isNotEmpty)
-            _buildOutput(output, outputType, isDark),
-        ],
-      ),
-    );
-  }
-
-  // markdown/latex：未选中=渲染，选中=纯文本编辑；代码类：始终等宽编辑
-  Widget _buildCellBody(
-    NotebookCell cell,
-    int index,
-    TextEditingController ctrl,
-    FocusNode focus,
-    bool isDark,
-    bool isActive,
-  ) {
-    // 图片块没有可编辑正文，图片本身走输出区渲染
-    if (cell.type == 'image') return const SizedBox.shrink();
-
-    final isRendered =
-        (cell.type == 'markdown' || cell.type == 'latex') && !isActive;
-    if (isRendered) {
-      return GestureDetector(
-        onTap: () => _activateCell(index),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          child: cell.code.trim().isEmpty
-              ? Text(
-                  cell.type == 'latex' ? '点击输入 LaTeX 公式…' : '点击输入 Markdown…',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDark
-                        ? const Color(0xFF444444)
-                        : const Color(0xFFCCCCCC),
-                  ),
-                )
-              : cell.type == 'latex'
-              ? Math.tex(
-                  cell.code.trim(),
-                  textStyle: TextStyle(
-                    fontSize: 16,
-                    color: isDark
-                        ? const Color(0xFFE0E2F0)
-                        : const Color(0xFF1A1A1A),
-                  ),
-                  onErrorFallback: (err) => Text(
-                    cell.code,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      color: Color(0xFFDC2626),
-                    ),
-                  ),
-                )
-              : MarkdownBody(
-                  data: cell.code,
-                  styleSheet: MarkdownStyleSheet(
-                    p: TextStyle(
-                      fontSize: 14,
-                      height: 1.6,
-                      color: isDark
-                          ? const Color(0xFFE0E2F0)
-                          : const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                ),
-        ),
-      );
-    }
-
-    // 编辑态：代码类等宽 + 浅灰底，文字类普通
-    final isCode = cell.type != 'markdown' && cell.type != 'latex';
-    return Container(
-      width: double.infinity,
-      color: isCode
-          ? (isDark ? Colors.transparent : const Color(0xFFF8F9FC))
-          : Colors.transparent,
-      child: TextField(
-        controller: ctrl,
-        focusNode: focus,
-        maxLines: null,
-        onTap: () => setState(() => _activeIndex = index),
-        style: TextStyle(
-          fontFamily: isCode ? 'monospace' : null,
-          fontSize: isCode ? 12 : 14,
-          height: isCode ? 1.7 : 1.6,
-          color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
-        ),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: const EdgeInsets.all(12),
-          hintText: _cellHint(cell.type),
-          hintStyle: TextStyle(
-            fontFamily: isCode ? 'monospace' : null,
-            fontSize: isCode ? 12 : 14,
-            color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
-          ),
-        ),
-        onChanged: (v) {
-          cell.code = v;
-          _scheduleSave();
-        },
-      ),
-    );
-  }
-
-  String _cellHint(String type) => switch (type) {
-    'markdown' => '输入 Markdown 内容…',
-    'latex' => '输入 LaTeX 公式…',
-    'sql' => '-- 输入 SQL…',
-    _ => '# 输入代码…',
-  };
-
-  // Cell 头部（统一）：语言点 + 标签 + 运行(可执行才有) + 拖拽/菜单(选中才有)
-  Widget _buildCellHeader(NotebookCell cell, int index, bool isDark) {
-    final isActive = _activeIndex == index;
-    final isRunning = _running[cell.id] ?? false;
-    final dotColor = _getCellDotColor(cell.type);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: isDark
-            ? (isActive
-                  ? const Color(0xFF6366F1).withValues(alpha: 0.08)
-                  : Colors.white.withValues(alpha: 0.02))
-            : (isActive ? const Color(0xFFF5F5F5) : const Color(0xFFFAFAFA)),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.05)
-                : const Color(0xFFF0F0F0),
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            _getCellLabel(cell.type),
-            style: TextStyle(
-              fontSize: 10,
-              color: isActive
-                  ? (isDark ? const Color(0xFF6366F1) : const Color(0xFF555555))
-                  : (isDark
-                        ? const Color(0xFF444444)
-                        : const Color(0xFFAAAAAA)),
-            ),
-          ),
-          const Spacer(),
-          if (_isExecutable(cell.type)) ...[
-            GestureDetector(
-              onTap: isRunning
-                  ? null
-                  : () {
-                      cell.code = _controllers[cell.id]?.text ?? cell.code;
-                      _runCell(cell);
-                    },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Text(
-                  isRunning ? '运行中…' : '▶ 运行',
-                  style: const TextStyle(fontSize: 9, color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-          ],
-          if (isActive) ...[
-            ReorderableDragStartListener(
-              index: index,
-              child: Icon(
-                Icons.drag_handle,
-                size: 15,
-                color: isDark
-                    ? const Color(0xFF555555)
-                    : const Color(0xFFCCCCCC),
-              ),
-            ),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: () => _showCellMenu(index),
-              child: Icon(
-                Icons.more_horiz,
-                size: 15,
-                color: isDark
-                    ? const Color(0xFF555555)
-                    : const Color(0xFFCCCCCC),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Color _getCellDotColor(String type) => switch (type) {
-    'python' ||
-    'javascript' ||
-    'sql' ||
-    'r' ||
-    'julia' ||
-    'html' => const Color(0xFF16A34A),
-    _ => const Color(0xFF888888),
-  };
-
-  String _getCellLabel(String type) => switch (type) {
-    'python' => 'Python',
-    'sql' => 'SQL',
-    'javascript' => 'JavaScript',
-    'r' => 'R',
-    'julia' => 'Julia',
-    'latex' => 'LaTeX',
-    'markdown' => 'Markdown',
-    'html' => 'HTML',
-    'image' => '图片',
-    _ => type,
-  };
-
-  bool _isExecutable(String type) =>
-      const {'python', 'sql', 'javascript', 'r', 'julia'}.contains(type);
-
-  // 输出区：文字=绿左线浅绿底 / 图片=浅紫底 / 错误=红左线
-  Widget _buildOutput(String output, String? type, bool isDark) {
-    if (type == 'image') {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF13131F) : const Color(0xFFEEF0FF),
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(10),
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.memory(
-            base64Decode(output),
-            fit: BoxFit.contain,
-            errorBuilder: (c, e, s) => Text(
-              '图片解码失败',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-            ),
-          ),
-        ),
-      );
-    }
-    final isError = type == 'error';
-    final accent = isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
-    final lightBg = isError ? const Color(0xFFFEF2F2) : const Color(0xFFF0FFF5);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: isDark ? accent.withValues(alpha: 0.06) : lightBg,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
-        border: Border(left: BorderSide(color: accent, width: 2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            isError ? '✗ 错误' : '✓ 输出',
-            style: TextStyle(
-              fontSize: 9,
-              color: accent,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            output,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              height: 1.5,
-              color: isDark ? const Color(0xFFB0B0C0) : const Color(0xFF555555),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Cell ⋯ 菜单：下方添加各类型 / 删除
-  void _showCellMenu(int index) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final t in const [
-              ('markdown', '下方添加文字'),
-              ('python', '下方添加代码'),
-              ('latex', '下方添加公式'),
-            ])
-              ListTile(
-                leading: const Icon(Icons.add, size: 20),
-                title: Text(t.$2),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _addCell(t.$1, at: index + 1);
-                },
-              ),
-            ListTile(
-              leading: const Icon(
-                Icons.delete_outline,
-                size: 20,
-                color: Color(0xFFDC2626),
-              ),
-              title: const Text(
-                '删除此块',
-                style: TextStyle(color: Color(0xFFDC2626)),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _deleteCell(_nb!.cells[index].id);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 末尾「添加内容块」按钮
-  Widget _buildFinalAddButton(bool isDark) {
-    return GestureDetector(
-      key: const ValueKey('__final_add__'),
-      onTap: () => _addCell('markdown'),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(4, 2, 4, 8),
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : const Color(0xFFDDDDDD),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.add,
-              size: 14,
-              color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '添加内容块',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark
-                    ? const Color(0xFF444444)
-                    : const Color(0xFFCCCCCC),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return NotebookCellCard(
+      cell: cell,
+      index: index,
+      isActive: _activeIndex == index,
+      isDark: isDark,
+      isRunning: _running[cell.id] ?? false,
+      controller: ctrl,
+      focusNode: focus,
+      output: _outputs[cell.id],
+      outputType: _outputTypes[cell.id],
+      onActivate: () => _activateCell(index),
+      onChanged: (v) {
+        cell.code = v;
+        _scheduleSave();
+      },
+      onRun: () {
+        cell.code = ctrl.text;
+        _runCell(cell);
+      },
+      onAddBelow: (type) => _addCell(type, at: index + 1),
+      onDelete: () => _deleteCell(cell.id),
     );
   }
 
@@ -1571,16 +1196,8 @@ finally:
     );
   }
 
-  // 底部浮动工具栏：文字/代码/公式/图片/SQL/更多
-  static const _toolbarItems = [
-    (Icons.title, '文字', 'markdown'),
-    (Icons.code, '代码', 'python'),
-    (Icons.functions, '公式', 'latex'),
-    (Icons.image_outlined, '图片', 'image'),
-    (Icons.storage_outlined, 'SQL', 'sql'),
-    (Icons.more_horiz, '更多', 'more'),
-  ];
-
+  // 底部浮动工具栏当前该高亮哪个类型——按 _activeIndex 对应 cell 的类型算，
+  // 依赖 State 字段，留在主文件；具体渲染在 NotebookBottomToolbar
   String? _getActiveToolType() {
     if (_activeIndex < 0 || _activeIndex >= (_nb?.cells.length ?? 0)) {
       return null;
@@ -1602,106 +1219,15 @@ finally:
         _addImageCell();
         break;
       case 'more':
-        _showMoreLanguages();
+        showMoreLanguagesSheet(
+          context,
+          onPick: _addCell,
+          onImport: _openFileImport,
+        );
         break;
       default:
         _addCell(type);
     }
-  }
-
-  Widget _buildFloatingToolbar(bool isDark) {
-    final active = _getActiveToolType();
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF17171F) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFEBEBEB),
-          width: 0.5,
-        ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: _toolbarItems.map((item) {
-          final isActive = active == item.$3;
-          final fg = isActive
-              ? (isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A))
-              : (isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC));
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => _onToolbarTap(item.$3),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? (isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF5F5F5))
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(item.$1, size: 19, color: fg),
-                    const SizedBox(height: 2),
-                    Text(item.$2, style: TextStyle(fontSize: 9, color: fg)),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  void _showMoreLanguages() {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final t in const [
-              ('javascript', 'JavaScript', Icons.javascript),
-              ('r', 'R', Icons.bar_chart),
-              ('julia', 'Julia', Icons.change_history),
-              ('html', 'HTML', Icons.html),
-            ])
-              ListTile(
-                leading: Icon(t.$3, size: 20),
-                title: Text(t.$2),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _addCell(t.$1);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.upload_file, size: 20),
-              title: Text(AppLocalizations.of(ctx)!.import),
-              onTap: () {
-                Navigator.pop(ctx);
-                _openFileImport();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   // 图片块：从相册选图，base64 存进 cell.output（outputType=image）
