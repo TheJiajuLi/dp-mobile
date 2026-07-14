@@ -806,6 +806,11 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
 
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 浅色统一首页米白 #FAFAF8（不再偏冷 #F7F7FB）；顶栏/正文/底部操作栏
+    // 都用它，一整块连贯。深色不变
+    final bg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
     final t = _tutorial!;
     final title = t['title'] as String? ?? '';
     final username = t['username'] as String? ?? '';
@@ -848,7 +853,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final previewComments = _comments.take(2).toList();
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: bg,
       body: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
@@ -861,7 +866,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               pinned: true,
               elevation: 0,
               scrolledUnderElevation: 0,
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              backgroundColor: bg,
               surfaceTintColor: Colors.transparent,
               foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
               titleSpacing: 0,
@@ -1255,7 +1260,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         // 内容拼出一条能看出来的接缝——统一改成跟正文同一个背景色，
         // 靠上面这条细描边分隔，不靠色差
         decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
+          color: bg,
           border: Border(
             top: BorderSide(color: Theme.of(context).dividerColor),
           ),
