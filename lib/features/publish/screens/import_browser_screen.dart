@@ -49,12 +49,12 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
     return Scaffold(
       backgroundColor: isDark
           ? const Color(0xFF0A0A0F)
-          : const Color(0xFFF5F5F5),
+          : const Color(0xFFFAFAF8),
       body: SafeArea(
         child: Column(
           children: [
             Container(
-              color: isDark ? const Color(0xFF111118) : const Color(0xFFF5F5F5),
+              color: isDark ? const Color(0xFF111118) : const Color(0xFFFAFAF8),
               padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
               child: Column(
                 children: [
@@ -194,7 +194,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
               child: Container(
                 color: isDark
                     ? const Color(0xFF0A0A0F)
-                    : const Color(0xFFF5F5F5),
+                    : const Color(0xFFFAFAF8),
                 child: InAppWebView(
                   initialUrlRequest: URLRequest(url: WebUri('about:blank')),
                   initialSettings: InAppWebViewSettings(
