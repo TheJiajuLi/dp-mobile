@@ -330,7 +330,14 @@ Widget buildTutorialBlockWidget(
 // 套了 applyBlockTextFormat（加粗/颜色/高亮等），公式片段字号跟着缩小
 // 一档，视觉上不会比正文字还抢眼
 Widget inlineLatexText(String content, TextStyle baseStyle) {
-  final pattern = RegExp(r'\$([^$]+)\$');
+  // 支持三种行内定界符：$...$、\(...\)、\[...\]。$...$ 里不跨行（避免把
+  // 两段正文之间的 $ 误配成一大段公式），\(...\)/\[...\] 用非贪婪可跨行
+  final pattern = RegExp(
+    r'\$([^$\n]+)\$' // $...$
+    r'|\\\((.+?)\\\)' // \(...\)
+    r'|\\\[(.+?)\\\]', // \[...\]
+    dotAll: true,
+  );
   final matches = pattern.allMatches(content).toList();
   if (matches.isEmpty) return Text(content, style: baseStyle);
 
@@ -341,14 +348,15 @@ Widget inlineLatexText(String content, TextStyle baseStyle) {
     if (m.start > last) {
       spans.add(TextSpan(text: content.substring(last, m.start)));
     }
+    final latex = m.group(1) ?? m.group(2) ?? m.group(3) ?? '';
     spans.add(
       WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: Math.tex(
-          m.group(1)!,
+          latex,
           textStyle: TextStyle(fontSize: mathFontSize, color: baseStyle.color),
           onErrorFallback: (_) => Text(
-            m.group(1)!,
+            latex,
             style: TextStyle(
               fontSize: mathFontSize * 0.9,
               fontFamily: 'monospace',
