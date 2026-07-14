@@ -952,7 +952,7 @@ finally:
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1),
+                            color: _primary,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
