@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../auth/auth_service.dart';
@@ -50,6 +51,17 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
   bool _searching = false;
   final _searchCtrl = TextEditingController();
   String _query = '';
+
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _bg => _isDark ? AppColors.darkBg : const Color(0xFFFAFAF8);
+  Color get _card => _isDark ? AppColors.darkCard : Colors.white;
+  Color get _ink =>
+      _isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1A1A);
+  Color get _muted =>
+      _isDark ? AppColors.darkTextSecondary : const Color(0xFF999999);
+  Color get _border => _isDark ? AppColors.darkBorder : const Color(0xFFF0F0F0);
+  Color get _fill =>
+      _isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF5F5F7);
 
   @override
   void initState() {
@@ -188,7 +200,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAF8),
+      backgroundColor: _bg,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -199,12 +211,12 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
               child: _statsRow(),
             ),
             Container(
-              color: const Color(0xFFFAFAF8),
+              color: _bg,
               child: TabBar(
                 controller: _tabCtrl,
                 isScrollable: true,
                 labelColor: _primary,
-                unselectedLabelColor: const Color(0xFF999999),
+                unselectedLabelColor: _muted,
                 indicatorColor: _primary,
                 tabs: _WorkTab.values
                     .map((t) => Tab(text: '${t.label} ${_countFor(t)}'))
@@ -234,25 +246,21 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
   Widget _header() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      color: const Color(0xFFFAFAF8),
+      color: _bg,
       child: Row(
         children: [
           GestureDetector(
             onTap: () => context.pop(),
-            child: const Icon(
-              Icons.arrow_back,
-              size: 20,
-              color: Color(0xFF1A1A1A),
-            ),
+            child: Icon(Icons.arrow_back, size: 20, color: _ink),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
               '作品管理',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
+                color: _ink,
               ),
             ),
           ),
@@ -267,7 +275,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
             child: Icon(
               _searching ? Icons.close : Icons.search,
               size: 20,
-              color: const Color(0xFF555555),
+              color: _isDark ? Colors.white70 : const Color(0xFF555555),
             ),
           ),
           const SizedBox(width: 14),
@@ -278,13 +286,10 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F7),
+                color: _fill,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                '批量',
-                style: TextStyle(fontSize: 12, color: Color(0xFF1A1A1A)),
-              ),
+              child: Text('批量', style: TextStyle(fontSize: 12, color: _ink)),
             ),
           ),
         ],
@@ -304,9 +309,9 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _card,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+            border: Border.all(color: _border, width: 0.5),
           ),
           child: Column(
             children: [
@@ -322,20 +327,14 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
               const SizedBox(height: 8),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A),
+                  color: _ink,
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: Color(0xFF999999),
-                ),
-              ),
+              Text(label, style: TextStyle(fontSize: 10.5, color: _muted)),
             ],
           ),
         ),
@@ -395,7 +394,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
                   _WorkTab.draft => '草稿箱是空的',
                   _WorkTab.archived => '没有已下架的内容',
                 },
-          style: const TextStyle(fontSize: 13, color: Color(0xFF999999)),
+          style: TextStyle(fontSize: 13, color: _muted),
         ),
       );
     }
@@ -407,11 +406,12 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
             controller: _searchCtrl,
             autofocus: true,
             onChanged: (v) => setState(() => _query = v),
+            style: TextStyle(color: _ink),
             decoration: InputDecoration(
               hintText: '搜索作品标题',
               prefixIcon: const Icon(Icons.search, size: 18),
               filled: true,
-              fillColor: const Color(0xFFF5F5F7),
+              fillColor: _fill,
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -453,9 +453,9 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF0F0F0), width: 0.5),
+        border: Border.all(color: _border, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,10 +486,10 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
                               t.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1A1A1A),
+                                color: _ink,
                               ),
                             ),
                           ),
@@ -519,9 +519,11 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
                           const SizedBox(width: 8),
                           Text(
                             timeLabel,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11.5,
-                              color: Color(0xFFC7C7CC),
+                              color: _isDark
+                                  ? AppColors.darkTextMuted
+                                  : const Color(0xFFC7C7CC),
                             ),
                           ),
                         ],
@@ -529,32 +531,22 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.visibility_outlined,
                             size: 13,
-                            color: Color(0xFF999999),
+                            color: _muted,
                           ),
                           const SizedBox(width: 3),
                           Text(
                             '${t.views}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF999999),
-                            ),
+                            style: TextStyle(fontSize: 12, color: _muted),
                           ),
                           const SizedBox(width: 10),
-                          const Icon(
-                            Icons.favorite_border,
-                            size: 13,
-                            color: Color(0xFF999999),
-                          ),
+                          Icon(Icons.favorite_border, size: 13, color: _muted),
                           const SizedBox(width: 3),
                           Text(
                             '${t.likes}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF999999),
-                            ),
+                            style: TextStyle(fontSize: 12, color: _muted),
                           ),
                         ],
                       ),
@@ -565,10 +557,8 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
             ),
           ),
           Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Color(0xFFF0F0F0), width: 0.5),
-              ),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: _border, width: 0.5)),
             ),
             child: Row(children: _actionsFor(tab, t)),
           ),
@@ -607,10 +597,10 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
       case _WorkTab.all:
       case _WorkTab.published:
         return [
-          _actionBtn('编辑', Icons.edit_outlined, _ink, () {
+          _actionBtn('编辑', Icons.edit_outlined, _actionInk, () {
             context.push('/publish/${t.id}');
           }),
-          _actionBtn('数据', Icons.bar_chart_outlined, _ink, () {
+          _actionBtn('数据', Icons.bar_chart_outlined, _actionInk, () {
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(const SnackBar(content: Text('数据详情即将上线，敬请期待')));
@@ -625,7 +615,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         ];
       case _WorkTab.draft:
         return [
-          _actionBtn('编辑', Icons.edit_outlined, _ink, () {
+          _actionBtn('编辑', Icons.edit_outlined, _actionInk, () {
             context.push('/publish/${t.id}');
           }),
           _actionBtn('删除', Icons.delete_outline, Colors.red, () {
@@ -666,7 +656,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     }
   }
 
-  static const _ink = Color(0xFF555555);
+  Color get _actionInk => _isDark ? Colors.white70 : const Color(0xFF555555);
 
   Widget _actionBtn(
     String label,
