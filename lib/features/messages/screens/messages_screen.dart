@@ -893,9 +893,15 @@ class _SectionHeader extends StatelessWidget {
           const Spacer(),
           GestureDetector(
             onTap: onAction,
+            // 之前用品牌紫，用户反馈想要跟标题一个色——不再写死颜色，
+            // 直接继承 Theme 默认文字色（浅色黑/深色白），跟标题的
+            // Text 同一个不设 color 的写法
             child: Text(
               '$actionLabel >',
-              style: const TextStyle(fontSize: 12, color: _primary),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
             ),
           ),
         ],
