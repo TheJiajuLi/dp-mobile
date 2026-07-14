@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
@@ -48,7 +49,91 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // 不调接口，刷新/重进页面就会恢复显示
   final Set<String> _hiddenIds = {};
 
+  // 「关注」tab 的信息流——后端没有"只看关注的人"的聚合接口，客户端自己拼：
+  // 先拉我关注的作者列表（GET /auth/users/:id/following），再逐个拉他们的
+  // 已发布作品（GET /auth/tutorials?author=id），合并去重按时间新到旧排。
+  // 懒加载：第一次切到「关注」才拉
+  List<TutorialModel> _followingFeed = [];
+  bool _followingLoading = false;
+  bool _followingLoaded = false;
+  String? _followingError;
+
   Timer? _refreshTimer;
+
+  Future<void> _loadFollowingFeed() async {
+    final myId = ref.read(currentUserProvider)?.id;
+    if (myId == null || myId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _followingFeed = [];
+        _followingLoading = false;
+        _followingLoaded = true;
+      });
+      return;
+    }
+    setState(() {
+      _followingLoading = true;
+      _followingError = null;
+    });
+    final api = ref.read(apiClientProvider);
+    try {
+      final followRes = await api.get('/auth/users/$myId/following');
+      final following = (followRes.success && followRes.data != null)
+          ? ((followRes.data['following'] as List?) ?? const [])
+          : const [];
+      final authorIds = following
+          .map((u) => (u as Map)['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          // 关注很多人时限制并发请求数，取前 40 个作者（够填满信息流了）
+          .take(40)
+          .toList();
+      if (authorIds.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _followingFeed = [];
+          _followingLoading = false;
+          _followingLoaded = true;
+        });
+        return;
+      }
+      final results = await Future.wait(
+        authorIds.map(
+          (id) => api.get(
+            '/auth/tutorials',
+            queryParameters: {
+              'author': id,
+              'status': 'published',
+              'limit': '10',
+            },
+          ),
+        ),
+      );
+      final seen = <String>{};
+      final all = <TutorialModel>[];
+      for (final res in results) {
+        if (!res.success || res.data == null) continue;
+        final list = ((res.data as Map)['tutorials'] as List?) ?? const [];
+        for (final j in list) {
+          final t = TutorialModel.fromJson(Map<String, dynamic>.from(j as Map));
+          if (seen.add(t.id)) all.add(t);
+        }
+      }
+      all.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      if (!mounted) return;
+      setState(() {
+        _followingFeed = all;
+        _followingLoading = false;
+        _followingLoaded = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _followingError = '$e';
+        _followingLoading = false;
+        _followingLoaded = true;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -109,12 +194,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       };
 
   void _selectMainTab(_MainTab tab) {
-    if (tab == _MainTab.follow) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('关注功能即将上线')));
-    }
     setState(() => _mainTab = tab);
+    // 第一次切到「关注」才拉数据，不一进首页就发一堆请求
+    if (tab == _MainTab.follow && !_followingLoaded && !_followingLoading) {
+      _loadFollowingFeed();
+    }
   }
 
   @override
@@ -126,7 +210,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final feed = SafeArea(
       child: RefreshIndicator(
         color: _primary,
-        onRefresh: () => ref.read(homeFeedProvider.notifier).refresh(),
+        onRefresh: () => _mainTab == _MainTab.follow
+            ? _loadFollowingFeed()
+            : ref.read(homeFeedProvider.notifier).refresh(),
         child: CustomScrollView(
           controller: _scrollCtrl,
           physics: const AlwaysScrollableScrollPhysics(),
@@ -333,23 +419,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isDarkMode,
   ) {
     if (_mainTab == _MainTab.follow) {
-      return [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 60),
-            child: Center(
-              child: Text(
-                '关注功能即将上线',
-                style: TextStyle(
-                  color: isDarkMode
-                      ? Theme.of(context).textTheme.bodySmall?.color
-                      : const Color(0xFF999999),
+      final mutedColor = isDarkMode
+          ? Theme.of(context).textTheme.bodySmall?.color
+          : const Color(0xFF999999);
+      if (_followingLoading && _followingFeed.isEmpty) {
+        return [
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: EdgeInsets.only(top: 120),
+              child: Center(child: CircularProgressIndicator(color: _primary)),
+            ),
+          ),
+        ];
+      }
+      if (_followingError != null && _followingFeed.isEmpty) {
+        return [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 80),
+              child: Center(
+                child: Text(
+                  l10n.loadFailedWithReason('$_followingError'),
+                  style: const TextStyle(color: AppColors.danger, fontSize: 13),
                 ),
               ),
             ),
           ),
+        ];
+      }
+      final followItems = _followingFeed
+          .where((t) => !_hiddenIds.contains(t.id))
+          .toList();
+      if (followItems.isEmpty) {
+        return [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 100, left: 40, right: 40),
+              child: Center(
+                child: Text(
+                  '关注的作者还没有新作品\n关注更多创作者，这里就会有他们的动态',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: mutedColor, height: 1.6),
+                ),
+              ),
+            ),
+          ),
+        ];
+      }
+      return [
+        SliverList(
+          delegate: SliverChildBuilderDelegate((context, i) {
+            return ArticleFlowItem(
+              tutorial: followItems[i],
+              onTap: () => _openTutorial(context, followItems[i]),
+              onHide: () => setState(() => _hiddenIds.add(followItems[i].id)),
+            );
+          }, childCount: followItems.length),
         ),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
       ];
     }
 
