@@ -1086,224 +1086,246 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final otherName =
         widget.conversation?.otherUsername ?? l10n.defaultUserName;
 
+    // 顶栏/消息区/输入栏全部统一到同一个米白背景——之前顶栏和输入栏用
+    // cardColor（纯白），中间消息区用 scaffoldBackgroundColor（冷灰），
+    // 三段拼出两条能看出来的接缝。深色模式保持原 scaffold 背景色
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
+    // 输入胶囊在米白栏上要浮出来，浅色下用纯白 + 细描边，不再跟背景糊在一起
+    final capsuleFill = isDark
+        ? Theme.of(context).inputDecorationTheme.fillColor
+        : Colors.white;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      // top/bottom 不在这层留白——顶栏和输入栏各自用 SafeArea 把自己的白色
+      backgroundColor: bg,
+      // top/bottom 不在这层留白——顶栏和输入栏各自用 SafeArea 把自己的
       // 背景铺进状态栏/home indicator 那圈安全区，不然这里统一留白会露出
-      // Scaffold 背景色，跟顶栏/输入栏的纯白刀切不连贯（跟 publish_screen.dart
+      // Scaffold 背景色，跟顶栏/输入栏刀切不连贯（跟 publish_screen.dart
       // 顶栏/底部工具栏是同一套处理）
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: Column(
-          children: [
-            // 顶部栏
-            Container(
-              color: Theme.of(context).cardColor,
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios, size: 18),
-                        onPressed: () => context.pop(),
-                      ),
-                      _buildAvatar(
-                        widget.conversation?.otherAvatar,
-                        otherName,
-                        _primary,
-                        radius: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              otherName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            // 只有 online/recently 才显示状态行；offline/未知不显示
-                            if (_statusLabel(_otherUserStatus).isNotEmpty)
-                              Text(
-                                _statusLabel(_otherUserStatus),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _statusColor(_otherUserStatus),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _showChatMenu,
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(Icons.more_horiz, size: 22),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // 消息列表——陌生人提示条不放在输入框上方（那样固定占一条横栏，
-            // 每次进来都要看一眼），改成跟网易云一样，当成"第一条消息"的
-            // 占位插在消息列表顶部，滚动上去才看得到，更不打扰。日期分隔条
-            // 混在消息中间，先按天分组拼成一份 timeline 再渲染，不是每个
-            // item 各自临时判断——分组结果每条消息只用算一次
-            Expanded(
-              // 点消息列表空白处收起键盘
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => FocusScope.of(context).unfocus(),
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : Builder(
-                        builder: (ctx) {
-                          final timeline = _buildTimeline();
-                          final hintOffset = _hasStrangerHint ? 1 : 0;
-                          return ListView.builder(
-                            controller: _scrollCtrl,
-                            padding: const EdgeInsets.all(12),
-                            itemCount: timeline.length + hintOffset,
-                            itemBuilder: (ctx, i) {
-                              if (_hasStrangerHint && i == 0) {
-                                return _buildStrangerHint();
-                              }
-                              final item = timeline[i - hintOffset];
-                              return switch (item) {
-                                _DateSeparator(:final day) =>
-                                  _buildDateSeparator(day),
-                                _MessageItem(:final message) => _buildBubble(
-                                  message,
-                                  currentUserId,
-                                ),
-                              };
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ),
-
-            // 图片发送中提示——上传/发消息接口都要走一次网络请求，
-            // attach 菜单已经关掉了，不给点反馈会看起来跟点了没反应一样
-            if (_sendingImage)
+      // 整块 body 包一层点击收键盘——顶栏/消息区/空白处点哪都能收，
+      // 内部各按钮/输入框的手势 translucent 不拦
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          child: Column(
+            children: [
+              // 顶部栏
               Container(
-                width: double.infinity,
-                color: Theme.of(context).cardColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: _primary,
-                      ),
+                color: bg,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 10,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      l10n.sendingImage,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).textTheme.bodySmall?.color,
-                      ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios, size: 18),
+                          onPressed: () => context.pop(),
+                        ),
+                        _buildAvatar(
+                          widget.conversation?.otherAvatar,
+                          otherName,
+                          _primary,
+                          radius: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                otherName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              // 只有 online/recently 才显示状态行；offline/未知不显示
+                              if (_statusLabel(_otherUserStatus).isNotEmpty)
+                                Text(
+                                  _statusLabel(_otherUserStatus),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _statusColor(_otherUserStatus),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _showChatMenu,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.more_horiz, size: 22),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
 
-            // 输入栏
-            Container(
-              color: Theme.of(context).cardColor,
-              child: SafeArea(
-                top: false,
-                child: Padding(
+              // 消息列表——陌生人提示条不放在输入框上方（那样固定占一条横栏，
+              // 每次进来都要看一眼），改成跟网易云一样，当成"第一条消息"的
+              // 占位插在消息列表顶部，滚动上去才看得到，更不打扰。日期分隔条
+              // 混在消息中间，先按天分组拼成一份 timeline 再渲染，不是每个
+              // item 各自临时判断——分组结果每条消息只用算一次
+              Expanded(
+                // 点消息列表空白处收起键盘
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => FocusScope.of(context).unfocus(),
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : Builder(
+                          builder: (ctx) {
+                            final timeline = _buildTimeline();
+                            final hintOffset = _hasStrangerHint ? 1 : 0;
+                            return ListView.builder(
+                              controller: _scrollCtrl,
+                              padding: const EdgeInsets.all(12),
+                              itemCount: timeline.length + hintOffset,
+                              itemBuilder: (ctx, i) {
+                                if (_hasStrangerHint && i == 0) {
+                                  return _buildStrangerHint();
+                                }
+                                final item = timeline[i - hintOffset];
+                                return switch (item) {
+                                  _DateSeparator(:final day) =>
+                                    _buildDateSeparator(day),
+                                  _MessageItem(:final message) => _buildBubble(
+                                    message,
+                                    currentUserId,
+                                  ),
+                                };
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ),
+
+              // 图片发送中提示——上传/发消息接口都要走一次网络请求，
+              // attach 菜单已经关掉了，不给点反馈会看起来跟点了没反应一样
+              if (_sendingImage)
+                Container(
+                  width: double.infinity,
+                  color: bg,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
+                    horizontal: 14,
+                    vertical: 6,
                   ),
                   child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: _showAttachMenu,
-                        child: const Icon(
-                          Icons.add_circle_outline,
-                          size: 26,
-                          color: Colors.grey,
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _primary,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).inputDecorationTheme.fillColor,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: TextField(
-                            controller: _ctrl,
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              hintText: l10n.messageInputHint,
-                              hintStyle: const TextStyle(color: Colors.grey),
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            onSubmitted: (_) => _send(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          debugPrint('[Chat] 发送按钮点击');
-                          _send();
-                        },
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: const BoxDecoration(
-                            color: _primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.send,
-                            color: Colors.white,
-                            size: 18,
-                          ),
+                      Text(
+                        l10n.sendingImage,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
                         ),
                       ),
                     ],
                   ),
                 ),
+
+              // 输入栏
+              Container(
+                color: bg,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: _showAttachMenu,
+                          child: const Icon(
+                            Icons.add_circle_outline,
+                            size: 26,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: capsuleFill,
+                              borderRadius: BorderRadius.circular(20),
+                              border: isDark
+                                  ? null
+                                  : Border.all(
+                                      color: const Color(0xFFEAEAEA),
+                                      width: 0.8,
+                                    ),
+                            ),
+                            child: TextField(
+                              controller: _ctrl,
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                hintText: l10n.messageInputHint,
+                                hintStyle: const TextStyle(color: Colors.grey),
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onSubmitted: (_) => _send(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            debugPrint('[Chat] 发送按钮点击');
+                            _send();
+                          },
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: const BoxDecoration(
+                              color: _primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.send,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
