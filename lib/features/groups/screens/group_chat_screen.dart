@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/formula_error.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
@@ -819,7 +820,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? AppColors.darkBg : const Color(0xFFFAFAF8),
       appBar: _searchMode ? _buildSearchBar(isDark) : _buildAppBar(isDark),
       body: GestureDetector(
         onTap: _focusNode.unfocus,
