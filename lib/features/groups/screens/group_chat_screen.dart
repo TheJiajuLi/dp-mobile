@@ -857,9 +857,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
   PreferredSizeWidget _buildAppBar(bool isDark) {
     return AppBar(
-      // 跟搜索栏 AppBar / 输入栏统一用 cardColor——原来这里写死的 0xFF0A0A1A
-      // 深色下偏蓝黑，跟 scaffold 中性灰的正文和 cardColor 的输入栏不是一套
-      backgroundColor: Theme.of(context).cardColor,
+      // 顶栏跟正文（scaffold 米白 #FAFAF8）连成一块，不再是白色刀切；
+      // 深色仍用 cardColor
+      backgroundColor: isDark
+          ? Theme.of(context).cardColor
+          : const Color(0xFFFAFAF8),
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios, size: 18),
@@ -2100,7 +2102,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     final hasText = _inputCtrl.text.trim().isNotEmpty;
 
     return Container(
-      color: Theme.of(context).cardColor,
+      // 输入栏跟正文（米白 #FAFAF8）连成一块；深色仍用 cardColor
+      color: isDark ? Theme.of(context).cardColor : const Color(0xFFFAFAF8),
       child: SafeArea(
         top: false,
         child: Padding(
