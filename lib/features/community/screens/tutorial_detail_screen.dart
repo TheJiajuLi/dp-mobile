@@ -1188,7 +1188,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Row(
@@ -1364,8 +1363,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        // 浅色下卡片底色跟页面米白 #FAFAF8 一致，只靠边框勾轮廓，更干净
-        color: isDark ? AppColors.darkCard : const Color(0xFFFAFAF8),
+        // 卡片底色跟页面背景完全一致（浅色米白 #FAFAF8 / 深色 darkBg），
+        // 只靠边框勾出轮廓，完全融进背景，更干净
+        color: isDark ? AppColors.darkBg : const Color(0xFFFAFAF8),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : const Color(0xFFE8E8FF),
