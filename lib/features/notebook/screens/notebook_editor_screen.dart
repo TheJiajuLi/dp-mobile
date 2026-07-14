@@ -864,8 +864,12 @@ finally:
     // 偏灰的 #F7F7FB）——两个颜色不一样，顶栏/底栏跟画布之间有一条不易
     // 察觉但确实存在的接缝，暗色下更明显。跟论坛主页那次一样，统一改用
     // scaffoldBackgroundColor，不再另起一个颜色
-    final bg = Theme.of(context).scaffoldBackgroundColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 浅色统一首页米白 #FAFAF8（不再偏冷的 #F7F7FB）；深色不变。顶栏/画布/
+    // 底部工具栏都用这个 bg，保持一整块不出接缝
+    final bg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
     return Scaffold(
       backgroundColor: bg,
       body: Stack(
