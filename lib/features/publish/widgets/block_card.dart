@@ -175,6 +175,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   void dispose() {
     widget.block.focusNode.removeListener(_handleFocusChange);
     _codeCtrl.dispose();
+    _langScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -1106,6 +1107,74 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     ).showSnackBar(const SnackBar(content: Text('已复制代码')));
   }
 
+  final ScrollController _langScrollCtrl = ScrollController();
+  // 只在首次展示时把选中 pill 滚进可视区；否则代码块每次 setState 重建都会
+  // 把用户手动滚走的位置又拽回选中项，很难受
+  bool _langScrolledOnce = false;
+
+  // 代码块顶栏的语言选择：横向可滚的 pill 行。language 不在候选列表里
+  // （导入的代码块常给 text/jsx/ts 等）就按 python 高亮，跟原下拉同一套兜底。
+  Widget _buildLangPills() {
+    final current = _codeLanguages.contains(widget.block.language)
+        ? widget.block.language
+        : 'python';
+    // 首帧把选中的 pill 滚进可视区（选的语言可能排在很后面），只做一次
+    if (!_langScrolledOnce) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_langScrollCtrl.hasClients) return;
+        _langScrolledOnce = true;
+        final idx = _codeLanguages.indexOf(current ?? 'python');
+        if (idx <= 0) return;
+        final target = (idx * 62.0).clamp(
+          0.0,
+          _langScrollCtrl.position.maxScrollExtent,
+        );
+        _langScrollCtrl.jumpTo(target);
+      });
+    }
+    return SizedBox(
+      height: 26,
+      child: ListView.separated(
+        controller: _langScrollCtrl,
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        itemCount: _codeLanguages.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (ctx, i) {
+          final lang = _codeLanguages[i];
+          final selected = lang == current;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: selected
+                ? null
+                : () => setState(() {
+                    widget.block.language = lang;
+                    _codeCtrl.language = lang;
+                  }),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 11),
+              decoration: BoxDecoration(
+                color: selected
+                    ? _primary
+                    : Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Text(
+                _capLang(lang),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected ? Colors.white : const Color(0xFFB0B0B8),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   // 外面套一层 ClipRRect 统一裁出四角圆角——header/body/output 内部各自
   // 保持矩形不用再各管一次"只圆某几个角"，没有输出内容时底部也不会再
   // 露出一条直角硬边（之前那条 0.5px 分隔线本身是矩形，紧贴在只做了
@@ -1131,48 +1200,10 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                DropdownButton<String>(
-                  // language 不在候选列表里（导入的代码块常给 text/jsx/ts 等）
-                  // 就降级到 python，不然 DropdownButton value 匹配不到 item
-                  // 会 assert 崩溃
-                  value: _codeLanguages.contains(widget.block.language)
-                      ? widget.block.language
-                      : 'python',
-                  dropdownColor: const Color(0xFF1A1A1A),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFFE5E7EB),
-                  ),
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 16,
-                    color: Color(0xFF888888),
-                  ),
-                  underline: const SizedBox(),
-                  isDense: true,
-                  items: _codeLanguages
-                      .map(
-                        (l) => DropdownMenuItem(
-                          value: l,
-                          child: Text(
-                            _capLang(l),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFFE5E7EB),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (v == null) return;
-                    setState(() {
-                      widget.block.language = v;
-                      _codeCtrl.language = v;
-                    });
-                  },
-                ),
-                const Spacer(),
+                // 语言选择：在胶囊里横向滚动的 pill 行，替代原来点一下就弹出
+                // 整屏黑色菜单的 DropdownButton。选中态紫底白字，点即切换
+                Expanded(child: _buildLangPills()),
+                const SizedBox(width: 8),
                 // 运行按钮——深色底 + 细描边 + 空心播放，不再是亮紫实心胶囊
                 PressableScale(
                   onTap: _running ? null : _runCode,
