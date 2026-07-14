@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/profile_refresh_signal.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../column/models/column_model.dart';
+import '../../profile/widgets/create_column_sheet.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -84,58 +84,19 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     });
   }
 
-  Future<void> _createColumn() async {
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    await showDialog(
+  void _createColumn() {
+    // 复用「我的」页那套现代化的新建专栏底部弹层（封面/颜色/领域选择 +
+    // 黑色主按钮），跟产品视觉语言统一，不再用系统 AlertDialog。弹层内部
+    // 自己 POST /auth/columns 并广播刷新信号，这里创建成功后重拉本页列表
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('新建专栏'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: '专栏名称'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: descCtrl,
-              maxLines: 2,
-              decoration: const InputDecoration(hintText: '简介（可选）'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () async {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              final res = await ref
-                  .read(apiClientProvider)
-                  .post(
-                    '/auth/columns',
-                    data: {'name': name, 'description': descCtrl.text.trim()},
-                  );
-              if (!ctx.mounted) return;
-              Navigator.pop(ctx);
-              if (res.success) {
-                notifyProfileShouldRefresh(ref);
-                _load();
-              } else if (mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('创建失败：${res.message}')));
-              }
-            },
-            child: const Text('创建', style: TextStyle(color: _primary)),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CreateColumnSheet(
+        profileId: null,
+        onCreated: (_) async {
+          if (mounted) _load();
+        },
       ),
     );
   }
