@@ -153,10 +153,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(notificationsProvider.notifier).fetch();
     });
+
+    // 预加载「关注」feed：延迟 1s 让首页 all feed 先渲染完，再后台静默预热。
+    // 关注 feed 要 fan-out 拉几十个作者、约 1s，等用户点到「关注」tab 才拉
+    // 就会卡那一下——提前拉好，切过去就是缓存、瞬开
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted && !_followingLoaded && !_followingLoading) {
+        _loadFollowingFeed();
+      }
+    });
   }
 
   void _refreshAll() {
     ref.read(homeFeedProvider.notifier).refresh();
+    // 关注 feed 也跟着刷新（30分钟定时 / 从后台恢复时）——之前只刷 all feed，
+    // 关注 tab 会一直停在首次加载的旧内容。已有缓存时 _loadFollowingFeed 不清
+    // 空列表，静默替换、不闪 loading（loading 态只在列表空时才显示）
+    if (_followingLoaded && !_followingLoading) {
+      _loadFollowingFeed();
+    }
   }
 
   @override
