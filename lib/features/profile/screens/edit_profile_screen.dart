@@ -658,20 +658,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 一线产品的编辑页有"呼吸感"：整页用比卡片更暗一点的米灰底 #F7F8FC，
+    // 白色分区卡片浮在上面，靠 Z 轴层级+留白区分主次，不再是所有元素都
+    // 铺在同一张白纸上
+    final pageBg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFF7F8FC);
     return Scaffold(
-      // 整页背景直接用 cardColor（纯白/深色卡片色），跟顶部条和内容区一致——
-      // 之前用 scaffoldBackgroundColor（偏灰），上下拉过头 overscroll 时会露出
-      // 一截灰色，跟白色内容割裂
-      backgroundColor: Theme.of(context).cardColor,
-      // 顶部条不套 SafeArea，改成手动加状态栏高度的 padding——SafeArea
-      // 会把整个 Column 往下推。现在背景统一成 cardColor，顶部/底部 overscroll
-      // 都是同一个颜色，不会再出现灰边
+      backgroundColor: pageBg,
       body: !_loaded
           ? const Center(child: CircularProgressIndicator(color: _primary))
           : Column(
               children: [
                 Container(
-                  color: Theme.of(context).cardColor,
+                  color: pageBg,
                   padding: EdgeInsets.fromLTRB(
                     16,
                     MediaQuery.of(context).padding.top + 14,
@@ -730,58 +731,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     behavior: HitTestBehavior.opaque,
                     onTap: () => FocusScope.of(context).unfocus(),
                     child: SingleChildScrollView(
-                      child: Container(
-                        color: Theme.of(context).cardColor,
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 20),
-                            GestureDetector(
-                              onTap: _showAvatarOptions,
-                              child: Stack(
-                                children: [
-                                  _buildAvatarPreview(),
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 0,
-                                    child: Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.45,
-                                        ),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Theme.of(context).cardColor,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt,
-                                        color: Colors.white,
-                                        size: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              l10n.tapToChangeAvatar,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Divider(
-                              height: 1,
-                              thickness: 0.5,
-                              color: Theme.of(context).dividerColor,
-                            ),
-
-                            // 基本信息
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildHero(l10n, pageBg, isDark),
+                          _sectionCard('基础信息', [
                             _textFieldRow(
                               l10n.nicknameLabel,
                               _usernameCtrl,
@@ -793,61 +747,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                               l10n.usernameAtHint,
                             ),
                             _bioRow(),
-                            Divider(
-                              height: 1,
-                              thickness: 0.5,
-                              color: Theme.of(context).dividerColor,
-                            ),
-
-                            // 个人信息
-                            _formRow(
-                              label: l10n.genderLabel,
-                              showChevron: false,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: ['男', '女', '保密'].map((g) {
-                                  final selected = _selectedGender == g;
-                                  return GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _selectedGender = g),
-                                    child: Container(
-                                      margin: const EdgeInsets.only(left: 8),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: selected
-                                            ? const Color(0xFFEEF0FF)
-                                            : Theme.of(
-                                                context,
-                                              ).inputDecorationTheme.fillColor,
-                                        borderRadius: BorderRadius.circular(99),
-                                        border: Border.all(
-                                          color: selected
-                                              ? _primary
-                                              : Colors.transparent,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        genderDisplayLabel(l10n, g),
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: selected
-                                              ? _primary
-                                              : Theme.of(
-                                                  context,
-                                                ).textTheme.bodySmall?.color,
-                                          fontWeight: selected
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
+                          ]),
+                          _sectionCard('个人资料', [
+                            _genderRow(l10n),
+                            _birthdayRow(l10n),
                             _textFieldRow(
                               l10n.locationLabel,
                               _locationCtrl,
@@ -858,179 +761,309 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                               _occupationCtrl,
                               l10n.occupationHint,
                             ),
-                            _formRow(
-                              label: l10n.birthdayLabel,
-                              onTap: _showBirthdayPicker,
-                              child: _birthday == null
-                                  ? Text(
-                                      l10n.selectBirthdayPlaceholder,
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        color: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.color,
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          DateFormat.yMMMMd(
-                                            Localizations.localeOf(
-                                              context,
-                                            ).toString(),
-                                          ).format(_birthday!),
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            color: Theme.of(
-                                              context,
-                                            ).textTheme.bodyLarge?.color,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        ZodiacIcon(
-                                          sign: _zodiacSign!,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          zodiacDisplayName(l10n, _zodiacSign!),
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: _primary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                            _formRow(
-                              label: '兴趣标签',
-                              onTap: _showInterestTagsSheet,
-                              child: _tags.isEmpty
-                                  ? Text(
-                                      '未设置',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        color: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.color,
-                                      ),
-                                    )
-                                  : Wrap(
-                                      alignment: WrapAlignment.end,
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: _tags
-                                          .map(
-                                            (t) => InterestTag(
-                                              label: t,
-                                              glass: false,
-                                            ),
-                                          )
-                                          .toList(),
-                                    ),
-                            ),
-                            Divider(
-                              height: 1,
-                              thickness: 0.5,
-                              color: Theme.of(context).dividerColor,
-                            ),
-
-                            // 个人链接
+                          ]),
+                          _sectionCard('兴趣标签', [_tagsRow(l10n)]),
+                          _sectionCard('社交链接', [
                             ..._linkCtrls.asMap().entries.map(
                               (e) => _linkRow(e.key, e.value),
                             ),
-                            if (_linkCtrls.length < 3)
-                              GestureDetector(
-                                onTap: _addLink,
-                                child: Container(
-                                  height: 52,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 28,
-                                        height: 28,
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(
-                                            context,
-                                          ).inputDecorationTheme.fillColor,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.add,
-                                          color: _primary,
-                                          size: 16,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        l10n.addLink,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: _primary,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            Divider(
-                              height: 1,
-                              thickness: 0.5,
-                              color: Theme.of(context).dividerColor,
-                            ),
-
-                            if (_error != null)
-                              Container(
-                                margin: const EdgeInsets.all(16),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFEF2F2),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFFECACA),
-                                  ),
-                                ),
-                                child: Text(
-                                  _error!,
-                                  style: const TextStyle(
-                                    color: Color(0xFFDC2626),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-
-                            const SizedBox(height: 24),
-                            GestureDetector(
-                              onTap: () => context.push('/settings/security'),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                child: Text(
-                                  l10n.deleteAccount,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFFDC2626),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                          ],
-                        ),
+                            if (_linkCtrls.length < 3) _addLinkRow(l10n),
+                          ]),
+                          if (_error != null) _errorBox(),
+                          const SizedBox(height: 20),
+                          _deleteAccountBtn(l10n),
+                          const SizedBox(height: 32),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ],
             ),
+    );
+  }
+
+  // 头像 Hero：一层极淡的紫→蓝渐变衬底把头像"托"起来，跟下面白色分区
+  // 卡片拉开层级
+  Widget _buildHero(AppLocalizations l10n, Color pageBg, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
+      decoration: BoxDecoration(
+        gradient: isDark
+            ? null
+            : LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _primary.withValues(alpha: 0.06),
+                  const Color(0xFF60A5FA).withValues(alpha: 0.03),
+                  pageBg,
+                ],
+              ),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: _showAvatarOptions,
+            child: Stack(
+              children: [
+                _buildAvatarPreview(),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).cardColor,
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            l10n.tapToChangeAvatar,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 分区卡片：灰色小标题 + 一张浮起的白色圆角卡片（行间细分割线），靠
+  // Z 轴层级和留白把一堆字段分成"基础信息/个人资料/兴趣标签/社交链接"
+  // 几组，不再全部铺在同一张白纸上
+  Widget _sectionCard(String title, List<Widget> rows) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final children = <Widget>[];
+    for (var i = 0; i < rows.length; i++) {
+      if (i > 0) {
+        children.add(
+          Divider(
+            height: 0.5,
+            thickness: 0.5,
+            indent: 16,
+            endIndent: 16,
+            color: Theme.of(context).dividerColor,
+          ),
+        );
+      }
+      children.add(rows[i]);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 10),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+              color: isDark ? Colors.white38 : const Color(0xFF9AA0AB),
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Theme.of(context).dividerColor,
+              width: 0.5,
+            ),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.045),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Column(children: children),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _genderRow(AppLocalizations l10n) {
+    return _formRow(
+      label: l10n.genderLabel,
+      showChevron: false,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: ['男', '女', '保密'].map((g) {
+          final selected = _selectedGender == g;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedGender = g),
+            child: Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFFEEF0FF)
+                    : Theme.of(context).inputDecorationTheme.fillColor,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(
+                  color: selected ? _primary : Colors.transparent,
+                ),
+              ),
+              child: Text(
+                genderDisplayLabel(l10n, g),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: selected
+                      ? _primary
+                      : Theme.of(context).textTheme.bodySmall?.color,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _birthdayRow(AppLocalizations l10n) {
+    return _formRow(
+      label: l10n.birthdayLabel,
+      onTap: _showBirthdayPicker,
+      child: _birthday == null
+          ? Text(
+              l10n.selectBirthdayPlaceholder,
+              style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  DateFormat.yMMMMd(
+                    Localizations.localeOf(context).toString(),
+                  ).format(_birthday!),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                ZodiacIcon(sign: _zodiacSign!, size: 18),
+                const SizedBox(width: 4),
+                Text(
+                  zodiacDisplayName(l10n, _zodiacSign!),
+                  style: const TextStyle(fontSize: 13, color: _primary),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _tagsRow(AppLocalizations l10n) {
+    return _formRow(
+      label: '兴趣标签',
+      onTap: _showInterestTagsSheet,
+      child: _tags.isEmpty
+          ? Text(
+              '未设置',
+              style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).textTheme.bodySmall?.color,
+              ),
+            )
+          : Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 6,
+              runSpacing: 6,
+              children: _tags
+                  .map((t) => InterestTag(label: t, glass: false))
+                  .toList(),
+            ),
+    );
+  }
+
+  Widget _addLinkRow(AppLocalizations l10n) {
+    return GestureDetector(
+      onTap: _addLink,
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Theme.of(context).inputDecorationTheme.fillColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.add, color: _primary, size: 16),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              l10n.addLink,
+              style: const TextStyle(
+                fontSize: 14,
+                color: _primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _errorBox() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Text(
+        _error!,
+        style: const TextStyle(color: Color(0xFFDC2626), fontSize: 14),
+      ),
+    );
+  }
+
+  Widget _deleteAccountBtn(AppLocalizations l10n) {
+    return GestureDetector(
+      onTap: () => context.push('/settings/security'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: Text(
+            l10n.deleteAccount,
+            style: const TextStyle(fontSize: 14, color: Color(0xFFDC2626)),
+          ),
+        ),
+      ),
     );
   }
 
