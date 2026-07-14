@@ -940,6 +940,9 @@ finally:
                             },
                           ),
                         ),
+                        // 标题(Expanded)和按钮组之间留一段间距——否则标题末字会
+                        // 紧贴「全部运行」胶囊、被圆角盖住，看着像被遮挡
+                        const SizedBox(width: 10),
                         // 运行全部：中性灰底
                         _topBarChip(
                           isDark: isDark,
