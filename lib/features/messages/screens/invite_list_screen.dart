@@ -157,9 +157,9 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
         ),
         title: Row(
           children: [
-            const Text(
-              '邀请回答',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              AppLocalizations.of(context)!.inviteAnswer,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             if (pendingCount > 0) ...[
               const SizedBox(width: 8),
@@ -297,13 +297,13 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
-            '暂无待处理邀请',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          Text(
+            AppLocalizations.of(context)!.noPendingInvites,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 5),
           Text(
-            '当有人邀请你回答问题时\n会在这里显示',
+            AppLocalizations.of(context)!.inviteEmptyDesc,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,

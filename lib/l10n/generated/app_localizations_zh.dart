@@ -1526,6 +1526,77 @@ class AppLocalizationsZh extends AppLocalizations {
   String get navCommunity => '发现';
 
   @override
+  String get tabRecommend => '推荐';
+
+  @override
+  String get tabFollowing => '关注';
+
+  @override
+  String get tabLatest => '最新';
+
+  @override
+  String get navJisuo => '极索';
+
+  @override
+  String get jisuoAskXiaomeng => '问问小梦';
+
+  @override
+  String get jisuoCommunityAsk => '社区提问';
+
+  @override
+  String get chatHistory => '历史对话';
+
+  @override
+  String get clearChatHistory => '清空历史对话';
+
+  @override
+  String get chatHistoryCleared => '历史对话已清空';
+
+  @override
+  String get forum => '论坛';
+
+  @override
+  String get forumEnterHint => '点击进入论坛查看最新内容';
+
+  @override
+  String get forumDiscoverHint => '去搜索发现更多论坛 →';
+
+  @override
+  String get myFollowedForums => '我关注的论坛';
+
+  @override
+  String get unfollowAutoRemove => '取消关注后自动从此处移除';
+
+  @override
+  String get postsUnit => '帖子';
+
+  @override
+  String get membersUnit => '成员';
+
+  @override
+  String get noFollowedForums => '还没有关注任何论坛';
+
+  @override
+  String get discoverForumsHint => '去搜索页发现感兴趣的论坛';
+
+  @override
+  String get goSearch => '去搜索';
+
+  @override
+  String get inviteAnswer => '邀请回答';
+
+  @override
+  String get noPendingInvites => '暂无待处理的邀请';
+
+  @override
+  String get inviteEmptyDesc => '当有人邀请你回答问题时\n会在这里显示';
+
+  @override
+  String invitesWaiting(int count) {
+    return '有 $count 个问题等待你的见解';
+  }
+
+  @override
   String get navProfile => '我的';
 
   @override

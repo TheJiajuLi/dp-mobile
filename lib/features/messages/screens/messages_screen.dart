@@ -360,10 +360,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       icon: Icons.forum,
                       iconColor: const Color(0xFF0891B2),
                       iconBg: const Color(0xFFE0F2FE),
-                      label: '论坛',
+                      label: l10n.forum,
                       subtitle: _hasFollowedForum
-                          ? '点击进入论坛查看最新内容'
-                          : '去搜索发现更多论坛 →',
+                          ? l10n.forumEnterHint
+                          : l10n.forumDiscoverHint,
                       // _hasFollowedForum 只是"关注了至少一个论坛"，不是
                       // "论坛有新内容"——论坛目前没有真实的未读/新帖信号
                       // （不像群组有真实未读消息数），一直高亮成紫色会让

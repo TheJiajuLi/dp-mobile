@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/forum_gradient.dart';
 import '../models/forum_model.dart';
 
@@ -54,6 +55,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // 整页米白底 #FAFAF8，白色分区卡片浮在上面（跟首页/编辑资料一套视觉语言）
     final pageBg = isDark
@@ -74,7 +76,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
                     icon: const Icon(Icons.arrow_back_ios, size: 18),
                   ),
                   Text(
-                    '论坛',
+                    l10n.forum,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -102,7 +104,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(24, 8, 24, 10),
                             child: Text(
-                              '我关注的论坛 · ${_followedForums.length}',
+                              '${l10n.myFollowedForums} · ${_followedForums.length}',
                               style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
@@ -118,7 +120,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
-                              '取消关注后自动从此处移除',
+                              l10n.unfollowAutoRemove,
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: isDark
@@ -178,6 +180,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
   }
 
   Widget _forumRow(ForumModel forum, bool isDark) {
+    final l10n = AppLocalizations.of(context)!;
     final muted = isDark
         ? Colors.white.withValues(alpha: 0.45)
         : const Color(0xFF9AA0AB);
@@ -243,13 +246,13 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
                     children: [
                       _stat(
                         Icons.article_outlined,
-                        '${forum.postCount} 帖子',
+                        '${forum.postCount} ${l10n.postsUnit}',
                         muted,
                       ),
                       const SizedBox(width: 12),
                       _stat(
                         Icons.group_outlined,
-                        '${forum.followerCount} 成员',
+                        '${forum.followerCount} ${l10n.membersUnit}',
                         muted,
                       ),
                     ],
@@ -280,6 +283,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -299,7 +303,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            '还没有关注任何论坛',
+            l10n.noFollowedForums,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -308,7 +312,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '去搜索页发现感兴趣的论坛',
+            l10n.discoverForumsHint,
             style: TextStyle(fontSize: 13, color: Colors.grey[400]),
           ),
           const SizedBox(height: 22),
@@ -326,9 +330,9 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
-            child: const Text(
-              '去搜索',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            child: Text(
+              l10n.goSearch,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ],

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/ai_content_renderer.dart';
 import '../../messages/utils/message_avatar.dart';
 
@@ -462,12 +463,13 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   // 顶栏：标题 + Tab切换（问问小梦/社区提问，跟标题同一行，腾出下面
   // 一整行的竖向空间给内容）+ （AI Tab 非 idle 态）重置/历史对话按钮
   Widget _buildTopBar(bool isDark) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 8, 2),
       child: Row(
         children: [
           Text(
-            '极索',
+            l10n.navJisuo,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -475,11 +477,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          _tabChip(isDark, label: '问问小梦', icon: Icons.auto_awesome, mode: 'ai'),
+          _tabChip(
+            isDark,
+            label: l10n.jisuoAskXiaomeng,
+            icon: Icons.auto_awesome,
+            mode: 'ai',
+          ),
           const SizedBox(width: 6),
           _tabChip(
             isDark,
-            label: '社区提问',
+            label: l10n.jisuoCommunityAsk,
             icon: Icons.people_outline,
             mode: 'community',
           ),
@@ -493,7 +500,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             ),
           if (_tab == 'ai')
             IconButton(
-              tooltip: '历史对话',
+              tooltip: l10n.chatHistory,
               icon: const Icon(Icons.history, size: 20),
               color: Colors.grey[500],
               onPressed: () => context.push('/xiaomeng/history'),
@@ -889,9 +896,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    '问问小梦',
-                    style: TextStyle(
+                  Text(
+                    AppLocalizations.of(context)!.jisuoAskXiaomeng,
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF9B98FF),

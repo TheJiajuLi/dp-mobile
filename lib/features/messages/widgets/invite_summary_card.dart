@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/generated/app_localizations.dart';
+
 // 邀请回答汇总卡——消息首页和"最近通知"页共用同一个组件，点击进
 // /invite-list 专属列表页，不在卡片里直接接受/忽略。之前背景硬编码成
 // Colors.white，跟页面其它卡片统一用的 Theme.of(context).cardColor 不
@@ -104,16 +106,20 @@ class InviteSummaryCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '邀请回答',
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context)!.inviteAnswer,
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          count > 0 ? '有 $count 个问题等待你的见解' : '暂无待处理的邀请',
+                          count > 0
+                              ? AppLocalizations.of(
+                                  context,
+                                )!.invitesWaiting(count)
+                              : AppLocalizations.of(context)!.noPendingInvites,
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark

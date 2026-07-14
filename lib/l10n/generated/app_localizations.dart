@@ -2924,6 +2924,144 @@ abstract class AppLocalizations {
   /// **'Discover'**
   String get navCommunity;
 
+  /// No description provided for @tabRecommend.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get tabRecommend;
+
+  /// No description provided for @tabFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get tabFollowing;
+
+  /// No description provided for @tabLatest.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest'**
+  String get tabLatest;
+
+  /// No description provided for @navJisuo.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore'**
+  String get navJisuo;
+
+  /// No description provided for @jisuoAskXiaomeng.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Xiaomeng'**
+  String get jisuoAskXiaomeng;
+
+  /// No description provided for @jisuoCommunityAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Community Q&A'**
+  String get jisuoCommunityAsk;
+
+  /// No description provided for @chatHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat History'**
+  String get chatHistory;
+
+  /// No description provided for @clearChatHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Chat History'**
+  String get clearChatHistory;
+
+  /// No description provided for @chatHistoryCleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat history cleared'**
+  String get chatHistoryCleared;
+
+  /// No description provided for @forum.
+  ///
+  /// In en, this message translates to:
+  /// **'Forums'**
+  String get forum;
+
+  /// No description provided for @forumEnterHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to view the latest in your forums'**
+  String get forumEnterHint;
+
+  /// No description provided for @forumDiscoverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search to discover more forums →'**
+  String get forumDiscoverHint;
+
+  /// No description provided for @myFollowedForums.
+  ///
+  /// In en, this message translates to:
+  /// **'Forums I follow'**
+  String get myFollowedForums;
+
+  /// No description provided for @unfollowAutoRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfollowed forums are removed here automatically'**
+  String get unfollowAutoRemove;
+
+  /// No description provided for @postsUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'posts'**
+  String get postsUnit;
+
+  /// No description provided for @membersUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'members'**
+  String get membersUnit;
+
+  /// No description provided for @noFollowedForums.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t followed any forums yet'**
+  String get noFollowedForums;
+
+  /// No description provided for @discoverForumsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Find forums you like on the search page'**
+  String get discoverForumsHint;
+
+  /// No description provided for @goSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get goSearch;
+
+  /// No description provided for @inviteAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer Invites'**
+  String get inviteAnswer;
+
+  /// No description provided for @noPendingInvites.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending invites'**
+  String get noPendingInvites;
+
+  /// No description provided for @inviteEmptyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitations to answer questions\nwill appear here'**
+  String get inviteEmptyDesc;
+
+  /// No description provided for @invitesWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} questions await your insight'**
+  String invitesWaiting(int count);
+
   /// No description provided for @navProfile.
   ///
   /// In en, this message translates to:

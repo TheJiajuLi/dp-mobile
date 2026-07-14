@@ -318,6 +318,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildMainTabs(bool isDark) {
+    final l10n = AppLocalizations.of(context)!;
     Widget tab(String label, _MainTab value, {required bool isFirst}) {
       final active = _mainTab == value;
       return GestureDetector(
@@ -353,9 +354,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          tab('推荐', _MainTab.all, isFirst: true),
-          tab('关注', _MainTab.follow, isFirst: false),
-          tab('最新', _MainTab.latest, isFirst: false),
+          tab(l10n.tabRecommend, _MainTab.all, isFirst: true),
+          tab(l10n.tabFollowing, _MainTab.follow, isFirst: false),
+          tab(l10n.tabLatest, _MainTab.latest, isFirst: false),
         ],
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../models/ai_conversation_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -90,7 +91,7 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清空历史对话'),
+        title: Text(AppLocalizations.of(context)!.clearChatHistory),
         content: Text('将删除全部 ${_conversations.length} 条对话记录，清空后无法恢复'),
         actions: [
           TextButton(
@@ -111,9 +112,11 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
     if (!mounted) return;
     if (res.success) {
       setState(() => _conversations = []);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('历史对话已清空')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.chatHistoryCleared),
+        ),
+      );
     } else {
       ScaffoldMessenger.of(
         context,
@@ -200,7 +203,7 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
                   ),
                   Expanded(
                     child: Text(
-                      '历史对话',
+                      AppLocalizations.of(context)!.chatHistory,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 17,

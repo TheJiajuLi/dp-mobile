@@ -101,7 +101,7 @@ class MainShell extends ConsumerWidget {
                       _NavItem(
                         iconBuilder: (selected) =>
                             _JisuoIcon(selected: selected),
-                        label: '极索',
+                        label: l10n.navJisuo,
                         selected: navigationShell.currentIndex == 1,
                         onTap: () => _onTap(1),
                       ),
@@ -183,7 +183,7 @@ class MainShell extends ConsumerWidget {
                   // 首页/发现合并了，顶部"极"logo按钮点了就是_onTap(0)，
                   // 这里不需要再单独放一个发现图标
                   _railIcon(
-                    tooltip: '极索',
+                    tooltip: l10n.navJisuo,
                     icon: Icons.travel_explore_outlined,
                     activeIcon: Icons.travel_explore,
                     isActive: navigationShell.currentIndex == 1,

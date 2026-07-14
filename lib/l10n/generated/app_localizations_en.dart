@@ -1564,6 +1564,79 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navCommunity => 'Discover';
 
   @override
+  String get tabRecommend => 'Recommended';
+
+  @override
+  String get tabFollowing => 'Following';
+
+  @override
+  String get tabLatest => 'Latest';
+
+  @override
+  String get navJisuo => 'Explore';
+
+  @override
+  String get jisuoAskXiaomeng => 'Ask Xiaomeng';
+
+  @override
+  String get jisuoCommunityAsk => 'Community Q&A';
+
+  @override
+  String get chatHistory => 'Chat History';
+
+  @override
+  String get clearChatHistory => 'Clear Chat History';
+
+  @override
+  String get chatHistoryCleared => 'Chat history cleared';
+
+  @override
+  String get forum => 'Forums';
+
+  @override
+  String get forumEnterHint => 'Tap to view the latest in your forums';
+
+  @override
+  String get forumDiscoverHint => 'Search to discover more forums →';
+
+  @override
+  String get myFollowedForums => 'Forums I follow';
+
+  @override
+  String get unfollowAutoRemove =>
+      'Unfollowed forums are removed here automatically';
+
+  @override
+  String get postsUnit => 'posts';
+
+  @override
+  String get membersUnit => 'members';
+
+  @override
+  String get noFollowedForums => 'You haven\'t followed any forums yet';
+
+  @override
+  String get discoverForumsHint => 'Find forums you like on the search page';
+
+  @override
+  String get goSearch => 'Search';
+
+  @override
+  String get inviteAnswer => 'Answer Invites';
+
+  @override
+  String get noPendingInvites => 'No pending invites';
+
+  @override
+  String get inviteEmptyDesc =>
+      'Invitations to answer questions\nwill appear here';
+
+  @override
+  String invitesWaiting(int count) {
+    return '$count questions await your insight';
+  }
+
+  @override
   String get navProfile => 'Profile';
 
   @override
