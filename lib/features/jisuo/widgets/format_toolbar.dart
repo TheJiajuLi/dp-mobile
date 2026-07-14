@@ -38,7 +38,7 @@ class FormatToolbar extends StatelessWidget {
           _Sep(isDark: isDark),
           _FmtBtn('∑', () => onAddBlock(BlockType.formula), isDark: isDark),
           _FmtBtn('</>', () => onAddBlock(BlockType.code), isDark: isDark),
-          _FmtBtn('⬚', () => onAddBlock(BlockType.image), isDark: isDark),
+          // 图片上传后端未上线，暂时不提供入口（原来点进去只是个"即将支持"占位）
         ],
       ),
     );

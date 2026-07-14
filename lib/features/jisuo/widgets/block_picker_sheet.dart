@@ -27,7 +27,7 @@ class BlockPickerSheet extends StatelessWidget {
       (BlockType.quote, '引用', Icons.format_quote, const Color(0xFF6366F1), const Color(0xFFEEF0FF)),
       (BlockType.formula, '公式', Icons.functions, const Color(0xFF8B5CF6), const Color(0xFFFAF0FF)),
       (BlockType.code, '代码', Icons.code, const Color(0xFF1D4ED8), const Color(0xFFEFF6FF)),
-      (BlockType.image, '图片', Icons.image_outlined, const Color(0xFFD97706), const Color(0xFFFFF7ED)),
+      // 图片上传后端未上线，暂时不提供入口（原来加进来只是个"即将支持"占位）
       (BlockType.divider, '分割线', Icons.horizontal_rule, const Color(0xFF888888), const Color(0xFFF5F5F5)),
     ];
 

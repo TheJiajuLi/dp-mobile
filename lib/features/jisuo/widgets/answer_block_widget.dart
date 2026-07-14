@@ -158,6 +158,9 @@ class _TextBlockState extends State<_TextBlock> {
             fontWeight: widget.fontWeight,
             color: widget.isDark ? Colors.white.withValues(alpha: 0.25) : Colors.grey[400],
           ),
+          // 全局 InputDecorationTheme 深色下 filled:true+darkSurface，不显式
+          // 关掉会透出一层深灰"夹心"，盖住正文气泡本身的底色（踩坑#13）
+          filled: false,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           focusedBorder: OutlineInputBorder(
@@ -231,6 +234,7 @@ class _QuoteBlockState extends State<_QuoteBlock> {
             fontStyle: FontStyle.italic,
             color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.grey[400],
           ),
+          filled: false, // 见踩坑#13：不关掉全局 filled 会透出深灰底盖住引用块底色
           border: InputBorder.none,
           contentPadding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
         ),
@@ -299,6 +303,7 @@ class _FormulaBlockState extends State<_FormulaBlock> {
             decoration: const InputDecoration(
               hintText: 'f(x) = ...',
               hintStyle: TextStyle(fontFamily: 'Georgia', fontStyle: FontStyle.italic, color: Color(0xFF9CA3AF)),
+              filled: false, // 见踩坑#13
               border: InputBorder.none,
               contentPadding: EdgeInsets.zero,
             ),
@@ -405,6 +410,7 @@ class _CodeBlockState extends State<_CodeBlock> {
                   fontSize: 12,
                   color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.grey[400],
                 ),
+                filled: false, // 见踩坑#13
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
               ),

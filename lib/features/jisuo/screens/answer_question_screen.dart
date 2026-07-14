@@ -27,7 +27,8 @@ class AnswerQuestionScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<AnswerQuestionScreen> createState() => _AnswerQuestionScreenState();
+  ConsumerState<AnswerQuestionScreen> createState() =>
+      _AnswerQuestionScreenState();
 }
 
 class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
@@ -38,7 +39,8 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
   bool _submitting = false;
   bool _done = false;
 
-  FocusNode _focusFor(String id) => _focusNodes.putIfAbsent(id, () => FocusNode());
+  FocusNode _focusFor(String id) =>
+      _focusNodes.putIfAbsent(id, () => FocusNode());
 
   void _addBlock(BlockType type) {
     final block = AnswerBlock(id: UniqueKey().toString(), type: type);
@@ -63,7 +65,10 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
     final content = blocksToContent(_blocks);
     final res = await ref
         .read(apiClientProvider)
-        .post('/auth/questions/${widget.questionId}/answers', data: {'content': content});
+        .post(
+          '/auth/questions/${widget.questionId}/answers',
+          data: {'content': content},
+        );
     if (!mounted) return;
     if (res.success) {
       notifyJisuoShouldRefresh(ref);
@@ -138,21 +143,41 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
                 onPressed: _hasContent && !_submitting ? _submit : null,
                 style: TextButton.styleFrom(
                   backgroundColor: _hasContent && !_submitting
-                      ? (isDark ? const Color(0xFF6366F1) : const Color(0xFF1A1A1A))
-                      : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey[200]),
+                      ? (isDark
+                            ? const Color(0xFF6366F1)
+                            : const Color(0xFF1A1A1A))
+                      : (isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.grey[200]),
                   foregroundColor: _hasContent && !_submitting
                       ? Colors.white
-                      : (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey[400]),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
+                      : (isDark
+                            ? Colors.white.withValues(alpha: 0.3)
+                            : Colors.grey[400]),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(99),
+                  ),
                 ),
                 child: _submitting
                     ? const SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: Colors.white,
+                        ),
                       )
-                    : const Text('发布', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    : const Text(
+                        '发布',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
         ],
@@ -170,7 +195,10 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF6366F1).withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.18), width: 0.5),
+            border: Border.all(
+              color: const Color(0xFF6366F1).withValues(alpha: 0.18),
+              width: 0.5,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,69 +219,85 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   height: 1.4,
-                  color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1A1A1A),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.9)
+                      : const Color(0xFF1A1A1A),
                 ),
               ),
             ],
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-            itemCount: _blocks.length + 1,
-            itemBuilder: (ctx, i) {
-              if (i == _blocks.length) {
-                return GestureDetector(
-                  onTap: () => BlockPickerSheet.show(context, _addBlock),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 0.5,
-                            color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFEBEBEB),
+          // 点空白处收起键盘（跟发现页搜索等页面一套手势）
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+              itemCount: _blocks.length + 1,
+              itemBuilder: (ctx, i) {
+                if (i == _blocks.length) {
+                  return GestureDetector(
+                    onTap: () => BlockPickerSheet.show(context, _addBlock),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 0.5,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : const Color(0xFFEBEBEB),
+                            ),
                           ),
-                        ),
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF0FF),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3), width: 0.5),
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF0FF),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(
+                                  0xFF6366F1,
+                                ).withValues(alpha: 0.3),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              size: 13,
+                              color: Color(0xFF6366F1),
+                            ),
                           ),
-                          child: const Icon(Icons.add, size: 13, color: Color(0xFF6366F1)),
-                        ),
-                        Expanded(
-                          child: Container(
-                            height: 0.5,
-                            color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFEBEBEB),
+                          Expanded(
+                            child: Container(
+                              height: 0.5,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : const Color(0xFFEBEBEB),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  );
+                }
+                final block = _blocks[i];
+                return AnswerBlockWidget(
+                  key: ValueKey(block.id),
+                  block: block,
+                  isDark: isDark,
+                  focusNode: _focusFor(block.id),
+                  onChanged: (v) => setState(() => block.content = v),
+                  onDelete: () => _deleteBlock(block.id),
                 );
-              }
-              final block = _blocks[i];
-              return AnswerBlockWidget(
-                key: ValueKey(block.id),
-                block: block,
-                isDark: isDark,
-                focusNode: _focusFor(block.id),
-                onChanged: (v) => setState(() => block.content = v),
-                onDelete: () => _deleteBlock(block.id),
-              );
-            },
+              },
+            ),
           ),
         ),
-        FormatToolbar(
-          onAddBlock: _addBlock,
-          onBold: () {},
-          onItalic: () {},
-        ),
+        FormatToolbar(onAddBlock: _addBlock, onBold: () {}, onItalic: () {}),
       ],
     );
   }
@@ -268,8 +312,15 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(color: Color(0xFFDCFCE7), shape: BoxShape.circle),
-              child: const Icon(Icons.check, size: 30, color: Color(0xFF16A34A)),
+              decoration: const BoxDecoration(
+                color: Color(0xFFDCFCE7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check,
+                size: 30,
+                color: Color(0xFF16A34A),
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -277,7 +328,10 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            Text('提问者将收到通知', style: TextStyle(fontSize: 14, color: Colors.grey[400])),
+            Text(
+              '提问者将收到通知',
+              style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+            ),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -291,15 +345,23 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
                   backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text('查看我的回答', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                child: const Text(
+                  '查看我的回答',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => context.go('/jisuo'),
-              child: Text('返回极索', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+              child: Text(
+                '返回极索',
+                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              ),
             ),
           ],
         ),
