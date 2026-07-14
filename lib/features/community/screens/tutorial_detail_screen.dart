@@ -1047,9 +1047,20 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  const Divider(height: 1),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+                  // 作者行上方原来是满宽的 Divider，颜色浅但满宽+1px描边
+                  // 在这么淡的米白页面上还是显得很"重"。改成居中的短横线，
+                  // 更轻、也不是一整条"完整"的分割线
+                  Center(
+                    child: Container(
+                      width: 32,
+                      height: 1,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFE5E5E5),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
