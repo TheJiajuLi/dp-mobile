@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+
+import '../utils/latex_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/generated/app_localizations.dart';
@@ -73,7 +75,7 @@ Widget buildTutorialBlockWidget(
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Math.tex(
-            content.replaceAll(r'$$', '').trim(),
+            preprocessLatex(content.replaceAll(r'$$', '').trim()),
             textStyle: const TextStyle(fontSize: 16),
             onErrorFallback: (err) => Text(
               content,
@@ -369,7 +371,7 @@ Widget inlineLatexText(
       WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: Math.tex(
-          latex,
+          preprocessLatex(latex),
           textStyle: TextStyle(fontSize: mathFontSize, color: baseStyle.color),
           onErrorFallback: (_) => Text(
             latex,

@@ -7,6 +7,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_math_fork/flutter_math.dart';
+
+import '../../../shared/utils/latex_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1726,7 +1728,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Math.tex(
-          tex,
+          preprocessLatex(tex),
           textStyle: TextStyle(
             fontSize: 16,
             color: isMe

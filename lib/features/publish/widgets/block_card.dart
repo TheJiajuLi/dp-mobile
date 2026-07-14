@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+
+import '../../../shared/utils/latex_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -1443,7 +1445,9 @@ th{background:#1e293b;color:#94a3b8}
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Math.tex(
-                      widget.block.content.replaceAll(r'$$', '').trim(),
+                      preprocessLatex(
+                        widget.block.content.replaceAll(r'$$', '').trim(),
+                      ),
                       textStyle: TextStyle(fontSize: 16, color: mathColor),
                       onErrorFallback: (err) => Text(
                         widget.block.content,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../utils/latex_utils.dart';
+
 import 'tutorial_block_renderer.dart';
 
 // 小梦回复内容的统一解析 + 渲染——极索页内直答和小梦对话页共用这一份，
@@ -195,7 +197,7 @@ class AiContentRenderer extends StatelessWidget {
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
             child: Math.tex(
-              seg.content.trim(),
+              preprocessLatex(seg.content.trim()),
               mathStyle: MathStyle.text,
               textStyle: _bodyStyle(),
               onErrorFallback: (_) => _latexError(seg.content),
@@ -287,7 +289,7 @@ class AiContentRenderer extends StatelessWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Math.tex(
-          latex.trim(),
+          preprocessLatex(latex.trim()),
           mathStyle: MathStyle.display,
           // 字色跟正文一致，不再用品牌紫
           textStyle: TextStyle(

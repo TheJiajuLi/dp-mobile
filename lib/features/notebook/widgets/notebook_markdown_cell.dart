@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../../../shared/utils/latex_utils.dart';
+
 // markdown/latex cell 的正文：未选中=渲染结果，选中=纯文本编辑。从
 // notebook_editor_screen.dart 的 _buildCellBody 里拆出来，只处理这两种
 // 类型（代码类走 notebook_code_cell.dart）
@@ -48,7 +50,7 @@ class NotebookMarkdownCellBody extends StatelessWidget {
                 )
               : cellType == 'latex'
               ? Math.tex(
-                  code.trim(),
+                  preprocessLatex(code.trim()),
                   textStyle: TextStyle(
                     fontSize: 16,
                     color: isDark

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../../../shared/utils/latex_utils.dart';
+
 // 这个文件专门负责"把 latex 公式离屏渲染成 PNG"，故意跟
 // tutorial_export_service.dart（pdf 世界）分开：printing 会把 pdf 的 widget
 // 名字（Text/Container/Border…）不带前缀地导出，跟 flutter/material 大面积
@@ -65,13 +67,11 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
           child: RepaintBoundary(
             key: boundaryKey,
             child: Math.tex(
-              body,
+              preprocessLatex(body),
               mathStyle: MathStyle.display,
               textStyle: TextStyle(fontSize: 22, color: glyphColor),
-              onErrorFallback: (_) => Text(
-                body,
-                style: TextStyle(fontSize: 15, color: glyphColor),
-              ),
+              onErrorFallback: (_) =>
+                  Text(body, style: TextStyle(fontSize: 15, color: glyphColor)),
             ),
           ),
         ),
