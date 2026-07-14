@@ -29,9 +29,9 @@ const _categoryPills = ['科学', '经济', '生活', '数据', '编程'];
 // 就是 created_at DESC），最新=同一份列表在客户端按 createdAt 再排一遍
 // （确认过后端目前没有 sort 参数，加了也会被忽略，所以不去改
 // home_feed_provider.dart 的请求参数，只在展示层做一次保证正确的排序）。
-// 「关注」没有真实数据源（后端 /auth/tutorials 做不到"只看关注的人"），
-// 点了只提示"即将上线"，不展示任何列表，不编假数据。「热榜」同理
-// 没有真实排行数据源，这版不加，避免又一个假 Tab
+// 「关注」后端没有"只看关注的人"的聚合接口，客户端自己拼真实数据：
+// 拉关注列表→逐个拉作者已发布作品→合并去重排序（见 _loadFollowingFeed）。
+// 「热榜」没有真实排行数据源，这版不加，避免又一个假 Tab
 enum _MainTab { all, follow, latest }
 
 class HomeScreen extends ConsumerStatefulWidget {
