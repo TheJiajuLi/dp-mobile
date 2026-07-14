@@ -1128,6 +1128,9 @@ finally:
         (_controllers[cell.id] = TextEditingController(text: cell.code));
     final focus = _focusNodes[cell.id] ?? (_focusNodes[cell.id] = FocusNode());
     return NotebookCellCard(
+      // ReorderableListView 要求每个直接子级都带 key（否则断言崩溃）——
+      // 用 cell.id 保证拖拽重排/增删时身份稳定
+      key: ValueKey(cell.id),
       cell: cell,
       index: index,
       isActive: _activeIndex == index,
