@@ -198,14 +198,11 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 代码块整张卡片直接用深底——不再是白卡片里再套一个深色小块（白框
-    // 套深块两层嵌套很割裂），整块深色跟里面的代码区连成一体。代码块的
-    // 深底+细描边不受激活态影响，一直保持（不然代码区没了容器背景，字
-    // 直接糊在页面背景上，比"吵"更难看）
-    final isCode = widget.block.type == BlockType.code;
     // 未激活时卡片完全透明、无边框，跟页面融为一体；激活时才浮出白色/
     // 深色卡片背景+细描边——减少同屏一堆边框叠边框的视觉噪音，只有正在
-    // 编辑的那一个 block 需要被"框"出来
+    // 编辑的那一个 block 需要被"框"出来。代码块不再用深色 pill，跟文字/
+    // 公式等内容块一样走这套（代码区本身是一圈中性描边的浅框，见
+    // _buildCodeBlock），创作界面更纯净
     return GestureDetector(
       // 非文字/标题类block自己没有走 onFocusGained 那条路（它们的
       // FocusNode 没接到真正的输入框上，或者内部输入框跟格式工具栏无关，
@@ -221,23 +218,16 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: isCode
-              ? const Color(0xFF1A1A1A)
-              : (_isActive ? Theme.of(context).cardColor : Colors.transparent),
+          color: _isActive ? Theme.of(context).cardColor : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
-          border: isCode
+          border: _isActive
               ? Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFEBEBEB),
                   width: 0.5,
                 )
-              : (_isActive
-                    ? Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFEBEBEB),
-                        width: 0.5,
-                      )
-                    : null),
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,10 +336,9 @@ class _BlockCardState extends ConsumerState<BlockCard> {
               ),
             ),
             Padding(
-              // 代码块铺满整张深色卡片，其它类型保持原来的四周留白
-              padding: isCode
-                  ? const EdgeInsets.fromLTRB(0, 4, 0, 0)
-                  : const EdgeInsets.fromLTRB(10, 6, 10, 10),
+              // 所有 block 统一四周留白——代码块自己是一圈中性描边的浅框，
+              // 不再铺满整卡，跟文字/公式块的留白节奏一致
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
               child: _buildContent(l10n),
             ),
           ],
@@ -1115,6 +1104,11 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   // 代码块顶栏的语言选择：横向可滚的 pill 行。language 不在候选列表里
   // （导入的代码块常给 text/jsx/ts 等）就按 python 高亮，跟原下拉同一套兜底。
   Widget _buildLangPills() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pillBg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF0F0F3);
+    final pillFg = isDark ? const Color(0xFFB0B0B8) : const Color(0xFF6B6B72);
     final current = _codeLanguages.contains(widget.block.language)
         ? widget.block.language
         : 'python';
@@ -1155,9 +1149,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: 11),
               decoration: BoxDecoration(
-                color: selected
-                    ? _primary
-                    : Colors.white.withValues(alpha: 0.06),
+                color: selected ? _primary : pillBg,
                 borderRadius: BorderRadius.circular(7),
               ),
               child: Text(
@@ -1165,7 +1157,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? Colors.white : const Color(0xFFB0B0B8),
+                  color: selected ? Colors.white : pillFg,
                 ),
               ),
             ),
@@ -1180,140 +1172,164 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   // 露出一条直角硬边（之前那条 0.5px 分隔线本身是矩形，紧贴在只做了
   // topLeft/topRight 圆角的 body 下面，视觉上整个代码块的下半截是方的）
   Widget _buildCodeBlock(AppLocalizations l10n) {
+    // 去掉原来那块深色 pill（#1A1A1A 满底），跟文字/公式块统一成"中性
+    // 圆框"：透明底 + 一圈 dividerColor 细描边，header 和代码区都在这圈框
+    // 里，代码文字用接近正文的深色渲染（token 高亮色仍保留），创作界面
+    // 更纯净、更连贯
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final border = Theme.of(context).dividerColor;
+    final headerIcon = isDark ? Colors.white38 : const Color(0xFF9AA0AB);
+    final codeTextColor = isDark
+        ? const Color(0xFFE0E2F0)
+        : const Color(0xFF1E293B);
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: const Color(0xFF1A1A1A),
-            child: Row(
-              children: [
-                // 单个状态圆点，替代原来的 macOS 三色点，视觉更克制
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: const BoxDecoration(
-                    color: _primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // 语言选择：在胶囊里横向滚动的 pill 行，替代原来点一下就弹出
-                // 整屏黑色菜单的 DropdownButton。选中态紫底白字，点即切换
-                Expanded(child: _buildLangPills()),
-                const SizedBox(width: 8),
-                // 运行按钮——深色底 + 细描边 + 空心播放，不再是亮紫实心胶囊
-                PressableScale(
-                  onTap: _running ? null : _runCode,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 5,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: border, width: 0.8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: border, width: 0.8)),
+              ),
+              child: Row(
+                children: [
+                  // 单个状态圆点，视觉更克制
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: _primary,
+                      shape: BoxShape.circle,
                     ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2E),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        width: 0.5,
+                  ),
+                  const SizedBox(width: 10),
+                  // 语言选择：横向滚动的 pill 行，选中态品牌紫底白字
+                  Expanded(child: _buildLangPills()),
+                  const SizedBox(width: 8),
+                  // 运行按钮——克制的浅底 + 品牌紫空心播放
+                  PressableScale(
+                    onTap: _running ? null : _runCode,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _primary.withValues(alpha: isDark ? 0.16 : 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _primary.withValues(alpha: 0.22),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_running)
+                            const SizedBox(
+                              width: 11,
+                              height: 11,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: _primary,
+                              ),
+                            )
+                          else
+                            const Icon(
+                              Icons.play_arrow_outlined,
+                              size: 15,
+                              color: _primary,
+                            ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _running ? l10n.runningLabel : l10n.runAction,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: _primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_running)
-                          const SizedBox(
-                            width: 11,
-                            height: 11,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.5,
-                              color: Color(0xFF9B98FF),
-                            ),
-                          )
-                        else
-                          const Icon(
-                            Icons.play_arrow_outlined,
-                            size: 15,
-                            color: Color(0xFF9B98FF),
-                          ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _running ? l10n.runningLabel : l10n.runAction,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFFE5E7EB),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(width: 4),
+                  // 复制代码
+                  GestureDetector(
+                    onTap: _copyCode,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.copy_outlined,
+                        size: 15,
+                        color: headerIcon,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                // 复制代码
-                GestureDetector(
-                  onTap: _copyCode,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.copy_outlined,
-                      size: 15,
-                      color: Color(0xFF888888),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Container(
-            color: const Color(0xFF1A1A1A),
-            padding: const EdgeInsets.all(10),
-            child: TextFormField(
-              controller: _codeCtrl,
-              decoration: InputDecoration(
-                filled: false,
-                hintText: l10n.codeBlockHint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF64748B),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextFormField(
+                controller: _codeCtrl,
+                decoration: InputDecoration(
+                  filled: false,
+                  hintText: l10n.codeBlockHint,
+                  hintStyle: TextStyle(
+                    color: isDark ? Colors.white24 : const Color(0xFFC7C7CC),
+                    fontFamily: 'monospace',
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                style: TextStyle(
                   fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: codeTextColor,
+                  height: 1.6,
                 ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+                maxLines: null,
+                onChanged: (v) {
+                  widget.block.content = v;
+                  widget.onChanged();
+                },
               ),
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: Color(0xFFA8B4C8),
-                height: 1.6,
-              ),
-              maxLines: null,
-              onChanged: (v) {
-                widget.block.content = v;
-                widget.onChanged();
-              },
             ),
-          ),
-          _buildOutput(),
-        ],
+            _buildOutput(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildOutput() {
     final content = widget.block.outputContent;
-    if (content == null) {
-      return Container(height: 0.5, color: const Color(0xFF1E293B));
-    }
+    if (content == null) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       child: Container(
         key: ValueKey('${widget.block.id}-$content'),
         width: double.infinity,
         constraints: const BoxConstraints(maxHeight: 300),
-        color: const Color(0xFF111111),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.03)
+              : const Color(0xFFF8F9FC),
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor, width: 0.8),
+          ),
+        ),
         // html 输出自己就是一个内部可滚动的 WebView，外面不能再套一层
         // SingleChildScrollView——两层滚动区域叠在一起，手势会被内层
         // WebView 吃掉，外层永远收不到
@@ -1331,6 +1347,14 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   }
 
   Widget _renderOutput(String content, String? type) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final errorColor = isDark
+        ? const Color(0xFFFCA5A5)
+        : const Color(0xFFDC2626);
+    final infoColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final okColor = isDark ? const Color(0xFF4EC9B0) : const Color(0xFF0F766E);
     switch (type) {
       case 'image':
         // matplotlib 图表：compiler.js 吐回来的是 base64 图片
@@ -1345,12 +1369,18 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         } catch (e) {
           return Text(
             '图表渲染失败：$e',
-            style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12),
+            style: TextStyle(color: errorColor, fontSize: 12),
           );
         }
 
       case 'html':
-        // DataFrame 表格这类 HTML 输出
+        // DataFrame 表格这类 HTML 输出——跟着主题走，浅色下用浅表格样式，
+        // 不然一块深色表格糊在浅色输出区里很割裂
+        final tableBg = isDark ? '#0a0f1a' : '#f8f9fc';
+        final tableFg = isDark ? '#e2e8f0' : '#1e293b';
+        final tableBorder = isDark ? '#1e293b' : '#e5e7eb';
+        final thBg = isDark ? '#1e293b' : '#eef0f5';
+        final thFg = isDark ? '#94a3b8' : '#64748b';
         return InAppWebView(
           initialData: InAppWebViewInitialData(
             data:
@@ -1358,10 +1388,10 @@ class _BlockCardState extends ConsumerState<BlockCard> {
 <html>
 <head>
 <style>
-body{font-family:monospace;font-size:11px;margin:0;background:#0a0f1a;color:#e2e8f0}
+body{font-family:monospace;font-size:11px;margin:0;background:$tableBg;color:$tableFg}
 table{border-collapse:collapse;width:100%}
-th,td{border:1px solid #1e293b;padding:4px 8px;text-align:left}
-th{background:#1e293b;color:#94a3b8}
+th,td{border:1px solid $tableBorder;padding:4px 8px;text-align:left}
+th{background:$thBg;color:$thFg}
 </style>
 </head>
 <body>$content</body>
@@ -1373,10 +1403,10 @@ th{background:#1e293b;color:#94a3b8}
       case 'error':
         return Text(
           content,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 12,
-            color: Color(0xFFFCA5A5),
+            color: errorColor,
             height: 1.6,
           ),
         );
@@ -1384,10 +1414,10 @@ th{background:#1e293b;color:#94a3b8}
       case 'info':
         return Text(
           content,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 12,
-            color: Color(0xFF94A3B8),
+            color: infoColor,
             height: 1.6,
           ),
         );
@@ -1395,10 +1425,10 @@ th{background:#1e293b;color:#94a3b8}
       default:
         return Text(
           content,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 12,
-            color: Color(0xFF4EC9B0),
+            color: okColor,
             height: 1.6,
           ),
         );
