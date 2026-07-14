@@ -1250,21 +1250,28 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   // 图片渲染逻辑，没有头像时按 senderId 哈希取一个稳定的颜色区分成员
   Widget _buildAvatar(GroupMessage msg, bool isDark) {
     final avatar = msg.senderAvatar;
-    if (avatar != null && avatar.isNotEmpty) {
-      return Container(
-        width: 30,
-        height: 30,
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: const BoxDecoration(shape: BoxShape.circle),
-        clipBehavior: Clip.antiAlias,
-        child: Image.network(
-          avatar,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _initialAvatar(msg),
-        ),
-      );
-    }
-    return _initialAvatar(msg);
+    final Widget inner = (avatar != null && avatar.isNotEmpty)
+        ? Container(
+            width: 30,
+            height: 30,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: const BoxDecoration(shape: BoxShape.circle),
+            clipBehavior: Clip.antiAlias,
+            child: Image.network(
+              avatar,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _initialAvatar(msg),
+            ),
+          )
+        : _initialAvatar(msg);
+    // 点头像进对方个人主页——跟私信/通知/文章流的头像交互一致，不然点了
+    // 没反应会觉得断层。系统消息/无用户名的不是真实用户，不可点
+    if (msg.senderId == 'system' || msg.senderName.isEmpty) return inner;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.push('/users/${msg.senderName}'),
+      child: inner,
+    );
   }
 
   Widget _initialAvatar(GroupMessage msg) {

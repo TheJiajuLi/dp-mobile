@@ -66,9 +66,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     _avatar = widget.group?.avatar ?? '';
     _tags = List<String>.from(widget.group?.tags ?? const []);
     // 拷一份可变副本，本页的踢人/设管理员直接改它，不动传入的原始列表
-    _members = widget.members
-        .map((m) => Map<String, dynamic>.from(m))
-        .toList();
+    _members = widget.members.map((m) => Map<String, dynamic>.from(m)).toList();
     _sortMembers();
   }
 
@@ -183,7 +181,11 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               onSave: (v) => setState(() => _name = v),
             ),
           ),
-          Divider(height: 0.5, indent: 16, color: Theme.of(context).dividerColor),
+          Divider(
+            height: 0.5,
+            indent: 16,
+            color: Theme.of(context).dividerColor,
+          ),
           _profileRow(
             isDark,
             label: '群简介',
@@ -198,7 +200,11 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               onSave: (v) => setState(() => _desc = v),
             ),
           ),
-          Divider(height: 0.5, indent: 16, color: Theme.of(context).dividerColor),
+          Divider(
+            height: 0.5,
+            indent: 16,
+            color: Theme.of(context).dividerColor,
+          ),
           _tagsRow(isDark),
         ],
       ),
@@ -366,7 +372,11 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                 color: _primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.person_add_alt_1, size: 20, color: _primary),
+              child: const Icon(
+                Icons.person_add_alt_1,
+                size: 20,
+                color: _primary,
+              ),
             ),
             const SizedBox(width: 12),
             const Text(
@@ -390,26 +400,41 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     final isMe = id.isNotEmpty && id == _myId;
     // 群主能对「非群主、非自己」的成员做管理操作
     final canManage = _isOwner && role != 'owner' && !isMe;
+    final canOpenProfile = username.isNotEmpty && !isMe;
+    void openProfile() => context.push('/users/$username');
 
     return InkWell(
-      onTap: canManage ? () => _showMemberActions(m) : null,
+      // 可管理的成员：点行=管理菜单；其余：点行=进对方主页（跟点头像一致，
+      // 不然点了名字没反应会觉得断层）
+      onTap: canManage
+          ? () => _showMemberActions(m)
+          : (canOpenProfile ? openProfile : null),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                buildMessageAvatar(m['avatar'] as String?, username, radius: 20),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: OnlineDot(
-                    lastSeenAt: (m['last_seen_at'] as num?)?.toInt(),
-                    size: 9,
+            // 头像永远点进对方主页——即便是可管理的成员，头像也走主页，
+            // 管理入口留给行/⋯（子级手势优先命中，不会误触发行的管理菜单）
+            GestureDetector(
+              onTap: canOpenProfile ? openProfile : null,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  buildMessageAvatar(
+                    m['avatar'] as String?,
+                    username,
+                    radius: 20,
                   ),
-                ),
-              ],
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: OnlineDot(
+                      lastSeenAt: (m['last_seen_at'] as num?)?.toInt(),
+                      size: 9,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -518,7 +543,9 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
             const Divider(height: 1),
             ListTile(
               leading: Icon(
-                isAdmin ? Icons.remove_moderator_outlined : Icons.shield_outlined,
+                isAdmin
+                    ? Icons.remove_moderator_outlined
+                    : Icons.shield_outlined,
                 size: 22,
                 color: _primary,
               ),
