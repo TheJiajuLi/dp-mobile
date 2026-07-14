@@ -517,6 +517,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           ),
           const SizedBox(height: 20),
         ],
+        if (suggestedAuthors.isNotEmpty) ...[
+          _sectionHeader('推荐关注'),
+          const SizedBox(height: 8),
+          _suggestedFollowSection(suggestedAuthors),
+          const SizedBox(height: 20),
+        ],
+        if (rankList.isNotEmpty) ...[
+          _sectionHeader('为你推荐'),
+          const SizedBox(height: 8),
+          _newsRankingSection(rankList),
+          const SizedBox(height: 20),
+        ],
         if (_hotTags.isNotEmpty) ...[
           _sectionHeader(l10n.searchHotTopics),
           const SizedBox(height: 8),
@@ -558,18 +570,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               );
             }).toList(),
           ),
-          const SizedBox(height: 20),
-        ],
-        if (suggestedAuthors.isNotEmpty) ...[
-          _sectionHeader('推荐关注'),
-          const SizedBox(height: 8),
-          _suggestedFollowSection(suggestedAuthors),
-          const SizedBox(height: 20),
-        ],
-        if (rankList.isNotEmpty) ...[
-          _sectionHeader('为你推荐'),
-          const SizedBox(height: 8),
-          _newsRankingSection(rankList),
         ],
       ],
     );
