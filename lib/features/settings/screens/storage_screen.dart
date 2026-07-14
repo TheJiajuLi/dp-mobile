@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/profile_refresh_signal.dart';
 import '../../../l10n/generated/app_localizations.dart';
 
 enum _MediaKind { image, video, audio, other }
@@ -367,6 +368,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       // 存储用量这种非高频操作，重新拉一次准确数据更省心
       await _load();
       if (!mounted) return;
+      // 删的文件可能是某篇文章的封面，个人主页封面/卡片跟着变——同上，
+      // 主页常驻分支要靠这个信号刷新
+      notifyProfileShouldRefresh(ref);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.deletedFreedSpace(_fmt(size))),
@@ -433,6 +437,10 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     if (res.success) {
       await _load();
       if (!mounted) return;
+      // 个人主页（文章Tab/计数）是 indexedStack 常驻分支、切回来不会自动
+      // 重建，发全局信号让它重新拉数据——发现页每次进都会重拉、不受影响，
+      // 之前漏了这一步导致主页删完还显示旧文章
+      notifyProfileShouldRefresh(ref);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.tutorialDeletedMessage(name)),
@@ -535,6 +543,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
 
     await _load();
     if (!mounted) return;
+    notifyProfileShouldRefresh(ref);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(l10n.deletedCountFreedSpace(deleted, _fmt(totalSize))),
