@@ -228,7 +228,7 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
                 ],
               ),
             ),
-            const Divider(height: 20, thickness: 0.5),
+            const SizedBox(height: 16),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
