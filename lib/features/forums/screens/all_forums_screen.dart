@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/utils/forum_gradient.dart';
-import '../../../shared/widgets/rounded_list_card.dart';
 import '../models/forum_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -44,7 +43,9 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
       _loading = false;
       if (res.success && res.data != null) {
         final all = ((res.data['forums'] as List?) ?? [])
-            .map((f) => ForumModel.fromJson(Map<String, dynamic>.from(f as Map)))
+            .map(
+              (f) => ForumModel.fromJson(Map<String, dynamic>.from(f as Map)),
+            )
             .toList();
         _followedForums = all.where((f) => f.isFollowing).toList();
       }
@@ -54,23 +55,31 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 整页米白底 #FAFAF8，白色分区卡片浮在上面（跟首页/编辑资料一套视觉语言）
+    final pageBg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: pageBg,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+              padding: const EdgeInsets.fromLTRB(8, 8, 16, 4),
               child: Row(
                 children: [
                   IconButton(
                     onPressed: () => context.pop(),
                     icon: const Icon(Icons.arrow_back_ios, size: 18),
                   ),
-                  const Text(
+                  Text(
                     '论坛',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                    ),
                   ),
                   const Spacer(),
                 ],
@@ -78,27 +87,40 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: CircularProgressIndicator(color: _primary),
+                    )
                   : _followedForums.isEmpty
                   ? _buildEmptyState(isDark)
                   : RefreshIndicator(
+                      color: _primary,
                       onRefresh: _loadForums,
                       child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.only(top: 6, bottom: 24),
                         children: [
-                          RoundedListCard(
-                            children: _followedForums
-                                .map((f) => _forumTile(f, isDark))
-                                .toList(),
-                          ),
-                          const SizedBox(height: 10),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 10),
+                            child: Text(
+                              '我关注的论坛 · ${_followedForums.length}',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
+                                color: isDark
+                                    ? Colors.white38
+                                    : const Color(0xFF9AA0AB),
+                              ),
+                            ),
+                          ),
+                          _forumCard(isDark),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
                               '取消关注后自动从此处移除',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 color: isDark
                                     ? Colors.white.withValues(alpha: 0.3)
                                     : Colors.grey[400],
@@ -115,19 +137,173 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
     );
   }
 
+  // 一张浮起的白色圆角卡片，把关注的论坛按行排进去，行间细分割线
+  Widget _forumCard(bool isDark) {
+    final rows = <Widget>[];
+    for (var i = 0; i < _followedForums.length; i++) {
+      if (i > 0) {
+        rows.add(
+          Divider(
+            height: 0.5,
+            thickness: 0.5,
+            indent: 72,
+            endIndent: 16,
+            color: Theme.of(context).dividerColor,
+          ),
+        );
+      }
+      rows.add(_forumRow(_followedForums[i], isDark));
+    }
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.045),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(children: rows),
+      ),
+    );
+  }
+
+  Widget _forumRow(ForumModel forum, bool isDark) {
+    final muted = isDark
+        ? Colors.white.withValues(alpha: 0.45)
+        : const Color(0xFF9AA0AB);
+    final hasAvatar = forum.avatar?.isNotEmpty ?? false;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.push('/forum-home/${forum.id}'),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: hasAvatar
+                    ? null
+                    : LinearGradient(
+                        colors: forumGradientFor(forum.colorIdx),
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                image: hasAvatar
+                    ? DecorationImage(
+                        image: NetworkImage(forum.avatar!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: hasAvatar
+                  ? null
+                  : Center(
+                      child: Text(
+                        forum.name.isNotEmpty
+                            ? forum.name.substring(0, 1)
+                            : '论',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    forum.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      _stat(
+                        Icons.article_outlined,
+                        '${forum.postCount} 帖子',
+                        muted,
+                      ),
+                      const SizedBox(width: 12),
+                      _stat(
+                        Icons.group_outlined,
+                        '${forum.followerCount} 成员',
+                        muted,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: isDark ? Colors.white24 : const Color(0xFFC7C7CC),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(IconData icon, String text, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: color),
+        const SizedBox(width: 3),
+        Text(text, style: TextStyle(fontSize: 12, color: color)),
+      ],
+    );
+  }
+
   Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.forum_outlined, size: 48, color: Colors.grey[300]),
-          const SizedBox(height: 12),
+          Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: isDark ? 0.16 : 0.08),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Icon(
+              Icons.forum_outlined,
+              size: 34,
+              color: _primary.withValues(alpha: 0.85),
+            ),
+          ),
+          const SizedBox(height: 16),
           Text(
             '还没有关注任何论坛',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[400],
+              color: isDark ? Colors.white70 : const Color(0xFF555555),
             ),
           ),
           const SizedBox(height: 6),
@@ -135,7 +311,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
             '去搜索页发现感兴趣的论坛',
             style: TextStyle(fontSize: 13, color: Colors.grey[400]),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
           ElevatedButton(
             // search_screen.dart 目前只有 教程/用户/话题/群组 四个Tab，
             // 没有论坛Tab，也没有论坛搜索功能——这里老实跳转到搜索页本身，
@@ -145,7 +321,7 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
               backgroundColor: _primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(99),
               ),
@@ -157,63 +333,6 @@ class _AllForumsScreenState extends ConsumerState<AllForumsScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _forumTile(ForumModel forum, bool isDark) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          gradient: (forum.avatar?.isNotEmpty ?? false)
-              ? null
-              : LinearGradient(
-                  colors: forumGradientFor(forum.colorIdx),
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-          image: (forum.avatar?.isNotEmpty ?? false)
-              ? DecorationImage(
-                  image: NetworkImage(forum.avatar!),
-                  fit: BoxFit.cover,
-                )
-              : null,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: (forum.avatar?.isNotEmpty ?? false)
-            ? null
-            : Center(
-                child: Text(
-                  forum.name.isNotEmpty ? forum.name.substring(0, 1) : '论',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-      ),
-      title: Text(
-        forum.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(
-        '${forum.postCount} 帖子 · ${forum.followerCount} 成员',
-        style: TextStyle(
-          fontSize: 12,
-          color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.grey[500],
-        ),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        size: 20,
-        color: isDark ? Colors.white.withValues(alpha: 0.25) : Colors.grey[300],
-      ),
-      onTap: () => context.push('/forum-home/${forum.id}'),
     );
   }
 }
