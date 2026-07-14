@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -417,15 +419,23 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   // share_question 本来就在借用它们放标题/副标题）——这里借用同样的字段
   // 放文件名/字节数，不是照搬私信的 metadata 实现，但效果一致
   Future<void> _sendFile() async {
+    // 防重复发送：guard 置位提前到选择器打开之前。原来是选择器返回后才置位，
+    // 两次快速触发都能穿过 guard→重复发（表现为连发两条）。取消/异常在
+    // finally 复位
     if (_sendingMedia) return;
-    final result = await FilePicker.platform.pickFiles(withData: true);
-    if (result == null || result.files.isEmpty) return;
-    final picked = result.files.first;
-    final bytes = picked.bytes;
-    if (bytes == null || !mounted) return;
-
     setState(() => _sendingMedia = true);
     try {
+      final result = await FilePicker.platform.pickFiles(withData: true);
+      if (result == null || result.files.isEmpty) return;
+      final picked = result.files.first;
+      // withData 没填 bytes（大文件/iCloud 未下载等）就从路径兜底读
+      var bytes = picked.bytes;
+      if (bytes == null && picked.path != null) {
+        bytes = await File(picked.path!).readAsBytes();
+      }
+      // 防 0B：不能只判 null，空 Uint8List 也要拦，否则会上传一个 0 字节坏文件
+      if (bytes == null || bytes.isEmpty || !mounted) return;
+
       final formData = FormData.fromMap({
         'file': MultipartFile.fromBytes(bytes, filename: picked.name),
       });
