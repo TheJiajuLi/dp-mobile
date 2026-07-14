@@ -664,7 +664,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     // 铺在同一张白纸上
     final pageBg = isDark
         ? Theme.of(context).scaffoldBackgroundColor
-        : const Color(0xFFF7F8FC);
+        : const Color(0xFFFAFAF8);
     return Scaffold(
       backgroundColor: pageBg,
       body: !_loaded
@@ -788,20 +788,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Widget _buildHero(AppLocalizations l10n, Color pageBg, bool isDark) {
     return Container(
       width: double.infinity,
+      // 去掉原来的紫→蓝渐变"带子"，头像区跟顶栏/正文同一块米白底，连贯不断层
+      color: pageBg,
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
-      decoration: BoxDecoration(
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  _primary.withValues(alpha: 0.06),
-                  const Color(0xFF60A5FA).withValues(alpha: 0.03),
-                  pageBg,
-                ],
-              ),
-      ),
       child: Column(
         children: [
           GestureDetector(
