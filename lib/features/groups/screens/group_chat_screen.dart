@@ -824,7 +824,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       backgroundColor: isDark ? AppColors.darkBg : const Color(0xFFFAFAF8),
       appBar: _searchMode ? _buildSearchBar(isDark) : _buildAppBar(isDark),
       body: GestureDetector(
-        onTap: _focusNode.unfocus,
+        // 点空白处收起键盘——opaque 让整块正文（含消息间空隙）都接住 tap；
+        // 用 FocusScope.unfocus 而不是只 unfocus 输入框那个 node，搜索态下
+        // 也能把搜索框的键盘一起收起
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
         child: Column(
           children: [
             Expanded(
@@ -916,7 +920,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         : Colors.grey[500];
 
     return AppBar(
-      backgroundColor: Theme.of(context).cardColor,
+      // 搜索栏跟正文米白连贯；深色仍用 cardColor
+      backgroundColor: isDark
+          ? Theme.of(context).cardColor
+          : const Color(0xFFFAFAF8),
       elevation: 0,
       titleSpacing: 0,
       leading: IconButton(

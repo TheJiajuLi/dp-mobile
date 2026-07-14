@@ -84,7 +84,10 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 浅色统一首页米白 #FAFAF8（不再偏冷灰白）；深色不变
+      backgroundColor: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFFAFAF8),
       body: SafeArea(
         child: Column(
           children: [
