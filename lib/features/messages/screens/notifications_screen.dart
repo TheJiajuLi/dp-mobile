@@ -544,6 +544,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       setSheet(() {});
                     },
                     activeThumbColor: _primary,
+                    // 去掉 M3 Switch 关闭态默认的一圈描边
+                    trackOutlineColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
                     title: Text(
                       '只看未读',
                       style: TextStyle(fontSize: 15, color: ink),
