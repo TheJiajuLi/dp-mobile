@@ -36,6 +36,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   bool _loadingInvites = false;
 
   String _activeFilter = 'all';
+  // 顶部「排序/筛选」（tune 图标）落地：时间倒序/正序 + 只看未读
+  bool _newestFirst = true;
+  bool _unreadOnly = false;
   static const _filters = [
     {'key': 'all', 'label': '全部'},
     {'key': 'like', 'label': '点赞'},
@@ -81,8 +84,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final unreadCount = notifs.where((n) => !n.isRead).length;
     if (unreadCount == 0) return;
     final current = ref.read(unreadCountProvider);
-    ref.read(unreadCountProvider.notifier).state =
-        (current - unreadCount).clamp(0, current);
+    ref.read(unreadCountProvider.notifier).state = (current - unreadCount)
+        .clamp(0, current);
   }
 
   // 点开单条通知顺手标记这一条已读——本地先乐观标记，未读点/红点立刻消失，
@@ -457,6 +460,104 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
+  // tune 图标的排序/筛选面板：时间倒序/正序 + 只看未读
+  void _showSortSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final ink = Theme.of(ctx).textTheme.bodyLarge?.color;
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            Widget sortRow(String label, bool selected, VoidCallback onTap) {
+              return ListTile(
+                dense: true,
+                onTap: () {
+                  onTap();
+                  setSheet(() {});
+                },
+                title: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: ink,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+                trailing: selected
+                    ? const Icon(Icons.check, size: 20, color: _primary)
+                    : null,
+              );
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).padding.bottom + 8,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '排序',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ),
+                  ),
+                  sortRow(
+                    '最新在前',
+                    _newestFirst,
+                    () => setState(() => _newestFirst = true),
+                  ),
+                  sortRow(
+                    '最早在前',
+                    !_newestFirst,
+                    () => setState(() => _newestFirst = false),
+                  ),
+                  Divider(height: 1, color: Theme.of(ctx).dividerColor),
+                  SwitchListTile(
+                    value: _unreadOnly,
+                    onChanged: (v) {
+                      setState(() => _unreadOnly = v);
+                      setSheet(() {});
+                    },
+                    activeThumbColor: _primary,
+                    title: Text(
+                      '只看未读',
+                      style: TextStyle(fontSize: 15, color: ink),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -468,7 +569,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final base = notifications
         .where((n) => n.type != 'invite_answer' && n.type != 'forum_reply')
         .toList();
-    final filtered = base.where(_matchesFilter).toList();
+    var filtered = base.where(_matchesFilter).toList();
+    // 「只看未读」+ 排序（tune 面板）——默认最新在前，可切最早在前。
+    // 今天/更早分组的 _buildFeed 只做连续去重，正序倒序都能正确分组
+    if (_unreadOnly) {
+      filtered = filtered.where((n) => !n.isRead).toList();
+    }
+    filtered.sort(
+      (a, b) => _newestFirst
+          ? b.createdAt.compareTo(a.createdAt)
+          : a.createdAt.compareTo(b.createdAt),
+    );
 
     return Scaffold(
       // 浅色跟首页统一用米白 #FAFAF8（不是全局 scaffold 的 #F7F7FB），
@@ -566,9 +677,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           icon: const Icon(Icons.done_all_outlined),
         ),
         // 筛选入口暂时留空位（未来接高级筛选）
-        const IconButton(
-          onPressed: null,
-          icon: Icon(Icons.tune_outlined),
+        IconButton(
+          onPressed: _showSortSheet,
+          icon: Icon(
+            Icons.tune_outlined,
+            // 非默认（切了正序 / 开了只看未读）时高亮，提示当前有筛选生效
+            color: (!_newestFirst || _unreadOnly) ? _primary : null,
+          ),
         ),
       ],
     ),
