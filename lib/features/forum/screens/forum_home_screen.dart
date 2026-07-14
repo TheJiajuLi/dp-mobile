@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart' show Share;
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/utils/forum_gradient.dart';
@@ -79,6 +80,18 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
     if (!res.success) {
       setState(() => _following = was);
     }
+  }
+
+  // 分享论坛——调起系统通用分享面板，带论坛名/简介 + 站内链接，跟教程分享
+  // 用的同一套 dreamingpolar.com 链接格式
+  void _shareForum() {
+    final name = _forum?['name']?.toString() ?? '极梦论坛';
+    final desc = _forum?['description']?.toString() ?? '';
+    final url = 'https://dreamingpolar.com/forum/${widget.forumId}';
+    final text = desc.isNotEmpty
+        ? '来极梦「$name」逛逛——$desc\n$url'
+        : '来极梦「$name」逛逛\n$url';
+    Share.share(text, subject: name);
   }
 
   @override
@@ -360,21 +373,24 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : const Color(0xFFF0F0F0),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.share,
-                  size: 16,
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.5)
-                      : const Color(0xFF555555),
+              GestureDetector(
+                onTap: _shareForum,
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFF0F0F0),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.share,
+                    size: 16,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : const Color(0xFF555555),
+                  ),
                 ),
               ),
             ],
