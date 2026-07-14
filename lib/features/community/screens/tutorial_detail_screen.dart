@@ -1372,7 +1372,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : const Color(0xFFF8F8FF),
+        // 浅色下卡片底色跟页面米白 #FAFAF8 一致，只靠边框勾轮廓，更干净
+        color: isDark ? AppColors.darkCard : const Color(0xFFFAFAF8),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : const Color(0xFFE8E8FF),
