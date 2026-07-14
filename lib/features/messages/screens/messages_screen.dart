@@ -233,8 +233,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       decoration: BoxDecoration(
                         // 深色下改成紫色实心 + 白色＋号（跟"全部"选中态一套
                         // 视觉），浅色维持淡紫底 + 紫号
-                        color:
-                            Theme.of(context).brightness == Brightness.dark
+                        color: Theme.of(context).brightness == Brightness.dark
                             ? _primary
                             : const Color(0xFFEEF0FF),
                         borderRadius: BorderRadius.circular(8),
@@ -365,7 +364,12 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                       subtitle: _hasFollowedForum
                           ? '点击进入论坛查看最新内容'
                           : '去搜索发现更多论坛 →',
-                      subtitleColor: _hasFollowedForum ? _primary : null,
+                      // _hasFollowedForum 只是"关注了至少一个论坛"，不是
+                      // "论坛有新内容"——论坛目前没有真实的未读/新帖信号
+                      // （不像群组有真实未读消息数），一直高亮成紫色会让
+                      // 用户误以为永远有新内容。没有这个信号前先跟旁边
+                      // 群组tile"无未读"时同一个中性灰
+                      subtitleColor: null,
                       onTap: () => context.push('/messages/forums'),
                     ),
                   ),
@@ -415,9 +419,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                   current - 1;
                             }
                             unawaited(
-                              ref
-                                  .read(notificationsProvider.notifier)
-                                  .markRead([n.id]),
+                              ref.read(notificationsProvider.notifier).markRead(
+                                [n.id],
+                              ),
                             );
                           }
                           // 评论/点赞/收藏/提及跳文章（评论/提及再定位到评论），
@@ -445,8 +449,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                     .map(
                       (c) => _ConvPreviewTile(
                         conversation: c,
-                        onTap: () =>
-                            _openThenRefresh('/messages/chat/${c.id}', extra: c),
+                        onTap: () => _openThenRefresh(
+                          '/messages/chat/${c.id}',
+                          extra: c,
+                        ),
                       ),
                     )
                     .toList(),
