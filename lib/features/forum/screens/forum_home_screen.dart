@@ -90,7 +90,11 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
     // 对不上，顶栏跟下面 TabBarView 内容区之间会有一条明显的接缝，暗色下
     // 尤其明显。论坛主页是浏览类页面，不是建群/发帖那种独立表单页，跟着
     // 主题背景走更统一，不用另起一套颜色
-    final bg = Theme.of(context).scaffoldBackgroundColor;
+    // 浅色统一成首页米白 #FAFAF8（不再是偏冷的默认 #F7F7FB）；深色不变。
+    // 顶栏/Tab条/内容区都用这个 bg，保持一整块不出接缝
+    final bg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
 
     return Scaffold(
       backgroundColor: bg,
@@ -425,7 +429,10 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      Text(
+        value,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
       Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[400])),
     ],
   );
@@ -442,7 +449,11 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(color: backgroundColor, child: tabBar);
   }
 
