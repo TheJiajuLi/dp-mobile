@@ -1020,16 +1020,28 @@ finally:
                 Expanded(
                   child: _nb == null
                       ? const Center(child: CircularProgressIndicator())
-                      : ReorderableListView(
-                          scrollController: _scrollCtrl,
-                          buildDefaultDragHandles: false,
-                          padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
-                          onReorder: _onReorder,
-                          footer: _buildFinalAddButton(isDark),
-                          children: [
-                            for (int i = 0; i < _nb!.cells.length; i++)
-                              _buildCell(_nb!.cells[i], i),
-                          ],
+                      // 轻击画布空白处收起键盘，并让选中的 markdown/latex 退回
+                      // 渲染态（cell 的 TextField/拖拽手柄是子级，优先命中，
+                      // 只有真正的空白 tap 才会走到这里）
+                      : GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                            if (_activeIndex != -1) {
+                              setState(() => _activeIndex = -1);
+                            }
+                          },
+                          child: ReorderableListView(
+                            scrollController: _scrollCtrl,
+                            buildDefaultDragHandles: false,
+                            padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
+                            onReorder: _onReorder,
+                            footer: _buildFinalAddButton(isDark),
+                            children: [
+                              for (int i = 0; i < _nb!.cells.length; i++)
+                                _buildCell(_nb!.cells[i], i),
+                            ],
+                          ),
                         ),
                 ),
 
