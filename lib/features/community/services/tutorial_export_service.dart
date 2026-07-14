@@ -92,10 +92,12 @@ pw.Widget _codeBox({
   required pw.Font font,
   required pw.Font boldFont,
   required pw.EdgeInsets margin,
+  double padTop = 8,
+  double padBottom = 8,
 }) {
   return pw.Container(
     margin: margin,
-    padding: const pw.EdgeInsets.fromLTRB(10, 8, 10, 8),
+    padding: pw.EdgeInsets.fromLTRB(10, padTop, 10, padBottom),
     width: double.infinity,
     decoration: pw.BoxDecoration(
       color: isDark ? PdfColor.fromHex('1A1A2E') : PdfColor.fromHex('F8F8F8'),
@@ -107,7 +109,11 @@ pw.Widget _codeBox({
         if (language.isNotEmpty) ...[
           pw.Text(
             language.toUpperCase(),
-            style: pw.TextStyle(font: boldFont, fontSize: 8, color: accentColor),
+            style: pw.TextStyle(
+              font: boldFont,
+              fontSize: 8,
+              color: accentColor,
+            ),
           ),
           pw.SizedBox(height: 4),
         ],
@@ -168,8 +174,10 @@ Future<Uint8List> buildTutorialPdfBytes({
           bold: boldFont,
           fontFallback: [mathFont],
         ),
-        buildBackground: (context) =>
-            pw.FullPage(ignoreMargins: true, child: pw.Container(color: bgColor)),
+        buildBackground: (context) => pw.FullPage(
+          ignoreMargins: true,
+          child: pw.Container(color: bgColor),
+        ),
       ),
       build: (context) {
         final widgets = <pw.Widget>[];
@@ -226,12 +234,15 @@ Future<Uint8List> buildTutorialPdfBytes({
                 // 内容，直接跳过不画，不留一个看着莫名其妙的空框
                 if (content.trim().isEmpty) break;
                 final language = block['language'] as String? ?? '';
-                // keep-together：pdf 的 Container 不跨页，但单块超过一整页会
-                // 抛异常。按行切成每块 ≤40 行（远小于一页），每块都不跨页、
-                // 都带完整的"左细线+浅色底"样式，长代码自然分成连续几块流下
-                // 去，既不会截断成空框、也不会崩
+                // pdf 的 Container 不跨页：整块代码框装不下当前页剩余空间时，
+                // MultiPage 会把整块挪到下一页，页底留一大段空白。之前每块 40
+                // 行（≈半页）还是太粗，照样跳页。这里切成每块 ≤5 行（一小条），
+                // MultiPage 就能在小条之间精准断页——先填满当前页剩余空间、再
+                // 续到下一页，几乎不留空白。续块之间用 1.5pt 上下内边距衔接
+                // （正好补齐块内 lineSpacing，两侧各 1.5≈一个行距），左细线+
+                // 浅底连续，视觉上仍是一整块、不像被切开
                 final lines = content.split('\n');
-                const chunkSize = 40;
+                const chunkSize = 5;
                 for (var start = 0; start < lines.length; start += chunkSize) {
                   final end = math.min(start + chunkSize, lines.length);
                   final isFirst = start == 0;
@@ -245,6 +256,9 @@ Future<Uint8List> buildTutorialPdfBytes({
                       accentColor: accentColor,
                       font: font,
                       boldFont: boldFont,
+                      // 首/尾块保留 8pt 内边距，中间续块用 1.5pt 无缝衔接
+                      padTop: isFirst ? 8 : 1.5,
+                      padBottom: isLast ? 8 : 1.5,
                       margin: pw.EdgeInsets.only(
                         top: isFirst ? 8 : 0,
                         bottom: isLast ? 8 : 0,
@@ -321,7 +335,10 @@ Future<Uint8List> buildTutorialPdfBytes({
                     // 显式给 width，图片本身的像素宽度（比如一张
                     // 1920px 宽的封面图）不会比页面内容区还宽，
                     // fit: contain（默认值）负责按比例缩小
-                    child: pw.Image(pw.MemoryImage(bytes), width: double.infinity),
+                    child: pw.Image(
+                      pw.MemoryImage(bytes),
+                      width: double.infinity,
+                    ),
                   ),
                 );
               } else {
@@ -373,7 +390,9 @@ Future<Uint8List> buildTutorialPdfBytes({
                   padding: const pw.EdgeInsets.all(10),
                   width: double.infinity,
                   decoration: pw.BoxDecoration(
-                    color: isDark ? PdfColor.fromHex('141420') : PdfColors.grey100,
+                    color: isDark
+                        ? PdfColor.fromHex('141420')
+                        : PdfColors.grey100,
                     border: pw.Border(
                       left: pw.BorderSide(color: mutedColor, width: 3),
                     ),
@@ -394,7 +413,11 @@ Future<Uint8List> buildTutorialPdfBytes({
                         pw.SizedBox(height: 4),
                         pw.Text(
                           '— $source',
-                          style: pw.TextStyle(font: font, fontSize: 9, color: mutedColor),
+                          style: pw.TextStyle(
+                            font: font,
+                            fontSize: 9,
+                            color: mutedColor,
+                          ),
                         ),
                       ],
                     ],
@@ -416,14 +439,20 @@ Future<Uint8List> buildTutorialPdfBytes({
                   padding: const pw.EdgeInsets.all(10),
                   width: double.infinity,
                   decoration: pw.BoxDecoration(
-                    color: isDark ? PdfColor.fromHex('141420') : PdfColors.grey100,
+                    color: isDark
+                        ? PdfColor.fromHex('141420')
+                        : PdfColors.grey100,
                     border: pw.Border(
                       left: pw.BorderSide(color: calloutColor, width: 3),
                     ),
                   ),
                   child: pw.Text(
                     content,
-                    style: pw.TextStyle(font: font, fontSize: 10.5, color: calloutColor),
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 10.5,
+                      color: calloutColor,
+                    ),
                   ),
                 ),
               );
@@ -483,11 +512,17 @@ pw.Widget _placeholderBox(pw.Font font, PdfColor color, String label) {
       color: PdfColors.grey200,
       borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
     ),
-    child: pw.Text(label, style: pw.TextStyle(font: font, fontSize: 10, color: color)),
+    child: pw.Text(
+      label,
+      style: pw.TextStyle(font: font, fontSize: 10, color: color),
+    ),
   );
 }
 
-Future<void> shareTutorialAsMarkdown(Map<String, dynamic> tutorial, List<dynamic> blocks) async {
+Future<void> shareTutorialAsMarkdown(
+  Map<String, dynamic> tutorial,
+  List<dynamic> blocks,
+) async {
   final sb = StringBuffer();
   sb.writeln('# ${tutorial['title'] ?? ''}');
   sb.writeln();
@@ -514,7 +549,11 @@ Future<void> shareTutorialAsMarkdown(Map<String, dynamic> tutorial, List<dynamic
         sb.writeln();
         break;
       case 'latex':
-        sb.writeln(r'$$' '${_stripLatexDelimiters(content)}' r'$$');
+        sb.writeln(
+          r'$$'
+          '${_stripLatexDelimiters(content)}'
+          r'$$',
+        );
         sb.writeln();
         break;
       case 'image':
@@ -534,7 +573,9 @@ Future<void> shareTutorialAsMarkdown(Map<String, dynamic> tutorial, List<dynamic
       case 'link':
         final linkTitle = block['linkTitle'] as String?;
         final linkUrl = block['linkUrl'] as String? ?? content;
-        sb.writeln('[${(linkTitle?.isNotEmpty ?? false) ? linkTitle : linkUrl}]($linkUrl)');
+        sb.writeln(
+          '[${(linkTitle?.isNotEmpty ?? false) ? linkTitle : linkUrl}]($linkUrl)',
+        );
         sb.writeln();
         break;
       case 'quote':
@@ -556,5 +597,8 @@ Future<void> shareTutorialAsMarkdown(Map<String, dynamic> tutorial, List<dynamic
     }
   }
 
-  await Share.share(sb.toString(), subject: tutorial['title']?.toString() ?? '文章');
+  await Share.share(
+    sb.toString(),
+    subject: tutorial['title']?.toString() ?? '文章',
+  );
 }
