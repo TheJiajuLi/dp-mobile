@@ -5,7 +5,9 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/jisuo_refresh_signal.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../features/auth/auth_service.dart';
+import '../../../shared/widgets/ai_content_renderer.dart';
 import '../../messages/utils/message_avatar.dart';
 import 'jisuo_screen.dart' show jisuoDomainBg, jisuoDomainColor;
 
@@ -137,6 +139,7 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
     final isOwnQuestion = _isOwnQuestion;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBg : const Color(0xFFFAFAF8),
       appBar: AppBar(
         title: const Text('问题详情'),
         backgroundColor: Colors.transparent,
@@ -494,6 +497,7 @@ class _AnswerCardState extends ConsumerState<_AnswerCard> {
   Widget build(BuildContext context) {
     final a = widget.answer;
     final username = a['username'] as String? ?? '';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
@@ -541,13 +545,9 @@ class _AnswerCardState extends ConsumerState<_AnswerCard> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            a['content'] as String? ?? '',
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.7,
-              color: Colors.grey[700],
-            ),
+          AiContentRenderer(
+            content: a['content'] as String? ?? '',
+            isDark: isDark,
           ),
           const SizedBox(height: 10),
           GestureDetector(
