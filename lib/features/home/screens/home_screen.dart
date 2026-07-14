@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/profile_refresh_signal.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
@@ -206,6 +207,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(homeFeedProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    // 首页是 IndexedStack 常驻实例，发布/编辑教程后不会自动重新拉取——
+    // 跟"我的"页同一个信号：谁改了内容就 bump 一次，这里监听到变化就
+    // 重新拉一次首页 feed，不然编辑保存后首页卡片还是旧的摘要/预览
+    ref.listen<int>(profileRefreshSignalProvider, (prev, next) {
+      if (prev != next) ref.read(homeFeedProvider.notifier).refresh();
+    });
 
     final feed = SafeArea(
       child: RefreshIndicator(
