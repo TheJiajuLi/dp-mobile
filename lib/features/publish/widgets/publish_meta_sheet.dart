@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/premium_button.dart';
 import '../../../shared/utils/topic_badge.dart';
+import '../../../shared/widgets/tutorial_block_renderer.dart'
+    show inlineLatexText;
 
 const _primary = Color(0xFF6366F1);
 const _ink = Color(0xFF1A1A1A);
@@ -62,6 +64,20 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
   // 二级设置收起来，需要时点底部"更多设置"再展开。之前一进发布页这块
   // 就占掉小半屏，把下面的正文编辑区挤得很靠下
   bool _expanded = false;
+
+  // 摘要支持行内 $...$ LaTeX——没聚焦时渲染成公式（跟 block_card.dart
+  // 的 text block 同一份 inlineLatexText，_focused 也用同一套
+  // onEditingComplete 切回编辑态的触发方式，不引入 FocusNode 失焦监听
+  // 这种这里没有的新机制）
+  bool _summaryFocused = false;
+  final _summaryFocusNode = FocusNode();
+  static final _inlineLatexPattern = RegExp(r'\$[^$\n]+\$');
+
+  @override
+  void dispose() {
+    _summaryFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,92 +153,117 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          TextField(
-                            controller: summaryController,
-                            decoration: InputDecoration(
-                              filled: false,
-                              hintText: l10n.addSummaryHint,
-                              hintStyle: const TextStyle(
-                                color: Color(0xFF888888),
-                                fontSize: 13,
-                              ),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF888888),
-                              height: 1.4,
-                            ),
-                            maxLines: 3,
-                            minLines: 2,
-                            onChanged: (_) => onSummaryChanged(),
-                          ),
-                          if (generatingSummary)
-                            const Padding(
-                              padding: EdgeInsets.only(bottom: 4),
-                              child: SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: _primary,
+                      child:
+                          !_summaryFocused &&
+                              _inlineLatexPattern.hasMatch(
+                                summaryController.text,
+                              )
+                          ? GestureDetector(
+                              onTap: () {
+                                setState(() => _summaryFocused = true);
+                                _summaryFocusNode.requestFocus();
+                              },
+                              child: inlineLatexText(
+                                summaryController.text,
+                                const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF888888),
+                                  height: 1.4,
                                 ),
                               ),
                             )
-                          else if (summaryController.text.isEmpty)
-                            PressableScale(
-                              onTap: onAiGenerateSummary,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
+                          : Stack(
+                              alignment: Alignment.bottomRight,
+                              children: [
+                                TextField(
+                                  controller: summaryController,
+                                  focusNode: _summaryFocusNode,
+                                  decoration: InputDecoration(
+                                    filled: false,
+                                    hintText: l10n.addSummaryHint,
+                                    hintStyle: const TextStyle(
+                                      color: Color(0xFF888888),
+                                      fontSize: 13,
+                                    ),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
                                   ),
-                                  // 跟右上角"发布"按钮同一套：浅色去掉纯黑填充
-                                  // 改用描边（内容色转黑），深色才用主题渐变胶囊
-                                  decoration: isDarkMode
-                                      ? premiumPillDecoration(radius: 7)
-                                      : BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            7,
-                                          ),
-                                          border: Border.all(
-                                            color: _ink,
-                                            width: 1,
-                                          ),
-                                        ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.auto_awesome,
-                                        size: 10,
-                                        color: isDarkMode ? Colors.white : _ink,
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '小梦生成',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: isDarkMode
-                                              ? Colors.white
-                                              : _ink,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF888888),
+                                    height: 1.4,
                                   ),
+                                  maxLines: 3,
+                                  minLines: 2,
+                                  onChanged: (_) => onSummaryChanged(),
+                                  onEditingComplete: () {
+                                    setState(() => _summaryFocused = false);
+                                    _summaryFocusNode.unfocus();
+                                  },
                                 ),
-                              ),
+                                if (generatingSummary)
+                                  const Padding(
+                                    padding: EdgeInsets.only(bottom: 4),
+                                    child: SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        color: _primary,
+                                      ),
+                                    ),
+                                  )
+                                else if (summaryController.text.isEmpty)
+                                  PressableScale(
+                                    onTap: onAiGenerateSummary,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        // 跟右上角"发布"按钮同一套：浅色去掉纯黑填充
+                                        // 改用描边（内容色转黑），深色才用主题渐变胶囊
+                                        decoration: isDarkMode
+                                            ? premiumPillDecoration(radius: 7)
+                                            : BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(7),
+                                                border: Border.all(
+                                                  color: _ink,
+                                                  width: 1,
+                                                ),
+                                              ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.auto_awesome,
+                                              size: 10,
+                                              color: isDarkMode
+                                                  ? Colors.white
+                                                  : _ink,
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              '小梦生成',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: isDarkMode
+                                                    ? Colors.white
+                                                    : _ink,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                        ],
-                      ),
                     ),
                   ],
                 ),
