@@ -8,6 +8,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../widgets/delete_confirm_sheet.dart';
 
 enum _MediaKind { image, video, audio, other }
 
@@ -74,7 +75,8 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
   // ("users/{userId}/{fileId}-{文件名}")，但 tutorials 分类的 cos_key
   // 已经是完整的 https:// URL——两种格式混在同一个渲染逻辑里，靠
   // startsWith('http') 区分，不能无脑拼前缀（拼出来会是重复前缀的坏URL）
-  static const _cosBaseUrl = 'https://dp-1317483118.cos.ap-hongkong.myqcloud.com/';
+  static const _cosBaseUrl =
+      'https://dp-1317483118.cos.ap-hongkong.myqcloud.com/';
 
   String? _coverUrl(String? cosKey) {
     if (cosKey == null || cosKey.isEmpty) return null;
@@ -84,7 +86,15 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
   // 实测确认：/auth/files/upload 对所有上传（图片/视频/音频）返回的
   // file_type 统一都是 "other"，后端并不区分媒体子类型——图片/视频/音频
   // 只能靠文件名后缀在客户端自己猜
-  static const _imageExts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic'};
+  static const _imageExts = {
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+    'bmp',
+    'heic',
+  };
   static const _videoExts = {'mp4', 'mov', 'm4v', 'avi', 'mkv', 'webm'};
   static const _audioExts = {'mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg'};
 
@@ -108,7 +118,10 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       return Container(
         width: 40,
         height: 40,
-        decoration: const BoxDecoration(color: Color(0xFFF3E8FF), shape: BoxShape.circle),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF3E8FF),
+          shape: BoxShape.circle,
+        ),
         child: const Icon(Icons.music_note, size: 18, color: Color(0xFF9333EA)),
       );
     }
@@ -124,7 +137,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.videocam_outlined, size: 18, color: Colors.grey[400]),
+                child: Icon(
+                  Icons.videocam_outlined,
+                  size: 18,
+                  color: Colors.grey[400],
+                ),
               ),
       );
     }
@@ -132,7 +149,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     // 教程封面 / 图片缩略图：走同一套 CachedNetworkImage 逻辑，跟首页封面
     // 图渲染方式保持一致（占位色块+错误兜底图标）
     if (isTutorial || kind == _MediaKind.image) {
-      final fallbackIcon = isTutorial ? Icons.article_outlined : Icons.image_outlined;
+      final fallbackIcon = isTutorial
+          ? Icons.article_outlined
+          : Icons.image_outlined;
       return Container(
         width: 52,
         height: 44,
@@ -163,7 +182,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     return SizedBox(
       width: 52,
       height: 44,
-      child: Icon(Icons.insert_drive_file_outlined, size: 22, color: Colors.grey[400]),
+      child: Icon(
+        Icons.insert_drive_file_outlined,
+        size: 22,
+        color: Colors.grey[400],
+      ),
     );
   }
 
@@ -171,8 +194,26 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     // 模拟波形——不是真实音频波形分析，只是固定高度序列做出音频列表项
     // 该有的视觉质感
     const heights = [
-      5.0, 10.0, 16.0, 9.0, 14.0, 7.0, 12.0, 6.0, 15.0, 8.0,
-      11.0, 5.0, 13.0, 9.0, 16.0, 6.0, 10.0, 14.0, 7.0, 12.0,
+      5.0,
+      10.0,
+      16.0,
+      9.0,
+      14.0,
+      7.0,
+      12.0,
+      6.0,
+      15.0,
+      8.0,
+      11.0,
+      5.0,
+      13.0,
+      9.0,
+      16.0,
+      6.0,
+      10.0,
+      14.0,
+      7.0,
+      12.0,
     ];
     return SizedBox(
       height: 16,
@@ -208,7 +249,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
       child: Row(
         children: [
@@ -231,7 +274,10 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     if (isTutorial && status != null)
                       Container(
                         margin: const EdgeInsets.only(left: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: status == 'published'
                               ? const Color(0xFFE8F8F0)
@@ -253,22 +299,25 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     if (platform != 'mobile')
                       Container(
                         margin: const EdgeInsets.only(left: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           l10n.desktopPlatformTag,
-                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                   ],
                 ),
-                if (isAudio) ...[
-                  const SizedBox(height: 4),
-                  _buildWaveform(),
-                ],
+                if (isAudio) ...[const SizedBox(height: 4), _buildWaveform()],
                 if (size > 0)
                   Text(
                     _fmt(size),
@@ -283,7 +332,8 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
           // 真正的教程管理页面，先在这直接支持删除
           if (isTutorial)
             GestureDetector(
-              onTap: () => _confirmDeleteTutorial(f['id'] as String? ?? '', name),
+              onTap: () =>
+                  _confirmDeleteTutorial(f['id'] as String? ?? '', name),
               child: Container(
                 width: 30,
                 height: 30,
@@ -291,7 +341,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFDC2626)),
+                child: const Icon(
+                  Icons.delete_outline,
+                  size: 16,
+                  color: Color(0xFFDC2626),
+                ),
               ),
             )
           // 反推不出 id 的文件不给删除按钮，不冒险删错
@@ -305,7 +359,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                   color: const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFDC2626)),
+                child: const Icon(
+                  Icons.delete_outline,
+                  size: 16,
+                  color: Color(0xFFDC2626),
+                ),
               ),
             ),
         ],
@@ -315,46 +373,17 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
 
   Future<void> _confirmDelete(String fileId, String name, int size) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.deleteFile),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.confirmDeleteFileMessage(name)),
-            const SizedBox(height: 8),
-            if (size > 0)
-              Text(
-                l10n.willFreeSpace(_fmt(size)),
-                style: const TextStyle(fontSize: 13, color: Color(0xFF16A34A)),
-              ),
-            const SizedBox(height: 4),
-            Text(
-              l10n.actionCannotBeUndone,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.deleteAction, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+    final confirm = await showDeleteConfirmSheet(
+      context,
+      title: l10n.deleteFile,
+      message: l10n.confirmDeleteFileMessage(name),
+      infoLine: size > 0 ? l10n.willFreeSpace(_fmt(size)) : null,
+      warningLine: l10n.actionCannotBeUndone,
+      confirmLabel: l10n.deleteAction,
+      cancelLabel: l10n.cancel,
     );
 
-    if (confirm != true) return;
+    if (!confirm) return;
     await _deleteFile(fileId, size);
   }
 
@@ -387,51 +416,27 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
   Future<void> _confirmDeleteTutorial(String tutorialId, String name) async {
     if (tutorialId.isEmpty) return;
     final l10n = AppLocalizations.of(context)!;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.deleteTutorial),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.confirmDeleteFileMessage(name)),
-            const SizedBox(height: 8),
-            Text(
-              l10n.tutorialContentAndCommentsWillBeDeleted,
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              l10n.actionCannotBeUndone,
-              style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.deleteAction, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+    final confirm = await showDeleteConfirmSheet(
+      context,
+      title: l10n.deleteTutorial,
+      message: l10n.confirmDeleteFileMessage(name),
+      infoLine: l10n.tutorialContentAndCommentsWillBeDeleted,
+      infoLineColor: const Color(0xFF888888),
+      warningLine: l10n.actionCannotBeUndone,
+      warningLineColor: const Color(0xFFDC2626),
+      confirmLabel: l10n.deleteAction,
+      cancelLabel: l10n.cancel,
     );
 
-    if (confirm != true) return;
+    if (!confirm) return;
     await _deleteTutorial(tutorialId, name);
   }
 
   Future<void> _deleteTutorial(String tutorialId, String name) async {
     final l10n = AppLocalizations.of(context)!;
-    final res = await ref.read(apiClientProvider).delete('/auth/tutorials/$tutorialId');
+    final res = await ref
+        .read(apiClientProvider)
+        .delete('/auth/tutorials/$tutorialId');
     if (!mounted) return;
 
     if (res.success) {
@@ -475,7 +480,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          res.success ? (res.data?['message'] as String? ?? '清理完成') : '清理失败，请稍后重试',
+          res.success
+              ? (res.data?['message'] as String? ?? '清理完成')
+              : '清理失败，请稍后重试',
         ),
         backgroundColor: res.success ? const Color(0xFF16A34A) : null,
       ),
@@ -495,49 +502,23 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     );
     if (deletable.isEmpty) return;
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.clearCategory),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.confirmClearCategoryMessage(deletable.length)),
-            const SizedBox(height: 8),
-            Text(
-              l10n.willFreeSpace(_fmt(totalSize)),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF16A34A)),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              l10n.actionCannotBeUndone,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel, style: const TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.deleteAllAction, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+    final confirm = await showDeleteConfirmSheet(
+      context,
+      title: l10n.clearCategory,
+      message: l10n.confirmClearCategoryMessage(deletable.length),
+      infoLine: l10n.willFreeSpace(_fmt(totalSize)),
+      warningLine: l10n.actionCannotBeUndone,
+      confirmLabel: l10n.deleteAllAction,
+      cancelLabel: l10n.cancel,
     );
 
-    if (confirm != true) return;
+    if (!confirm) return;
 
     var deleted = 0;
     for (final e in deletable) {
-      final res = await ref.read(apiClientProvider).delete('/auth/files/${e.id}');
+      final res = await ref
+          .read(apiClientProvider)
+          .delete('/auth/files/${e.id}');
       if (res.success) deleted++;
     }
 
@@ -569,7 +550,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     final usedPercent = (total / quota).clamp(0.0, 1.0);
 
     final membershipLabel =
-        {'free': l10n.membershipFree, 'pro': 'Pro', 'pro_max': 'Pro Max'}[membership] ??
+        {
+          'free': l10n.membershipFree,
+          'pro': 'Pro',
+          'pro_max': 'Pro Max',
+        }[membership] ??
         l10n.membershipFree;
 
     final folderDefs = [
@@ -631,11 +616,17 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     const SizedBox(width: 8),
                     Text(
                       l10n.storageSpace,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEF0FF),
                         borderRadius: BorderRadius.circular(99),
@@ -668,7 +659,10 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                   children: [
                     Text(
                       _fmt(total),
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     Text(
                       ' / ${_fmtQuota(quota)}',
@@ -717,7 +711,11 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
               l10n.fileCategories,
-              style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
 
@@ -758,12 +756,17 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         () => _expandedCategory = isExpanded ? null : key,
                       ),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         decoration: (isLast && !isExpanded)
                             ? null
                             : BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(color: Theme.of(context).dividerColor),
+                                  bottom: BorderSide(
+                                    color: Theme.of(context).dividerColor,
+                                  ),
                                 ),
                               ),
                         child: Row(
@@ -794,14 +797,22 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                     ),
                                   ),
                                   Text(
-                                    l10n.fileCountWithSize(files.length, _fmt(bytes)),
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    l10n.fileCountWithSize(
+                                      files.length,
+                                      _fmt(bytes),
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             Icon(
-                              isExpanded ? Icons.expand_less : Icons.expand_more,
+                              isExpanded
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
                               color: Colors.grey,
                             ),
                           ],
@@ -817,7 +828,10 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                 padding: const EdgeInsets.all(20),
                                 child: Text(
                                   l10n.noFilesYet,
-                                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ),
                             ]
@@ -829,16 +843,22 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                     horizontal: 16,
                                     vertical: 8,
                                   ),
-                                  color: Theme.of(context).scaffoldBackgroundColor,
+                                  color: Theme.of(
+                                    context,
+                                  ).scaffoldBackgroundColor,
                                   child: Row(
                                     children: [
                                       Text(
                                         l10n.filesCountLabel(files.length),
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
                                       ),
                                       const Spacer(),
                                       GestureDetector(
-                                        onTap: () => _confirmDeleteAll(key, files),
+                                        onTap: () =>
+                                            _confirmDeleteAll(key, files),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
@@ -846,7 +866,9 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFFFEF2F2),
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
                                           ),
                                           child: Text(
                                             l10n.clearCategory,
@@ -932,7 +954,10 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
               child: SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(strokeWidth: 1.6, color: Colors.white70),
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.6,
+                  color: Colors.white70,
+                ),
               ),
             )
           else
