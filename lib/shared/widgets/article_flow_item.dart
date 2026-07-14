@@ -35,9 +35,6 @@ class ArticleFlowItem extends StatelessWidget {
         ? AppColors.darkTextSecondary
         : const Color(0xFF888888);
     final divider = isDark ? AppColors.darkDivider : const Color(0xFFF0F0F0);
-    final actionDivider = isDark
-        ? AppColors.darkBorder
-        : const Color(0xFFF5F5F5);
 
     return GestureDetector(
       onTap: onTap,
@@ -124,11 +121,6 @@ class ArticleFlowItem extends StatelessWidget {
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: actionDivider, width: 0.5),
-                    ),
-                  ),
                   child: Row(
                     children: [
                       _ActionBtn(
