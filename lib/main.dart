@@ -17,6 +17,7 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme_provider.dart';
 import 'features/auth/auth_service.dart';
+import 'features/subscription/purchase_service.dart';
 import 'l10n/generated/app_localizations.dart';
 
 Future<void> main() async {
@@ -136,6 +137,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _linkSub = _appLinks.uriLinkStream.listen(_handleDeepLink);
+    // 尽早初始化内购：监听 purchaseStream 才能接住上次被中断/挂起的交易，
+    // 并预加载商品信息。幂等，失败不影响 App 启动
+    unawaited(ref.read(purchaseServiceProvider).init());
   }
 
   @override

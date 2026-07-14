@@ -258,6 +258,34 @@ class AuthService {
     _ref.read(currentUserProvider.notifier).state = updated;
   }
 
+  // 权益变更（内购成功/恢复购买后）重新拉一次 /auth/me，让 currentUserProvider
+  // 里的 membership 立刻反映最新档位。用当前账号自己的 token 直连（跟
+  // tryAutoLogin 同一套 skipAuthRefresh 打法），避开账号切换时拦截器可能拿
+  // 错 cookie 刷 token 的坑（见 tryAutoLogin 上方注释）。失败静默返回，不改动
+  // 内存态。
+  Future<void> refreshMe() async {
+    try {
+      final userId =
+          await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
+      if (userId.isEmpty) return;
+      final token = await _storage.read(key: AppConstants.keyToken(userId));
+      if (token == null) return;
+      final res = await _api.dio.get(
+        '/auth/me',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          extra: {'skipAuthRefresh': true},
+        ),
+      );
+      final data =
+          res.data is Map ? Map<String, dynamic>.from(res.data as Map) : null;
+      if (data == null) return;
+      _ref.read(currentUserProvider.notifier).state = UserModel.fromJson(data);
+    } catch (_) {
+      // 网络/解析失败不影响购买已完成的事实，下次进页面/自动登录会补上
+    }
+  }
+
   // 彻底退出登录——跟"切换账号"不一样，这里要把本地token和"最近账号"
   // 列表里的记录一起清掉，下次要用这个账号必须重新输密码
   Future<void> logout() async {

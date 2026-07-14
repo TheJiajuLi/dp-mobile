@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
+import '../../subscription/purchase_service.dart';
 import '../providers/storage_provider.dart';
 
 typedef _Feature = (IconData icon, String title, String subtitle);
@@ -109,10 +113,46 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     (Icons.favorite_border, '获赞收藏 ≥ 20'),
   ];
 
+  StreamSubscription<PurchaseResult>? _resultSub;
+
   @override
   void initState() {
     super.initState();
     _loadCurrentPlan();
+    // 订阅购买结果流：成功/恢复弹提示并刷新当前套餐，失败/取消give反馈
+    _resultSub = ref
+        .read(purchaseServiceProvider)
+        .results
+        .listen(_onPurchaseResult);
+  }
+
+  @override
+  void dispose() {
+    _resultSub?.cancel();
+    super.dispose();
+  }
+
+  void _onPurchaseResult(PurchaseResult r) {
+    if (!mounted) return;
+    switch (r.outcome) {
+      case PurchaseOutcome.success:
+      case PurchaseOutcome.restored:
+        _snack(
+          r.outcome == PurchaseOutcome.restored ? '已恢复购买' : '订阅成功，欢迎加入！',
+        );
+        // 后端已更新 membership，刷新页面顶部"当前套餐"展示
+        ref.invalidate(storageUsageProvider);
+        _loadCurrentPlan();
+      case PurchaseOutcome.canceled:
+        break; // 用户主动取消，不打扰
+      case PurchaseOutcome.error:
+        _snack('购买失败：${r.message ?? '请稍后重试'}');
+    }
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _loadCurrentPlan() async {
@@ -150,6 +190,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                           _Plan.proMax => _buildProMaxTab(),
                           _Plan.aurora => _buildAuroraTab(),
                         },
+                        // 极光计划是创作者激励、不是内购，不显示购买页脚
+                        if (_tab != _Plan.aurora) _buildPurchaseFooter(),
                       ],
                     ),
                   ),
@@ -306,6 +348,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     required String ctaLabel,
     required bool isCurrent,
     required VoidCallback onCta,
+    bool busy = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -355,7 +398,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               ],
             ),
           ),
-          _headerCta(ctaLabel, accent, isCurrent, onCta),
+          _headerCta(ctaLabel, accent, isCurrent, onCta, busy),
         ],
       ),
     );
@@ -366,7 +409,22 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     Color accent,
     bool isCurrent,
     VoidCallback onCta,
+    bool busy,
   ) {
+    if (busy) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: _isDark ? accent : _solidFill,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        ),
+      );
+    }
     if (isCurrent) {
       return OutlinedButton(
         onPressed: null,
@@ -494,16 +552,26 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   }
 
   Widget _buildProTab() {
+    // watch 让商品加载完/购买中状态变化时本页重建，价格与按钮转圈才跟得上
+    final svc = ref.watch(purchaseServiceProvider);
+    final monthly = svc.productById(kProProductMonthly);
+    final yearly = svc.productById(kProProductYearly);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _planHeaderCard(
           name: '极梦 PRO',
           accent: _primary,
-          price: '¥39',
-          annualNote: '按年付享 8 折 · ¥374/年',
+          // 有真实商品就用 App Store 本地化价格，没有则退回兜底文案
+          price: monthly?.price ?? '¥39',
+          annualNote: yearly != null
+              ? '按年付 ${yearly.price}/年'
+              : '按年付享 8 折 · ¥374/年',
           ctaLabel: '立即订阅',
           isCurrent: _currentPlan == 'pro',
+          busy:
+              svc.isPurchasing(kProProductMonthly) ||
+              svc.isPurchasing(kProProductYearly),
           onCta: () => _handleUpgrade('pro'),
         ),
         const SizedBox(height: 18),
@@ -519,15 +587,18 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   }
 
   Widget _buildProMaxTab() {
+    final svc = ref.watch(purchaseServiceProvider);
+    final monthly = svc.productById(kProMaxProductMonthly);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _planHeaderCard(
           name: '极梦 PRO MAX',
           accent: _proMaxAccent,
-          price: '¥69',
+          price: monthly?.price ?? '¥69',
           ctaLabel: '立即订阅',
           isCurrent: _currentPlan == 'pro_max',
+          busy: svc.isPurchasing(kProMaxProductMonthly),
           onCta: () => _handleUpgrade('pro_max'),
         ),
         const SizedBox(height: 18),
@@ -854,7 +925,41 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
+  // 发起订阅：Pro 有月付/年付两个商品 → 弹周期选择；Pro Max 只有月付 → 直接买。
+  // 商品没加载出来（ASC 未配置/设备不支持）时给出可读提示，不闷掉。
   void _handleUpgrade(String planKey) {
+    final svc = ref.read(purchaseServiceProvider);
+    if (!svc.isAvailable) {
+      _snack('当前设备暂不支持内购');
+      return;
+    }
+    if (planKey == 'pro') {
+      final monthly = svc.productById(kProProductMonthly);
+      final yearly = svc.productById(kProProductYearly);
+      if (monthly == null && yearly == null) {
+        _snack('商品信息加载中，请稍后重试');
+        return;
+      }
+      if (monthly != null && yearly != null) {
+        _showPeriodPicker(svc, monthly, yearly);
+      } else {
+        svc.buy((monthly ?? yearly)!);
+      }
+    } else {
+      final m = svc.productById(kProMaxProductMonthly);
+      if (m == null) {
+        _snack('商品信息加载中，请稍后重试');
+        return;
+      }
+      svc.buy(m);
+    }
+  }
+
+  void _showPeriodPicker(
+    PurchaseService svc,
+    ProductDetails monthly,
+    ProductDetails yearly,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -863,7 +968,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           color: _cardBg,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -876,47 +981,129 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Icon(Icons.credit_card_outlined, size: 40, color: _muted),
-            const SizedBox(height: 16),
             Text(
-              '支付功能即将上线',
+              '选择订阅周期',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: _ink,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            _periodOption(ctx, svc, monthly, '按月付', null),
+            const SizedBox(height: 10),
+            _periodOption(ctx, svc, yearly, '按年付', '更省'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _periodOption(
+    BuildContext ctx,
+    PurchaseService svc,
+    ProductDetails product,
+    String label,
+    String? badge,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(ctx);
+        svc.buy(product);
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: _subtleBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _primary.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
             Text(
-              '微信支付 / 支付宝即将接入\n敬请期待',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: _muted, height: 1.6),
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: _ink,
+              ),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _solidFill,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            if (badge != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _green.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  badge,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: _green,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: const Text(
-                  '我知道了',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+              ),
+            ],
+            const Spacer(),
+            Text(
+              product.price,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: _primary,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // 底部：恢复购买 + 法务链接。订阅类应用上架要求这两样都要有。
+  Widget _buildPurchaseFooter() {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        GestureDetector(
+          onTap: () async {
+            await ref.read(purchaseServiceProvider).restore();
+            _snack('正在恢复购买…');
+          },
+          child: const Text(
+            '恢复购买',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: _primary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => context.push('/settings/terms'),
+              child: Text('用户协议', style: TextStyle(fontSize: 12, color: _muted)),
+            ),
+            Text('  ·  ', style: TextStyle(fontSize: 12, color: _muted)),
+            GestureDetector(
+              onTap: () => context.push('/settings/privacy-policy'),
+              child: Text('隐私政策', style: TextStyle(fontSize: 12, color: _muted)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '订阅到期自动续费，可随时在 App Store 订阅管理中取消',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11, color: _muted, height: 1.5),
+        ),
+      ],
     );
   }
 }
