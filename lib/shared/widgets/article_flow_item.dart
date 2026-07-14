@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/founding_badge.dart';
 import '../models/tutorial_model.dart';
+import 'tutorial_block_renderer.dart' show inlineLatexText;
 
 const _primary = Color(0xFF6366F1);
 
@@ -86,9 +87,9 @@ class ArticleFlowItem extends StatelessWidget {
                     children: [
                       if (tutorial.preview?.isNotEmpty ?? false)
                         Expanded(
-                          child: Text(
+                          child: inlineLatexText(
                             tutorial.preview!,
-                            style: TextStyle(
+                            TextStyle(
                               fontSize: 13,
                               color: textSecondary,
                               height: 1.7,

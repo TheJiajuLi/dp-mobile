@@ -162,11 +162,17 @@ Widget buildTutorialBlockWidget(
                       fileName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
                     ),
                     Text(
                       l10n.tapToPlayExternalLabel,
-                      style: const TextStyle(fontSize: 10.5, color: Colors.white54),
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.white54,
+                      ),
                     ),
                   ],
                 ),
@@ -265,9 +271,7 @@ Widget buildTutorialBlockWidget(
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(10),
-          border: Border(
-            left: BorderSide(color: accent, width: 3),
-          ),
+          border: Border(left: BorderSide(color: accent, width: 3)),
         ),
         child: readingMode
             ? Row(
@@ -329,7 +333,12 @@ Widget buildTutorialBlockWidget(
 // 公式一个思路，text/heading 两处共用，不用各写一份）。baseStyle 已经
 // 套了 applyBlockTextFormat（加粗/颜色/高亮等），公式片段字号跟着缩小
 // 一档，视觉上不会比正文字还抢眼
-Widget inlineLatexText(String content, TextStyle baseStyle) {
+Widget inlineLatexText(
+  String content,
+  TextStyle baseStyle, {
+  int? maxLines,
+  TextOverflow? overflow,
+}) {
   // 支持三种行内定界符：$...$、\(...\)、\[...\]。$...$ 里不跨行（避免把
   // 两段正文之间的 $ 误配成一大段公式），\(...\)/\[...\] 用非贪婪可跨行
   final pattern = RegExp(
@@ -339,7 +348,14 @@ Widget inlineLatexText(String content, TextStyle baseStyle) {
     dotAll: true,
   );
   final matches = pattern.allMatches(content).toList();
-  if (matches.isEmpty) return Text(content, style: baseStyle);
+  if (matches.isEmpty) {
+    return Text(
+      content,
+      style: baseStyle,
+      maxLines: maxLines,
+      overflow: overflow,
+    );
+  }
 
   final mathFontSize = (baseStyle.fontSize ?? 15) * 0.9;
   final spans = <InlineSpan>[];
@@ -371,7 +387,11 @@ Widget inlineLatexText(String content, TextStyle baseStyle) {
   if (last < content.length) {
     spans.add(TextSpan(text: content.substring(last)));
   }
-  return Text.rich(TextSpan(style: baseStyle, children: spans));
+  return Text.rich(
+    TextSpan(style: baseStyle, children: spans),
+    maxLines: maxLines,
+    overflow: overflow,
+  );
 }
 
 // 教程详情页（阅读视角）里可运行的代码块——只有 python/javascript/sql
