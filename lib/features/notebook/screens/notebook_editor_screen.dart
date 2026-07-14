@@ -865,174 +865,177 @@ finally:
       backgroundColor: bg,
       body: Stack(
         children: [
-          SafeArea(
-            child: Column(
-              children: [
-                // 顶部栏
-                Container(
-                  decoration: BoxDecoration(
-                    color: bg,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : const Color(0xFFEBEBEB),
-                        width: 0.5,
+          // 点空白处收起键盘——之前只包在 Cell 画布(ReorderableListView)
+          // 外面一层，ReorderableListView 内部为拖拽排序自带一套手势识别，
+          // 会在"空白但仍在列表边界内"的区域抢先吃掉tap，不冒泡到外层。
+          // 挪到这里包住整个SafeArea（顶栏+画布+底部工具栏一起），跟其它
+          // 17个页面统一用的"包住整页内容"写法一致，不再单独依赖
+          // ReorderableListView 自己的手势透传行为
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              FocusScope.of(context).unfocus();
+              if (_activeIndex != -1) {
+                setState(() => _activeIndex = -1);
+              }
+            },
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // 顶部栏
+                  Container(
+                    decoration: BoxDecoration(
+                      color: bg,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.04)
+                              : const Color(0xFFEBEBEB),
+                          width: 0.5,
+                        ),
                       ),
                     ),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          if (_nb != null) _svc!.save(_nb!);
-                          Navigator.pop(context);
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Icon(
-                          Icons.arrow_back_ios,
-                          size: 18,
-                          color: isDark
-                              ? const Color(0xFF7A80A0)
-                              : const Color(0xFF888888),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // 标题可直接点击编辑
-                      Expanded(
-                        child: TextField(
-                          controller: _titleCtrl,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: isDark
-                                ? const Color(0xFFE0E2F0)
-                                : const Color(0xFF1A1A1A),
-                          ),
-                          maxLines: 1,
-                          textInputAction: TextInputAction.done,
-                          decoration: const InputDecoration.collapsed(
-                            hintText: '未命名 Notebook',
-                          ),
-                          onChanged: (v) {
-                            if (_nb != null) {
-                              _nb!.name = v;
-                              _scheduleSave();
-                            }
-                          },
-                        ),
-                      ),
-                      // 运行全部：中性灰底
-                      _topBarChip(
-                        isDark: isDark,
-                        label: l10n.runAll,
-                        icon: Icons.play_arrow,
-                        onTap: _runAll,
-                      ),
-                      const SizedBox(width: 6),
-                      // 保存：同款灰底
-                      _topBarChip(
-                        isDark: isDark,
-                        label: l10n.save,
-                        onTap: () {
-                          if (_nb != null) _svc!.save(_nb!);
-                          _showSnack(l10n.saved);
-                        },
-                      ),
-                      const SizedBox(width: 6),
-                      // 一键发布为文章——品牌紫底白字（跟极索「问问小梦」按钮一套）
-                      GestureDetector(
-                        onTap: _publishAsArticle,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _primary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.ios_share,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                l10n.publish,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      PopupMenuButton<String>(
-                        icon: Icon(
-                          Icons.more_vert,
-                          color: Colors.grey[600],
-                          size: 20,
-                        ),
-                        itemBuilder: (ctx) => [
-                          PopupMenuItem(
-                            value: 'export',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.download, size: 18),
-                                const SizedBox(width: 8),
-                                Text(l10n.exportIpynb),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'clear',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.delete_outline, size: 18),
-                                const SizedBox(width: 8),
-                                Text(l10n.clearOutputs),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onSelected: (value) {
-                          if (value == 'export') {
-                            _exportIpynb();
-                          } else if (value == 'clear') {
-                            _clearOutputs();
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Cell 画布——单一滚动、原地编辑，支持拖拽重排；末尾挂一个
-                // 「添加内容块」按钮
-                Expanded(
-                  child: _nb == null
-                      ? const Center(child: CircularProgressIndicator())
-                      // 轻击画布空白处收起键盘，并让选中的 markdown/latex 退回
-                      // 渲染态（cell 的 TextField/拖拽手柄是子级，优先命中，
-                      // 只有真正的空白 tap 才会走到这里）
-                      : GestureDetector(
-                          behavior: HitTestBehavior.opaque,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        GestureDetector(
                           onTap: () {
-                            FocusScope.of(context).unfocus();
-                            if (_activeIndex != -1) {
-                              setState(() => _activeIndex = -1);
+                            if (_nb != null) _svc!.save(_nb!);
+                            Navigator.pop(context);
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: Icon(
+                            Icons.arrow_back_ios,
+                            size: 18,
+                            color: isDark
+                                ? const Color(0xFF7A80A0)
+                                : const Color(0xFF888888),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // 标题可直接点击编辑
+                        Expanded(
+                          child: TextField(
+                            controller: _titleCtrl,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: isDark
+                                  ? const Color(0xFFE0E2F0)
+                                  : const Color(0xFF1A1A1A),
+                            ),
+                            maxLines: 1,
+                            textInputAction: TextInputAction.done,
+                            decoration: const InputDecoration.collapsed(
+                              hintText: '未命名 Notebook',
+                            ),
+                            onChanged: (v) {
+                              if (_nb != null) {
+                                _nb!.name = v;
+                                _scheduleSave();
+                              }
+                            },
+                          ),
+                        ),
+                        // 运行全部：中性灰底
+                        _topBarChip(
+                          isDark: isDark,
+                          label: l10n.runAll,
+                          icon: Icons.play_arrow,
+                          onTap: _runAll,
+                        ),
+                        const SizedBox(width: 6),
+                        // 保存：同款灰底
+                        _topBarChip(
+                          isDark: isDark,
+                          label: l10n.save,
+                          onTap: () {
+                            if (_nb != null) _svc!.save(_nb!);
+                            _showSnack(l10n.saved);
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        // 一键发布为文章——品牌紫底白字（跟极索「问问小梦」按钮一套）
+                        GestureDetector(
+                          onTap: _publishAsArticle,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.ios_share,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  l10n.publish,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          icon: Icon(
+                            Icons.more_vert,
+                            color: Colors.grey[600],
+                            size: 20,
+                          ),
+                          itemBuilder: (ctx) => [
+                            PopupMenuItem(
+                              value: 'export',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.download, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(l10n.exportIpynb),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'clear',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.delete_outline, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(l10n.clearOutputs),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onSelected: (value) {
+                            if (value == 'export') {
+                              _exportIpynb();
+                            } else if (value == 'clear') {
+                              _clearOutputs();
                             }
                           },
-                          child: ReorderableListView(
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Cell 画布——单一滚动、原地编辑，支持拖拽重排；末尾挂一个
+                  // 「添加内容块」按钮
+                  Expanded(
+                    child: _nb == null
+                        ? const Center(child: CircularProgressIndicator())
+                        : ReorderableListView(
                             scrollController: _scrollCtrl,
                             buildDefaultDragHandles: false,
                             padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
@@ -1046,16 +1049,16 @@ finally:
                                 _buildCellCard(_nb!.cells[i], i),
                             ],
                           ),
-                        ),
-                ),
+                  ),
 
-                // 底部浮动工具栏
-                NotebookBottomToolbar(
-                  isDark: isDark,
-                  activeType: _getActiveToolType(),
-                  onTap: _onToolbarTap,
-                ),
-              ],
+                  // 底部浮动工具栏
+                  NotebookBottomToolbar(
+                    isDark: isDark,
+                    activeType: _getActiveToolType(),
+                    onTap: _onToolbarTap,
+                  ),
+                ],
+              ),
             ),
           ),
 
