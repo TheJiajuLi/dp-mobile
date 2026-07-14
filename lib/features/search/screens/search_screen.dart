@@ -399,8 +399,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             child: Container(
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFFE8E8ED),
+                // 浅色输入胶囊改白底（原来是灰 #E8E8ED）；深色用主题卡片色。
+                // 白底衬在 #FAFAF8 页面上对比很淡，补一条 0.5px 细边界定轮廓
+                color: _isDark ? _cardBg : Colors.white,
                 borderRadius: BorderRadius.circular(19),
+                border: Border.all(color: _border, width: 0.5),
               ),
               child: TextField(
                 controller: _ctrl,
@@ -499,11 +502,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     horizontal: 12,
                     vertical: 6,
                   ),
-                  decoration: BoxDecoration(
-                    color: _cardBg,
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: _border, width: 0.5),
-                  ),
+                  // 去掉白色 pill 背景，chip 直接坐在页面底色上
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -534,11 +533,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     horizontal: 12,
                     vertical: 6,
                   ),
-                  decoration: BoxDecoration(
-                    color: _cardBg,
-                    borderRadius: BorderRadius.circular(99),
-                    border: Border.all(color: _border, width: 0.5),
-                  ),
+                  // 去掉白色 pill 背景，chip 直接坐在页面底色上
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -671,54 +666,47 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       Color(0xFFF59E0B),
       Color(0xFF10B981),
     ];
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _border, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: List.generate(rankList.length, (index) {
-          final t = rankList[index];
-          return GestureDetector(
-            onTap: () => context.push('/tutorial/${t.id}'),
-            child: Padding(
-              padding: EdgeInsets.only(top: index == 0 ? 0 : 7, bottom: 7),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 18,
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: index < 3 ? rankColors[index] : _muted,
-                      ),
+    // 去掉白色卡片背景，排行列表直接坐在页面底色上，跟区块标题左对齐
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(rankList.length, (index) {
+        final t = rankList[index];
+        return GestureDetector(
+          onTap: () => context.push('/tutorial/${t.id}'),
+          child: Padding(
+            padding: EdgeInsets.only(top: index == 0 ? 0 : 7, bottom: 7),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: index < 3 ? rankColors[index] : _muted,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      t.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: _ink),
-                    ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    t.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: _ink),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${t.views}',
-                    style: TextStyle(fontSize: 11.5, color: _muted),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${t.views}',
+                  style: TextStyle(fontSize: 11.5, color: _muted),
+                ),
+              ],
             ),
-          );
-        }),
-      ),
+          ),
+        );
+      }),
     );
   }
 
