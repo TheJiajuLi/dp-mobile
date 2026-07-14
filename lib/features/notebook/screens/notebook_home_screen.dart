@@ -414,20 +414,23 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                         ),
                       ),
                       const Spacer(),
-                      // 新建：黑底白字（Notebook 已去紫化，唯一的紫留给编辑器里
-                      // 每个 cell 的「▶运行」）
+                      // 新建：去掉黑色填充改用描边（图标随之转黑）。Notebook 已
+                      // 去紫化，唯一的紫留给编辑器里每个 cell 的「▶运行」
                       GestureDetector(
                         onTap: _showNewSheet,
                         child: Container(
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: _accent,
                             borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isDark ? Colors.white54 : _accent,
+                              width: 1,
+                            ),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.add,
-                            color: Colors.white,
+                            color: isDark ? Colors.white : _accent,
                             size: 18,
                           ),
                         ),
