@@ -389,7 +389,11 @@ class _NavItem extends StatelessWidget {
     // AnimatedTheme 平滑插值（浅色≈近黑 / 深色≈近白），切主题时图标文字
     // 跟着一起渐变，不再在动画中点突然翻转
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final color = selected ? onSurface : onSurface.withValues(alpha: 0.45);
+    // 选中态用品牌紫（深浅色一致）；未选中仍走 onSurface 淡化，切主题时
+    // 跟着 AnimatedTheme 平滑插值。「+」是单独的 _PublishButton，不受影响
+    final color = selected
+        ? const Color(0xFF6366F1)
+        : onSurface.withValues(alpha: 0.45);
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
