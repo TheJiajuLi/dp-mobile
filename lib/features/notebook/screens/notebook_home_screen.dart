@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,29 +10,16 @@ import '../services/notebook_service.dart';
 // 中性主色（原品牌紫 #6366F1 已下线）：主按钮/强调用近黑，图标用中性灰。
 const _accent = Color(0xFF1A1A1A);
 
-// leading 图标容器的浅色底：按 notebook 的语言/类型分组取中性色调
-// （不再是品牌色或饱和色）。
-Color _langTint(String lang) => switch (lang) {
-  'python' ||
-  'sql' ||
-  'javascript' ||
-  'r' ||
-  'julia' => const Color(0xFFF0F0F8),
-  'latex' || 'math' || 'markdown' => const Color(0xFFF0F8F0),
-  _ => const Color(0xFFFFF8F0),
-};
-
-// leading 图标里的字形色——跟着语言分组走一点点色彩暗示（代码类偏冷灰蓝、
-// 公式/数学类偏冷绿），比一律 #888 更有识别度，但仍克制、不抢眼
-Color _langIcon(String lang) => switch (lang) {
-  'python' ||
-  'sql' ||
-  'javascript' ||
-  'r' ||
-  'julia' => const Color(0xFF7C7F9E),
-  'latex' || 'math' || 'markdown' => const Color(0xFF6E9E7C),
-  _ => const Color(0xFF9E8A6E),
-};
+// 欢迎页重新走活泼的彩色方向：每个 notebook 图标取一组"浅底 + 同色字形"
+// （$1=浅底 tint，$2=图标/角标 accent）。最近打开按稳定 hash 取，保证同一个
+// notebook 每次颜色不变；模板卡各自显式指定。
+const _palette = <(Color, Color)>[
+  (Color(0xFFEDE9FE), Color(0xFF7C6FF0)), // 紫
+  (Color(0xFFFEF3C7), Color(0xFFF59E0B)), // 琥珀
+  (Color(0xFFDBEAFE), Color(0xFF3B82F6)), // 蓝
+  (Color(0xFFFCE7F3), Color(0xFFC026D3)), // 品红
+  (Color(0xFFDCFCE7), Color(0xFF16A34A)), // 绿
+];
 
 // 浅色卡片统一的一层极淡阴影，制造"浮起"的层次；深色不用
 const _cardBorder = Color(0xFFEBEBEB);
@@ -222,6 +210,134 @@ class _State extends ConsumerState<NotebookHomeScreen> {
     );
   }
 
+  // 极光深色渐变 Hero：深紫渐变底 + 右上角光晕 + 底部柔光射线 + 毛玻璃
+  // 「新建」按钮。深浅色统一走这套深色卡（跟个人主页头图区一样是刻意的
+  // 局部深色，欢迎页需要一点氛围感，不套米白/无渐变那套静态规范）
+  Widget _buildHero(AppLocalizations l10n) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2A2158).withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF221C3E),
+                      Color(0xFF322A66),
+                      Color(0xFF1D2A5C),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // 右上角紫蓝极光光晕
+            Positioned(
+              right: -50,
+              top: -50,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [Color(0x554F46E5), Color(0x004F46E5)],
+                  ),
+                ),
+              ),
+            ),
+            // 底部柔光射线
+            Positioned.fill(child: CustomPaint(painter: _RaysPainter())),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    greetingText(context),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.whereToStart,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _glassNewButton(l10n),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 毛玻璃「新建 Notebook」按钮：半透明白 + 细白描边 + 背景模糊，衬在深色
+  // 渐变上是磨砂玻璃质感（Hero 是刻意的深色语境，符合毛玻璃只用在深色的规则）
+  Widget _glassNewButton(AppLocalizations l10n) {
+    return GestureDetector(
+      onTap: _showNewSheet,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.22),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add, color: Colors.white, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  l10n.newNotebook,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -333,88 +449,8 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Hero
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              margin: const EdgeInsets.only(bottom: 24),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Theme.of(context).cardColor
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isDark
-                                      ? Theme.of(context).dividerColor
-                                      : _cardBorder,
-                                  width: 0.5,
-                                ),
-                                boxShadow: _cardShadow(isDark),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    greetingText(context),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFFAAAAAA),
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    l10n.whereToStart,
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.2,
-                                      color: isDark
-                                          ? Colors.white
-                                          : const Color(0xFF1A1A1A),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 18),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 50,
-                                    child: ElevatedButton(
-                                      onPressed: _showNewSheet,
-                                      style: ElevatedButton.styleFrom(
-                                        // Notebook 已去紫化，主操作用近黑
-                                        backgroundColor: _accent,
-                                        elevation: 0,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.add,
-                                            color: Colors.white,
-                                            size: 18,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            l10n.newNotebook,
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            // Hero——极光深色渐变卡（欢迎页重新做活）
+                            _buildHero(l10n),
 
                             // 最近
                             if (_recent.isNotEmpty) ...[
@@ -452,27 +488,43 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                       l10n.tagDataAnalysis,
                                       Icons.bar_chart,
                                       'python',
+                                      const (
+                                        Color(0xFFEEF0FF),
+                                        Color(0xFF6366F1),
+                                      ),
                                     ),
                                     (
                                       l10n.tagMachineLearning,
                                       Icons.psychology,
                                       'python',
+                                      const (
+                                        Color(0xFFFCE7F3),
+                                        Color(0xFFC026D3),
+                                      ),
                                     ),
                                     (
                                       l10n.templateMathDerivation,
                                       Icons.functions,
                                       'latex',
+                                      const (
+                                        Color(0xFFEDE9FE),
+                                        Color(0xFF8B5CF6),
+                                      ),
                                     ),
                                     (
                                       l10n.tagVisualization,
                                       Icons.show_chart,
                                       'python',
+                                      const (
+                                        Color(0xFFDCFCE7),
+                                        Color(0xFF16A34A),
+                                      ),
                                     ),
                                   ])
                                     _TemplateCard(
                                       name: t.$1,
                                       icon: t.$2,
-                                      lang: t.$3,
+                                      colors: t.$4,
                                       onTap: () async {
                                         final nb = await _svc!.create(
                                           t.$1,
@@ -517,7 +569,11 @@ class _SectionHeader extends StatelessWidget {
           onTap: onAction,
           child: Text(
             action!,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF888888)),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF6366F1),
+            ),
           ),
         ),
     ],
@@ -538,7 +594,8 @@ class _RecentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 图标字形仍按稳定 hash 取，只是颜色统一为中性灰、底色按语言分组
+    // 图标字形 + 配色都按稳定 hash 取（同一个 notebook 每次一致），彩色不再
+    // 是中性灰——欢迎页重新做活
     final icons = [
       Icons.bar_chart,
       Icons.functions,
@@ -546,10 +603,10 @@ class _RecentCard extends StatelessWidget {
       Icons.code,
       Icons.table_chart,
     ];
-    final idx = (nb['id'] as String).hashCode.abs() % 5;
+    final idx = (nb['id'] as String).hashCode.abs() % _palette.length;
+    final (tint, accent) = _palette[idx];
     final lang = nb['lang'] ?? 'python';
-    // 语言标签用中性灰，不再用品牌/饱和色
-    const badgeColor = Color(0xFF888888);
+    final badgeColor = accent;
     final updatedAt = nb['updatedAt'] as int? ?? 0;
     final diff = DateTime.now().millisecondsSinceEpoch ~/ 1000 - updatedAt;
     final timeStr = diff < 3600
@@ -591,10 +648,10 @@ class _RecentCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: _langTint(lang),
+                  color: tint,
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(icons[idx], color: _langIcon(lang), size: 23),
+                child: Icon(icons[idx], color: accent, size: 23),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -629,7 +686,7 @@ class _RecentCard extends StatelessWidget {
                                 : lang == 'mixed'
                                 ? l10n.langMixed
                                 : 'Python',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: badgeColor,
@@ -673,12 +730,12 @@ class _RecentCard extends StatelessWidget {
 class _TemplateCard extends StatelessWidget {
   final String name;
   final IconData icon;
-  final String lang;
+  final (Color, Color) colors; // ($1=浅底, $2=图标色)
   final VoidCallback onTap;
   const _TemplateCard({
     required this.name,
     required this.icon,
-    required this.lang,
+    required this.colors,
     required this.onTap,
   });
   @override
@@ -712,10 +769,10 @@ class _TemplateCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: _langTint(lang),
+                color: colors.$1,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: _langIcon(lang), size: 22),
+              child: Icon(icon, color: colors.$2, size: 22),
             ),
             const SizedBox(height: 8),
             Text(
@@ -734,4 +791,44 @@ class _TemplateCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// Hero 底部的几道柔光射线：从底部中间往上发散，紫/蓝/绿低透明度渐变，
+// 两头淡出——纯装饰，给深色渐变加一点极光氛围
+class _RaysPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final origin = Offset(size.width * 0.5, size.height + 8);
+    const dirs = [
+      Offset(-0.55, -1),
+      Offset(-0.25, -1),
+      Offset(0.05, -1),
+      Offset(0.38, -1),
+      Offset(0.72, -0.9),
+    ];
+    const tints = [
+      Color(0x33A78BFA),
+      Color(0x2260A5FA),
+      Color(0x334ADE80),
+      Color(0x22A78BFA),
+      Color(0x2234D399),
+    ];
+    for (var i = 0; i < dirs.length; i++) {
+      final len = size.height * 0.78;
+      final end = origin + Offset(dirs[i].dx * len, dirs[i].dy * len);
+      final paint = Paint()
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round
+        ..shader = ui.Gradient.linear(
+          origin,
+          end,
+          [const Color(0x00FFFFFF), tints[i], const Color(0x00FFFFFF)],
+          const [0.0, 0.35, 1.0],
+        );
+      canvas.drawLine(origin, end, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
