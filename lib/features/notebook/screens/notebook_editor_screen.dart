@@ -1082,6 +1082,14 @@ finally:
                             scrollController: _scrollCtrl,
                             buildDefaultDragHandles: false,
                             padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
+                            // 默认拖拽会把 cell 裹进一层矩形高亮 Material（灰底+
+                            // 阴影），露在卡片圆角之外，就是那圈"灰色 box"。用
+                            // 透明、零高度的 proxy 代替，拖起来跟静态卡片一模一样
+                            proxyDecorator: (child, index, animation) => Material(
+                              color: Colors.transparent,
+                              elevation: 0,
+                              child: child,
+                            ),
                             onReorder: _onReorder,
                             footer: NotebookAddDivider(
                               isDark: isDark,
