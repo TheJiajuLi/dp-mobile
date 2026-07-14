@@ -943,7 +943,7 @@ finally:
                         },
                       ),
                       const SizedBox(width: 6),
-                      // 一键发布为文章——黑底白字（不是紫）
+                      // 一键发布为文章——品牌紫底白字（跟极索「问问小梦」按钮一套）
                       GestureDetector(
                         onTap: _publishAsArticle,
                         child: Container(
@@ -952,7 +952,7 @@ finally:
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A1A),
+                            color: const Color(0xFF6366F1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(

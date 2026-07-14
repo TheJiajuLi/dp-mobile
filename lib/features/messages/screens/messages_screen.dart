@@ -489,12 +489,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
           alignment: Alignment.center,
           // 未选中态之前是白底+描边——跟页面上其它卡片(_PreviewCard/
           // InviteSummaryCard)都已经改成"不描边、靠底色/阴影撑轮廓"的
-          // 语言不一致。选中态之前是品牌紫，跟底部导航「+」发布按钮的
-          // 黑底白字不是一套视觉，改成同款纯黑；未选中态是中性灰实心，
-          // 不再描边
+          // 语言不一致，改成中性灰实心不描边。选中态用品牌紫实心（跟极索
+          // 「问问小梦」按钮一套）
           decoration: BoxDecoration(
             color: selected
-                ? const Color(0xFF1A1A1A)
+                ? const Color(0xFF6366F1)
                 : (Theme.of(context).brightness == Brightness.dark
                       ? Colors.white.withValues(alpha: 0.08)
                       : Colors.grey[100]),
