@@ -89,10 +89,14 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final bg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: bg,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 18),
