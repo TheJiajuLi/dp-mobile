@@ -492,7 +492,12 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
                     ),
                     const Spacer(),
                     GestureDetector(
-                      onTap: () => context.push('/columns/${c.id}'),
+                      // 进「专栏管理」详情页可能会删除专栏，push 返回后重拉
+                      // 本页列表——不然删掉了这里还留着旧卡片，得退出再进才更新
+                      onTap: () async {
+                        await context.push('/columns/${c.id}');
+                        if (mounted) _load();
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
