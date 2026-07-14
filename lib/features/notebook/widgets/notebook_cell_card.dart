@@ -169,7 +169,9 @@ class NotebookCellCard extends StatelessWidget {
               child: Icon(
                 Icons.drag_handle,
                 size: 15,
-                color: isDark ? const Color(0xFF555555) : const Color(0xFFCCCCCC),
+                color: isDark
+                    ? const Color(0xFF555555)
+                    : const Color(0xFFCCCCCC),
               ),
             ),
             const SizedBox(width: 6),
@@ -182,7 +184,9 @@ class NotebookCellCard extends StatelessWidget {
               child: Icon(
                 Icons.more_horiz,
                 size: 15,
-                color: isDark ? const Color(0xFF555555) : const Color(0xFFCCCCCC),
+                color: isDark
+                    ? const Color(0xFF555555)
+                    : const Color(0xFFCCCCCC),
               ),
             ),
           ],
@@ -226,39 +230,49 @@ void showCellActionsSheet(
 }) {
   showModalBottomSheet(
     context: context,
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final t in const [
-            ('markdown', '下方添加文字'),
-            ('python', '下方添加代码'),
-            ('latex', '下方添加公式'),
-          ])
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => Container(
+      decoration: BoxDecoration(
+        color: Theme.of(ctx).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final t in const [
+              ('markdown', '下方添加文字'),
+              ('python', '下方添加代码'),
+              ('latex', '下方添加公式'),
+            ])
+              ListTile(
+                tileColor: Colors.transparent,
+                leading: const Icon(Icons.add, size: 20),
+                title: Text(t.$2),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onAddBelow(t.$1);
+                },
+              ),
             ListTile(
-              leading: const Icon(Icons.add, size: 20),
-              title: Text(t.$2),
+              tileColor: Colors.transparent,
+              leading: const Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Color(0xFFDC2626),
+              ),
+              title: const Text(
+                '删除此块',
+                style: TextStyle(color: Color(0xFFDC2626)),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
-                onAddBelow(t.$1);
+                onDelete();
               },
             ),
-          ListTile(
-            leading: const Icon(
-              Icons.delete_outline,
-              size: 20,
-              color: Color(0xFFDC2626),
-            ),
-            title: const Text(
-              '删除此块',
-              style: TextStyle(color: Color(0xFFDC2626)),
-            ),
-            onTap: () {
-              Navigator.pop(ctx);
-              onDelete();
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

@@ -97,33 +97,43 @@ void showMoreLanguagesSheet(
 }) {
   showModalBottomSheet(
     context: context,
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final t in const [
-            ('javascript', 'JavaScript', Icons.javascript),
-            ('r', 'R', Icons.bar_chart),
-            ('julia', 'Julia', Icons.change_history),
-            ('html', 'HTML', Icons.html),
-          ])
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => Container(
+      decoration: BoxDecoration(
+        color: Theme.of(ctx).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final t in const [
+              ('javascript', 'JavaScript', Icons.javascript),
+              ('r', 'R', Icons.bar_chart),
+              ('julia', 'Julia', Icons.change_history),
+              ('html', 'HTML', Icons.html),
+            ])
+              ListTile(
+                tileColor: Colors.transparent,
+                leading: Icon(t.$3, size: 20),
+                title: Text(t.$2),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onPick(t.$1);
+                },
+              ),
             ListTile(
-              leading: Icon(t.$3, size: 20),
-              title: Text(t.$2),
+              tileColor: Colors.transparent,
+              leading: const Icon(Icons.upload_file, size: 20),
+              title: Text(AppLocalizations.of(ctx)!.import),
               onTap: () {
                 Navigator.pop(ctx);
-                onPick(t.$1);
+                onImport();
               },
             ),
-          ListTile(
-            leading: const Icon(Icons.upload_file, size: 20),
-            title: Text(AppLocalizations.of(ctx)!.import),
-            onTap: () {
-              Navigator.pop(ctx);
-              onImport();
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
