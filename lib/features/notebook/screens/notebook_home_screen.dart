@@ -21,6 +21,30 @@ Color _langTint(String lang) => switch (lang) {
   _ => const Color(0xFFFFF8F0),
 };
 
+// leading 图标里的字形色——跟着语言分组走一点点色彩暗示（代码类偏冷灰蓝、
+// 公式/数学类偏冷绿），比一律 #888 更有识别度，但仍克制、不抢眼
+Color _langIcon(String lang) => switch (lang) {
+  'python' ||
+  'sql' ||
+  'javascript' ||
+  'r' ||
+  'julia' => const Color(0xFF7C7F9E),
+  'latex' || 'math' || 'markdown' => const Color(0xFF6E9E7C),
+  _ => const Color(0xFF9E8A6E),
+};
+
+// 浅色卡片统一的一层极淡阴影，制造"浮起"的层次；深色不用
+const _cardBorder = Color(0xFFEBEBEB);
+List<BoxShadow>? _cardShadow(bool isDark) => isDark
+    ? null
+    : [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.03),
+          blurRadius: 10,
+          offset: const Offset(0, 2),
+        ),
+      ];
+
 class NotebookHomeScreen extends ConsumerStatefulWidget {
   const NotebookHomeScreen({super.key});
   @override
@@ -201,8 +225,13 @@ class _State extends ConsumerState<NotebookHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 浅色统一用首页同款米白 #FAFAF8
+    final bg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: bg,
       // top/bottom 不在这层留白，顶栏自己用 SafeArea(bottom:false) 把
       // 白色背景铺进状态栏安全区，不然这层统一留白会露出 Scaffold 背景
       // 跟顶栏纯白刀切不连贯（跟 publish_screen.dart 顶栏是同一套处理）
@@ -211,9 +240,19 @@ class _State extends ConsumerState<NotebookHomeScreen> {
         bottom: false,
         child: Column(
           children: [
-            // 顶部栏
+            // 顶部栏——跟画布同底色，底部一条极淡分割线，不再是纯白刀切
             Container(
-              color: Theme.of(context).cardColor,
+              decoration: BoxDecoration(
+                color: bg,
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : _cardBorder,
+                    width: 0.5,
+                  ),
+                ),
+              ),
               child: SafeArea(
                 bottom: false,
                 child: Padding(
@@ -225,18 +264,23 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                     children: [
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
+                        behavior: HitTestBehavior.opaque,
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.arrow_back_ios,
                               size: 16,
-                              color: _accent,
+                              color: isDark
+                                  ? const Color(0xFF7A80A0)
+                                  : const Color(0xFF888888),
                             ),
                             Text(
                               l10n.back,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: _accent,
+                                color: isDark
+                                    ? const Color(0xFF7A80A0)
+                                    : const Color(0xFF888888),
                               ),
                             ),
                           ],
@@ -245,19 +289,24 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                       const SizedBox(width: 8),
                       Text(
                         l10n.appNotebookTitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF1A1A1A),
                         ),
                       ),
                       const Spacer(),
+                      // 新建：黑底白字（Notebook 已去紫化，唯一的紫留给编辑器里
+                      // 每个 cell 的「▶运行」）
                       GestureDetector(
                         onTap: _showNewSheet,
                         child: Container(
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1),
+                            color: _accent,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
@@ -288,60 +337,78 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(20),
-                              margin: const EdgeInsets.only(bottom: 20),
+                              margin: const EdgeInsets.only(bottom: 24),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
+                                color: isDark
+                                    ? Theme.of(context).cardColor
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: Theme.of(context).dividerColor,
+                                  color: isDark
+                                      ? Theme.of(context).dividerColor
+                                      : _cardBorder,
+                                  width: 0.5,
                                 ),
+                                boxShadow: _cardShadow(isDark),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     greetingText(context),
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[500],
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFFAAAAAA),
+                                      letterSpacing: 0.3,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 6),
                                   Text(
                                     l10n.whereToStart,
-                                    style: const TextStyle(
-                                      fontSize: 22,
+                                    style: TextStyle(
+                                      fontSize: 24,
                                       fontWeight: FontWeight.w700,
+                                      height: 1.2,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1A1A1A),
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 18),
                                   SizedBox(
                                     width: double.infinity,
-                                    height: 48,
-                                    child: ElevatedButton.icon(
+                                    height: 50,
+                                    child: ElevatedButton(
                                       onPressed: _showNewSheet,
-                                      icon: const Icon(
-                                        Icons.add,
-                                        color: Colors.white,
-                                        size: 18,
-                                      ),
-                                      label: Text(
-                                        l10n.newNotebook,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                      ),
                                       style: ElevatedButton.styleFrom(
-                                        // 品牌紫主操作，跟极索「问问小梦」按钮一套
-                                        backgroundColor: const Color(0xFF6366F1),
+                                        // Notebook 已去紫化，主操作用近黑
+                                        backgroundColor: _accent,
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
                                             14,
                                           ),
                                         ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.add,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            l10n.newNotebook,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -378,6 +445,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                               height: 122,
                               child: ListView(
                                 scrollDirection: Axis.horizontal,
+                                clipBehavior: Clip.none,
                                 children: [
                                   for (final t in [
                                     (
@@ -510,13 +578,12 @@ class _RecentCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isDark ? Theme.of(context).cardColor : Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               width: 0.5,
-              color: isDark
-                  ? Theme.of(context).dividerColor
-                  : const Color(0xFFEBEBEB),
+              color: isDark ? Theme.of(context).dividerColor : _cardBorder,
             ),
+            boxShadow: _cardShadow(isDark),
           ),
           child: Row(
             children: [
@@ -525,13 +592,9 @@ class _RecentCard extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   color: _langTint(lang),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(
-                  icons[idx],
-                  color: const Color(0xFF888888),
-                  size: 24,
-                ),
+                child: Icon(icons[idx], color: _langIcon(lang), size: 23),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -635,13 +698,12 @@ class _TemplateCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isDark ? Theme.of(context).cardColor : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             width: 0.5,
-            color: isDark
-                ? Theme.of(context).dividerColor
-                : const Color(0xFFEBEBEB),
+            color: isDark ? Theme.of(context).dividerColor : _cardBorder,
           ),
+          boxShadow: _cardShadow(isDark),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -651,9 +713,9 @@ class _TemplateCard extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: _langTint(lang),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: const Color(0xFF888888), size: 22),
+              child: Icon(icon, color: _langIcon(lang), size: 22),
             ),
             const SizedBox(height: 8),
             Text(
