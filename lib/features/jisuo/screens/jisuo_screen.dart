@@ -333,15 +333,23 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     ? const CustomPaint(painter: _NebulaPainter(isDark: true))
                     : Stack(
                         children: [
+                          // 实心低透明度圆改成径向渐变——之前是纯色填充，
+                          // 边缘是一圈能看出来的硬边界；渐变透明到 0 才是
+                          // 真正"雾感"光晕，没有边界感
                           Positioned(
-                            top: -60,
-                            left: -40,
+                            top: -80,
+                            left: -60,
                             child: Container(
-                              width: 300,
-                              height: 300,
+                              width: 340,
+                              height: 340,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: _primary.withValues(alpha: 0.06),
+                                gradient: RadialGradient(
+                                  colors: [
+                                    _primary.withValues(alpha: 0.10),
+                                    _primary.withValues(alpha: 0),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -511,11 +519,11 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   Widget _buildHero(bool isDark) {
     // 星云/光晕装饰层挪到 Scaffold body 的 Stack 底层了（build()
-    // 里，SafeArea 外面），这里只剩文字内容本身。高度之前是屏幕的一半，
-    // 标题+示例问题一起撑不满，顶栏和内容之间空出一大截——收紧到0.4，
-    // 内容密度更高，不再显得像个landing page的英雄区
+    // 里，SafeArea 外面），这里只剩文字内容本身。高度进一步收紧到0.3——
+    // 用户是来提问的，不是来看 slogan 的，标题不需要撑满半屏，把视觉
+    // 重心让给下面的示例问题（真正可点的入口）
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.4,
+      height: MediaQuery.of(context).size.height * 0.3,
       child: Stack(
         children: [
           Padding(
@@ -527,9 +535,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                   textAlign: TextAlign.center,
                   text: TextSpan(
                     style: TextStyle(
-                      fontSize: 36,
+                      fontSize: 27,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
+                      letterSpacing: 1,
                       height: 1.3,
                       color: isDark ? Colors.white : const Color(0xFF1A1A1A),
                     ),
@@ -543,7 +551,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
                   '极梦 · 知识问答社区',
                   style: TextStyle(
@@ -554,7 +562,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                         : Colors.grey[400],
                   ),
                 ),
-                const SizedBox(height: 36),
+                const SizedBox(height: 26),
                 ..._sampleQuestions.map(
                   (q) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -568,14 +576,26 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                         decoration: BoxDecoration(
                           color: isDark
                               ? Colors.white.withValues(alpha: 0.08)
-                              : _primary.withValues(alpha: 0.06),
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(99),
                           border: Border.all(
                             color: isDark
                                 ? Colors.white.withValues(alpha: 0.1)
-                                : _primary.withValues(alpha: 0.15),
+                                : _primary.withValues(alpha: 0.1),
                             width: 0.5,
                           ),
+                          // 浅色下从"淡紫填色+描边"改成"白底+极淡描边+软阴影"
+                          // ——原来的纯色填充在同样浅米白的页面背景上层次
+                          // 不够，阴影才是真正的深度来源
+                          boxShadow: isDark
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: _primary.withValues(alpha: 0.08),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                         ),
                         child: Text(
                           q,
