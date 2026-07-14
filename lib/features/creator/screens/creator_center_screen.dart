@@ -135,7 +135,8 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     final user = ref.watch(currentUserProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? _darkBg : Colors.white,
+      // 浅色统一首页米白 #FAFAF8（不再纯白）；深色不变
+      backgroundColor: isDark ? _darkBg : const Color(0xFFFAFAF8),
       body: SafeArea(
         bottom: false,
         child: _loading
