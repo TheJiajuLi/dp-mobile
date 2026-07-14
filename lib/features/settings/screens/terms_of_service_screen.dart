@@ -3,8 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../widgets/legal_doc_widgets.dart';
 
-// 用户服务协议全文——跟《极梦_用户服务协议.pdf》（生效日期 2026-07-07，
-// 版本 1.0）逐条对应，不是摘要或改写。以后协议文本更新时这里也要同步改
+// 用户服务协议全文——运营主体为上海既白观海科技有限公司，2026-07-14
+// 更新，版本 1.0。以后协议文本更新时这里也要同步改
 class TermsOfServiceScreen extends StatelessWidget {
   const TermsOfServiceScreen({super.key});
 
@@ -28,125 +28,104 @@ class TermsOfServiceScreen extends StatelessWidget {
           const LegalDocHeader(
             title: '用户服务协议',
             subtitle: 'Terms of Service · 极梦（Dreaming Polar）',
-            effectiveDate: '2026 年 7 月 7 日',
+            effectiveDate: '2026 年 7 月 14 日',
             version: '1.0',
           ),
-
-          const LegalH2('一、总则与接受条款'),
           const LegalP(
-            '欢迎使用极梦（Dreaming Polar）内容创作平台（以下简称「极梦」或「本平台」）。本协议由您与极梦运营主体（以下简称「我们」）共同缔结，具有合同效力。',
-          ),
-          const LegalCallout(
-            '重要提示：请您在使用极梦前仔细阅读本协议全部条款。注册账号、点击「同意」按钮或以任何方式使用本平台，即表示您已充分阅读、理解并接受本协议。',
-          ),
-          const LegalP(
-            '本协议适用于极梦移动应用程序（iOS/Android）及相关服务。若您不同意本协议任何条款，请立即停止使用本平台。',
+            '欢迎使用极梦（Dreaming Polar）。本协议由您与上海既白观海科技有限公司（以下简称「极梦」或「我们」）签订。使用极梦服务即表示您同意本协议。',
           ),
 
-          const LegalH2('二、账号注册与管理'),
-          const LegalH3('2.1 注册资格'),
+          const LegalH2('一、服务说明'),
+          const LegalP('极梦是一个面向知识创作者和知识爱好者的内容社区，提供：'),
           const LegalBullets([
-            '您须年满 16 周岁（或所在地区法定最低年龄）方可注册使用本平台。',
-            '若您未满 18 周岁，须在监护人同意并监督下使用本平台。',
-            '您须保证注册信息真实、准确、完整，并在信息变更时及时更新。',
+            '知识内容创作与发布',
+            'Notebook 编程与数据分析',
+            'AI 辅助创作工具（小梦）',
+            '会员订阅服务',
           ]),
-          const LegalH3('2.2 账号安全'),
-          const LegalBullets([
-            '您应妥善保管账号密码，不得转让、出售或共享账号。',
-            '因账号保管不当导致的损失由您自行承担。',
-            '如发现账号被盗用，请立即联系我们：support@dreamingpolar.com。',
-          ]),
-          const LegalH3('2.3 账号注销'),
-          const LegalP(
-            '您可随时在「设置 → 账号 → 注销账号」申请注销。注销后，您的账号数据将在 30 天内从我们服务器删除（法律要求保留的数据除外）。',
-          ),
 
-          const LegalH2('三、平台服务'),
-          const LegalH3('3.1 核心服务'),
-          const LegalP('极梦为用户提供以下服务：'),
+          const LegalH2('二、账号注册'),
           const LegalBullets([
-            '知识内容创作与发布（教程、Notebook、专栏等）',
-            '内容阅读、搜索与收藏',
-            '用户社交互动（评论、点赞、关注、私信）',
-            'AI 创作辅助（小梦 AI）',
-            '极光创作者计划及收益分成',
+            '您需要年满 13 岁才能注册使用极梦',
+            '您应提供真实、准确的注册信息',
+            '您有责任保管账号安全，不得将账号转让或出借他人',
+            '如发现账号被盗用，请立即联系 support@dreamingpolar.com',
           ]),
-          const LegalH3('3.2 会员服务'),
-          const LegalP(
-            '极梦提供免费版及 Pro/Pro Max 付费会员服务。付费会员费用按所选周期（月付/年付）收取，自动续订。您可随时在 Apple App Store 订阅管理中取消续订。',
-          ),
-          const LegalH3('3.3 服务变更'),
-          const LegalP('我们保留在合理通知后修改、暂停或终止部分服务的权利。重大变更将提前 7 天通过 App 内通知告知用户。'),
 
-          const LegalH2('四、用户行为规范'),
-          const LegalH3('4.1 您承诺不得'),
+          const LegalH2('三、用户行为规范'),
+          const LegalP('您在极梦发布的内容不得：'),
           const LegalNumbered([
-            '发布违反中国法律法规、侵犯他人权益的内容',
-            '发布虚假信息、诈骗或误导性内容',
-            '侵犯他人著作权、商标权或其他知识产权',
-            '发布色情、暴力、仇恨或歧视性内容',
-            '以任何方式骚扰、威胁或伤害其他用户',
-            '利用技术手段干扰、破坏平台正常运行',
-            '未经授权抓取、爬取平台内容或数据',
-            '创建虚假账号、刷数据或实施其他欺骗行为',
+            '违反中华人民共和国相关法律法规',
+            '侵犯他人知识产权',
+            '发布虚假、误导性信息',
+            '发布色情、暴力、歧视性内容',
+            '进行未经授权的商业广告推广',
+            '骚扰、威胁其他用户',
+            '抄袭他人内容',
           ]),
-          const LegalH3('4.2 内容规范'),
-          const LegalP('您发布的内容须符合以下要求：'),
-          const LegalBullets([
-            '内容为您原创或已获得合法授权',
-            '引用他人内容须注明来源',
-            'AI 辅助生成内容须经过实质性修改和验证',
-            '代码内容不得包含恶意程序或漏洞利用代码',
-          ]),
-          const LegalH3('4.3 违规处理'),
-          const LegalP(
-            '违反上述规范的行为，我们将根据严重程度采取内容删除、功能限制、账号封禁等措施，情节严重者将依法追究法律责任。',
-          ),
+          const LegalP('违反上述规范，我们有权删除内容、封禁账号，情节严重的将追究法律责任。'),
 
-          const LegalH2('五、内容版权'),
-          const LegalH3('5.1 用户内容授权'),
-          const LegalP(
-            '您对自己发布的内容保留著作权。发布内容即表示您授予极梦在全球范围内、免费的、非独家的许可，用于展示、分发、推广您的内容。此授权仅限于平台运营所必需的范围。',
-          ),
-          const LegalH3('5.2 平台内容'),
-          const LegalP('极梦平台自有内容（界面设计、品牌标识、技术系统等）受著作权法保护，未经书面许可不得复制或使用。'),
-          const LegalH3('5.3 侵权处理'),
-          const LegalP(
-            '如您认为平台内容侵犯您的知识产权，请发送侵权通知至：legal@dreamingpolar.com，我们将在 3 个工作日内处理。',
-          ),
+          const LegalH2('四、内容版权'),
+          const LegalBullets([
+            '您发布的原创内容，版权归您所有',
+            '您授予极梦在平台内展示、传播您内容的权利',
+            '极梦不会将您的内容用于平台运营以外的商业目的',
+            '您保证发布的内容不侵犯任何第三方权益',
+          ]),
+
+          const LegalH2('五、会员服务'),
+          const LegalH3('套餐与价格'),
+          const LegalBullets([
+            '极梦 PRO：¥38/月 或 ¥348/年',
+            '极梦 PRO MAX：¥68/月',
+            '7 天免费试用（新用户首次订阅）',
+          ]),
+          const LegalH3('订阅说明'),
+          const LegalBullets([
+            '订阅通过 Apple App Store 处理',
+            '订阅将在到期前 24 小时自动续订',
+            '可在 App Store 账户设置中随时关闭自动续订',
+            '关闭后当前订阅周期结束前仍可使用',
+          ]),
+          const LegalH3('退款政策'),
+          const LegalBullets(['退款申请请通过 Apple App Store 提交', '极梦不直接处理退款']),
 
           const LegalH2('六、极光创作者计划'),
+          const LegalP('满足以下条件可自动获得极光创作者资格：'),
+          const LegalBullets(['发布文章 ≥ 10 篇', '累计获赞/收藏 ≥ 100', '粉丝数 ≥ 50']),
+          const LegalP('极光创作者享有：'),
+          const LegalBullets(['免费 PRO MAX 会员权益', '流量分成资格', '金色创作者标识']),
+          const LegalP('每月满足活跃条件（6 项任意 3 项）自动续期。'),
+
+          const LegalH2('七、流量分成'),
+          const LegalBullets([
+            '分成池：每月从会员收入中提取 15-20% 作为创作者基金',
+            '结算日：每月 1 日结算上月收益',
+            '提现门槛：满 ¥50 可申请提现',
+            '手续费：平台收取 10%',
+            '到账时间：1-3 个工作日',
+            '支持微信/支付宝/银行卡收款',
+          ]),
+
+          const LegalH2('八、免责声明'),
+          const LegalBullets([
+            '极梦不对用户发布内容的真实性负责',
+            '极梦不对因不可抗力导致的服务中断承担责任',
+            '极梦不对用户间交易或纠纷负责',
+          ]),
+
+          const LegalH2('九、协议变更'),
+          const LegalP('我们可能更新本协议。重大变更将提前 30 天通知用户。继续使用即表示同意更新后的协议。'),
+
+          const LegalH2('十、争议解决'),
           const LegalP(
-            '极光创作者计划的参与条件、收益分成比例、结算规则等详见平台内「极光创作者计划」专项说明。我们保留依据市场情况调整分成政策的权利，重大调整将提前 30 天通知。',
+            '本协议受中华人民共和国法律管辖。如发生争议，双方应友好协商解决。协商不成的，提交上海市有管辖权的人民法院诉讼解决。',
           ),
 
-          const LegalH2('七、免责声明'),
-          const LegalH3('7.1 服务可用性'),
-          const LegalP(
-            '我们将尽力保证服务稳定，但不对以下情况承担责任：不可抗力、第三方服务故障、用户设备问题、网络中断等导致的服务不可用。',
-          ),
-          const LegalH3('7.2 内容准确性'),
-          const LegalP(
-            '平台内用户发布的内容仅代表创作者个人观点，极梦不对其准确性、完整性承担责任。涉及医疗、法律、金融等专业内容，请以专业机构意见为准。',
-          ),
-          const LegalH3('7.3 AI 生成内容'),
-          const LegalP('小梦 AI 生成的内容可能存在错误或不准确之处，用户在发布或应用 AI 辅助内容前应自行核实。'),
-
-          const LegalH2('八、争议解决'),
-          const LegalP(
-            '本协议受中华人民共和国法律管辖。因本协议引起的争议，双方应首先通过友好协商解决；协商不成的，提交极梦注册地有管辖权的人民法院诉讼解决。',
-          ),
-
-          const LegalH2('九、协议修改'),
-          const LegalP(
-            '我们保留修改本协议的权利。修改后的协议将在 App 内公告，重大修改将通过推送通知告知。继续使用本平台即视为接受修改后的协议。',
-          ),
-
-          const LegalH2('十、联系我们'),
-          const LegalP('如对本协议有任何疑问，请通过以下方式联系我们：'),
-          const LegalContactLine('电子邮件', 'support@dreamingpolar.com'),
-          const LegalContactLine('官方网站', 'https://dreamingpolar.com'),
-          const LegalContactLine('App 内反馈', '设置 → 帮助与反馈'),
+          const LegalH2('十一、联系我们'),
+          const LegalP('上海既白观海科技有限公司'),
+          const LegalContactLine('邮箱', 'support@dreamingpolar.com'),
+          const LegalContactLine('网址', 'https://dreamingpolar.com'),
 
           const LegalFooter(),
         ],
