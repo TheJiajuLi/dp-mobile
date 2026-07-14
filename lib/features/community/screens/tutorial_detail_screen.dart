@@ -138,9 +138,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   GlobalKey _keyFor(String commentId) =>
       _commentKeys.putIfAbsent(commentId, () => GlobalKey());
 
-  // 阅读进度 + 顶栏"滚过封面后显示标题/实底"的状态
+  // 顶栏"滚过封面后显示标题/实底"的状态
   final ScrollController _scrollCtrl = ScrollController();
-  final ValueNotifier<double> _progress = ValueNotifier(0);
   final ValueNotifier<bool> _barSolid = ValueNotifier(false);
 
   @override
@@ -156,10 +155,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   }
 
   void _onScroll() {
-    final max = _scrollCtrl.position.maxScrollExtent;
-    if (max > 0) {
-      _progress.value = (_scrollCtrl.offset / max).clamp(0.0, 1.0);
-    }
     final solid = _scrollCtrl.offset >= 100;
     if (solid != _barSolid.value) _barSolid.value = solid;
   }
@@ -167,7 +162,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
-    _progress.dispose();
     _barSolid.dispose();
     _commentCtrl.dispose();
     _commentFocusNode.dispose();
@@ -857,8 +851,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       body: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
-          // 顶栏（slim，常驻）：返回 + 滚过封面后浮现的标题 + 字体 + 更多；
-          // 底边一条阅读进度条随滚动实时更新
+          // 顶栏（slim，常驻）：返回 + 滚过封面后浮现的标题 + 字体 + 更多。
+          // 底边原来有一条阅读进度条，静止时是一整条灰色track，跟下面
+          // 封面之间显得像一条很粗的分割线，视觉噪音大于它的功能价值，去掉
           ValueListenableBuilder<bool>(
             valueListenable: _barSolid,
             builder: (context, solid, _) => SliverAppBar(
@@ -899,20 +894,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   onPressed: _openExportSheet,
                 ),
               ],
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(3),
-                child: ValueListenableBuilder<double>(
-                  valueListenable: _progress,
-                  builder: (context, v, _) => LinearProgressIndicator(
-                    value: v,
-                    minHeight: 3,
-                    backgroundColor: isDark
-                        ? const Color(0xFF1E1E3A)
-                        : const Color(0xFFEBEBEB),
-                    valueColor: const AlwaysStoppedAnimation(_primary),
-                  ),
-                ),
-              ),
             ),
           ),
           // 封面区：16:9 封面图 + 底部渐变遮罩 + 标签浮层
