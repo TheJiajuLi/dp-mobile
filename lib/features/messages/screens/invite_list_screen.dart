@@ -24,7 +24,9 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
   }
 
   Future<void> _load() async {
-    final res = await ref.read(apiClientProvider).get('/auth/questions/invites');
+    final res = await ref
+        .read(apiClientProvider)
+        .get('/auth/questions/invites');
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -39,13 +41,20 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
   Future<void> _accept(Map<String, dynamic> invite, int index) async {
     final res = await ref
         .read(apiClientProvider)
-        .post('/auth/questions/invites/${invite['id']}/respond', data: {'action': 'accept'});
+        .post(
+          '/auth/questions/invites/${invite['id']}/respond',
+          data: {'action': 'accept'},
+        );
     if (!mounted) return;
     if (!res.success) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res.message ?? '操作失败，请重试')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '操作失败，请重试')));
       return;
     }
-    setState(() => _invites[index] = {..._invites[index], 'status': 'accepted'});
+    setState(
+      () => _invites[index] = {..._invites[index], 'status': 'accepted'},
+    );
     context.push(
       '/answer-question',
       extra: {
@@ -59,10 +68,15 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
   Future<void> _ignore(Map<String, dynamic> invite, int index) async {
     final res = await ref
         .read(apiClientProvider)
-        .post('/auth/questions/invites/${invite['id']}/respond', data: {'action': 'ignore'});
+        .post(
+          '/auth/questions/invites/${invite['id']}/respond',
+          data: {'action': 'ignore'},
+        );
     if (!mounted) return;
     if (!res.success) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res.message ?? '操作失败，请重试')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '操作失败，请重试')));
       return;
     }
     setState(() => _invites.removeAt(index));
@@ -78,10 +92,16 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
         title: const Text('忽略所有邀请'),
         content: Text('确定忽略全部 ${pending.length} 个邀请？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('确定忽略', style: TextStyle(color: Color(0xFFEF4444))),
+            child: const Text(
+              '确定忽略',
+              style: TextStyle(color: Color(0xFFEF4444)),
+            ),
           ),
         ],
       ),
@@ -92,7 +112,10 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
       pending.map(
         (inv) => ref
             .read(apiClientProvider)
-            .post('/auth/questions/invites/${inv['id']}/respond', data: {'action': 'ignore'}),
+            .post(
+              '/auth/questions/invites/${inv['id']}/respond',
+              data: {'action': 'ignore'},
+            ),
       ),
     );
     if (!mounted) return;
@@ -102,19 +125,29 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
       if (!results[i].success) failedIds.add(pending[i]['id']);
     }
     setState(() {
-      _invites.removeWhere((inv) => inv['status'] != 'accepted' && !failedIds.contains(inv['id']));
+      _invites.removeWhere(
+        (inv) => inv['status'] != 'accepted' && !failedIds.contains(inv['id']),
+      );
     });
     if (failedIds.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('部分邀请忽略失败，请重试')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('部分邀请忽略失败，请重试')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pendingCount = _invites.where((i) => i['status'] != 'accepted').length;
+    final pendingCount = _invites
+        .where((i) => i['status'] != 'accepted')
+        .length;
 
     return Scaffold(
+      // 浅色统一首页米白 #FAFAF8；深色不变。AppBar 透明会透出这个底色
+      backgroundColor: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFFAFAF8),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -124,7 +157,10 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
         ),
         title: Row(
           children: [
-            const Text('邀请回答', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const Text(
+              '邀请回答',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             if (pendingCount > 0) ...[
               const SizedBox(width: 8),
               Container(
@@ -135,7 +171,11 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
                 ),
                 child: Text(
                   '$pendingCount',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -145,7 +185,10 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
           if (pendingCount > 0)
             TextButton(
               onPressed: _clearAll,
-              child: const Text('全部忽略', style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
+              child: const Text(
+                '全部忽略',
+                style: TextStyle(fontSize: 13, color: Color(0xFFEF4444)),
+              ),
             ),
         ],
       ),
@@ -166,7 +209,10 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(16),
                       border: isDark
-                          ? Border.all(color: Theme.of(context).dividerColor, width: 0.5)
+                          ? Border.all(
+                              color: Theme.of(context).dividerColor,
+                              width: 0.5,
+                            )
                           : null,
                       boxShadow: isDark
                           ? null
@@ -196,7 +242,9 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
                               decoration: BoxDecoration(
                                 border: Border(
                                   top: BorderSide(
-                                    color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFEBEBEB),
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.06)
+                                        : const Color(0xFFEBEBEB),
                                     width: 0.5,
                                   ),
                                 ),
@@ -204,9 +252,19 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.delete_outline, size: 16, color: Color(0xFFEF4444)),
+                                  Icon(
+                                    Icons.delete_outline,
+                                    size: 16,
+                                    color: Color(0xFFEF4444),
+                                  ),
                                   SizedBox(width: 6),
-                                  Text('一键忽略所有邀请', style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
+                                  Text(
+                                    '一键忽略所有邀请',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFFEF4444),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -228,16 +286,30 @@ class _InviteListScreenState extends ConsumerState<InviteListScreen> {
           Container(
             width: 56,
             height: 56,
-            decoration: const BoxDecoration(color: Color(0xFFF5F5F5), shape: BoxShape.circle),
-            child: const Icon(Icons.question_answer_outlined, size: 24, color: Color(0xFFCCCCCC)),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF5F5F5),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.question_answer_outlined,
+              size: 24,
+              color: Color(0xFFCCCCCC),
+            ),
           ),
           const SizedBox(height: 12),
-          const Text('暂无待处理邀请', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          const Text(
+            '暂无待处理邀请',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 5),
           Text(
             '当有人邀请你回答问题时\n会在这里显示',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, height: 1.6, color: Colors.grey[400]),
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.6,
+              color: Colors.grey[400],
+            ),
           ),
         ],
       ),
@@ -272,7 +344,9 @@ class _InviteItem extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFEBEBEB),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFEBEBEB),
             width: 0.5,
           ),
         ),
@@ -282,13 +356,19 @@ class _InviteItem extends StatelessWidget {
         children: [
           Row(
             children: [
-              buildMessageAvatar(invite['asker_avatar'] as String?, askerName, radius: 14),
+              buildMessageAvatar(
+                invite['asker_avatar'] as String?,
+                askerName,
+                radius: 14,
+              ),
               const SizedBox(width: 8),
               Text(
                 '$askerName · 邀请你回答',
                 style: TextStyle(
                   fontSize: 12,
-                  color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.grey[500],
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.4)
+                      : Colors.grey[500],
                 ),
               ),
             ],
@@ -300,7 +380,9 @@ class _InviteItem extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w500,
               height: 1.4,
-              color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1A1A1A),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.9)
+                  : const Color(0xFF1A1A1A),
             ),
           ),
           const SizedBox(height: 8),
@@ -308,14 +390,21 @@ class _InviteItem extends StatelessWidget {
             children: [
               if (domain.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEEF0FF),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     domain,
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF6366F1)),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF6366F1),
+                    ),
                   ),
                 ),
               const Spacer(),
@@ -323,7 +412,9 @@ class _InviteItem extends StatelessWidget {
                 createdAt != null ? messageTimeAgo(l10n, createdAt * 1000) : '',
                 style: TextStyle(
                   fontSize: 10,
-                  color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey[400],
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : Colors.grey[400],
                 ),
               ),
             ],
@@ -336,12 +427,19 @@ class _InviteItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFFF0FFF4),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.2), width: 0.5),
+                border: Border.all(
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
               ),
               child: const Text(
                 '✓ 已接受',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Color(0xFF16A34A), fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF16A34A),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             )
           else
@@ -353,13 +451,19 @@ class _InviteItem extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 9),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF6366F1) : const Color(0xFF1A1A1A),
+                        color: isDark
+                            ? const Color(0xFF6366F1)
+                            : const Color(0xFF1A1A1A),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
                         '接受并回答',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -371,10 +475,14 @@ class _InviteItem extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 9),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF5F5F5),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : const Color(0xFFF5F5F5),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE5E5E5),
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : const Color(0xFFE5E5E5),
                           width: 0.5,
                         ),
                       ),
@@ -383,7 +491,9 @@ class _InviteItem extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDark ? Colors.white.withValues(alpha: 0.5) : const Color(0xFF555555),
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.5)
+                              : const Color(0xFF555555),
                         ),
                       ),
                     ),
