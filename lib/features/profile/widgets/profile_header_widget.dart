@@ -364,6 +364,7 @@ class ProfileHeaderWidget extends StatelessWidget {
                             _infoChip(
                               genderIconFor(displayGender!),
                               genderDisplayLabel(l10n, displayGender!),
+                              iconColor: genderIconColor(displayGender!),
                             ),
                           if (displayLocation?.isNotEmpty ?? false)
                             _infoChip(
@@ -735,10 +736,10 @@ class ProfileHeaderWidget extends StatelessWidget {
     ),
   );
 
-  Widget _infoChip(IconData icon, String text) => Row(
+  Widget _infoChip(IconData icon, String text, {Color? iconColor}) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 12, color: Colors.white70),
+      Icon(icon, size: 12, color: iconColor ?? Colors.white70),
       const SizedBox(width: 3),
       Text(text, style: const TextStyle(fontSize: 11, color: Colors.white70)),
     ],

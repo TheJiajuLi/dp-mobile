@@ -20,3 +20,11 @@ IconData genderIconFor(String gender) => switch (gender) {
   '女' => Icons.female,
   _ => Icons.person_outline,
 };
+
+// 性别图标配色——男蓝女粉，跟 tag_colors.dart 里已经配对使用的同一组
+// 蓝/粉色值保持一致，不是这里新起的一套色
+Color genderIconColor(String gender) => switch (gender) {
+  '男' => const Color(0xFF3B82F6),
+  '女' => const Color(0xFFEC4899),
+  _ => Colors.white70,
+};
