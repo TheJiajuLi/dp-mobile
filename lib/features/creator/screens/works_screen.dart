@@ -197,6 +197,24 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     return '$n';
   }
 
+  // 后端没有 updatedAt，"继续编辑"只能退而求其次用 createdAt 排序，
+  // 不是真的"最近编辑"，是"最近创建"的草稿——没有更精确的数据源可拼
+  TutorialModel? get _latestDraft {
+    final drafts = _lists[_WorkTab.draft] ?? [];
+    if (drafts.isEmpty) return null;
+    return ([
+      ...drafts,
+    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt))).first;
+  }
+
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 5) return '夜深了';
+    if (h < 12) return '早上好';
+    if (h < 18) return '下午好';
+    return '晚上好';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -205,11 +223,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         bottom: false,
         child: Column(
           children: [
-            _header(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: _statsRow(),
-            ),
+            _hero(),
             Container(
               color: _bg,
               child: TabBar(
@@ -243,129 +257,162 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
   int _countFor(_WorkTab tab) =>
       tab == _WorkTab.all ? _allWorks.length : (_lists[tab]?.length ?? 0);
 
-  Widget _header() {
+  // 把原来的"标题栏+四格统计卡"合并成一张渐变Hero卡——问候语+核心数据+
+  // "继续写"入口一次给全，比一整排小方块更有"创作台"的感觉，不是后台
+  // 管理页。收藏数/评论数没有批量接口字段，跟原来一样只保留真实拿得到的
+  // 作品数/阅读量/点赞数三项，不硬凑
+  Widget _hero() {
+    final user = ref.watch(currentUserProvider);
+    final draft = _latestDraft;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      color: _bg,
-      child: Row(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF6366F1), Color(0xFF818CF8)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _primary.withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => context.pop(),
-            child: Icon(Icons.arrow_back, size: 20, color: _ink),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => context.pop(),
+                child: const Icon(
+                  Icons.arrow_back,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => setState(() {
+                  _searching = !_searching;
+                  if (!_searching) {
+                    _searchCtrl.clear();
+                    _query = '';
+                  }
+                }),
+                child: Icon(
+                  _searching ? Icons.close : Icons.search,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 14),
+              GestureDetector(
+                onTap: () => ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('批量操作即将上线，敬请期待'))),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    '批量',
+                    style: TextStyle(fontSize: 12, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '作品管理',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: _ink,
+          const SizedBox(height: 16),
+          Text(
+            '$_greeting${(user?.username.isNotEmpty ?? false) ? '，${user!.username}' : ''}',
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '继续你的创作',
+            style: TextStyle(fontSize: 13, color: Color(0xE6FFFFFF)),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              _heroStat('${_allWorks.length}', '作品'),
+              _heroStat(_formatCount(_totalViews), '阅读'),
+              _heroStat(_formatCount(_totalLikes), '点赞'),
+            ],
+          ),
+          if (draft != null) ...[
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => context.push('/publish/${draft.id}'),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.edit_outlined, size: 15, color: _primary),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '继续写「${draft.title}」',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          GestureDetector(
-            onTap: () => setState(() {
-              _searching = !_searching;
-              if (!_searching) {
-                _searchCtrl.clear();
-                _query = '';
-              }
-            }),
-            child: Icon(
-              _searching ? Icons.close : Icons.search,
-              size: 20,
-              color: _isDark ? Colors.white70 : const Color(0xFF555555),
-            ),
-          ),
-          const SizedBox(width: 14),
-          GestureDetector(
-            onTap: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('批量操作即将上线，敬请期待'))),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _fill,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text('批量', style: TextStyle(fontSize: 12, color: _ink)),
-            ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  // 跟专栏管理的统计卡片同一套视觉语言（图标胶囊+粗体数值+灰色标签）。
-  // 参考图里数据概览是阅读量/点赞数/收藏数/评论数四个格子，但收藏数/
-  // 评论数目前只有单篇详情接口（GET /auth/tutorials/:id）会返回，这个
-  // 列表页调的 listTutorials 批量接口没有带这两个字段——总览要汇总的是
-  // "当前这一批作品"的整体数据，不能为了拼出这两个数字挨篇再调一次详情
-  // 接口，所以换成作品数量/已发布/阅读量/点赞数这四个真实能拿到的
-  Widget _statsRow() {
-    Widget stat(IconData icon, Color color, String value, String label) {
-      return Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border, width: 0.5),
+  Widget _heroStat(String value, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
-          child: Column(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 15, color: color),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: _ink,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(label, style: TextStyle(fontSize: 10.5, color: _muted)),
-            ],
+          const SizedBox(height: 1),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xB3FFFFFF)),
           ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        stat(Icons.grid_view_outlined, _primary, '${_allWorks.length}', '作品数量'),
-        const SizedBox(width: 8),
-        stat(
-          Icons.check_circle_outline,
-          const Color(0xFF16A34A),
-          '${_lists[_WorkTab.published]?.length ?? 0}',
-          '已发布',
-        ),
-        const SizedBox(width: 8),
-        stat(
-          Icons.remove_red_eye_outlined,
-          const Color(0xFFD97706),
-          _formatCount(_totalViews),
-          '总阅读量',
-        ),
-        const SizedBox(width: 8),
-        stat(
-          Icons.favorite_border,
-          const Color(0xFFDC2626),
-          _formatCount(_totalLikes),
-          '总点赞数',
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -384,19 +431,12 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
           .toList();
     }
     if (list.isEmpty) {
-      return Center(
-        child: Text(
-          _query.isNotEmpty
-              ? '没有匹配的作品'
-              : switch (tab) {
-                  _WorkTab.all => '还没有任何作品',
-                  _WorkTab.published => '还没有发布的作品',
-                  _WorkTab.draft => '草稿箱是空的',
-                  _WorkTab.archived => '没有已下架的内容',
-                },
-          style: TextStyle(fontSize: 13, color: _muted),
-        ),
-      );
+      if (_query.isNotEmpty) {
+        return Center(
+          child: Text('没有匹配的作品', style: TextStyle(fontSize: 13, color: _muted)),
+        );
+      }
+      return _emptyState(tab);
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -428,6 +468,101 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
           ),
         ),
       ],
+    );
+  }
+
+  // 原来空状态只有一行灰字，太单薄。换成柔和渐变图标胶囊+标题+一句引导
+  // 文案+创建入口——下架tab没有"创建"的意义，不给CTA
+  Widget _emptyState(_WorkTab tab) {
+    final (icon, title, subtitle) = switch (tab) {
+      _WorkTab.all => (
+        Icons.auto_stories_outlined,
+        '还没有任何作品',
+        '分享知识、记录思考，建立属于自己的知识宇宙',
+      ),
+      _WorkTab.published => (
+        Icons.auto_stories_outlined,
+        '还没有发布的作品',
+        '完成一篇创作，分享给更多人',
+      ),
+      _WorkTab.draft => (Icons.edit_note_outlined, '草稿箱是空的', '想法先存起来，随时回来完成它'),
+      _WorkTab.archived => (Icons.inventory_2_outlined, '没有已下架的内容', ''),
+    };
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    _primary.withValues(alpha: _isDark ? 0.2 : 0.12),
+                    _primary.withValues(alpha: 0),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 28,
+                color: _primary.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: _ink,
+              ),
+            ),
+            if (subtitle.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, color: _muted, height: 1.5),
+              ),
+            ],
+            if (tab != _WorkTab.archived) ...[
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () => context.push('/publish'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _primary,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 16, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        '创建新作品',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
