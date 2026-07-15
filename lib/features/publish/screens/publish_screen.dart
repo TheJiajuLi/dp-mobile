@@ -75,9 +75,10 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   // 现在真的接上了（BlockCard 的 FocusNode 监听器），上面那条"链路太长"
   // 的注释是旧决定，格式工具栏这个新功能必须要有这份状态才能工作
   String? _focusedBlockId;
-  // 底部工具栏"Tt"按钮收起/展开格式工具栏（粗体/颜色那行）用——默认展开，
-  // 跟以前一样一聚焦文字/标题block就直接看得到
-  bool _formatBarExpanded = true;
+  // 辅助栏（字体/颜色那行 BlockFormattingToolbar）开关——默认收起，聚焦
+  // 文字/标题 block 后由工具栏右侧独立的「Aa」图标显式点开，不再一聚焦
+  // 就自动弹出来占地方
+  bool _formatBarExpanded = false;
   // 顶部信息区（标题栏+封面/摘要/更多设置）折叠开关——默认收起成一个朝下
   // 的尖，点它才展开露出标题/发布/摘要那一整块（尖朝上），再点收起。把
   // 屏幕高度尽量让给正文编辑区
@@ -1096,17 +1097,17 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                     activeToolbarType: _activeToolbarType,
                     onAddBlock: _addBlock,
                     onImport: _openImportBrowser,
-                    // 有正在编辑的文字/标题block时，"Tt"按钮改成收起/展开
-                    // 格式工具栏；没有的话传null，按钮退回老行为（新建
-                    // 文字block）
-                    onToggleFormatBar:
+                    // 类型按钮只管新建 block；辅助栏（字体/颜色）由工具栏
+                    // 右侧那个独立的「Aa」图标控制——只有聚焦文字/标题
+                    // block 时才显示，点它切换辅助栏开关
+                    showFormatToggle:
                         _focusedBlock != null &&
-                            (_focusedBlock!.type == BlockType.text ||
-                                _focusedBlock!.type == BlockType.heading)
-                        ? () => setState(
-                            () => _formatBarExpanded = !_formatBarExpanded,
-                          )
-                        : null,
+                        (_focusedBlock!.type == BlockType.text ||
+                            _focusedBlock!.type == BlockType.heading),
+                    formatBarExpanded: _formatBarExpanded,
+                    onToggleFormatBar: () => setState(
+                      () => _formatBarExpanded = !_formatBarExpanded,
+                    ),
                   ),
                 ],
               ),

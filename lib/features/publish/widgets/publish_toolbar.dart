@@ -168,12 +168,13 @@ class PublishBottomToolbar extends StatelessWidget {
   final BlockType activeToolbarType;
   final void Function(BlockType type) onAddBlock;
   final VoidCallback onImport;
-  // 非空时，"文字"这个类型按钮点击不再新建文字block，改成收起/展开
-  // 格式工具栏（BlockFormattingToolbar）——当前正编辑text/heading block
-  // 时，"Tt"按钮再点一次去新建一个文字block没有意义，用户更需要的是
-  // 把格式行收起腾地方；没有正在编辑的文字/标题block时（null）还是
-  // 老行为，点了新建
-  final VoidCallback? onToggleFormatBar;
+  // 类型按钮（文字/小标题…）现在只负责新建对应 block，不再兼管辅助栏。
+  // 辅助栏（字体/颜色）改由工具栏最右侧一个独立的「Aa」图标控制：只有
+  // 当前聚焦的是文字/标题 block 时才显示（showFormatToggle），点它切换
+  // 辅助栏开关，formatBarExpanded 用来给这个图标上高亮态
+  final bool showFormatToggle;
+  final bool formatBarExpanded;
+  final VoidCallback onToggleFormatBar;
 
   const PublishBottomToolbar({
     super.key,
@@ -183,7 +184,9 @@ class PublishBottomToolbar extends StatelessWidget {
     required this.activeToolbarType,
     required this.onAddBlock,
     required this.onImport,
-    this.onToggleFormatBar,
+    required this.showFormatToggle,
+    required this.formatBarExpanded,
+    required this.onToggleFormatBar,
   });
 
   @override
@@ -198,34 +201,54 @@ class PublishBottomToolbar extends StatelessWidget {
           children: [
             SizedBox(
               height: 56,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
                 children: [
-                  ..._toolbarTypes.map((type) {
-                    final isFormatBarToggle =
-                        type == BlockType.text && onToggleFormatBar != null;
-                    final button = _toolbarButton(
-                      icon: blockTypeIcon(type),
-                      tooltip: blockTypeLabel(l10n, type),
-                      selected: activeToolbarType == type,
-                      isDarkMode: isDarkMode,
-                      onTap: isFormatBarToggle
-                          ? onToggleFormatBar!
-                          : () => onAddBlock(type),
-                    );
-                    // 音频/视频 Block 是 Pro 权益，但按设计原则不做视觉加锁
-                    // （不灰、不锁）——按钮照常显示，点了在 onAddBlock 里
-                    // （publish_screen._addBlock）才校验，非 Pro 弹会员 Sheet
-                    return button;
-                  }),
-                  _toolbarButton(
-                    icon: Icons.download_outlined,
-                    tooltip: l10n.importFromLinkAction,
-                    selected: false,
-                    isDarkMode: isDarkMode,
-                    onTap: onImport,
+                  Expanded(
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      children: [
+                        // 类型按钮只负责新建对应 block——音频/视频虽是 Pro
+                        // 权益但按设计原则不做视觉加锁，点了在 onAddBlock 里
+                        // （publish_screen._addBlock）才校验，非 Pro 弹会员 Sheet
+                        ..._toolbarTypes.map(
+                          (type) => _toolbarButton(
+                            icon: blockTypeIcon(type),
+                            tooltip: blockTypeLabel(l10n, type),
+                            selected: activeToolbarType == type,
+                            isDarkMode: isDarkMode,
+                            onTap: () => onAddBlock(type),
+                          ),
+                        ),
+                        _toolbarButton(
+                          icon: Icons.download_outlined,
+                          tooltip: l10n.importFromLinkAction,
+                          selected: false,
+                          isDarkMode: isDarkMode,
+                          onTap: onImport,
+                        ),
+                      ],
+                    ),
                   ),
+                  // 辅助栏（字体/颜色）独立开关——钉在最右侧、不随类型列表
+                  // 滚动，只在聚焦文字/标题 block 时出现，点它切换辅助栏；
+                  // 开着时高亮。左侧一条细分隔线，跟"加内容块"那组分开
+                  if (showFormatToggle) ...[
+                    Container(
+                      width: 0.5,
+                      height: 24,
+                      color: isDarkMode
+                          ? const Color(0xFF3A3A3C)
+                          : const Color(0xFFE5E5EA),
+                    ),
+                    _toolbarButton(
+                      icon: Icons.text_format,
+                      tooltip: l10n.fontPickerTitle,
+                      selected: formatBarExpanded,
+                      isDarkMode: isDarkMode,
+                      onTap: onToggleFormatBar,
+                    ),
+                  ],
                 ],
               ),
             ),
