@@ -25,6 +25,7 @@ import '../../features/creator/screens/aurora_screen.dart';
 import '../../features/creator/screens/columns_screen.dart';
 import '../../features/creator/screens/creator_center_screen.dart';
 import '../../features/creator/screens/creator_guide_screen.dart';
+import '../../features/creator/screens/creator_settings_screen.dart';
 import '../../features/creator/screens/creator_stats_screen.dart';
 import '../../features/creator/screens/works_screen.dart';
 import '../../features/forums/screens/all_forums_screen.dart';
@@ -149,6 +150,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/creator/guide',
       builder: (context, state) => const CreatorGuideScreen(),
+    ),
+    GoRoute(
+      path: '/creator/settings',
+      builder: (context, state) => const CreatorSettingsScreen(),
     ),
     GoRoute(
       path: '/creator/aurora',
