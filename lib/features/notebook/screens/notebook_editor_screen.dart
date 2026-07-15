@@ -190,22 +190,22 @@ result
         case 'javascript':
           await _runJavaScript(cell);
           break;
-      case 'latex':
-        _setOutput(cell, cell.code, 'latex');
-        break;
-      case 'markdown':
-        _setOutput(cell, cell.code, 'markdown');
-        break;
-      case 'r':
-      case 'julia':
-        _setOutput(
-          cell,
-          AppLocalizations.of(
-            context,
-          )!.langSupportComingSoon(cell.type.toUpperCase()),
-          'info',
-        );
-        break;
+        case 'latex':
+          _setOutput(cell, cell.code, 'latex');
+          break;
+        case 'markdown':
+          _setOutput(cell, cell.code, 'markdown');
+          break;
+        case 'r':
+        case 'julia':
+          _setOutput(
+            cell,
+            AppLocalizations.of(
+              context,
+            )!.langSupportComingSoon(cell.type.toUpperCase()),
+            'info',
+          );
+          break;
         default:
           _setOutput(
             cell,
@@ -874,6 +874,114 @@ finally:
     _scheduleSave();
   }
 
+  // 顶栏 ⋯ 更多菜单——从系统默认的白色 PopupMenu 换成全站统一的底部弹层
+  // （抓手 + 图标方框 + 主/副标题行），跟确认弹层/创作操作弹层同一套语言
+  void _showMoreMenu() {
+    final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              _moreItem(
+                ctx: ctx,
+                icon: Icons.download_outlined,
+                iconColor: const Color(0xFF6366F1),
+                label: l10n.exportIpynb,
+                sub: '保存为 Jupyter Notebook 文件',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportIpynb();
+                },
+              ),
+              _moreItem(
+                ctx: ctx,
+                icon: Icons.cleaning_services_outlined,
+                iconColor: const Color(0xFFD97706),
+                label: l10n.clearOutputs,
+                sub: '移除所有单元格的运行结果',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _clearOutputs();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _moreItem({
+    required BuildContext ctx,
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String sub,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: isDark ? 0.20 : 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 21),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(sub, style: TextStyle(fontSize: 12, color: muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _saveTimer?.cancel();
@@ -1153,41 +1261,13 @@ finally:
                           onTap: _publishAsArticle,
                           accent: true,
                         ),
-                        PopupMenuButton<String>(
+                        IconButton(
                           icon: Icon(
                             Icons.more_vert,
                             color: Colors.grey[600],
                             size: 20,
                           ),
-                          itemBuilder: (ctx) => [
-                            PopupMenuItem(
-                              value: 'export',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.download, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(l10n.exportIpynb),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'clear',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.delete_outline, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(l10n.clearOutputs),
-                                ],
-                              ),
-                            ),
-                          ],
-                          onSelected: (value) {
-                            if (value == 'export') {
-                              _exportIpynb();
-                            } else if (value == 'clear') {
-                              _clearOutputs();
-                            }
-                          },
+                          onPressed: _showMoreMenu,
                         ),
                       ],
                     ),
