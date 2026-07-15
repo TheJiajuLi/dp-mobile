@@ -35,6 +35,7 @@ class SettingsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final fontSize = ref.watch(fontSizeProvider);
     final localePref = ref.watch(localeProvider);
+    final me = ref.watch(currentUserProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -88,6 +89,12 @@ class SettingsScreen extends ConsumerWidget {
                 padding: EdgeInsets.zero,
                 children: [
                   const SizedBox(height: 8),
+                  // 会员中心入口——顶部一张紫色渐变 Hero 卡，会员态显示当前
+                  // 档位、免费态引导开通
+                  _MembershipEntryCard(
+                    membership: me?.membership,
+                    isAurora: me?.isAuroraCreator ?? false,
+                  ),
                   SettingsSectionTitle(l10n.sectionAccount),
                   SettingsGroup([
                     SettingsRow(
@@ -705,6 +712,135 @@ class _NotifSettingsSheet extends ConsumerWidget {
             ),
           ]),
         ],
+      ),
+    );
+  }
+}
+
+// 会员中心 Hero 卡——2026 一线产品视觉：紫色渐变 + 金色皇冠 + 柔和辉光，
+// 白色 CTA 药丸。会员态显示当前档位与「管理」，免费态引导「立即开通」，
+// 极光创作者显示已免费享 Pro。点击进 /settings/subscription
+class _MembershipEntryCard extends StatelessWidget {
+  final String? membership;
+  final bool isAurora;
+  const _MembershipEntryCard({
+    required this.membership,
+    required this.isAurora,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isMax = membership == 'pro_max';
+    final isPro = membership == 'pro';
+    final String title;
+    final String sub;
+    final String cta;
+    if (isMax) {
+      title = '极梦 Pro Max';
+      sub = '已解锁全部权益 · 感谢支持';
+      cta = '管理';
+    } else if (isPro) {
+      title = '极梦 Pro';
+      sub = '尊享全部创作与 AI 权益';
+      cta = '管理';
+    } else if (isAurora) {
+      title = '极光创作者';
+      sub = '已免费尊享 Pro 全部权益';
+      cta = '查看';
+    } else {
+      title = '开通极梦会员';
+      sub = '解锁 Pro 创作、AI 与专属身份';
+      cta = '立即开通';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => context.push('/settings/subscription'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF6D5DF6), Color(0xFF8B5CF6)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6D5DF6).withValues(alpha: 0.30),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.workspace_premium,
+                  size: 24,
+                  color: Color(0xFFFFD66B),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      sub,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.2,
+                        color: Colors.white.withValues(alpha: 0.82),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  cta,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF6D5DF6),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
