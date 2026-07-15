@@ -513,10 +513,14 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   // TextFormField 不受这次删除影响、没有被重建，失焦前的光标位置本来
   // 就还在），不用手动去摆 TextSelection
   void _deleteBlockAndFocusPrevious(int i) {
-    if (i <= 0 || i >= _blocks.length) return;
-    final prevFocusNode = _blocks[i - 1].focusNode;
+    if (i < 0 || i >= _blocks.length) return;
+    // 上一个 block 优先；删的是第一个就把焦点交给删除后的新首块（还有的话），
+    // 只剩这一个空 block 就直接删掉、不补任何东西、焦点自然落空
+    final target = i > 0
+        ? _blocks[i - 1].focusNode
+        : (_blocks.length > 1 ? _blocks[i + 1].focusNode : null);
     _deleteBlock(_blocks[i].id);
-    prevFocusNode.requestFocus();
+    target?.requestFocus();
   }
 
   // ReorderableListView 的 onReorder 回调里，newIndex 是"还没移除
@@ -952,9 +956,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                                 membership: membership,
                                 onRunCode: _runBlockCode,
                                 onDelete: () => _deleteBlock(_blocks[i].id),
-                                onEmptyBackspace: i > 0
-                                    ? () => _deleteBlockAndFocusPrevious(i)
-                                    : null,
+                                onEmptyBackspace: () =>
+                                    _deleteBlockAndFocusPrevious(i),
                                 onMoveUp: i > 0
                                     ? () => _swapBlocks(i, i - 1)
                                     : null,
