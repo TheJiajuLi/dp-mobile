@@ -108,7 +108,10 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
         Container(
           margin: const EdgeInsets.only(top: 8),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            // 之前是 cardColor（浅色纯白），跟发布页米白背景拼出一张很
+            // 抢戏的白色pill，视觉噪音大。改透明，直接融入页面背景色，
+            // 只靠下面的描边勾出轮廓
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isDarkMode
@@ -220,10 +223,7 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
                                     child: Padding(
                                       padding: const EdgeInsets.only(bottom: 4),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
+                                        padding: const EdgeInsets.all(6),
                                         // 跟右上角"发布"按钮同一套：浅色去掉纯黑填充
                                         // 改用描边（内容色转黑），深色才用主题渐变胶囊
                                         decoration: isDarkMode
@@ -238,28 +238,14 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
                                                   width: 0.5,
                                                 ),
                                               ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.auto_awesome,
-                                              size: 10,
-                                              color: isDarkMode
-                                                  ? Colors.white
-                                                  : _ink,
-                                            ),
-                                            const SizedBox(width: 3),
-                                            Text(
-                                              '小梦生成',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: isDarkMode
-                                                    ? Colors.white
-                                                    : _ink,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
+                                        // 只留图标，去掉"小梦生成"文字——摘要行本身
+                                        // 空间紧凑，图标含义已经够清楚，不需要文字重复
+                                        child: Icon(
+                                          Icons.auto_awesome,
+                                          size: 12,
+                                          color: isDarkMode
+                                              ? Colors.white
+                                              : _ink,
                                         ),
                                       ),
                                     ),
