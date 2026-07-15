@@ -220,7 +220,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 2),
               Row(
                 children: [
                   _heroAvatar(user),
