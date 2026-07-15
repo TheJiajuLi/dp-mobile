@@ -61,6 +61,9 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     _WorkTab.draft: true,
     _WorkTab.private: true,
   };
+  // 分段控制器只显示 全部/已发布/草稿 三段（跟设计稿一致）。私密文章仍会
+  // 加载，混在「全部」里用私密胶囊标出，不单独占一个 tab
+  static const _segments = [_WorkTab.all, _WorkTab.published, _WorkTab.draft];
   bool _searching = false;
   final _searchCtrl = TextEditingController();
   String _query = '';
@@ -85,9 +88,9 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     final rawInitial = widget.initialTab.clamp(0, 2);
     final initialIndex = rawInitial == 0 ? 0 : rawInitial + 1;
     _tabCtrl = TabController(
-      length: 4,
+      length: _segments.length,
       vsync: this,
-      initialIndex: initialIndex.clamp(0, 3),
+      initialIndex: initialIndex.clamp(0, _segments.length - 1),
     );
     _tabCtrl.addListener(() {
       if (mounted) setState(() {});
@@ -201,18 +204,18 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         child: Column(
           children: [
             _header(),
+            _segmented(),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               child: _statsRow(),
             ),
-            _segmented(),
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => FocusScope.of(context).unfocus(),
                 child: TabBarView(
                   controller: _tabCtrl,
-                  children: _WorkTab.values.map(_buildTab).toList(),
+                  children: _segments.map(_buildTab).toList(),
                 ),
               ),
             ),
@@ -321,12 +324,13 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
-        children: _WorkTab.values.map((t) {
-          final selected = _tabCtrl.index == t.index;
+        children: _segments.map((t) {
+          final idx = _segments.indexOf(t);
+          final selected = _tabCtrl.index == idx;
           return Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => _tabCtrl.animateTo(t.index),
+              onTap: () => _tabCtrl.animateTo(idx),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.symmetric(vertical: 7),
