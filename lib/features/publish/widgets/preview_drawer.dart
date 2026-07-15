@@ -282,31 +282,16 @@ class PreviewDrawer extends ConsumerWidget {
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    l10n.wordsCountLabel(words),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
+              // 跟编辑器底部一致的紧凑款：字数/块数/阅读时长用「·」连成一行、
+              // 居中，不再摊成 spaceBetween 三段
+              child: Center(
+                child: Text(
+                  l10n.wordBlocksReadTimeLabel(words, blocks.length, minutes),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                   ),
-                  Text(
-                    l10n.blocksCountLabel(blocks.length),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                  ),
-                  Text(
-                    l10n.estimatedReadTime(minutes),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ],
