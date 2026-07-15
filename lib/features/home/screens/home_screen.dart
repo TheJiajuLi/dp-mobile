@@ -239,8 +239,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           controller: _scrollCtrl,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            // 去掉「极梦」logo，把 推荐/关注/最新 tab 并进顶栏那一行（原来
+            // logo 的位置），整块内容往上提一整行
             SliverToBoxAdapter(child: _buildHeader(context, isDarkMode)),
-            SliverToBoxAdapter(child: _buildMainTabs(isDarkMode)),
             SliverToBoxAdapter(
               child: _buildCategoryTabs(l10n, state, isDarkMode),
             ),
@@ -315,18 +316,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         .length;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(0, 4, 12, 0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
-            '极梦',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: _primary,
-            ),
-          ),
-          const Spacer(),
+          // 推荐/关注/最新——原来单独占一行，现在提到顶栏这行、放 logo 的位置
+          Expanded(child: _buildMainTabs(isDark)),
           _HeaderIconButton(
             icon: Icons.search_outlined,
             isDark: isDark,
@@ -357,14 +352,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       return GestureDetector(
         onTap: () => _selectMainTab(value),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(isFirst ? 16 : 12, 14, 12, 8),
+          padding: EdgeInsets.fromLTRB(isFirst ? 16 : 14, 8, 14, 8),
           child: Column(
             children: [
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: active ? FontWeight.w500 : FontWeight.normal,
+                  fontSize: 15,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                   color: active ? _primary : Colors.grey[400],
                 ),
               ),
