@@ -1,17 +1,19 @@
+import 'dart:convert';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/utils/pro_access.dart';
+import '../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/pro_badge.dart';
 import '../../auth/auth_service.dart';
-import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
-import '../../notebook/services/notebook_service.dart';
 import '../widgets/aurora_entry_card.dart';
 
 const _primary = Color(0xFF6366F1);
 const _darkBg = Color(0xFF0A0A1A);
+const _hero = Color(0xFF1A1A1A);
 
 // 极光计划的达成门槛，跟 AuroraScreen 保持同一份数字，两处都是从这里改，
 // 不要各写各的
@@ -34,24 +36,11 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
   // 获赞/收藏没有单独的"收藏数"接口，用点赞数顶替——跟极光计划详情页的
   // 口径保持一致，不是这里独有的简化
   int _totalLikes = 0;
-  int _columnCount = 0;
-  int _columnSubscribers = 0;
-  // "继续创作"从首页Feed末尾（逛到底才看得到）挪过来放在创作中心底部——
-  // 跟首页当初用的是同一份数据源（NotebookService.getRecentList），不是
-  // 编个假的完成度百分比，这些 Notebook 本来就没有"完成度"这个概念
-  List<Map<String, dynamic>> _recentNotebooks = [];
 
   @override
   void initState() {
     super.initState();
     _load();
-    _loadRecentNotebooks();
-  }
-
-  Future<void> _loadRecentNotebooks() async {
-    final userId = ref.read(currentUserProvider)?.id ?? 'guest';
-    final list = await NotebookService(userId).getRecentList();
-    if (mounted) setState(() => _recentNotebooks = list);
   }
 
   Future<void> _load() async {
@@ -76,7 +65,6 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
           'limit': 1,
         },
       ),
-      api.get('/auth/columns/mine'),
     ]);
 
     if (!mounted) return;
@@ -102,24 +90,11 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
         ? (draftRes.data['total'] as num?)?.toInt() ?? 0
         : 0;
 
-    final columnsRes = results[2];
-    var columnCount = 0;
-    var subscribers = 0;
-    if (columnsRes.success && columnsRes.data != null) {
-      final list = (columnsRes.data['columns'] as List?) ?? [];
-      columnCount = list.length;
-      for (final c in list) {
-        subscribers += ((c as Map)['subscriber_count'] as num?)?.toInt() ?? 0;
-      }
-    }
-
     setState(() {
       _publishedCount = publishedTotal;
       _draftCount = draftTotal;
       _totalViews = views;
       _totalLikes = likes;
-      _columnCount = columnCount;
-      _columnSubscribers = subscribers;
       _loading = false;
     });
   }
@@ -130,412 +105,618 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     return '$n';
   }
 
+  void _soon() => showAppToast(context, '功能即将上线，敬请期待');
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(currentUserProvider);
 
     return Scaffold(
-      // 浅色统一首页米白 #FAFAF8（不再纯白）；深色不变
       backgroundColor: isDark ? _darkBg : const Color(0xFFFAFAF8),
       body: SafeArea(
         bottom: false,
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                padding: EdgeInsets.zero,
                 children: [
-                  _header(isDark),
-                  const SizedBox(height: 16),
-                  _statsRow(isDark),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _quickEntry(
-                          isDark: isDark,
-                          icon: Icons.description_outlined,
-                          iconBg: const Color(0xFF6366F1),
-                          title: '作品管理',
-                          subtitle: '$_publishedCount篇·$_draftCount草稿',
-                          onTap: () => context.push('/creator/works'),
-                        ),
+                  _buildHero(user),
+                  const SizedBox(height: 18),
+                  // 极光创作者进度卡——保留，位置在功能入口上方
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: AuroraEntryCard(
+                      noteCount: _publishedCount,
+                      noteTarget: auroraNoteTarget,
+                      likesSaves: _totalLikes,
+                      likesSavesTarget: auroraLikesSavesTarget,
+                      followers: user?.followerCount ?? 0,
+                      followerTarget: auroraFollowerTarget,
+                      isAuroraCreator: user?.isAuroraCreator ?? false,
+                      onTap: () => context.push(
+                        user?.isAuroraCreator == true
+                            ? '/aurora/progress'
+                            : '/creator/aurora',
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _quickEntry(
-                          isDark: isDark,
-                          icon: Icons.view_agenda_outlined,
-                          iconBg: const Color(0xFFC026D3),
-                          title: '我的专栏',
-                          subtitle: '$_columnCount个·$_columnSubscribers订阅',
-                          onTap: () => context.push('/creator/columns'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  AuroraEntryCard(
-                    noteCount: _publishedCount,
-                    noteTarget: auroraNoteTarget,
-                    likesSaves: _totalLikes,
-                    likesSavesTarget: auroraLikesSavesTarget,
-                    followers: user?.followerCount ?? 0,
-                    followerTarget: auroraFollowerTarget,
-                    isAuroraCreator: user?.isAuroraCreator ?? false,
-                    // 已经是极光创作者了就直接看每月续期的真实进度，不用
-                    // 再看一遍"怎么才能入选"的申请门槛宣传页——两个页面
-                    // 语义不一样，见 app_router.dart 里的注释
-                    onTap: () => context.push(
-                      user?.isAuroraCreator == true
-                          ? '/aurora/progress'
-                          : '/creator/aurora',
                     ),
                   ),
-                  if (_recentNotebooks.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    _buildContinueCreating(context, isDark),
-                  ],
+                  const SizedBox(height: 20),
+                  _buildToolsSection(isDark),
+                  const SizedBox(height: 18),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildMonthlyCard(isDark),
+                  ),
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildRevenueCard(isDark),
+                  ),
+                  const SizedBox(height: 28),
                 ],
               ),
       ),
     );
   }
 
-  // 继续创作——真实的本地最近 Notebook 列表，不编完成度百分比（这些
-  // Notebook 本来就没有这个概念），只展示真实的 cell 数和更新时间
-  Widget _buildContinueCreating(BuildContext context, bool isDark) {
-    final l10n = AppLocalizations.of(context)!;
-    final items = _recentNotebooks.take(4).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.continueCreatingTitle,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 96,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final nb = items[index];
-              final name = nb['name'] as String? ?? '';
-              final cellCount = nb['cellCount'] as int? ?? 0;
-              final updatedAt = (nb['updatedAt'] as num?)?.toInt() ?? 0;
-              return GestureDetector(
-                onTap: () => context.push('/notebook/${nb['id']}'),
+  // ============ 顶部黑色 Hero ============
+  Widget _buildHero(dynamic user) {
+    return Container(
+      width: double.infinity,
+      color: _hero,
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => context.pop(),
                 child: Container(
-                  width: 168,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : const Color(0xFFF5F5F7),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : const Color(0xFFEBEBEB),
-                      width: 0.5,
-                    ),
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.arrow_back_ios_new,
+                    size: 18,
+                    color: Colors.white,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => context.push('/publish'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _primary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: _primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.description_outlined,
-                          size: 15,
-                          color: _primary,
-                        ),
-                      ),
-                      const Spacer(),
+                      Icon(Icons.add, size: 15, color: Colors.white),
+                      SizedBox(width: 3),
                       Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        '发布',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? Colors.white
-                              : const Color(0xFF1A1A1A),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${l10n.notebookCellsCount(cellCount)} · ${messageTimeAgo(l10n, updatedAt * 1000)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.4)
-                              : Colors.grey[500],
+                          color: Colors.white,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            },
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _heroAvatar(user),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      (user?.username as String?)?.isNotEmpty == true
+                          ? user.username as String
+                          : '创作者',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _handleLine(user),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              _heroStat('作品', _formatCount(_publishedCount)),
+              const SizedBox(width: 8),
+              _heroStat('粉丝', _formatCount((user?.followerCount as int?) ?? 0)),
+              const SizedBox(width: 8),
+              _heroStat('获赞', _formatCount(_totalLikes)),
+              const SizedBox(width: 8),
+              // 收藏没有 per-user 聚合接口，先 0 占位
+              _heroStat('收藏', '0'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _handleLine(dynamic user) {
+    final handle = (user?.handle as String?)?.trim();
+    final bio = (user?.bio as String?)?.trim();
+    final h = (handle != null && handle.isNotEmpty)
+        ? '@$handle'
+        : '@${user?.username ?? ''}';
+    if (bio != null && bio.isNotEmpty) return '$h · $bio';
+    return h;
+  }
+
+  Widget _heroAvatar(dynamic user) {
+    final av = user?.avatar as String?;
+    final name = (user?.username as String?) ?? '';
+    Widget circle;
+    if (av != null && av.isNotEmpty) {
+      if (av.startsWith('data:image')) {
+        try {
+          circle = CircleAvatar(
+            radius: 30,
+            backgroundImage: MemoryImage(base64Decode(av.split(',').last)),
+          );
+        } catch (_) {
+          circle = _initialAvatar(name);
+        }
+      } else {
+        circle = CircleAvatar(
+          radius: 30,
+          backgroundImage: CachedNetworkImageProvider(av),
+        );
+      }
+    } else {
+      circle = _initialAvatar(name);
+    }
+    return SizedBox(
+      width: 60,
+      height: 60,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          circle,
+          // ProBadge 自己对免费用户返回空，这里不用判断
+          Positioned(
+            bottom: -7,
+            left: 0,
+            right: 0,
+            child: Center(child: ProBadge(membership: user?.membership)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _initialAvatar(String name) => CircleAvatar(
+    radius: 30,
+    backgroundColor: _primary,
+    child: Text(
+      name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+
+  Widget _heroStat(String label, String value) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============ 功能入口 2×4 网格 ============
+  Widget _buildToolsSection(bool isDark) {
+    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFEBEBEB);
+    final divider = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF0F0F0);
+    final greyBg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF5F5F5);
+    final greyIcon = isDark ? Colors.white54 : const Color(0xFF888888);
+
+    Widget vDiv() =>
+        VerticalDivider(width: 0.5, thickness: 0.5, color: divider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+          child: Text(
+            '创作工具',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white54 : const Color(0xFF999999),
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: border, width: 0.5),
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: Column(
+            children: [
+              IntrinsicHeight(
+                child: Row(
+                  children: [
+                    _toolCell(
+                      ink: ink,
+                      icon: Icons.description_outlined,
+                      iconBg: const Color(0xFFEEF0FF),
+                      iconColor: const Color(0xFF6366F1),
+                      label: '作品管理',
+                      dot: _draftCount > 0,
+                      onTap: () => context.push('/creator/works'),
+                    ),
+                    vDiv(),
+                    _toolCell(
+                      ink: ink,
+                      icon: Icons.view_agenda_outlined,
+                      iconBg: const Color(0xFFF0FFF5),
+                      iconColor: const Color(0xFF16A34A),
+                      label: '专栏管理',
+                      onTap: () => context.push('/creator/columns'),
+                    ),
+                    vDiv(),
+                    _toolCell(
+                      ink: ink,
+                      icon: Icons.insights_outlined,
+                      iconBg: const Color(0xFFFEF3C7),
+                      iconColor: const Color(0xFFD97706),
+                      label: '数据分析',
+                      onTap: _soon,
+                    ),
+                    vDiv(),
+                    _toolCell(
+                      ink: ink,
+                      icon: Icons.account_balance_wallet_outlined,
+                      iconBg: const Color(0xFFEFF6FF),
+                      iconColor: const Color(0xFF2563EB),
+                      label: '收益中心',
+                      onTap: _soon,
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 0.5, thickness: 0.5, color: divider),
+              IntrinsicHeight(
+                child: Row(
+                  children: [
+                    _toolCell(
+                      ink: ink,
+                      icon: Icons.workspace_premium_outlined,
+                      iconBg: const Color(0xFFFEF3C7),
+                      iconColor: const Color(0xFFD97706),
+                      label: '会员中心',
+                      onTap: () => context.push('/settings/subscription'),
+                    ),
+                    vDiv(),
+                    _toolCell(
+                      ink: ink,
+                      icon: Icons.tune_outlined,
+                      iconBg: greyBg,
+                      iconColor: greyIcon,
+                      label: '创作设置',
+                      onTap: () => context.push('/settings'),
+                    ),
+                    vDiv(),
+                    _toolCell(
+                      ink: ink,
+                      icon: Icons.menu_book_outlined,
+                      iconBg: greyBg,
+                      iconColor: greyIcon,
+                      label: '创作指南',
+                      onTap: _soon,
+                    ),
+                    vDiv(),
+                    _toolCell(
+                      ink: ink,
+                      icon: Icons.person_add_alt_outlined,
+                      iconBg: greyBg,
+                      iconColor: greyIcon,
+                      label: '邀请好友',
+                      onTap: () => context.push('/invite-list'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _header(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => context.pop(),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : const Color(0xFFF5F5F7),
-                borderRadius: BorderRadius.circular(10),
+  Widget _toolCell({
+    required Color ink,
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String label,
+    required VoidCallback onTap,
+    bool dot = false,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Icon(icon, size: 19, color: iconColor),
+                  ),
+                  if (dot)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              child: Icon(
-                Icons.arrow_back,
-                size: 18,
-                color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-              ),
-            ),
+              const SizedBox(height: 8),
+              Text(label, style: TextStyle(fontSize: 11, color: ink)),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '创作者中心',
+        ),
+      ),
+    );
+  }
+
+  // ============ 本月数据卡 ============
+  Widget _buildMonthlyCard(bool isDark) {
+    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final muted = isDark ? Colors.white54 : const Color(0xFF999999);
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFEBEBEB);
+
+    Widget stat(String value, String label) {
+      return Expanded(
+        child: Column(
+          children: [
+            Text(
+              value,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                color: ink,
               ),
             ),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 11, color: muted)),
+            const SizedBox(height: 3),
+            // 没有本月趋势接口，用「—」占位（不显示假的 ↑%）
+            Text('—', style: TextStyle(fontSize: 11, color: muted)),
+          ],
+        ),
+      );
+    }
+
+    final followers = ref.watch(currentUserProvider)?.followerCount ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '本月数据',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: ink,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: _soon,
+                child: const Text(
+                  '查看详情',
+                  style: TextStyle(fontSize: 13, color: _primary),
+                ),
+              ),
+            ],
           ),
-          // 非 Pro 用户的会员中心入口——一颗克制的灰色皇冠图标，给还没开通
-          // 会员的用户一个明确的通道进 /settings/subscription（Pro 用户主页
-          // 已有金色会员角标，这里就不重复显示）
-          if (!(ref.watch(currentUserProvider)?.isPro ?? false))
-            GestureDetector(
-              onTap: () => context.push('/settings/subscription'),
-              child: Container(
-                width: 36,
-                height: 36,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : const Color(0xFFF5F5F7),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.workspace_premium_outlined,
-                  size: 19,
-                  color: isDark ? Colors.white54 : const Color(0xFF888888),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              stat(_formatCount(_totalViews), '浏览量'),
+              stat(_formatCount(_totalLikes), '获赞'),
+              // 无本月新增粉丝接口，用总粉丝数顶替
+              stat(_formatCount(followers), '新粉丝'),
+              // 代码运行无数据源，0 占位
+              stat('0', '代码运行'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============ 本月收益卡 ============
+  Widget _buildRevenueCard(bool isDark) {
+    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final muted = isDark ? Colors.white54 : const Color(0xFF999999);
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFEBEBEB);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '本月收益',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: ink,
                 ),
               ),
-            ),
-          GestureDetector(
-            onTap: () => context.push('/publish'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: _primary,
-                borderRadius: BorderRadius.circular(10),
+              const Spacer(),
+              GestureDetector(
+                onTap: _soon,
+                child: const Text(
+                  '明细',
+                  style: TextStyle(fontSize: 13, color: _primary),
+                ),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.add, size: 15, color: Colors.white),
-                  SizedBox(width: 3),
-                  Text(
-                    '发布',
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 无收益/提现接口，¥0.00 占位
+                    Text(
+                      '¥0.00',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text('可提现', style: TextStyle(fontSize: 12, color: muted)),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: _soon,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    '提现',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 涨幅百分比后端暂无对应的历史快照数据算不出真实环比，先按给的方案
-  // 写死——跟浏览量/获赞这两个真实累计值区分开，不要以为这几个百分比也
-  // 是真数据
-  Widget _statsRow(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        // 浅色主题原来是纯灰色平面块，跟深色主题那层微透明玻璃质感差太多；
-        // 换成一层极淡的紫蓝渐变+同色系细描边，颜色语言跟深色版对齐但不
-        // 违反浅色主题"无阴影"的规范——用色彩层次代替阴影层次
-        color: isDark ? Colors.white.withValues(alpha: 0.06) : null,
-        gradient: isDark
-            ? null
-            : const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFF5F3FF), Color(0xFFFAFAFF)],
-              ),
-        borderRadius: BorderRadius.circular(16),
-        border: isDark
-            ? null
-            : Border.all(color: _primary.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _statCol(isDark, _formatCount(_totalViews), '浏览量', '23%'),
-          ),
-          _statDivider(isDark),
-          Expanded(
-            child: _statCol(isDark, _formatCount(_totalLikes), '获赞', '18%'),
-          ),
-          _statDivider(isDark),
-          Expanded(
-            child: _statCol(
-              isDark,
-              _formatCount(ref.watch(currentUserProvider)?.followerCount ?? 0),
-              '新粉丝',
-              '41%',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statDivider(bool isDark) => Container(
-    width: 0.5,
-    height: 40,
-    color: isDark
-        ? Colors.white.withValues(alpha: 0.1)
-        : const Color(0xFFE5E5EA),
-  );
-
-  Widget _statCol(bool isDark, String value, String label, String growth) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? Colors.white70 : const Color(0xFF999999),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '↑ $growth',
-          style: const TextStyle(
-            fontSize: 11,
-            color: Color(0xFF16A34A),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _quickEntry({
-    required bool isDark,
-    required IconData icon,
-    required Color iconBg,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : null,
-          // 浅色主题原来是纯白卡片+灰色细边，颜色信息只留在小小的图标方块
-          // 里，整张卡看起来很素；换成跟图标同色系的极淡渐变底+同色细边，
-          // 让"这张卡是什么领域"从图标扩散到整张卡，视觉分量才跟深色主题
-          // 那种半透明彩色玻璃卡对得上
-          gradient: isDark
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    iconBg.withValues(alpha: 0.1),
-                    iconBg.withValues(alpha: 0.02),
-                  ],
                 ),
-          borderRadius: BorderRadius.circular(16),
-          border: isDark
-              ? null
-              : Border.all(color: iconBg.withValues(alpha: 0.18), width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: iconBg.withValues(alpha: isDark ? 0.25 : 0.16),
-                borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, color: iconBg, size: 20),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark ? Colors.white54 : const Color(0xFF999999),
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
