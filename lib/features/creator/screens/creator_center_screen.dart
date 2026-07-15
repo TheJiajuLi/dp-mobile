@@ -170,7 +170,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
