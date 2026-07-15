@@ -65,11 +65,18 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final title = widget.type == 'followers' ? l10n.followersCountLabel : l10n.followingCountLabel;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // AppBar 之前固定白底+黑字，跟下面 body（走主题默认背景）不是同一个值，
+    // 两者拼在一起会露出一条接缝，深色模式下黑字更是直接看不见——统一改成
+    // 跟首页/极索/创作者中心同款的米白 #FAFAF8（深色跟主题），AppBar/body
+    // 用同一个值，前景色也跟主题走
+    final bg = isDark ? Theme.of(context).scaffoldBackgroundColor : const Color(0xFFFAFAF8);
     return Scaffold(
+      backgroundColor: bg,
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: bg,
+        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
       ),
       body: FutureBuilder<ApiResponse<dynamic>>(
