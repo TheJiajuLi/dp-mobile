@@ -309,6 +309,8 @@ class AiContentRenderer extends StatelessWidget {
       child: TutorialCodeBlock(
         content: code.trim(),
         language: lang.isEmpty ? 'python' : lang,
+        // 小梦 AI 回答里的代码是用户自己的对话内容，不是"他人笔记"，不拦截
+        isSelfPreview: true,
       ),
     );
   }

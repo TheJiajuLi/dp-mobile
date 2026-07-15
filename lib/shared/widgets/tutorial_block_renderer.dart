@@ -15,6 +15,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../services/pyodide_engine.dart';
 import '../utils/block_text_style.dart';
 import '../utils/code_highlight.dart';
+import '../utils/pro_access.dart';
 import 'app_toast.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -33,6 +34,9 @@ Widget buildTutorialBlockWidget(
   // 阅读页专用排版：正文放大到 16/1.85、callout 带灯泡图标。只有文章阅读页
   // 传 true，发布预览抽屉不受影响（默认 false）
   bool readingMode = false,
+  // 代码块运行门禁：自己的内容（作者预览草稿/看自己已发布文章）传 true 不
+  // 拦截；读者阅读他人文章传 false（默认），非 Pro 运行时弹会员 Sheet
+  bool isSelfPreview = false,
 }) {
   final type = block['type'] as String? ?? 'text';
   final content = block['content'] as String? ?? '';
@@ -69,6 +73,7 @@ Widget buildTutorialBlockWidget(
       return TutorialCodeBlock(
         content: content,
         language: block['language'] as String? ?? 'python',
+        isSelfPreview: isSelfPreview,
       );
 
     case 'latex':
@@ -435,11 +440,16 @@ Widget inlineLatexText(
 class TutorialCodeBlock extends ConsumerStatefulWidget {
   final String content;
   final String language;
+  // 作者本人的场景（发布页预览自己的草稿、看自己已发布的文章、小梦 AI 回答
+  // 里的代码）不拦截；只有"读者阅读他人文章"时运行代码才是 Pro 权益。
+  // true=自己的内容，不校验；false（默认）=读者态，非 Pro 弹会员 Sheet
+  final bool isSelfPreview;
 
   const TutorialCodeBlock({
     super.key,
     required this.content,
     required this.language,
+    this.isSelfPreview = false,
   });
 
   @override
@@ -469,6 +479,11 @@ class _TutorialCodeBlockState extends ConsumerState<TutorialCodeBlock> {
   }
 
   Future<void> _run() async {
+    // 读者阅读他人文章时运行代码是 Pro 权益——非 Pro 弹会员 Sheet 引导升级；
+    // 作者预览自己的内容（isSelfPreview）不拦截
+    if (!widget.isSelfPreview && !requirePro(context, ref, feature: '运行代码')) {
+      return;
+    }
     final l10n = AppLocalizations.of(context)!;
     setState(() => _running = true);
     List<Map<String, dynamic>> outputs;

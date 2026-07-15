@@ -274,6 +274,8 @@ class PreviewDrawer extends ConsumerWidget {
                             context,
                             l10n,
                             b.toJson(),
+                            // 作者预览自己的草稿——运行代码不做 Pro 门禁
+                            isSelfPreview: true,
                           ),
                         ),
                       ],

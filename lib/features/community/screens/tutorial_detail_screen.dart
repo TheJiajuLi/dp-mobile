@@ -1172,6 +1172,11 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     l10n,
                     Map<String, dynamic>.from(b as Map),
                     readingMode: true,
+                    // 作者本人看自己的文章不拦截运行；读者（非作者）阅读他人
+                    // 文章时运行代码才是 Pro 权益
+                    isSelfPreview:
+                        (t['user_id'] as String?) != null &&
+                        t['user_id'] == ref.read(currentUserProvider)?.id,
                   ),
                 ),
                 if (columnId != null && columnId.isNotEmpty)
