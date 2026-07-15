@@ -1701,7 +1701,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     // 挤掉会员角标
     if (!isAurora && !isMember) return const SizedBox.shrink();
 
-    final label = isAurora ? '极光' : 'Pro';
+    // Pro Max 会员要显示「Pro Max」，之前恒为「Pro」——档位没区分开
+    final label = isAurora
+        ? '极光'
+        : (membership == 'pro_max' ? 'Pro Max' : 'Pro');
     return GestureDetector(
       onTap: isSelfView ? () => context.push('/settings/subscription') : null,
       child: Container(

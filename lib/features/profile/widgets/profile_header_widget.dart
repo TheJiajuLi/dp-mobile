@@ -11,7 +11,6 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/gender_label.dart';
 import '../../../shared/utils/online_status.dart';
 import '../../../shared/widgets/interest_tag.dart';
-import '../../../shared/widgets/pro_badge.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../models/user_profile_model.dart';
 import 'profile_painters.dart';
@@ -292,13 +291,9 @@ class ProfileHeaderWidget extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              // Pro 角标——紫金渐变小药丸，跟在用户名后
-                              // （membership=pro/pro_max 才显示，免费自动隐藏）
-                              if (profile.membership == 'pro' ||
-                                  profile.membership == 'pro_max') ...[
-                                const SizedBox(width: 5),
-                                ProBadge(membership: profile.membership),
-                              ],
+                              // 会员身份角标只保留头像右上角那颗（_buildVipBadge
+                              // 的 Pro/Pro Max/极光 药丸），用户名后这颗 ProBadge
+                              // 跟它重复，去掉，避免同屏两个 Pro 标签
                               // 认证徽章——UserProfile.isVerified 目前后端恒为
                               // false，这里只是把渲染逻辑接好，字段一旦上线
                               // 直接生效，不需要再改这里
