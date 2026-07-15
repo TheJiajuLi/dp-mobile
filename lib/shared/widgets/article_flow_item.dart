@@ -28,12 +28,17 @@ class ArticleFlowItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 靠颜色深浅拉开层级（标题→摘要→作者→操作栏，一层比一层浅），
+    // 不靠卡片/描边，做出 Notion/知乎 那种安静的空间感
     final textPrimary = isDark
         ? AppColors.darkTextPrimary
-        : const Color(0xFF1A1A1A);
-    final textSecondary = isDark
+        : const Color(0xFF111111);
+    final summaryColor = isDark
         ? AppColors.darkTextSecondary
-        : const Color(0xFF888888);
+        : const Color(0xFF6B6B6B);
+    final authorColor = isDark
+        ? const Color(0xFF7A7A7A)
+        : const Color(0xFF999999);
     final divider = isDark ? AppColors.darkDivider : const Color(0xFFF0F0F0);
 
     return GestureDetector(
@@ -69,10 +74,7 @@ class ArticleFlowItem extends StatelessWidget {
                     const SizedBox(width: 7),
                     Text(
                       tutorial.username,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF888888),
-                      ),
+                      style: TextStyle(fontSize: 12, color: authorColor),
                     ),
                   ],
                 ),
@@ -88,7 +90,7 @@ class ArticleFlowItem extends StatelessWidget {
                             tutorial.preview!,
                             TextStyle(
                               fontSize: 13,
-                              color: textSecondary,
+                              color: summaryColor,
                               height: 1.7,
                             ),
                             maxLines: 2,
@@ -180,7 +182,8 @@ class _ActionBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDark ? const Color(0xFF666666) : const Color(0xFF888888);
+    // 操作栏是最弱的一层——比作者还浅，退到背景里
+    final color = isDark ? const Color(0xFF666666) : const Color(0xFFB4B4B4);
     return GestureDetector(
       onTap: onTap,
       child: Padding(

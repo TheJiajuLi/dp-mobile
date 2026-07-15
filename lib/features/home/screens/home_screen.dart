@@ -383,51 +383,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     bool isDarkMode,
   ) {
     if (_mainTab == _MainTab.follow) return const SizedBox.shrink();
+    // 分类不再用胶囊（那是筛选器/纸片感来源），改成知乎式文字 + 选中细
+    // 下划线，安静、克制
+    final selectedColor = isDarkMode ? Colors.white : const Color(0xFF111111);
+    final unselectedColor = isDarkMode
+        ? AppColors.darkTextSecondary
+        : const Color(0xFF999999);
     return SizedBox(
-      height: 36,
+      height: 38,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _categoryPills.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 22),
         itemBuilder: (context, index) {
           final category = _categoryPills[index];
           final selected = state.selectedCategory == category;
           return GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => ref
                 .read(homeFeedProvider.notifier)
                 .setCategory(selected ? '全部' : category),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected
-                    ? (isDarkMode
-                          ? const Color(0xFF5B61FF)
-                          : const Color(0xFF1A1A1A))
-                    : (isDarkMode ? AppColors.darkSurface : Colors.white),
-                borderRadius: BorderRadius.circular(99),
-                border: selected
-                    ? null
-                    : Border.all(
-                        color: isDarkMode
-                            ? AppColors.darkBorder
-                            : const Color(0xFFE8E8E8),
-                        width: 1.5,
-                      ),
-              ),
-              child: Text(
-                _categoryLabel(l10n, category),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: selected
-                      ? Colors.white
-                      : (isDarkMode
-                            ? AppColors.darkTextSecondary
-                            : const Color(0xFF555555)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _categoryLabel(l10n, category),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? selectedColor : unselectedColor,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 5),
+                Container(
+                  width: 16,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? const Color(0xFF6366F1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ],
             ),
           );
         },
