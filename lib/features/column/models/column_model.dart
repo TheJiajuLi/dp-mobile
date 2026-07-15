@@ -9,6 +9,9 @@ class ColumnModel {
   final String name;
   final String? description;
   final String? coverImage;
+  // 预设封面配色索引（对应 columns_screen 的 _covers 调色板）。后端可能
+  // 还没存这个字段——为 null 时前端退回按列表位置轮换配色
+  final int? coverIndex;
   final int articleCount;
   final int viewCount;
   final int likeCount;
@@ -28,6 +31,7 @@ class ColumnModel {
     required this.name,
     this.description,
     this.coverImage,
+    this.coverIndex,
     required this.articleCount,
     required this.viewCount,
     required this.likeCount,
@@ -46,6 +50,9 @@ class ColumnModel {
     name: j['name'] as String? ?? '',
     description: j['description'] as String?,
     coverImage: j['cover_image'] as String?,
+    coverIndex:
+        (j['cover_index'] as num?)?.toInt() ??
+        (j['coverIndex'] as num?)?.toInt(),
     articleCount: (j['article_count'] as num?)?.toInt() ?? 0,
     viewCount: (j['view_count'] as num?)?.toInt() ?? 0,
     likeCount: (j['like_count'] as num?)?.toInt() ?? 0,
