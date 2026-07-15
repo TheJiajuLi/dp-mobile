@@ -414,10 +414,6 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     final divider = isDark
         ? Colors.white.withValues(alpha: 0.06)
         : const Color(0xFFF0F0F0);
-    final greyBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : const Color(0xFFF5F5F5);
-    final greyIcon = isDark ? Colors.white54 : const Color(0xFF888888);
 
     Widget vDiv() =>
         VerticalDivider(width: 0.5, thickness: 0.5, color: divider);
@@ -505,8 +501,8 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                     _toolCell(
                       ink: ink,
                       icon: Icons.tune_outlined,
-                      iconBg: greyBg,
-                      iconColor: greyIcon,
+                      iconBg: const Color(0xFFEFF6FF),
+                      iconColor: const Color(0xFF2563EB),
                       label: '创作设置',
                       onTap: () => context.push('/creator/settings'),
                     ),
@@ -514,8 +510,8 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                     _toolCell(
                       ink: ink,
                       icon: Icons.menu_book_outlined,
-                      iconBg: greyBg,
-                      iconColor: greyIcon,
+                      iconBg: const Color(0xFFF0FFF5),
+                      iconColor: const Color(0xFF16A34A),
                       label: '创作指南',
                       onTap: () => context.push('/creator/guide'),
                     ),
@@ -523,8 +519,8 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                     _toolCell(
                       ink: ink,
                       icon: Icons.person_add_alt_outlined,
-                      iconBg: greyBg,
-                      iconColor: greyIcon,
+                      iconBg: const Color(0xFFFEF3C7),
+                      iconColor: const Color(0xFFD97706),
                       label: '邀请好友',
                       onTap: () => context.push('/referral'),
                     ),
