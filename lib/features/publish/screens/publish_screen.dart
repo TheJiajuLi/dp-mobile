@@ -508,6 +508,17 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     setState(() => _blocks.removeWhere((b) => b.id == id));
   }
 
+  // 空 block 按 Backspace/Delete 触发——删掉第 i 个 block 并把焦点交回
+  // 上一个 block，光标落点交给 Flutter 自己的默认行为（上一个 block 的
+  // TextFormField 不受这次删除影响、没有被重建，失焦前的光标位置本来
+  // 就还在），不用手动去摆 TextSelection
+  void _deleteBlockAndFocusPrevious(int i) {
+    if (i <= 0 || i >= _blocks.length) return;
+    final prevFocusNode = _blocks[i - 1].focusNode;
+    _deleteBlock(_blocks[i].id);
+    prevFocusNode.requestFocus();
+  }
+
   // ReorderableListView 的 onReorder 回调里，newIndex 是"还没移除
   // oldIndex 那一项"时的目标下标——往下拖的话要先减 1，不然会多移一格
   void _onReorder(int oldIndex, int newIndex) {
@@ -941,6 +952,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                                 membership: membership,
                                 onRunCode: _runBlockCode,
                                 onDelete: () => _deleteBlock(_blocks[i].id),
+                                onEmptyBackspace: i > 0
+                                    ? () => _deleteBlockAndFocusPrevious(i)
+                                    : null,
                                 onMoveUp: i > 0
                                     ? () => _swapBlocks(i, i - 1)
                                     : null,

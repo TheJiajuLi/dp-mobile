@@ -4,7 +4,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
@@ -91,6 +92,11 @@ class BlockCard extends ConsumerStatefulWidget {
   )
   onRunCode;
   final VoidCallback onDelete;
+  // 文字/标题/代码/公式 block 内容为空时按 Backspace/Delete——删掉这个
+  // block 并把焦点交回上一个 block，跟主流block编辑器（Notion等）的
+  // 直觉一致。null 表示不适用（比如这是列表第一个block，没有"上一个"
+  // 可以交焦点，交给调用方决定要不要允许在这种情况下也删除）
+  final VoidCallback? onEmptyBackspace;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
   final VoidCallback onChanged;
@@ -119,6 +125,7 @@ class BlockCard extends ConsumerStatefulWidget {
     required this.membership,
     required this.onRunCode,
     required this.onDelete,
+    this.onEmptyBackspace,
     this.onMoveUp,
     this.onMoveDown,
     required this.onChanged,
@@ -170,6 +177,27 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   }
 
   bool get _isActive => widget.block.id == widget.focusedBlockId;
+
+  // 空 block 按 Backspace/Delete 删除——包一层 Focus 当祖先拦截键盘事件，
+  // 不碰输入框自己的 FocusNode，也不影响内容非空时的正常删字符行为
+  // （那种情况下这里直接 ignored，交回给输入框自己处理）。iOS 软键盘的
+  // 删除键在内容已清空时也会正常触发这个回调，不是只有外接键盘才有效
+  KeyEventResult _handleEmptyBackspace(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final isDeleteKey =
+        event.logicalKey == LogicalKeyboardKey.backspace ||
+        event.logicalKey == LogicalKeyboardKey.delete;
+    if (!isDeleteKey ||
+        widget.block.content.isNotEmpty ||
+        widget.onEmptyBackspace == null) {
+      return KeyEventResult.ignored;
+    }
+    widget.onEmptyBackspace!();
+    return KeyEventResult.handled;
+  }
+
+  Widget _withEmptyBackspace(Widget child) =>
+      Focus(onKeyEvent: (node, event) => _handleEmptyBackspace(event), child: child);
 
   @override
   void dispose() {
@@ -416,28 +444,30 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       );
     }
 
-    return TextFormField(
-      key: ValueKey('text_${widget.block.id}_$_textRevision'),
-      focusNode: widget.block.focusNode,
-      initialValue: widget.block.content.isNotEmpty
-          ? widget.block.content
-          : null,
-      decoration: InputDecoration(
-        filled: false,
-        hintText: l10n.textBlockHint,
-        hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
-        border: InputBorder.none,
-        isDense: true,
-        contentPadding: EdgeInsets.zero,
+    return _withEmptyBackspace(
+      TextFormField(
+        key: ValueKey('text_${widget.block.id}_$_textRevision'),
+        focusNode: widget.block.focusNode,
+        initialValue: widget.block.content.isNotEmpty
+            ? widget.block.content
+            : null,
+        decoration: InputDecoration(
+          filled: false,
+          hintText: l10n.textBlockHint,
+          hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        style: style,
+        maxLines: null,
+        onChanged: (v) {
+          widget.block.content = v;
+          widget.onChanged();
+        },
+        onTap: () => setState(() => _focused = true),
+        onEditingComplete: () => setState(() => _focused = false),
       ),
-      style: style,
-      maxLines: null,
-      onChanged: (v) {
-        widget.block.content = v;
-        widget.onChanged();
-      },
-      onTap: () => setState(() => _focused = true),
-      onEditingComplete: () => setState(() => _focused = false),
     );
   }
 
@@ -1053,45 +1083,47 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     }
   }
 
-  Widget _buildHeadingBlock(AppLocalizations l10n) => TextFormField(
-    key: ValueKey('heading_${widget.block.id}_$_textRevision'),
-    focusNode: widget.block.focusNode,
-    initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
-    decoration: InputDecoration(
-      filled: false,
-      hintText: l10n.headingBlockHint(widget.block.headingLevel ?? 2),
-      hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
-      border: InputBorder.none,
-      isDense: true,
-      contentPadding: EdgeInsets.zero,
-    ),
-    style: applyBlockTextFormat(
-      TextStyle(
-        fontSize: widget.block.headingLevel == 2
-            ? 20
-            : widget.block.headingLevel == 3
-            ? 17
-            : 15,
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).textTheme.bodyLarge?.color,
+  Widget _buildHeadingBlock(AppLocalizations l10n) => _withEmptyBackspace(
+    TextFormField(
+      key: ValueKey('heading_${widget.block.id}_$_textRevision'),
+      focusNode: widget.block.focusNode,
+      initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
+      decoration: InputDecoration(
+        filled: false,
+        hintText: l10n.headingBlockHint(widget.block.headingLevel ?? 2),
+        hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
       ),
-      isBold: widget.block.isBold,
-      isItalic: widget.block.isItalic,
-      isUnderline: widget.block.isUnderline,
-      isStrike: widget.block.isStrike,
-      textColorValue: widget.block.textColorValue,
-      highlightColorValue: widget.block.highlightColorValue,
-      fontFamily: widget.block.fontFamily,
-      fontSizeStep: widget.block.fontSizeStep,
-      lineHeightStep: widget.block.lineHeightStep,
+      style: applyBlockTextFormat(
+        TextStyle(
+          fontSize: widget.block.headingLevel == 2
+              ? 20
+              : widget.block.headingLevel == 3
+              ? 17
+              : 15,
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+        isBold: widget.block.isBold,
+        isItalic: widget.block.isItalic,
+        isUnderline: widget.block.isUnderline,
+        isStrike: widget.block.isStrike,
+        textColorValue: widget.block.textColorValue,
+        highlightColorValue: widget.block.highlightColorValue,
+        fontFamily: widget.block.fontFamily,
+        fontSizeStep: widget.block.fontSizeStep,
+        lineHeightStep: widget.block.lineHeightStep,
+      ),
+      maxLines: 1,
+      onChanged: (v) {
+        widget.block.content = v;
+        widget.onChanged();
+      },
+      onTap: () => setState(() => _focused = true),
+      onEditingComplete: () => setState(() => _focused = false),
     ),
-    maxLines: 1,
-    onChanged: (v) {
-      widget.block.content = v;
-      widget.onChanged();
-    },
-    onTap: () => setState(() => _focused = true),
-    onEditingComplete: () => setState(() => _focused = false),
   );
 
   void _copyCode() {
@@ -1284,30 +1316,32 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             ),
             Padding(
               padding: const EdgeInsets.all(12),
-              child: TextFormField(
-                controller: _codeCtrl,
-                decoration: InputDecoration(
-                  filled: false,
-                  hintText: l10n.codeBlockHint,
-                  hintStyle: TextStyle(
-                    color: isDark ? Colors.white24 : const Color(0xFFC7C7CC),
-                    fontFamily: 'monospace',
+              child: _withEmptyBackspace(
+                TextFormField(
+                  controller: _codeCtrl,
+                  decoration: InputDecoration(
+                    filled: false,
+                    hintText: l10n.codeBlockHint,
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white24 : const Color(0xFFC7C7CC),
+                      fontFamily: 'monospace',
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
                   ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: codeTextColor,
+                    height: 1.6,
+                  ),
+                  maxLines: null,
+                  onChanged: (v) {
+                    widget.block.content = v;
+                    widget.onChanged();
+                  },
                 ),
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  color: codeTextColor,
-                  height: 1.6,
-                ),
-                maxLines: null,
-                onChanged: (v) {
-                  widget.block.content = v;
-                  widget.onChanged();
-                },
               ),
             ),
             _buildOutput(),
@@ -1524,33 +1558,35 @@ th{background:$thBg;color:$thFg}
                 )
               : Text(l10n.latexBlockHint, style: TextStyle(color: hintColor)),
           const SizedBox(height: 8),
-          TextFormField(
-            key: ValueKey('latex_${widget.block.id}_$_textRevision'),
-            initialValue: widget.block.content.isNotEmpty
-                ? widget.block.content
-                : null,
-            decoration: InputDecoration(
-              filled: false,
-              hintText: l10n.latexBlockHint,
-              hintStyle: TextStyle(
-                fontFamily: 'monospace',
-                color: inputHintColor,
-                fontSize: 12,
+          _withEmptyBackspace(
+            TextFormField(
+              key: ValueKey('latex_${widget.block.id}_$_textRevision'),
+              initialValue: widget.block.content.isNotEmpty
+                  ? widget.block.content
+                  : null,
+              decoration: InputDecoration(
+                filled: false,
+                hintText: l10n.latexBlockHint,
+                hintStyle: TextStyle(
+                  fontFamily: 'monospace',
+                  color: inputHintColor,
+                  fontSize: 12,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: inputTextColor,
+              ),
+              onChanged: (v) {
+                widget.block.content = v;
+                setState(() {});
+                widget.onChanged();
+              },
             ),
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: inputTextColor,
-            ),
-            onChanged: (v) {
-              widget.block.content = v;
-              setState(() {});
-              widget.onChanged();
-            },
           ),
           if (widget.block.outputContent != null) ...[
             const SizedBox(height: 8),
