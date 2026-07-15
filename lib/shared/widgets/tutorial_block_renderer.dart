@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -300,6 +301,31 @@ Widget buildTutorialBlockWidget(
                 content,
                 style: TextStyle(fontSize: 14, color: accent, height: 1.5),
               ),
+      );
+
+    case 'markdown':
+      // 原始 Markdown 块——用 flutter_markdown 渲染加粗/列表/小节标题等，
+      // 跟发布页编辑器 _buildMarkdownBlock 是同一份渲染，两端观感一致
+      return Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: readingMode ? 8 : 6,
+        ),
+        child: MarkdownBody(
+          data: content,
+          selectable: false,
+          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+            p: TextStyle(
+              fontSize: readingMode ? 16 : 15,
+              height: readingMode ? 1.85 : 1.7,
+              color: readingMode
+                  ? (Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFC8CAD8)
+                        : const Color(0xFF2A2A2A))
+                  : Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+        ),
       );
 
     default: // text

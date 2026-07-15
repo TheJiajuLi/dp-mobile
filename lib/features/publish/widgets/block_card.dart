@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
 import '../../../shared/utils/latex_utils.dart';
@@ -397,6 +398,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         return _buildCodeBlock(l10n);
       case BlockType.latex:
         return _buildLatexBlock(l10n);
+      case BlockType.markdown:
+        return _buildMarkdownBlock(l10n);
       case BlockType.image:
         return _buildImageBlock(l10n);
       case BlockType.file:
@@ -1568,6 +1571,59 @@ th{background:$thBg;color:$thFg}
       ),
     ),
   );
+
+  // Markdown 块：未聚焦且有内容时用 MarkdownBody 渲染（加粗/列表/小节标题
+  // 等），点一下切回原始 Markdown 源码编辑，收起键盘再切回渲染——跟文字块
+  // 的行内公式一个套路。小梦生成里含 Markdown 语法的段落走这个块
+  Widget _buildMarkdownBlock(AppLocalizations l10n) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = Theme.of(context).textTheme.bodyLarge?.color;
+
+    if (!_focused && widget.block.content.trim().isNotEmpty) {
+      return GestureDetector(
+        onTap: () {
+          setState(() => _focused = true);
+          widget.block.focusNode.requestFocus();
+        },
+        child: MarkdownBody(
+          data: widget.block.content,
+          selectable: false,
+          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+            p: TextStyle(fontSize: 14, height: 1.7, color: textColor),
+          ),
+        ),
+      );
+    }
+
+    return _withEmptyBackspace(
+      TextFormField(
+        key: ValueKey('md_${widget.block.id}_$_textRevision'),
+        focusNode: widget.block.focusNode,
+        initialValue: widget.block.content.isNotEmpty
+            ? widget.block.content
+            : null,
+        decoration: const InputDecoration(
+          filled: false,
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 13,
+          height: 1.6,
+          color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1E293B),
+        ),
+        maxLines: null,
+        onChanged: (v) {
+          widget.block.content = v;
+          widget.onChanged();
+        },
+        onTap: () => setState(() => _focused = true),
+        onEditingComplete: () => setState(() => _focused = false),
+      ),
+    );
+  }
 
   Widget _buildImageBlock(AppLocalizations l10n) {
     if (widget.block.imageUrl != null) {

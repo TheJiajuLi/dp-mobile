@@ -11,6 +11,10 @@ enum BlockType {
   video,
   link,
   callout,
+  // 存原始 Markdown（加粗/列表/小节标题等），编辑器 MarkdownBody 渲染、阅读端
+  // 同样用 flutter_markdown 渲染——文字块只认行内公式、不认 Markdown 语法，
+  // 小梦生成的含 ** / ## / - 这类内容要走这个块，不然会显示成生的 ** 符号
+  markdown,
 }
 
 // 实测确认（2026-07-05）：POST /auth/tutorials 的 blocks 字段要传原始数组，
@@ -169,6 +173,7 @@ class EditorBlock {
       case BlockType.code:
       case BlockType.latex:
       case BlockType.callout:
+      case BlockType.markdown:
         chars += b.content.length;
         if (b.type == BlockType.code || b.type == BlockType.latex) {
           heavyBlocks++;

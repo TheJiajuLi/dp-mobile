@@ -258,9 +258,11 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     widget.onFill(blocks);
   }
 
-  // 生成的纯文本 → block 规格：三反引号→代码块；首个非空行→标题(heading
-  // level 2)；## 小节→heading；整行就是一条公式($$..$$ 或整行 $..$)→latex
-  // 块；其余→文字块（行内 $..$ 由文字块自己渲染）
+  // 生成的纯文本 → block 规格，按"段落"（空行分隔）切：三反引号→代码块；
+  // 首个非空行→标题(heading level 2)；整段就是一条公式($$..$$/整行$..$)→
+  // latex 块；段里有行内公式($..$)→文字块（文字块渲染行内公式，Markdown 块
+  // 不认 LaTeX，LaTeX 优先）；含 Markdown 语法(** / ## / - / > / 链接 等)→
+  // Markdown 块（整段一块，列表/多行才渲染得对）；其余普通段落→文字块
   List<XmengBlock> _parseToBlocks(String content) {
     final blocks = <XmengBlock>[];
     final lines = content.split('\n');
@@ -268,11 +270,30 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     var codeLang = 'python';
     final codeBuf = <String>[];
     var titleDone = false;
+    final para = <String>[];
+
+    void flushPara() {
+      if (para.isEmpty) return;
+      final text = para.join('\n');
+      para.clear();
+      if (text.trim().isEmpty) return;
+      final formula = _standaloneFormula(text.trim());
+      if (formula != null) {
+        blocks.add(XmengBlock(type: BlockType.latex, content: formula));
+      } else if (_hasInlineFormula(text)) {
+        blocks.add(XmengBlock(type: BlockType.text, content: text.trim()));
+      } else if (_hasMarkdown(text)) {
+        blocks.add(XmengBlock(type: BlockType.markdown, content: text.trim()));
+      } else {
+        blocks.add(XmengBlock(type: BlockType.text, content: text.trim()));
+      }
+    }
 
     for (final raw in lines) {
       final trimmed = raw.trim();
 
       if (trimmed.startsWith('```')) {
+        flushPara();
         if (!inCode) {
           inCode = true;
           final lang = trimmed.substring(3).trim().toLowerCase();
@@ -294,9 +315,11 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         codeBuf.add(raw);
         continue;
       }
-      if (trimmed.isEmpty) continue;
-
-      // 首个非空行当文章标题
+      if (trimmed.isEmpty) {
+        flushPara();
+        continue;
+      }
+      // 首个非空行当文章标题（单独成块）
       if (!titleDone) {
         titleDone = true;
         blocks.add(
@@ -308,31 +331,10 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         );
         continue;
       }
-
-      // 整行就是一条独立公式 → latex 块
-      final formula = _standaloneFormula(trimmed);
-      if (formula != null) {
-        blocks.add(XmengBlock(type: BlockType.latex, content: formula));
-        continue;
-      }
-
-      // markdown 小节标题 → heading（# 映射成本编辑器的 2/3/4）
-      final h = RegExp(r'^(#{1,6})\s+(.*)').firstMatch(trimmed);
-      if (h != null) {
-        final level = (h.group(1)!.length + 1).clamp(2, 4);
-        blocks.add(
-          XmengBlock(
-            type: BlockType.heading,
-            content: h.group(2)!.trim(),
-            headingLevel: level,
-          ),
-        );
-        continue;
-      }
-
-      blocks.add(XmengBlock(type: BlockType.text, content: trimmed));
+      para.add(raw);
     }
 
+    flushPara();
     // 代码块没闭合也兜底收进来
     if (inCode && codeBuf.isNotEmpty) {
       blocks.add(
@@ -344,6 +346,36 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
       );
     }
     return blocks;
+  }
+
+  static final _inlineFormulaPattern = RegExp(
+    r'\$[^$\n]+\$'
+    r'|\\\(.+?\\\)'
+    r'|\\\[.+?\\\]',
+    dotAll: true,
+  );
+
+  bool _hasInlineFormula(String text) => _inlineFormulaPattern.hasMatch(text);
+
+  // 含 Markdown 语法就该走 Markdown 块（文字块只认行内公式、不认 Markdown）：
+  // **加粗** / __加粗__ / ## 小节 / - * + 列表 / 1. 有序列表 / > 引用 /
+  // [文字](链接) / *斜体*
+  bool _hasMarkdown(String text) {
+    if (text.contains('**') ||
+        text.contains('__') ||
+        text.contains('##') ||
+        text.contains('> ')) {
+      return true;
+    }
+    for (final line in text.split('\n')) {
+      final l = line.trimLeft();
+      if (RegExp(r'^([-*+])\s').hasMatch(l)) return true; // 无序列表
+      if (RegExp(r'^\d+\.\s').hasMatch(l)) return true; // 有序列表
+      if (RegExp(r'^#{1,6}\s').hasMatch(l)) return true; // 小节标题
+    }
+    if (RegExp(r'\[[^\]]+\]\([^)]+\)').hasMatch(text)) return true; // 链接
+    if (RegExp(r'(?<!\*)\*[^*\s][^*\n]*\*(?!\*)').hasMatch(text)) return true; // *斜体*
+    return false;
   }
 
   // 整行是一条公式才当独立公式块：$$...$$，或整行只有一个 $...$（没有别的
