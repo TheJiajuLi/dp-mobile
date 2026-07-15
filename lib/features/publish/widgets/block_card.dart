@@ -1337,6 +1337,24 @@ th{background:$thBg;color:$thFg}
   }
 
   Future<void> _runCode() async {
+    final lang = (widget.block.language ?? 'python').toLowerCase();
+    // 真正能执行/能被 onRunCode 优雅处理的语言：python/sql 走 Pyodide、
+    // javascript 走 JS 引擎、html/markdown 由 onRunCode 直接回一条 info。
+    // 其余语言（typescript/java/go/rust…）会被当成 Python 丢进 Pyodide 报
+    // 语法错——这里提前拦下，给一条灰色友好提示（outputType='info'），不报错
+    const runnable = {'python', 'sql', 'javascript', 'html', 'markdown'};
+    if (!runnable.contains(lang)) {
+      setState(() {
+        widget.block.outputContent =
+            '「$lang」代码目前仅高亮显示，暂不支持在这里执行。\n'
+            '可运行的语言：Python / SQL / JavaScript。\n\n'
+            '多语言运行即将上线 ✦';
+        widget.block.outputType = 'info';
+      });
+      widget.onChanged();
+      return;
+    }
+
     setState(() => _running = true);
     List<Map<String, dynamic>> outputs;
     try {
