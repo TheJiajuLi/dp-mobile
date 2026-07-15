@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/founding_badge.dart';
@@ -157,6 +158,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 : _referralCtrl.text.trim(),
           );
       if (!mounted) return;
+      // 标记"新用户还没看过创作指南"——只在注册流程置 false，进主页时会
+      // 一次性叠上创作指南引导（见 _enterHome）。登录/老用户不写这个 key，
+      // 默认按已看过处理，不会触发
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_creator_guide', false);
+      if (!mounted) return;
       // register() 内部已经走完一次 /auth/login，currentUserProvider
       // 现在是服务端返回的真实用户数据——用它确认 is_founding_creator，
       // 不用第二步 verify 时客户端记的那份猜测值（万一码在这之间被
@@ -176,6 +183,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // 成功页「开始创作」——进主页。新注册用户（has_seen_creator_guide==false）
+  // 稍等主页加载完再一次性叠上创作指南，然后标记已看过。用提前拿到的
+  // GoRouter（不是 context）做延迟跳转，因为这时 RegisterScreen 已经被
+  // /home 替换、context 失效了
+  Future<void> _enterHome() async {
+    final router = GoRouter.of(context);
+    final prefs = await SharedPreferences.getInstance();
+    // 默认 true：只有注册流程显式置过 false 的新用户才触发，登录/老用户不会
+    final seen = prefs.getBool('has_seen_creator_guide') ?? true;
+    if (!mounted) return;
+    router.go('/home');
+    if (!seen) {
+      await prefs.setBool('has_seen_creator_guide', true);
+      Future.delayed(const Duration(milliseconds: 800), () {
+        router.push('/creator/guide');
+      });
+    }
   }
 
   @override
@@ -1025,7 +1051,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
-              onPressed: () => context.go('/home'),
+              onPressed: _enterHome,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _ink,
                 elevation: 0,
