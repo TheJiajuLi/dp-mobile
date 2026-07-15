@@ -51,7 +51,7 @@ class NotebookCellCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeBorder = isDark
         ? const Color(0xFF6366F1).withValues(alpha: 0.4)
-        : const Color(0xFF1A1A1A);
+        : const Color(0xFFCFCFD4);
     final idleBorder = isDark
         ? Colors.white.withValues(alpha: 0.06)
         : const Color(0xFFEBEBEB);
@@ -122,82 +122,79 @@ class NotebookCellCard extends StatelessWidget {
     );
   }
 
-  // Cell 头部（统一）：语言点 + 标签 + 运行(可执行才有) + 拖拽/菜单(选中才有)
+  // Cell 头部：语言彩色 pill + 数据集徽标 + 运行按钮（浅紫方形图标钮），
+  // 选中时额外露出拖拽手柄/菜单。跟设计稿一致——语言用带色 pill 直接表意，
+  // 运行是独立的图标钮而非文字标签
   Widget _buildHeader(BuildContext context) {
+    final headerBg = _isDataset
+        ? (isDark
+              ? const Color(0xFFD97706).withValues(alpha: 0.10)
+              : const Color(0xFFFFFBEB))
+        : (isDark
+              ? Colors.white.withValues(alpha: 0.03)
+              : const Color(0xFFF7F7F9));
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: _isDataset
-            ? (isDark
-                  ? const Color(0xFFD97706).withValues(alpha: 0.10)
-                  : const Color(0xFFFFFBEB))
-            : (isDark
-                  ? (isActive
-                        ? const Color(0xFF6366F1).withValues(alpha: 0.08)
-                        : Colors.white.withValues(alpha: 0.02))
-                  : (isActive
-                        ? const Color(0xFFF5F5F5)
-                        : const Color(0xFFFAFAFA))),
+        color: headerBg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
         border: Border(
           bottom: BorderSide(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.05)
-                : const Color(0xFFF0F0F0),
+                : const Color(0xFFEFEFEF),
             width: 0.5,
           ),
         ),
       ),
       child: Row(
         children: [
+          // 语言彩色 pill——Python 紫 / Markdown 绿 / LaTeX violet…
           Container(
-            width: 5,
-            height: 5,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: _dotColor(cell.type),
-              shape: BoxShape.circle,
+              color: _langColor(
+                cell.type,
+              ).withValues(alpha: isDark ? 0.22 : 0.12),
+              borderRadius: BorderRadius.circular(7),
             ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            _label(cell.type),
-            style: TextStyle(
-              fontSize: 10,
-              color: isActive
-                  ? (isDark ? const Color(0xFF6366F1) : const Color(0xFF555555))
-                  : (isDark
-                        ? const Color(0xFF444444)
-                        : const Color(0xFFAAAAAA)),
+            child: Text(
+              _label(cell.type),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _langColor(cell.type),
+              ),
             ),
           ),
           if (_isDataset) ...[
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Flexible(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? const Color(0xFFD97706).withValues(alpha: 0.18)
+                      ? const Color(0xFFD97706).withValues(alpha: 0.20)
                       : const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(99),
+                  borderRadius: BorderRadius.circular(7),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
                       Icons.storage_outlined,
-                      size: 9,
+                      size: 11,
                       color: Color(0xFFD97706),
                     ),
-                    const SizedBox(width: 3),
+                    const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         '数据集 · ${cell.metadata?['fileName'] ?? '数据'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFFD97706),
                         ),
                       ),
@@ -208,35 +205,19 @@ class NotebookCellCard extends StatelessWidget {
             ),
           ],
           const Spacer(),
-          if (_isExecutable(cell.type)) ...[
-            GestureDetector(
-              onTap: isRunning ? null : onRun,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  isRunning ? '运行中…' : '▶ 运行',
-                  style: const TextStyle(fontSize: 9, color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-          ],
+          // 选中时露出拖拽手柄 + 菜单（放在运行按钮左侧，运行按钮保持最右）
           if (isActive) ...[
             ReorderableDragStartListener(
               index: index,
               child: Icon(
                 Icons.drag_handle,
-                size: 15,
+                size: 16,
                 color: isDark
-                    ? const Color(0xFF555555)
-                    : const Color(0xFFCCCCCC),
+                    ? const Color(0xFF666666)
+                    : const Color(0xFFBBBBBB),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 10),
             GestureDetector(
               onTap: () => showCellActionsSheet(
                 context,
@@ -245,26 +226,58 @@ class NotebookCellCard extends StatelessWidget {
               ),
               child: Icon(
                 Icons.more_horiz,
-                size: 15,
+                size: 16,
                 color: isDark
-                    ? const Color(0xFF555555)
-                    : const Color(0xFFCCCCCC),
+                    ? const Color(0xFF666666)
+                    : const Color(0xFFBBBBBB),
               ),
             ),
+            const SizedBox(width: 10),
           ],
+          if (_isExecutable(cell.type)) _runButton(),
         ],
       ),
     );
   }
 
-  Color _dotColor(String type) => switch (type) {
-    'python' ||
-    'javascript' ||
-    'sql' ||
-    'r' ||
-    'julia' ||
-    'html' => const Color(0xFF16A34A),
-    _ => const Color(0xFF888888),
+  // 运行按钮——浅紫圆角方钮 + 紫色播放图标；运行中换成小转圈
+  Widget _runButton() {
+    return GestureDetector(
+      onTap: isRunning ? null : onRun,
+      child: Container(
+        width: 34,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(
+            0xFF6366F1,
+          ).withValues(alpha: isDark ? 0.22 : 0.10),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: isRunning
+            ? const SizedBox(
+                width: 13,
+                height: 13,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.6,
+                  color: Color(0xFF6366F1),
+                ),
+              )
+            : const Icon(
+                Icons.play_arrow_rounded,
+                size: 19,
+                color: Color(0xFF6366F1),
+              ),
+      ),
+    );
+  }
+
+  // 语言 pill 的主色：代码类紫、markdown 绿、latex violet、图片灰
+  Color _langColor(String type) => switch (type) {
+    'markdown' => const Color(0xFF16A34A),
+    'latex' => const Color(0xFF7C3AED),
+    'image' => const Color(0xFF888888),
+    _ => const Color(0xFF6366F1),
   };
 
   String _label(String type) => switch (type) {

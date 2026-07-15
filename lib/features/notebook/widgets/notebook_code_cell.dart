@@ -30,7 +30,9 @@ class NotebookCodeCellBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: isDark ? Colors.transparent : const Color(0xFFF8F9FC),
+      // 正文区跟设计稿一致用白底（透明=露出卡片白），头部浅灰、正文纯白，
+      // 靠头部底色和分割线区分，不再给正文另铺一层冷灰
+      color: Colors.transparent,
       child: TextField(
         controller: controller,
         focusNode: focusNode,
