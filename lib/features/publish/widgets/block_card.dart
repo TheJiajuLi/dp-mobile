@@ -180,7 +180,12 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       BlockType.latex,
     };
     if (!aiTypes.contains(widget.block.type)) return false;
-    if (widget.block.type == BlockType.latex) return true;
+    // 代码/公式块选中就显示小梦入口，不要求已有内容——代码助手/公式助手
+    // 是常驻能力（文字/标题/引用是"优化已有内容"，才要求 content 非空）
+    if (widget.block.type == BlockType.latex ||
+        widget.block.type == BlockType.code) {
+      return true;
+    }
     return widget.block.content.isNotEmpty;
   }
 
