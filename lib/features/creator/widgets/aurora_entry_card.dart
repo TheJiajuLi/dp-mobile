@@ -44,16 +44,8 @@ class AuroraEntryCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            Positioned(
-              right: -30,
-              top: -40,
-              child: _glow(_primary, 140),
-            ),
-            Positioned(
-              left: -20,
-              bottom: -30,
-              child: _glow(_cyan, 100),
-            ),
+            Positioned(right: -30, top: -40, child: _glow(_primary, 140)),
+            Positioned(left: -20, bottom: -30, child: _glow(_cyan, 100)),
             Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
@@ -183,7 +175,10 @@ class AuroraEntryCard extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.55)),
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.white.withValues(alpha: 0.55),
+          ),
         ),
         const SizedBox(height: 4),
         Text(

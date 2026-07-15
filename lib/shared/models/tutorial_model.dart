@@ -20,6 +20,14 @@ class TutorialModel {
   // 元老创作者标识——后端还没有这个字段，恒为 false，等后端在
   // 教程列表接口的 SELECT 里加上 is_founding_creator 直接生效
   final bool isFoundingCreator;
+  // 状态：draft / published / deleted(下架) / private(仅自己可见)。
+  // 后端 listTutorials/getTutorial 都会返回，创作者中心「作品管理」按它分区
+  final String status;
+  // 收藏/评论/分享——后端已在 listTutorials 的 SELECT 里补上子查询
+  // （save_count/comment_count/shares），作品管理页的数据行/统计卡直接用
+  final int saveCount;
+  final int commentCount;
+  final int shares;
 
   const TutorialModel({
     required this.id,
@@ -35,6 +43,10 @@ class TutorialModel {
     required this.views,
     required this.createdAt,
     this.isFoundingCreator = false,
+    this.status = 'published',
+    this.saveCount = 0,
+    this.commentCount = 0,
+    this.shares = 0,
   });
 
   factory TutorialModel.fromJson(Map<String, dynamic> json) {
@@ -55,6 +67,32 @@ class TutorialModel {
       isFoundingCreator:
           json['is_founding_creator'] == true ||
           json['is_founding_creator'] == 1,
+      status: json['status']?.toString() ?? 'published',
+      saveCount: _parseInt(json['save_count']),
+      commentCount: _parseInt(json['comment_count']),
+      shares: _parseInt(json['shares']),
+    );
+  }
+
+  TutorialModel copyWith({String? status}) {
+    return TutorialModel(
+      id: id,
+      title: title,
+      username: username,
+      userId: userId,
+      coverImage: coverImage,
+      summary: summary,
+      preview: preview,
+      avatar: avatar,
+      tags: tags,
+      likes: likes,
+      views: views,
+      createdAt: createdAt,
+      isFoundingCreator: isFoundingCreator,
+      status: status ?? this.status,
+      saveCount: saveCount,
+      commentCount: commentCount,
+      shares: shares,
     );
   }
 
@@ -74,7 +112,11 @@ class TutorialModel {
           return List<String>.from(decoded.map((e) => e.toString()));
         }
       } catch (_) {}
-      return tags.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      return tags
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
     }
     return [];
   }

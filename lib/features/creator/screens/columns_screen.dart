@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/models/tutorial_model.dart';
+import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
 import '../../profile/widgets/create_column_sheet.dart';
+import '../widgets/creator_sheets.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -298,10 +301,10 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _cardBtn('管理文章', () async {
-                        await context.push('/columns/${c.id}');
-                        if (mounted) _load();
-                      }),
+                      child: _cardBtn(
+                        '管理文章',
+                        () => _showManageArticlesSheet(c),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(child: _cardBtn('编辑专栏', () => _editColumn(c))),
@@ -337,8 +340,18 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     );
   }
 
-  // 编辑专栏名称/简介——跟专栏详情页的编辑弹层同一套 PUT /auth/columns/:id
-  // 契约（只发 name/description），改完重拉本页
+  void _toast(String msg, {bool ok = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: ok ? const Color(0xFF16A34A) : null,
+      ),
+    );
+  }
+
+  // 编辑专栏名称/简介 + 删除专栏入口——PUT /auth/columns/:id 只发
+  // name/description；删除走 DELETE /auth/columns/:id（文章不删，只解除归属）
   void _editColumn(ColumnModel c) {
     final nameCtrl = TextEditingController(text: c.name);
     final descCtrl = TextEditingController(text: c.description ?? '');
@@ -351,25 +364,45 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: _card,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
           ),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    '编辑专栏',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: _ink,
-                    ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _grabber(),
+                Text(
+                  '编辑专栏',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
                   ),
-                  const Spacer(),
-                  TextButton(
+                ),
+                const SizedBox(height: 16),
+                _sheetField(nameCtrl, '专栏名称'),
+                const SizedBox(height: 12),
+                _sheetField(descCtrl, '专栏简介（选填）', maxLines: 2),
+                const SizedBox(height: 6),
+                creatorSheetDivider(ctx),
+                CreatorSheetItem(
+                  icon: Icons.delete_outline,
+                  accent: const Color(0xFFEF4444),
+                  label: '删除专栏',
+                  sub: '文章不会被删除',
+                  isRed: true,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _confirmDeleteColumn(c);
+                  },
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
                     onPressed: () async {
                       if (nameCtrl.text.trim().isEmpty) return;
                       final res = await ref
@@ -385,31 +418,257 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
                       Navigator.pop(ctx);
                       if (res.success) {
                         if (mounted) _load();
-                      } else if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(res.message ?? '保存失败，请稍后重试')),
-                        );
+                        _toast('专栏已更新', ok: true);
+                      } else {
+                        _toast(res.message ?? '保存失败，请稍后重试');
                       }
                     },
+                    style: TextButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     child: const Text(
-                      '保存',
+                      '保存更改',
                       style: TextStyle(
-                        color: _primary,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _sheetField(nameCtrl, '专栏名称'),
-              const SizedBox(height: 12),
-              _sheetField(descCtrl, '专栏简介（选填）', maxLines: 3),
-            ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: TextButton.styleFrom(
+                      backgroundColor: _isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : const Color(0xFFF5F5F5),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      '取消',
+                      style: TextStyle(fontSize: 15, color: _muted),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _grabber() => Center(
+    child: Container(
+      width: 36,
+      height: 4,
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(99),
+      ),
+    ),
+  );
+
+  Future<void> _confirmDeleteColumn(ColumnModel c) async {
+    final ok = await showCreatorConfirmSheet(
+      context,
+      title: '删除专栏',
+      message: '删除后专栏内的文章不会被删除，只会从专栏中移出。此操作无法撤销。',
+      confirmLabel: '确认删除',
+      isDanger: true,
+    );
+    if (!ok || !mounted) return;
+    final res = await ref
+        .read(apiClientProvider)
+        .delete('/auth/columns/${c.id}');
+    if (!mounted) return;
+    if (res.success) {
+      await _load();
+      _toast('专栏已删除', ok: true);
+    } else {
+      _toast(res.message ?? '删除失败，请稍后重试');
+    }
+  }
+
+  // ============ 管理文章 ============
+  void _showManageArticlesSheet(ColumnModel c) {
+    showCreatorActionSheet(
+      context,
+      title: '管理文章',
+      children: [
+        CreatorSheetItem(
+          icon: Icons.add_circle_outline,
+          accent: _primary,
+          label: '添加文章到专栏',
+          sub: '从已发布的文章中选择',
+          onTap: () {
+            Navigator.pop(context);
+            _addArticleToColumn(c);
+          },
+        ),
+        CreatorSheetItem(
+          icon: Icons.format_list_numbered,
+          accent: _primary,
+          label: '调整文章顺序',
+          sub: '拖拽排序专栏内文章',
+          onTap: () {
+            Navigator.pop(context);
+            _reorderColumnArticles(c);
+          },
+        ),
+        CreatorSheetItem(
+          icon: Icons.remove_circle_outline,
+          accent: const Color(0xFFD97706),
+          label: '从专栏移除文章',
+          sub: '文章不会被删除',
+          onTap: () {
+            Navigator.pop(context);
+            _removeArticleFromColumn(c);
+          },
+        ),
+      ],
+    );
+  }
+
+  // 专栏当前文章（按 column_order 已排好序），返回 [{id,title}]
+  Future<List<Map<String, dynamic>>> _fetchColumnArticles(String id) async {
+    final res = await ref.read(apiClientProvider).get('/auth/columns/$id');
+    if (!res.success || res.data == null) return [];
+    final arts = ((res.data as Map)['articles'] as List?) ?? [];
+    return arts.map((a) => Map<String, dynamic>.from(a as Map)).toList();
+  }
+
+  Future<void> _addArticleToColumn(ColumnModel c) async {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
+    final api = ref.read(apiClientProvider);
+    // 我的已发布文章
+    final res = await api.get(
+      '/auth/tutorials',
+      queryParameters: {
+        'author': user.username,
+        'status': 'published',
+        'limit': 100,
+      },
+    );
+    if (!mounted) return;
+    final published = (res.success && res.data != null)
+        ? ((res.data['tutorials'] as List?) ?? [])
+              .map((j) => TutorialModel.fromJson(j as Map<String, dynamic>))
+              .where((t) => t.userId == user.id)
+              .toList()
+        : <TutorialModel>[];
+    // 排除已在该专栏里的
+    final existing = (await _fetchColumnArticles(
+      c.id,
+    )).map((a) => a['id'].toString()).toSet();
+    if (!mounted) return;
+    final candidates = published
+        .where((t) => !existing.contains(t.id))
+        .toList();
+    if (candidates.isEmpty) {
+      _toast('没有可添加的已发布文章');
+      return;
+    }
+    showCreatorActionSheet(
+      context,
+      title: '添加文章到专栏',
+      children: candidates.map((t) {
+        return CreatorSheetItem(
+          icon: Icons.article_outlined,
+          accent: _primary,
+          label: t.title.isEmpty ? '无标题' : t.title,
+          sub: '${t.likes} 赞 · ${_formatCount(t.views)} 浏览',
+          onTap: () async {
+            Navigator.pop(context);
+            final r = await api.post(
+              '/auth/columns/${c.id}/articles',
+              data: {'tutorialId': t.id},
+            );
+            if (!mounted) return;
+            if (r.success) {
+              await _load();
+              _toast('已添加到「${c.name}」', ok: true);
+            } else {
+              _toast(r.message ?? '添加失败');
+            }
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _removeArticleFromColumn(ColumnModel c) async {
+    final arts = await _fetchColumnArticles(c.id);
+    if (!mounted) return;
+    if (arts.isEmpty) {
+      _toast('这个专栏还没有文章');
+      return;
+    }
+    showCreatorActionSheet(
+      context,
+      title: '从专栏移除文章',
+      children: arts.map((a) {
+        final id = a['id'].toString();
+        final title = (a['title'] as String?) ?? '无标题';
+        return CreatorSheetItem(
+          icon: Icons.remove_circle_outline,
+          accent: const Color(0xFFD97706),
+          label: title.isEmpty ? '无标题' : title,
+          sub: '从专栏移出，文章不会被删除',
+          onTap: () async {
+            Navigator.pop(context);
+            final r = await ref
+                .read(apiClientProvider)
+                .delete('/auth/columns/${c.id}/articles/$id');
+            if (!mounted) return;
+            if (r.success) {
+              await _load();
+              _toast('已从「${c.name}」移出', ok: true);
+            } else {
+              _toast(r.message ?? '移除失败');
+            }
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _reorderColumnArticles(ColumnModel c) async {
+    final arts = await _fetchColumnArticles(c.id);
+    if (!mounted) return;
+    if (arts.length < 2) {
+      _toast(arts.isEmpty ? '这个专栏还没有文章' : '至少两篇文章才能排序');
+      return;
+    }
+    final order = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ReorderArticlesSheet(articles: arts, isDark: _isDark),
+    );
+    if (order == null || !mounted) return;
+    final r = await ref
+        .read(apiClientProvider)
+        .put('/auth/columns/${c.id}/articles/order', data: {'order': order});
+    if (!mounted) return;
+    if (r.success) {
+      await _load();
+      _toast('顺序已保存', ok: true);
+    } else {
+      _toast(r.message ?? '保存失败');
+    }
   }
 
   Widget _sheetField(
@@ -554,6 +813,171 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// 拖拽排序专栏内文章——本地重排，点「保存顺序」返回 id 数组给调用方
+// 去 PUT /auth/columns/:id/articles/order
+class _ReorderArticlesSheet extends StatefulWidget {
+  final List<Map<String, dynamic>> articles;
+  final bool isDark;
+  const _ReorderArticlesSheet({required this.articles, required this.isDark});
+
+  @override
+  State<_ReorderArticlesSheet> createState() => _ReorderArticlesSheetState();
+}
+
+class _ReorderArticlesSheetState extends State<_ReorderArticlesSheet> {
+  late List<Map<String, dynamic>> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = [...widget.articles];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final card = isDark ? AppColors.darkCard : Colors.white;
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
+    final border = isDark ? AppColors.darkBorder : const Color(0xFFEBEBEB);
+    final maxH = MediaQuery.of(context).size.height * 0.6;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+              child: Text(
+                '调整文章顺序',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: ink,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+              child: Text(
+                '长按右侧手柄拖动排序',
+                style: TextStyle(fontSize: 12, color: muted),
+              ),
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxH),
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                buildDefaultDragHandles: false,
+                itemCount: _items.length,
+                onReorder: (oldI, newI) {
+                  setState(() {
+                    if (newI > oldI) newI -= 1;
+                    final it = _items.removeAt(oldI);
+                    _items.insert(newI, it);
+                  });
+                },
+                itemBuilder: (ctx, i) {
+                  final a = _items[i];
+                  final title = (a['title'] as String?) ?? '无标题';
+                  return Container(
+                    key: ValueKey(a['id'].toString()),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.04)
+                          : const Color(0xFFF7F7FA),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: border, width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          '${i + 1}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: muted,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            title.isEmpty ? '无标题' : title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 14, color: ink),
+                          ),
+                        ),
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.drag_handle,
+                              size: 20,
+                              color: muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(
+                  context,
+                  _items.map((a) => a['id'].toString()).toList(),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A1A1A),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  '保存顺序',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
