@@ -119,10 +119,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     return list;
   }
 
-  int get _totalArticles => _columns.fold(0, (s, c) => s + c.articleCount);
   int get _totalViews => _columns.fold(0, (s, c) => s + c.viewCount);
-  int get _totalSubscribers =>
-      _columns.fold(0, (s, c) => s + c.subscriberCount);
 
   String _formatCount(int n) {
     if (n >= 10000) return '${(n / 1000).toStringAsFixed(1)}k';
@@ -189,19 +186,6 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
               color: _isDark ? Colors.white70 : const Color(0xFF555555),
             ),
           ),
-          const SizedBox(width: 14),
-          GestureDetector(
-            onTap: _createColumn,
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: _primary,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: const Icon(Icons.add, size: 18, color: Colors.white),
-            ),
-          ),
         ],
       ),
     );
@@ -247,8 +231,9 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     final list = _filteredSorted;
+    final hasData = _columns.isNotEmpty;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
       children: [
         if (_searching) ...[
           TextField(
@@ -267,153 +252,217 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
         ],
-        _statsRow(),
-        const SizedBox(height: 16),
-        _newColumnButton(),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Text(
-              '全部专栏 (${_columns.length})',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: _ink,
+        // Hero 标题区——大标题 + 一句概览，把「专栏管理」从后台报表拉回
+        // 内容产品的编辑感
+        _heroBlock(hasData),
+        const SizedBox(height: 18),
+        // 主 CTA——紫色轻渐变大按钮（Apple Card 质感），不描边
+        _gradientCta(hasData),
+        const SizedBox(height: 24),
+        if (!hasData)
+          // 全 0 的统计卡没有信息量，直接删掉；换成有插图/引导文案的编辑态
+          _emptyState()
+        else ...[
+          _listHeader(),
+          const SizedBox(height: 12),
+          if (list.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 40),
+              child: Center(
+                child: Text(
+                  '没有匹配的专栏',
+                  style: TextStyle(fontSize: 13, color: _muted),
+                ),
+              ),
+            )
+          else
+            ...list.asMap().entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _columnCard(e.value, e.key),
               ),
             ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () => setState(() {
-                _sort = _ColumnSort
-                    .values[(_sort.index + 1) % _ColumnSort.values.length];
-              }),
-              child: Row(
-                children: [
-                  Icon(Icons.swap_vert, size: 15, color: _muted),
-                  const SizedBox(width: 3),
-                  Text(
-                    _sort.label,
-                    style: TextStyle(fontSize: 12, color: _muted),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        if (list.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 60),
-            child: Center(
-              child: Text(
-                _query.isNotEmpty ? '没有匹配的专栏' : '还没有专栏，创建一个开始连载吧',
-                style: TextStyle(fontSize: 13, color: _muted),
-              ),
-            ),
-          )
-        else
-          ...list.asMap().entries.map(
-            (e) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _columnCard(e.value, e.key),
-            ),
-          ),
+        ],
       ],
     );
   }
 
-  Widget _statsRow() {
-    Widget stat(IconData icon, Color color, String value, String label) {
-      return Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border, width: 0.5),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 15, color: color),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: _ink,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(label, style: TextStyle(fontSize: 10.5, color: _muted)),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Row(
+  Widget _heroBlock(bool hasData) {
+    final sub = hasData
+        ? '你拥有 ${_columns.length} 个专栏 · 累计 ${_formatCount(_totalViews)} 阅读'
+        : '把文章、教程、研究整理成系列，开始构建属于你的知识世界';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        stat(
-          Icons.view_agenda_outlined,
-          _primary,
-          '${_columns.length}',
-          '专栏数量',
+        Text(
+          '创建你的知识世界',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            height: 1.15,
+            letterSpacing: -0.5,
+            color: _ink,
+          ),
         ),
-        const SizedBox(width: 8),
-        stat(
-          Icons.menu_book_outlined,
-          const Color(0xFFD97706),
-          _formatCount(_totalViews),
-          '总阅读量',
-        ),
-        const SizedBox(width: 8),
-        stat(
-          Icons.people_outline,
-          const Color(0xFF16A34A),
-          _formatCount(_totalSubscribers),
-          '订阅者',
-        ),
-        const SizedBox(width: 8),
-        stat(
-          Icons.grid_view_outlined,
-          const Color(0xFF2563EB),
-          '$_totalArticles',
-          '总作品数',
-        ),
+        const SizedBox(height: 8),
+        Text(sub, style: TextStyle(fontSize: 13.5, height: 1.4, color: _muted)),
       ],
     );
   }
 
-  Widget _newColumnButton() {
+  Widget _gradientCta(bool hasData) {
     return GestureDetector(
       onTap: _createColumn,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        height: 72,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _primary.withValues(alpha: 0.4),
-            style: BorderStyle.solid,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF6D6AFF), Color(0xFF7A6CFF)],
           ),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: _isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: const Color(0xFF6D6AFF).withValues(alpha: 0.35),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add, size: 16, color: _primary),
-            SizedBox(width: 6),
-            Text('新建专栏', style: TextStyle(fontSize: 13, color: _primary)),
+            const Icon(Icons.add, size: 22, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              hasData ? '新建专栏' : '创建第一个专栏',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                color: Colors.white,
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _listHeader() {
+    return Row(
+      children: [
+        Text(
+          '全部专栏 (${_columns.length})',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: _ink,
+          ),
+        ),
+        const Spacer(),
+        GestureDetector(
+          onTap: () => setState(() {
+            _sort = _ColumnSort
+                .values[(_sort.index + 1) % _ColumnSort.values.length];
+          }),
+          child: Row(
+            children: [
+              Icon(Icons.swap_vert, size: 15, color: _muted),
+              const SizedBox(width: 3),
+              Text(_sort.label, style: TextStyle(fontSize: 12, color: _muted)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyState() {
+    const examples = ['教程', '数据分析', '动漫系列', '科研笔记', '读书笔记'];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 30, 24, 30),
+      decoration: BoxDecoration(
+        color: _isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _primary.withValues(alpha: _isDark ? 0.22 : 0.12),
+                  const Color(
+                    0xFF7A6CFF,
+                  ).withValues(alpha: _isDark ? 0.22 : 0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            alignment: Alignment.center,
+            child: const Text('📚', style: TextStyle(fontSize: 30)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '开始你的创作旅程',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: _ink,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '把文章、教程、研究整理成系列，\n让知识在这里持续沉淀。',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, height: 1.5, color: _muted),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            '可以整理为',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: _muted,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: examples.map(_exampleChip).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _exampleChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: _primary.withValues(alpha: _isDark ? 0.14 : 0.07),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: _isDark ? const Color(0xFF9B9EF8) : _primary,
         ),
       ),
     );
