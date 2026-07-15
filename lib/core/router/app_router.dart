@@ -56,6 +56,7 @@ import '../../features/publish/models/block_model.dart';
 import '../../features/publish/screens/publish_screen.dart';
 import '../../features/search/screens/search_screen.dart';
 import '../../features/settings/screens/about_screen.dart';
+import '../../features/settings/screens/changelog_screen.dart';
 import '../../features/settings/screens/faq_list_screen.dart';
 import '../../features/settings/screens/help_feedback_screen.dart';
 import '../../features/settings/screens/account_security_screen.dart';
@@ -241,6 +242,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/about',
       builder: (context, state) => const AboutScreen(),
+    ),
+    GoRoute(
+      path: '/settings/changelog',
+      builder: (context, state) => const ChangelogScreen(),
     ),
     GoRoute(
       path: '/settings/terms',

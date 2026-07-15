@@ -226,6 +226,15 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => context.push('/settings/about'),
                     ),
                     SettingsRow(
+                      icon: Icons.list_alt_outlined,
+                      iconColor: const Color(0xFF16A34A),
+                      iconBg: const Color(0xFFF0FFF5),
+                      title: l10n.changelog,
+                      trailing: l10n.changelogNewBadge,
+                      trailingColor: const Color(0xFF6366F1),
+                      onTap: () => context.push('/settings/changelog'),
+                    ),
+                    SettingsRow(
                       icon: Icons.description_outlined,
                       iconColor: Colors.grey,
                       iconBg: Theme.of(context).dividerColor,

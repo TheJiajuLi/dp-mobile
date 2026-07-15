@@ -203,6 +203,9 @@ class SettingsRow extends StatelessWidget {
   final Color? titleColor;
   final String? subtitle;
   final String? trailing;
+  // trailing 文字颜色——默认跟原来一样是灰色（字号/日期这类中性信息），
+  // "有新内容"这类需要吸引注意力的 trailing 可以传品牌色
+  final Color? trailingColor;
   final VoidCallback onTap;
 
   const SettingsRow({
@@ -214,6 +217,7 @@ class SettingsRow extends StatelessWidget {
     this.titleColor,
     this.subtitle,
     this.trailing,
+    this.trailingColor,
     required this.onTap,
   });
 
@@ -260,7 +264,10 @@ class SettingsRow extends StatelessWidget {
             if (trailing != null)
               Text(
                 trailing!,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: trailingColor ?? Colors.grey,
+                ),
               ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, color: Colors.grey, size: 18),

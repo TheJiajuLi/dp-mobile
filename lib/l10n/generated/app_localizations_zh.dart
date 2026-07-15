@@ -1213,6 +1213,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutApp => '关于极梦';
 
   @override
+  String get changelog => '更新日志';
+
+  @override
+  String get changelogNewBadge => '有新内容';
+
+  @override
   String get userAgreement => '用户协议';
 
   @override

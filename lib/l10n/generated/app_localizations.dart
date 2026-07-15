@@ -2360,6 +2360,18 @@ abstract class AppLocalizations {
   /// **'About Dreaming Polar'**
   String get aboutApp;
 
+  /// No description provided for @changelog.
+  ///
+  /// In en, this message translates to:
+  /// **'Changelog'**
+  String get changelog;
+
+  /// No description provided for @changelogNewBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get changelogNewBadge;
+
   /// No description provided for @userAgreement.
   ///
   /// In en, this message translates to:
