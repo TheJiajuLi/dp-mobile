@@ -375,6 +375,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         tags: currentUser.tags,
         isFoundingCreator: currentUser.isFoundingCreator,
         isAuroraCreator: currentUser.isAuroraCreator,
+        // 自己主页的 _profile 是手搓的，之前漏带 membership，默认落成 'free'，
+        // 导致会员用户看自己主页时用户名后的 Pro 角标不显示——补上
+        membership: currentUser.membership ?? 'free',
       );
       await _loadLocalPrefs(profile);
       if (!widget.showBackButton) {
