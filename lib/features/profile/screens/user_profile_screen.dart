@@ -1043,26 +1043,52 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     }
   }
 
-  Widget _linkRow(String displayText, String rawLink) {
-    return GestureDetector(
-      onTap: () => _openLink(rawLink),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.link, size: 13, color: _primary),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              displayText,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                color: _primary,
-                decoration: TextDecoration.underline,
+  Widget _linkRow(
+    String displayText,
+    String rawLink, {
+    required Color ink,
+    required Color muted,
+    required bool isDark,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openLink(rawLink),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: isDark ? 0.18 : 0.1),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(
+                  Icons.link_rounded,
+                  size: 18,
+                  color: _primary,
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  displayText,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: ink,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_outward_rounded, size: 16, color: muted),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1730,53 +1756,85 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
 
   // 头图右上角链接图标点开——列出全部个人链接的底部弹窗，替代原来直接
   // 跳GitHub/第一条链接的快捷方式
+  //
+  // 2026-07-15 视觉重构：弹层背景之前固定用 Theme.of(ctx).cardColor（浅色下
+  // 是纯白），跟底部导航栏的米白 #FAFAF8 拼在一起会露出一条接缝——改成
+  // 跟 main_shell.dart 底部栏同一份取色逻辑，让弹层像是从底部栏本身
+  // 长出来的，不是另一块浮在上面的白色卡片。链接行也从"图标+下划线蓝字"
+  // 的旧式网页超链接样式，换成跟 creator_sheets.dart 一致的圆角图标块+
+  // 卡片行语言，跟发布/作品管理这些页面已经统一的弹层风格对齐
   void _showLinksSheet(AppLocalizations l10n) {
     final links = _allLinks();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final sheetBg = !isDark
+            ? const Color(0xFFFAFAF8)
+            : Theme.of(ctx).scaffoldBackgroundColor;
+        final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+        final muted = isDark
+            ? const Color(0xFF7A80A0)
+            : const Color(0xFF888888);
+        return Container(
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(22),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.personalLinksLabel,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(ctx).textTheme.bodyLarge?.color,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...links.map(
-              (link) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _linkRow(
-                  link.replaceAll('https://', '').replaceAll('http://', ''),
-                  link,
+                const SizedBox(height: 18),
+                Text(
+                  l10n.personalLinksLabel,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 6),
+                for (var i = 0; i < links.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFEDEDED),
+                    ),
+                  _linkRow(
+                    links[i]
+                        .replaceAll('https://', '')
+                        .replaceAll('http://', ''),
+                    links[i],
+                    ink: ink,
+                    muted: muted,
+                    isDark: isDark,
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
