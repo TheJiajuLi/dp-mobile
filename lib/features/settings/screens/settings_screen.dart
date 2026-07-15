@@ -89,13 +89,6 @@ class SettingsScreen extends ConsumerWidget {
                 padding: EdgeInsets.zero,
                 children: [
                   const SizedBox(height: 8),
-                  // 会员中心入口——跟「账号」「通用」同一套白卡+细线容器，不再是
-                  // 突兀的紫色大卡；会员态显示档位/已激活/存储，免费态引导开通
-                  const SettingsSectionTitle('会员中心'),
-                  _MembershipEntryCard(
-                    membership: me?.membership,
-                    isAurora: me?.isAuroraCreator ?? false,
-                  ),
                   SettingsSectionTitle(l10n.sectionAccount),
                   SettingsGroup([
                     SettingsRow(
@@ -105,6 +98,23 @@ class SettingsScreen extends ConsumerWidget {
                       title: l10n.accountSecurity,
                       subtitle: l10n.accountSecuritySubtitle,
                       onTap: () => context.push('/settings/security'),
+                    ),
+                    // 会员中心——放进「账号」组、账号安全下面，做成跟其它设置项
+                    // 同款的列表行（免费态引导开通，会员态显示当前档位）
+                    SettingsRow(
+                      icon: Icons.workspace_premium_outlined,
+                      iconColor: const Color(0xFFD97706),
+                      iconBg: const Color(0xFFFFF7E6),
+                      title: l10n.sectionMembership,
+                      subtitle: switch (me?.membership) {
+                        'pro_max' => 'Pro Max · 已解锁全部权益',
+                        'pro' => 'Pro · 尊享全部创作权益',
+                        _ =>
+                          (me?.isAuroraCreator ?? false)
+                              ? '极光创作者 · 已免费享 Pro'
+                              : '开通 Pro，解锁全部权益',
+                      },
+                      onTap: () => context.push('/settings/subscription'),
                     ),
                     SettingsRow(
                       icon: Icons.notifications_outlined,
@@ -713,234 +723,6 @@ class _NotifSettingsSheet extends ConsumerWidget {
             ),
           ]),
         ],
-      ),
-    );
-  }
-}
-
-// 会员中心 Hero 卡——2026 一线产品视觉：紫色渐变 + 金色皇冠 + 柔和辉光，
-// 白色 CTA 药丸。会员态显示当前档位与「管理」，免费态引导「立即开通」，
-// 极光创作者显示已免费享 Pro。点击进 /settings/subscription
-class _MembershipEntryCard extends ConsumerWidget {
-  final String? membership;
-  final bool isAurora;
-  const _MembershipEntryCard({
-    required this.membership,
-    required this.isAurora,
-  });
-
-  static String _fmtUsed(int b) {
-    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(0)} KB';
-    if (b < 1024 * 1024 * 1024) {
-      return '${(b / 1024 / 1024).toStringAsFixed(1)} MB';
-    }
-    return '${(b / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
-  }
-
-  static String _fmtQuota(int b) {
-    if (b >= 1024 * 1024 * 1024) {
-      return '${(b / 1024 / 1024 / 1024).toStringAsFixed(0)} GB';
-    }
-    return '${(b / 1024 / 1024).toStringAsFixed(0)} MB';
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isMax = membership == 'pro_max';
-    final isPro = membership == 'pro';
-    final isActive = isMax || isPro || isAurora;
-    final String title;
-    final String sub;
-    final String cta;
-    if (isMax) {
-      title = '极梦 Pro Max';
-      sub = '已解锁全部权益 · 感谢支持';
-      cta = '管理';
-    } else if (isPro) {
-      title = '极梦 Pro';
-      sub = '尊享全部创作与 AI 权益';
-      cta = '管理';
-    } else if (isAurora) {
-      title = '极光创作者';
-      sub = '已免费尊享 Pro 全部权益';
-      cta = '查看';
-    } else {
-      title = '开通极梦会员';
-      sub = '解锁 Pro 创作、AI 与专属身份';
-      cta = '立即开通';
-    }
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? Theme.of(context).cardColor : Colors.white;
-    final border = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : const Color(0xFFEBEBEB);
-    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
-    final subColor = isDark ? Colors.white38 : const Color(0xFFBBBBBB);
-    final manageBg = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : const Color(0xFFF5F5F5);
-    final manageInk = isDark ? Colors.white70 : const Color(0xFF555555);
-    final track = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : const Color(0xFFF0F0F0);
-
-    final storage = ref.watch(storageUsageProvider);
-    final storageBar = storage.maybeWhen(
-      data: (data) {
-        final total = (data['totalBytes'] as num?)?.toInt() ?? 0;
-        final quota = (data['quota'] as num?)?.toInt() ?? 200 * 1024 * 1024;
-        final ratio = quota > 0 ? (total / quota) : 0.0;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('存储空间', style: TextStyle(fontSize: 11, color: subColor)),
-                  Text(
-                    '${_fmtUsed(total)} / ${_fmtQuota(quota)}',
-                    style: TextStyle(fontSize: 11, color: subColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 5),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(99),
-                child: LinearProgressIndicator(
-                  value: total > 0 ? ratio.clamp(0.01, 1.0) : 0.0,
-                  minHeight: 4,
-                  backgroundColor: track,
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFF6366F1)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      orElse: () => const SizedBox.shrink(),
-    );
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => context.push('/settings/subscription'),
-        child: Container(
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: border, width: 0.5),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                child: Row(
-                  children: [
-                    // 小圆角方块图标，跟其它设置项统一（浅紫底 + 品牌紫图标）
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFFEEF0FF), Color(0xFFDDD6FE)],
-                        ),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: const Icon(
-                        Icons.workspace_premium_rounded,
-                        size: 20,
-                        color: Color(0xFF6366F1),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: ink,
-                                  ),
-                                ),
-                              ),
-                              if (isActive) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF6366F1),
-                                        Color(0xFF8B5CF6),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(99),
-                                  ),
-                                  child: const Text(
-                                    '已激活',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            sub,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: subColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: manageBg,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        cta,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: manageInk,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              storageBar,
-            ],
-          ),
-        ),
       ),
     );
   }
