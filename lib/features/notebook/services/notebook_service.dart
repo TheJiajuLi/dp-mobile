@@ -27,14 +27,12 @@ class NotebookService {
     return deduped.take(5).toList();
   }
 
-  Future<Notebook> create(String name, String lang) async {
+  // template 传了就用对应模板的起始内容（数据分析/机器学习/数学推导/可视化），
+  // 没传（从"新建 Notebook"面板选语言进来的）就退回按语言的通用默认
+  Future<Notebook> create(String name, String lang, {String? template}) async {
     final id = 'nb_${DateTime.now().millisecondsSinceEpoch}';
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final defaultCode = {
-      'python': '# 开始你的分析\nimport pandas as pd\nimport matplotlib.pyplot as plt\n',
-      'latex': '${r'\text{在这里输入公式：}'}\n${r'f(x) = \int_{-\infty}^{\infty} \hat{f}(\xi) e^{2\pi i \xi x} d\xi'}',
-      'mixed': '# 混合模式\n',
-    }[lang] ?? '';
+    final defaultCode = _starterCode(lang, template);
 
     final nb = Notebook(
       id: id, name: name, lang: lang,
@@ -47,6 +45,66 @@ class NotebookService {
     );
     await save(nb);
     return nb;
+  }
+
+  // 各模板的起始内容（pre-writing）——都是能直接跑/直接渲染的示例骨架，
+  // 只用 numpy/pandas/matplotlib 这些 Pyodide 稳定自带的库，数学模板走 LaTeX
+  static String _starterCode(String lang, String? template) {
+    switch (template) {
+      case 'data_analysis':
+        return '# 数据分析\n'
+            'import pandas as pd\n\n'
+            '# 载入数据（把路径换成你的文件）\n'
+            '# df = pd.read_csv("data.csv")\n'
+            'df = pd.DataFrame({\n'
+            '    "score": [88, 92, 79, 95, 61],\n'
+            '    "hours": [3, 4, 2, 5, 1],\n'
+            '})\n\n'
+            '# 快速概览\n'
+            'print(df.head())\n'
+            'print(df.describe())\n';
+      case 'machine_learning':
+        return '# 机器学习：最小二乘线性回归\n'
+            'import numpy as np\n\n'
+            '# 示例数据（把 X, y 换成你的特征与标签）\n'
+            'X = np.random.rand(100, 1)\n'
+            'y = 3 * X[:, 0] + 2 + np.random.randn(100) * 0.1\n\n'
+            '# 正规方程求解权重 w（首列补 1 作为偏置项）\n'
+            'Xb = np.c_[np.ones(len(X)), X]\n'
+            'w = np.linalg.lstsq(Xb, y, rcond=None)[0]\n'
+            'print("权重 w:", w)\n\n'
+            '# 预测与误差\n'
+            'pred = Xb @ w\n'
+            'print("MSE:", round(float(np.mean((pred - y) ** 2)), 4))\n';
+      case 'visualization':
+        return '# 可视化\n'
+            'import numpy as np\n'
+            'import matplotlib.pyplot as plt\n\n'
+            'x = np.linspace(0, 2 * np.pi, 200)\n'
+            'y = np.sin(x)\n\n'
+            'plt.figure(figsize=(6, 4))\n'
+            'plt.plot(x, y, label="sin(x)")\n'
+            'plt.title("示例折线图")\n'
+            'plt.xlabel("x")\n'
+            'plt.ylabel("y")\n'
+            'plt.legend()\n'
+            'plt.grid(True, alpha=0.3)\n'
+            'plt.show()\n';
+      case 'math':
+        return '${r'\text{欧拉公式的推导} \\'}\n'
+            '${r'e^{i\theta} = \cos\theta + i\sin\theta \\'}\n'
+            '${r'\text{令 } \theta = \pi: \\'}\n'
+            '${r'\Rightarrow e^{i\pi} + 1 = 0'}';
+    }
+    // 没指定模板时的通用默认（跟原来一致）
+    return {
+      'python':
+          '# 开始你的分析\nimport pandas as pd\nimport matplotlib.pyplot as plt\n',
+      'latex':
+          '${r'\text{在这里输入公式：}'}\n${r'f(x) = \int_{-\infty}^{\infty} \hat{f}(\xi) e^{2\pi i \xi x} d\xi'}',
+      'mixed': '# 混合模式\n',
+    }[lang] ??
+        '';
   }
 
   Future<void> save(Notebook nb) async {

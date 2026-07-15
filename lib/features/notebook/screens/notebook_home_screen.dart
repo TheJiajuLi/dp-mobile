@@ -495,6 +495,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                         Color(0xFFEEF0FF),
                                         Color(0xFF6366F1),
                                       ),
+                                      'data_analysis',
                                     ),
                                     (
                                       l10n.tagMachineLearning,
@@ -504,6 +505,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                         Color(0xFFFCE7F3),
                                         Color(0xFFC026D3),
                                       ),
+                                      'machine_learning',
                                     ),
                                     (
                                       l10n.templateMathDerivation,
@@ -513,6 +515,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                         Color(0xFFEDE9FE),
                                         Color(0xFF8B5CF6),
                                       ),
+                                      'math',
                                     ),
                                     (
                                       l10n.tagVisualization,
@@ -522,6 +525,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                         Color(0xFFDCFCE7),
                                         Color(0xFF16A34A),
                                       ),
+                                      'visualization',
                                     ),
                                   ])
                                     _TemplateCard(
@@ -532,6 +536,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                         final nb = await _svc!.create(
                                           t.$1,
                                           t.$3,
+                                          template: t.$5,
                                         );
                                         if (context.mounted) {
                                           context.push('/notebook/${nb.id}');
