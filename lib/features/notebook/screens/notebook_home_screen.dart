@@ -414,8 +414,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                         ),
                       ),
                       const Spacer(),
-                      // 新建：去掉黑色填充改用描边（图标随之转黑）。Notebook 已
-                      // 去紫化，唯一的紫留给编辑器里每个 cell 的「▶运行」
+                      // 新建：描边按钮，边框 + 图标都用极梦主题紫（深浅色一致）
                       GestureDetector(
                         onTap: _showNewSheet,
                         child: Container(
@@ -424,13 +423,13 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: isDark ? Colors.white54 : _accent,
+                              color: const Color(0xFF6366F1),
                               width: 1,
                             ),
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.add,
-                            color: isDark ? Colors.white : _accent,
+                            color: Color(0xFF6366F1),
                             size: 18,
                           ),
                         ),
