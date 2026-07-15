@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
+import 'founding_creator_sheet.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/gender_label.dart';
 import '../../../shared/utils/online_status.dart';
@@ -306,7 +307,15 @@ class ProfileHeaderWidget extends StatelessWidget {
                                 ),
                               ],
                               if (profile.isFoundingCreator)
-                                const FoundingBadgeSmall(),
+                                // 元老标签在自己主页可点开元老创作者卡片（权益
+                                // 说明 + 会员状态）；看别人主页时只是纯标识
+                                isMe
+                                    ? GestureDetector(
+                                        onTap: () =>
+                                            showFoundingCreatorSheet(context),
+                                        child: const FoundingBadgeSmall(),
+                                      )
+                                    : const FoundingBadgeSmall(),
                               if (profile.isAuroraCreator)
                                 const AuroraBadgeSmall(),
                             ],
