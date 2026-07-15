@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/font_size_provider.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -1381,14 +1380,20 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final aurora =
         t['is_aurora_creator'] == true || t['is_aurora_creator'] == 1;
     final bio = t['bio'] as String?;
-    // 去掉卡片边框/底色，改成上方一条全宽 0.5px 分割线——跟发现页文章之间
-    // 那根同款（AppColors.darkDivider / #F0F0F0）
+    // 去掉卡片边框/底色，改成跟正文头部作者行完全同款：上方一条居中的
+    // 32px 短横线（不是满宽分割线，在米白页面上更轻），下面直接是作者行
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          height: 0.5,
-          color: isDark ? AppColors.darkDivider : const Color(0xFFF0F0F0),
+        const SizedBox(height: 16),
+        Center(
+          child: Container(
+            width: 32,
+            height: 1,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFE5E5E5),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.all(16),
