@@ -12,6 +12,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 import '../providers/storage_provider.dart';
 import '../widgets/settings_row.dart';
+import 'changelog_screen.dart' show changelogUnseenProvider;
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -35,6 +36,10 @@ class SettingsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final fontSize = ref.watch(fontSizeProvider);
     final localePref = ref.watch(localeProvider);
+    // 有没有没看过的新版本更新日志——决定「更新日志」行是否显示"新动态"角标
+    final changelogUnseen = ref
+        .watch(changelogUnseenProvider)
+        .maybeWhen(data: (v) => v, orElse: () => false);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -214,9 +219,14 @@ class SettingsScreen extends ConsumerWidget {
                       iconColor: const Color(0xFF16A34A),
                       iconBg: const Color(0xFFF0FFF5),
                       title: l10n.changelog,
-                      trailing: l10n.changelogNewBadge,
-                      trailingColor: const Color(0xFF6366F1),
-                      onTap: () => context.push('/settings/changelog'),
+                      // 只在有没看过的新版本时才显示绿点"新动态"，看过即消失
+                      trailing: changelogUnseen ? '● 新动态' : null,
+                      trailingColor: const Color(0xFF32C766),
+                      onTap: () async {
+                        await context.push('/settings/changelog');
+                        // 从更新日志页返回后刷新，角标随已读状态消失
+                        ref.invalidate(changelogUnseenProvider);
+                      },
                     ),
                     SettingsRow(
                       icon: Icons.description_outlined,
