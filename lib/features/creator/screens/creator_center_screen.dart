@@ -464,9 +464,10 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                   children: [
                     _toolCell(
                       ink: ink,
-                      icon: Icons.workspace_premium_outlined,
+                      icon: Icons.workspace_premium_rounded,
                       iconBg: const Color(0xFFFEF3C7),
-                      iconColor: const Color(0xFFD97706),
+                      iconColor: Colors.white,
+                      iconGradient: proGradient,
                       label: '会员中心',
                       onTap: () => context.push('/settings/subscription'),
                     ),
@@ -515,6 +516,8 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     required String label,
     required VoidCallback onTap,
     bool dot = false,
+    // 会员中心用品牌紫金渐变把入口"深化"出来——比其它扁平色块更抢眼
+    Gradient? iconGradient,
   }) {
     return Expanded(
       child: GestureDetector(
@@ -531,8 +534,20 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: iconBg,
+                      color: iconGradient == null ? iconBg : null,
+                      gradient: iconGradient,
                       borderRadius: BorderRadius.circular(11),
+                      boxShadow: iconGradient == null
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF6D5DF6,
+                                ).withValues(alpha: 0.28),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                     ),
                     child: Icon(icon, size: 19, color: iconColor),
                   ),

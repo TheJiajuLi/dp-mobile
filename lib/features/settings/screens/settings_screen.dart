@@ -35,7 +35,6 @@ class SettingsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final fontSize = ref.watch(fontSizeProvider);
     final localePref = ref.watch(localeProvider);
-    final me = ref.watch(currentUserProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -99,23 +98,8 @@ class SettingsScreen extends ConsumerWidget {
                       subtitle: l10n.accountSecuritySubtitle,
                       onTap: () => context.push('/settings/security'),
                     ),
-                    // 会员中心——放进「账号」组、账号安全下面，做成跟其它设置项
-                    // 同款的列表行（免费态引导开通，会员态显示当前档位）
-                    SettingsRow(
-                      icon: Icons.workspace_premium_outlined,
-                      iconColor: const Color(0xFFD97706),
-                      iconBg: const Color(0xFFFFF7E6),
-                      title: l10n.sectionMembership,
-                      subtitle: switch (me?.membership) {
-                        'pro_max' => 'Pro Max · 已解锁全部权益',
-                        'pro' => 'Pro · 尊享全部创作权益',
-                        _ =>
-                          (me?.isAuroraCreator ?? false)
-                              ? '极光创作者 · 已免费享 Pro'
-                              : '开通 Pro，解锁全部权益',
-                      },
-                      onTap: () => context.push('/settings/subscription'),
-                    ),
+                    // 会员中心入口收敛到创作者中心那颗（更深化的视觉语言），
+                    // 这里不再重复放一个，避免多入口冗余
                     SettingsRow(
                       icon: Icons.notifications_outlined,
                       iconColor: const Color(0xFF6366F1),
