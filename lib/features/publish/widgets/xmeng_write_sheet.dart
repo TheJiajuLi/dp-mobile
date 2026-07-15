@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:collection';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -37,18 +39,22 @@ class XmengWriteSheet extends ConsumerStatefulWidget {
 }
 
 class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
-  // 0=初始对话，1=等待生成，2=流式展示/完成
+  // 0=初始对话，1=等待首个分片，2=流式展示/完成
   int _step = 0;
   String _userInput = '';
   String _generated = '';
-  // 后端 /auth/xmeng/chat 是一次性返回整段、不是 SSE 流——收到全文后用定时器
-  // 逐段"打字机"揭示：_typedLen 是当前已显示到第几个字符
-  int _typedLen = 0;
+  // SSE 流式：网络还在推 → _streaming=true；chunk 逐字符入队，Timer 每 15ms
+  // 吐一个字到 _generated 上，一个字一个字地出现（打字机效果，跟极索页一致）
+  bool _streaming = false;
+  final _charQueue = Queue<String>();
   Timer? _typeTimer;
   final _ctrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
-  bool get _typingDone => _typedLen >= _generated.length;
+  // 流也结束了、打字机也吐完了才算真正完成——这时才露出操作按钮
+  bool get _done => _step == 2 && !_streaming && _charQueue.isEmpty;
+  // 还在流/还有字没吐完 → 气泡尾巴挂三点动画
+  bool get _writing => _streaming || _charQueue.isNotEmpty;
 
   static const _greeting =
       '你好！我是小梦 ✦\n\n'
@@ -62,24 +68,50 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     super.dispose();
   }
 
-  // 收到全文后启动打字机——按内容长度算步长，让整段大约 2 秒内揭示完；每
-  // 一跳都滚到底，跟着新出现的文字走
-  void _startTyping() {
-    _typeTimer?.cancel();
-    _typedLen = 0;
-    final total = _generated.length;
-    final chunk = (total / 100).ceil().clamp(1, 30);
-    _typeTimer = Timer.periodic(const Duration(milliseconds: 24), (t) {
+  // 收到 chunk：逐字符（按 grapheme，中文/emoji 安全）入队，Timer 逐字吐出；
+  // 首个字到了就从"等待态"切到流式展示态
+  void _enqueue(String text) {
+    if (text.isEmpty) return;
+    if (_step != 2) setState(() => _step = 2);
+    _charQueue.addAll(text.characters);
+    _typeTimer ??= Timer.periodic(const Duration(milliseconds: 15), (_) {
       if (!mounted) {
-        t.cancel();
+        _typeTimer?.cancel();
+        _typeTimer = null;
         return;
       }
-      setState(() => _typedLen = (_typedLen + chunk).clamp(0, total));
-      _scrollToBottom();
-      if (_typedLen >= total) t.cancel();
+      if (_charQueue.isEmpty) {
+        // 流结束且队列吐空 → 停表；否则等下一批 chunk
+        if (!_streaming) {
+          _typeTimer?.cancel();
+          _typeTimer = null;
+          setState(() {});
+        }
+        return;
+      }
+      final ch = _charQueue.removeFirst();
+      setState(() => _generated += ch);
+      _stickToBottom();
     });
   }
 
+  // done 带的 fullText 是权威全文（分片偶发丢片），有就整段覆盖并清掉队列；
+  // 没有就把队列里剩的字一次性补齐，都不丢字
+  void _flush({String? finalText}) {
+    _typeTimer?.cancel();
+    _typeTimer = null;
+    final rest = _charQueue.join();
+    _charQueue.clear();
+    setState(() {
+      if (finalText != null && finalText.isNotEmpty) {
+        _generated = finalText;
+      } else {
+        _generated += rest;
+      }
+    });
+  }
+
+  // 动画滚到底（切步/开始时用）
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollCtrl.hasClients) return;
@@ -89,6 +121,15 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         curve: Curves.easeOut,
       );
     });
+  }
+
+  // 流式逐字时用——只在用户本来就贴着底部时瞬时跟随，往上翻看历史就不打断
+  void _stickToBottom() {
+    if (!_scrollCtrl.hasClients) return;
+    final pos = _scrollCtrl.position;
+    if (pos.maxScrollExtent - pos.pixels < 80) {
+      _scrollCtrl.jumpTo(pos.maxScrollExtent);
+    }
   }
 
   Future<void> _generate() async {
@@ -103,10 +144,12 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
   Future<void> _runGenerate(String input) async {
     FocusScope.of(context).unfocus();
     _typeTimer?.cancel();
+    _typeTimer = null;
+    _charQueue.clear();
     setState(() {
       _userInput = input;
       _generated = '';
-      _typedLen = 0;
+      _streaming = true;
       _step = 1;
     });
     _scrollToBottom();
@@ -121,41 +164,91 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         '5. 小节标题用 ## 开头\n'
         '6. 直接输出文章内容，不要任何额外说明或客套话';
 
+    // 流式 SSE：跟极索页同一个接口 /auth/xmeng/chat/stream（body 用单条
+    // message，不是 messages 数组），逐行读 data: {type: chunk/done/error}
     try {
-      final res = await ref
+      final response = await ref
           .read(apiClientProvider)
+          .dio
           .post(
-            '/auth/xmeng/chat',
-            data: {
-              'messages': [
-                {'role': 'user', 'content': prompt},
-              ],
-            },
-            options: Options(receiveTimeout: const Duration(seconds: 90)),
+            '/auth/xmeng/chat/stream',
+            data: {'message': prompt},
+            options: Options(
+              responseType: ResponseType.stream,
+              receiveTimeout: const Duration(seconds: 120),
+            ),
           );
-      if (!mounted) return;
-      final msg = res.success
-          ? ((res.data as Map?)?['message'] as String? ?? '')
-          : '';
-      if (msg.trim().isEmpty) {
-        _fail();
-        return;
+      final body = response.data as ResponseBody;
+      final lines = body.stream
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+      String? errorMessage;
+      await for (final line in lines) {
+        if (!mounted) return;
+        if (!line.startsWith('data:')) continue;
+        final jsonStr = line.substring(5).trim();
+        if (jsonStr.isEmpty) continue;
+        final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+        switch (data['type']) {
+          case 'chunk':
+            _enqueue(data['text']?.toString() ?? '');
+            break;
+          case 'done':
+            final fullText = data['fullText'] as String?;
+            _flush(
+              finalText: (fullText != null && fullText.isNotEmpty)
+                  ? fullText
+                  : null,
+            );
+            break;
+          case 'error':
+            errorMessage = data['message']?.toString() ?? '小梦开小差了，请重试';
+            break;
+        }
       }
-      setState(() {
-        _generated = msg.trim();
-        _step = 2;
-      });
-      _startTyping();
+      // 流结束：停表、补齐残留的字
+      _flush();
+      if (!mounted) return;
+      setState(() => _streaming = false);
+      // 一个字都没生成出来就当失败（回到输入态提示重试）；有内容就留着
+      if (_generated.trim().isEmpty) {
+        _fail(errorMessage ?? '小梦开小差了，请重试');
+      } else if (errorMessage != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+      }
+    } on DioException catch (e) {
+      _flush();
+      if (!mounted) return;
+      setState(() => _streaming = false);
+      if (_generated.trim().isEmpty) {
+        final msg = e.response?.data is Map
+            ? ((e.response!.data as Map)['message']?.toString() ??
+                  '小梦开小差了，请重试')
+            : '小梦开小差了，请重试';
+        _fail(msg);
+      }
     } catch (_) {
-      if (mounted) _fail();
+      _flush();
+      if (!mounted) return;
+      setState(() => _streaming = false);
+      if (_generated.trim().isEmpty) _fail('小梦开小差了，请重试');
     }
   }
 
-  void _fail() {
-    setState(() => _step = 0);
+  void _fail(String message) {
+    _typeTimer?.cancel();
+    _typeTimer = null;
+    _charQueue.clear();
+    setState(() {
+      _streaming = false;
+      _step = 0;
+    });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _fill() {
@@ -291,8 +384,8 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
             _header(isDark, border),
             Expanded(child: _messages(isDark, border)),
             if (_step == 0) _inputBar(isDark, border),
-            // 打字机放完再露出操作按钮，让用户先读到完整草稿
-            if (_step == 2 && _typingDone) _actionButtons(isDark, border),
+            // 流式全部写完再露出操作按钮，让用户先读到完整草稿
+            if (_done) _actionButtons(isDark, border),
           ],
         ),
       ),
@@ -369,15 +462,15 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         if (_step == 2) ...[
           const SizedBox(height: 12),
           _aiBubble(
-            _generated.substring(0, _typedLen),
+            _generated,
             bubbleAi,
             border,
-            trailing: _typingDone
-                ? null
-                : const Padding(
+            trailing: _writing
+                ? const Padding(
                     padding: EdgeInsets.only(top: 8),
                     child: _TypingDots(),
-                  ),
+                  )
+                : null,
           ),
         ],
       ],
