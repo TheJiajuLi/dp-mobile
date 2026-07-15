@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../../shared/widgets/app_toast.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
 import '../../subscription/purchase_service.dart';
@@ -139,6 +140,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       case PurchaseOutcome.restored:
         _snack(
           r.outcome == PurchaseOutcome.restored ? '已恢复购买' : '订阅成功，欢迎加入！',
+          ok: true,
         );
         // 后端已更新 membership，刷新页面顶部"当前套餐"展示
         ref.invalidate(storageUsageProvider);
@@ -150,9 +152,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     }
   }
 
-  void _snack(String msg) {
+  void _snack(String msg, {bool ok = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showAppToast(context, msg, ok: ok);
   }
 
   Future<void> _loadCurrentPlan() async {
@@ -1088,12 +1090,18 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           children: [
             GestureDetector(
               onTap: () => context.push('/settings/terms'),
-              child: Text('用户协议', style: TextStyle(fontSize: 12, color: _muted)),
+              child: Text(
+                '用户协议',
+                style: TextStyle(fontSize: 12, color: _muted),
+              ),
             ),
             Text('  ·  ', style: TextStyle(fontSize: 12, color: _muted)),
             GestureDetector(
               onTap: () => context.push('/settings/privacy-policy'),
-              child: Text('隐私政策', style: TextStyle(fontSize: 12, color: _muted)),
+              child: Text(
+                '隐私政策',
+                style: TextStyle(fontSize: 12, color: _muted),
+              ),
             ),
           ],
         ),

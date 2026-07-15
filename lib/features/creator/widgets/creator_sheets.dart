@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/app_toast.dart';
+
 // 创作者中心（作品管理 / 专栏管理）通用的底部弹层组件——图标方框 + 主标题
 // + 副标题的操作行，以及「危险确认」弹层。两个页面共用同一套视觉语言，
 // 不各写一遍。
@@ -133,65 +135,9 @@ class CreatorSheetItem extends StatelessWidget {
   }
 }
 
-// 轻量结果提示——替代默认那条铺满全宽的纯色 SnackBar。浮动居中的圆角
-// 胶囊：卡片底 + 成功绿/失败红图标 + 柔和阴影，跟全站卡片语言一致
+// 轻量结果提示——转调全站统一的 showAppToast（浮动圆角胶囊）
 void showCreatorToast(BuildContext context, String message, {bool ok = false}) {
-  final dark = _isDark(context);
-  final messenger = ScaffoldMessenger.of(context);
-  messenger.hideCurrentSnackBar();
-  messenger.showSnackBar(
-    SnackBar(
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      duration: const Duration(milliseconds: 1800),
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      padding: EdgeInsets.zero,
-      content: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: dark ? const Color(0xFF23262E) : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: dark
-                ? Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    width: 0.5,
-                  )
-                : null,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: dark ? 0.3 : 0.12),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                ok ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-                size: 18,
-                color: ok ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  message,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _ink(context),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
+  showAppToast(context, message, ok: ok);
 }
 
 Widget creatorSheetDivider(BuildContext context) => Divider(
