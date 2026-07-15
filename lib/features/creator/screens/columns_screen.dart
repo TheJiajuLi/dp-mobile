@@ -880,6 +880,16 @@ class _ReorderArticlesSheetState extends State<_ReorderArticlesSheet> {
                 shrinkWrap: true,
                 buildDefaultDragHandles: false,
                 itemCount: _items.length,
+                // 默认拖拽代理是不带圆角的矩形 Material，阴影跟卡片本身
+                // 10px圆角对不上，拖起来卡片底下露出一个方形底座——换成
+                // 透明背景+圆角跟卡片一致的 Material，阴影贴合卡片轮廓
+                proxyDecorator: (child, index, animation) => Material(
+                  color: Colors.transparent,
+                  elevation: 6,
+                  shadowColor: Colors.black.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  child: child,
+                ),
                 onReorder: (oldI, newI) {
                   setState(() {
                     if (newI > oldI) newI -= 1;
