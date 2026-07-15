@@ -1702,6 +1702,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       // 拿不到对方真实membership，不该在这猜）
       if (!isSelfView) return const SizedBox.shrink();
       final isDark = Theme.of(context).brightness == Brightness.dark;
+      // 用「投影代替边框」——第一层 spread 1.5/blur 0 的投影当描边（自定义
+      // 背景/彩色背景下都能勾出轮廓，不依赖固定边框色去融合），第二层柔和
+      // 落影让角标浮起来
       return GestureDetector(
         onTap: () => context.push('/settings/subscription'),
         child: Container(
@@ -1710,15 +1713,25 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1A1A24) : Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(
-              color: isDark ? const Color(0xFF2A2A34) : const Color(0xFFF0F0F0),
-              width: 1.5,
-            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.08),
+                blurRadius: 0,
+                spreadRadius: 1.5,
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
-          child: const Icon(
-            Icons.workspace_premium_outlined,
+          child: Icon(
+            Icons.workspace_premium,
             size: 12,
-            color: Color(0xFFD97706),
+            color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
           ),
         ),
       );
