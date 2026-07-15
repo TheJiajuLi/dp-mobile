@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
-    show KeyDownEvent, LogicalKeyboardKey;
+    show Clipboard, ClipboardData, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
@@ -18,7 +18,6 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/block_text_style.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/utils/code_highlight.dart';
-import '../../../shared/utils/premium_button.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart'
     show inlineLatexText;
 import '../models/block_model.dart';
@@ -268,6 +267,50 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                                 ),
                               ),
                             ),
+                    // 代码块专属操作——复制、运行，跟 AI(小梦) 一起放在这排
+                    // chrome 里（去掉代码块内容区那个独立运行按钮）
+                    if (widget.block.type == BlockType.code) ...[
+                      GestureDetector(
+                        onTap: _copyCode,
+                        child: const Tooltip(
+                          message: '复制',
+                          child: Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.copy_outlined,
+                              size: 15,
+                              color: Color(0xFFBBBBBB),
+                            ),
+                          ),
+                        ),
+                      ),
+                      _running
+                          ? const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: _primary,
+                                ),
+                              ),
+                            )
+                          : GestureDetector(
+                              onTap: _runCode,
+                              child: Tooltip(
+                                message: l10n.runAction,
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.play_arrow_outlined,
+                                    size: 17,
+                                    color: _primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                    ],
                     if (widget.onMoveUp != null)
                       GestureDetector(
                         onTap: widget.onMoveUp,
@@ -1083,12 +1126,20 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     ),
   );
 
-  // 代码块跟文字/公式块一样简化：去掉外框和顶栏（语言 pill/复制都挪走），
-  // 语言选择改到底部工具栏最右侧那个语言选择条（跟 aux 一致，只在选中
-  // 代码块时出现，见 CodeLangBar），这里只保留一个运行按钮 + 代码输入框
-  // + 运行输出。language 不在候选列表里（导入的代码块常给 text/jsx/ts 等）
-  // 就按 python 兜底高亮；语言在工具栏被改后靠这里每次 build 同步一次
-  // _codeCtrl.language（普通字段赋值、不 notify，放 build 里安全）重新上色
+  void _copyCode() {
+    Clipboard.setData(ClipboardData(text: widget.block.content));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已复制代码')));
+  }
+
+  // 代码块跟文字/公式块一样简化：去掉外框和顶栏。语言选择挪到底部工具栏
+  // 最右侧的语言选择条（跟 aux 一致，见 CodeLangBar）；小梦/复制/运行三个
+  // 操作按钮挪到卡片顶部 chrome 那排（跟其它 block 的移动/删除同一排，见
+  // build 里 _isActive 分支）。这里只留代码输入框 + 运行输出。language 不在
+  // 候选列表里（导入的代码块常给 text/jsx/ts 等）就按 python 兜底高亮；
+  // 语言在工具栏被改后靠这里每次 build 同步一次 _codeCtrl.language（普通
+  // 字段赋值、不 notify，放 build 里安全）重新上色
   Widget _buildCodeBlock(AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final codeTextColor = isDark
@@ -1102,54 +1153,6 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 运行按钮——右对齐，去掉外框/语言 pill 后仅保留它
-        Align(
-          alignment: Alignment.centerRight,
-          child: PressableScale(
-            onTap: _running ? null : _runCode,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-              decoration: BoxDecoration(
-                color: _primary.withValues(alpha: isDark ? 0.16 : 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: _primary.withValues(alpha: 0.22),
-                  width: 0.5,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_running)
-                    const SizedBox(
-                      width: 11,
-                      height: 11,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: _primary,
-                      ),
-                    )
-                  else
-                    const Icon(
-                      Icons.play_arrow_outlined,
-                      size: 15,
-                      color: _primary,
-                    ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _running ? l10n.runningLabel : l10n.runAction,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: _primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
         _withEmptyBackspace(
           TextFormField(
             controller: _codeCtrl,
