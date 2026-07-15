@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
-    show Clipboard, ClipboardData, KeyDownEvent, LogicalKeyboardKey;
+    show KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
@@ -25,44 +25,6 @@ import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
 const _primary = Color(0xFF6366F1);
-
-// code block 的语言下拉里特意不放 latex——LaTeX 已经是独立的 block 类型，
-// 跟聊天那边"用独立 type='latex' 而不是 type='code'+metadata.language"
-// 是同一个道理，两条路径都能表示公式只会互相打架
-// 代码块语言下拉的候选项。导入的代码块 language 可能是 'text'/'jsx'/'tsx'/
-// 'bash'/'json'/'yaml'/'ts' 等各种值，不在这个列表里时 DropdownButton 的
-// value 找不到对应 item 会直接 assert 崩溃——列表要尽量全，value 处再做
-// 一层 fallback 兜底（见 _safeLanguage）
-const _codeLanguages = [
-  'python',
-  'javascript',
-  'typescript',
-  'jsx',
-  'tsx',
-  'sql',
-  'html',
-  'css',
-  'json',
-  'yaml',
-  'bash',
-  'shell',
-  'markdown',
-  'dart',
-  'java',
-  'kotlin',
-  'swift',
-  'rust',
-  'go',
-  'r',
-  'cpp',
-  'c',
-  'plaintext',
-];
-
-// 语言下拉里显示成首字母大写（python → Python），value 仍用小写原值，
-// 不影响 _codeLanguages 匹配
-String _capLang(String l) =>
-    l.isEmpty ? l : l[0].toUpperCase() + l.substring(1);
 
 String _formatSize(int bytes) {
   if (bytes < 1024) return '${bytes}B';
@@ -205,7 +167,6 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   void dispose() {
     widget.block.focusNode.removeListener(_handleFocusChange);
     _codeCtrl.dispose();
-    _langScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -1122,223 +1083,98 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     ),
   );
 
-  void _copyCode() {
-    Clipboard.setData(ClipboardData(text: widget.block.content));
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已复制代码')));
-  }
-
-  final ScrollController _langScrollCtrl = ScrollController();
-  // 只在首次展示时把选中 pill 滚进可视区；否则代码块每次 setState 重建都会
-  // 把用户手动滚走的位置又拽回选中项，很难受
-  bool _langScrolledOnce = false;
-
-  // 代码块顶栏的语言选择：横向可滚的 pill 行。language 不在候选列表里
-  // （导入的代码块常给 text/jsx/ts 等）就按 python 高亮，跟原下拉同一套兜底。
-  Widget _buildLangPills() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pillBg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : const Color(0xFFF0F0F3);
-    final pillFg = isDark ? const Color(0xFFB0B0B8) : const Color(0xFF6B6B72);
-    final current = _codeLanguages.contains(widget.block.language)
-        ? widget.block.language
-        : 'python';
-    // 首帧把选中的 pill 滚进可视区（选的语言可能排在很后面），只做一次
-    if (!_langScrolledOnce) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_langScrollCtrl.hasClients) return;
-        _langScrolledOnce = true;
-        final idx = _codeLanguages.indexOf(current ?? 'python');
-        if (idx <= 0) return;
-        final target = (idx * 62.0).clamp(
-          0.0,
-          _langScrollCtrl.position.maxScrollExtent,
-        );
-        _langScrollCtrl.jumpTo(target);
-      });
-    }
-    return SizedBox(
-      height: 26,
-      child: ListView.separated(
-        controller: _langScrollCtrl,
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.zero,
-        itemCount: _codeLanguages.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (ctx, i) {
-          final lang = _codeLanguages[i];
-          final selected = lang == current;
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: selected
-                ? null
-                : () => setState(() {
-                    widget.block.language = lang;
-                    _codeCtrl.language = lang;
-                  }),
-            child: Container(
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 11),
-              decoration: BoxDecoration(
-                color: selected ? _primary : pillBg,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Text(
-                _capLang(lang),
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? Colors.white : pillFg,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // 外面套一层 ClipRRect 统一裁出四角圆角——header/body/output 内部各自
-  // 保持矩形不用再各管一次"只圆某几个角"，没有输出内容时底部也不会再
-  // 露出一条直角硬边（之前那条 0.5px 分隔线本身是矩形，紧贴在只做了
-  // topLeft/topRight 圆角的 body 下面，视觉上整个代码块的下半截是方的）
+  // 代码块跟文字/公式块一样简化：去掉外框和顶栏（语言 pill/复制都挪走），
+  // 语言选择改到底部工具栏最右侧那个语言选择条（跟 aux 一致，只在选中
+  // 代码块时出现，见 CodeLangBar），这里只保留一个运行按钮 + 代码输入框
+  // + 运行输出。language 不在候选列表里（导入的代码块常给 text/jsx/ts 等）
+  // 就按 python 兜底高亮；语言在工具栏被改后靠这里每次 build 同步一次
+  // _codeCtrl.language（普通字段赋值、不 notify，放 build 里安全）重新上色
   Widget _buildCodeBlock(AppLocalizations l10n) {
-    // 去掉原来那块深色 pill（#1A1A1A 满底），跟文字/公式块统一成"中性
-    // 圆框"：透明底 + 一圈 dividerColor 细描边，header 和代码区都在这圈框
-    // 里，代码文字用接近正文的深色渲染（token 高亮色仍保留），创作界面
-    // 更纯净、更连贯
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final border = Theme.of(context).dividerColor;
-    final headerIcon = isDark ? Colors.white38 : const Color(0xFF9AA0AB);
     final codeTextColor = isDark
         ? const Color(0xFFE0E2F0)
         : const Color(0xFF1E293B);
+    final hlLang = kCodeLanguages.contains(widget.block.language)
+        ? widget.block.language!
+        : 'python';
+    if (_codeCtrl.language != hlLang) _codeCtrl.language = hlLang;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: border, width: 0.8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 运行按钮——右对齐，去掉外框/语言 pill 后仅保留它
+        Align(
+          alignment: Alignment.centerRight,
+          child: PressableScale(
+            onTap: _running ? null : _runCode,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
               decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: border, width: 0.8)),
+                color: _primary.withValues(alpha: isDark ? 0.16 : 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _primary.withValues(alpha: 0.22),
+                  width: 0.5,
+                ),
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 单个状态圆点，视觉更克制
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
+                  if (_running)
+                    const SizedBox(
+                      width: 11,
+                      height: 11,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: _primary,
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.play_arrow_outlined,
+                      size: 15,
                       color: _primary,
-                      shape: BoxShape.circle,
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  // 语言选择：横向滚动的 pill 行，选中态品牌紫底白字
-                  Expanded(child: _buildLangPills()),
-                  const SizedBox(width: 8),
-                  // 运行按钮——克制的浅底 + 品牌紫空心播放
-                  PressableScale(
-                    onTap: _running ? null : _runCode,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _primary.withValues(alpha: isDark ? 0.16 : 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _primary.withValues(alpha: 0.22),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_running)
-                            const SizedBox(
-                              width: 11,
-                              height: 11,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: _primary,
-                              ),
-                            )
-                          else
-                            const Icon(
-                              Icons.play_arrow_outlined,
-                              size: 15,
-                              color: _primary,
-                            ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _running ? l10n.runningLabel : l10n.runAction,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: _primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                   const SizedBox(width: 4),
-                  // 复制代码
-                  GestureDetector(
-                    onTap: _copyCode,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.copy_outlined,
-                        size: 15,
-                        color: headerIcon,
-                      ),
+                  Text(
+                    _running ? l10n.runningLabel : l10n.runAction,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: _primary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: _withEmptyBackspace(
-                TextFormField(
-                  controller: _codeCtrl,
-                  decoration: const InputDecoration(
-                    filled: false,
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: codeTextColor,
-                    height: 1.6,
-                  ),
-                  maxLines: null,
-                  onChanged: (v) {
-                    widget.block.content = v;
-                    widget.onChanged();
-                  },
-                ),
-              ),
-            ),
-            _buildOutput(),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 8),
+        _withEmptyBackspace(
+          TextFormField(
+            controller: _codeCtrl,
+            focusNode: widget.block.focusNode,
+            decoration: const InputDecoration(
+              filled: false,
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: codeTextColor,
+              height: 1.6,
+            ),
+            maxLines: null,
+            onChanged: (v) {
+              widget.block.content = v;
+              widget.onChanged();
+            },
+          ),
+        ),
+        _buildOutput(),
+      ],
     );
   }
 

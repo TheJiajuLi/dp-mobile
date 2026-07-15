@@ -175,6 +175,12 @@ class PublishBottomToolbar extends StatelessWidget {
   final bool showFormatToggle;
   final bool formatBarExpanded;
   final VoidCallback onToggleFormatBar;
+  // 跟 aux 完全同一套路的语言选择器开关——只在聚焦的是代码 block 时才
+  // 显示（showLangToggle），钉在最右侧同一个位置（跟 aux 互斥，一次只会
+  // 有一个亮），点它切换语言选择条 CodeLangBar，langBarExpanded 给图标高亮
+  final bool showLangToggle;
+  final bool langBarExpanded;
+  final VoidCallback onToggleLangBar;
 
   const PublishBottomToolbar({
     super.key,
@@ -187,6 +193,9 @@ class PublishBottomToolbar extends StatelessWidget {
     required this.showFormatToggle,
     required this.formatBarExpanded,
     required this.onToggleFormatBar,
+    required this.showLangToggle,
+    required this.langBarExpanded,
+    required this.onToggleLangBar,
   });
 
   @override
@@ -230,10 +239,11 @@ class PublishBottomToolbar extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // 辅助栏（字体/颜色）独立开关——钉在最右侧、不随类型列表
-                  // 滚动，只在聚焦文字/标题 block 时出现，点它切换辅助栏；
-                  // 开着时高亮。左侧一条细分隔线，跟"加内容块"那组分开
-                  if (showFormatToggle) ...[
+                  // 右侧独立开关——钉在最右、不随类型列表滚动，只在聚焦
+                  // 对应 block 时出现（跟 aux 一致）。文字/标题 → 字体/颜色
+                  // 辅助栏开关；代码 → 语言选择条开关。两者互斥，一次只有
+                  // 一个亮。左侧一条细分隔线，跟"加内容块"那组分开
+                  if (showFormatToggle || showLangToggle)
                     Container(
                       width: 0.5,
                       height: 24,
@@ -241,6 +251,7 @@ class PublishBottomToolbar extends StatelessWidget {
                           ? const Color(0xFF3A3A3C)
                           : const Color(0xFFE5E5EA),
                     ),
+                  if (showFormatToggle)
                     _toolbarButton(
                       icon: Icons.text_format,
                       tooltip: l10n.fontPickerTitle,
@@ -248,7 +259,14 @@ class PublishBottomToolbar extends StatelessWidget {
                       isDarkMode: isDarkMode,
                       onTap: onToggleFormatBar,
                     ),
-                  ],
+                  if (showLangToggle)
+                    _toolbarButton(
+                      icon: Icons.code,
+                      tooltip: l10n.blockTypeCode,
+                      selected: langBarExpanded,
+                      isDarkMode: isDarkMode,
+                      onTap: onToggleLangBar,
+                    ),
                 ],
               ),
             ),

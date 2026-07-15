@@ -79,6 +79,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   // 文字/标题 block 后由工具栏右侧独立的「Aa」图标显式点开，不再一聚焦
   // 就自动弹出来占地方
   bool _formatBarExpanded = false;
+  // 代码块的语言选择条（CodeLangBar）开关——跟 _formatBarExpanded 完全
+  // 同一套路，聚焦代码 block 后由工具栏右侧的语言图标点开
+  bool _langBarExpanded = false;
   // 顶部信息区（标题栏+封面/摘要/更多设置）折叠开关——默认收起成一个朝下
   // 的尖，点它才展开露出标题/发布/摘要那一整块（尖朝上），再点收起。把
   // 屏幕高度尽量让给正文编辑区
@@ -1090,6 +1093,15 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                     onCollapse: () =>
                         setState(() => _formatBarExpanded = false),
                   ),
+                  // 代码块的语言选择条——跟 BlockFormattingToolbar 并排放在
+                  // 工具栏上方，只在聚焦代码 block 且点开时浮出（互斥：aux
+                  // 只认文字/标题，这条只认代码）
+                  CodeLangBar(
+                    isDarkMode: isDarkMode,
+                    block: _focusedBlock,
+                    expanded: _langBarExpanded,
+                    onChanged: () => setState(() {}),
+                  ),
                   PublishBottomToolbar(
                     l10n: l10n,
                     isDarkMode: isDarkMode,
@@ -1108,6 +1120,13 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                     onToggleFormatBar: () => setState(
                       () => _formatBarExpanded = !_formatBarExpanded,
                     ),
+                    // 代码块 → 语言选择条开关，跟 aux 同一套路
+                    showLangToggle:
+                        _focusedBlock != null &&
+                        _focusedBlock!.type == BlockType.code,
+                    langBarExpanded: _langBarExpanded,
+                    onToggleLangBar: () =>
+                        setState(() => _langBarExpanded = !_langBarExpanded),
                   ),
                 ],
               ),

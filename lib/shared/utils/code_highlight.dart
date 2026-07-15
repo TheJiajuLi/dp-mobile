@@ -1,5 +1,40 @@
 import 'package:flutter/material.dart';
 
+// 代码块语言选择器的候选项——发布页代码块的语言选择器（工具栏里那个
+// 语言选择条）和高亮语言兜底共用同一份。导入的代码块 language 可能是
+// 'text'/'jsx'/'ts'/'bash' 等各种值，不在这个列表里时按 python 兜底
+// （见 block_card.dart 的 _buildCodeBlock）。code block 特意不放 latex——
+// LaTeX 是独立的 block 类型，两条路径都能表示公式只会互相打架
+const kCodeLanguages = [
+  'python',
+  'javascript',
+  'typescript',
+  'jsx',
+  'tsx',
+  'sql',
+  'html',
+  'css',
+  'json',
+  'yaml',
+  'bash',
+  'shell',
+  'markdown',
+  'dart',
+  'java',
+  'kotlin',
+  'swift',
+  'rust',
+  'go',
+  'r',
+  'cpp',
+  'c',
+  'plaintext',
+];
+
+// 语言显示成首字母大写（python → Python），value 仍用小写原值
+String capLang(String l) =>
+    l.isEmpty ? l : l[0].toUpperCase() + l.substring(1);
+
 // 极简、启发式的语法高亮——不是真正的语言 tokenizer/解析器，只是按正则
 // 把注释/字符串/数字/关键字找出来上色，发布页代码块编辑态和阅读态
 // （tutorial_block_renderer.dart）共用同一份，配色跟观感才不会两边各画

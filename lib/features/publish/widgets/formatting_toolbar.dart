@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/code_highlight.dart';
 import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
@@ -323,6 +324,118 @@ class BlockFormattingToolbar extends StatelessWidget {
         child: showSlash
             ? const Icon(Icons.close, size: 12, color: Color(0xFFBBBBBB))
             : null,
+      ),
+    );
+  }
+}
+
+// 代码块的语言选择条——跟 BlockFormattingToolbar（字体/颜色那条 aux）一个
+// 套路：只在聚焦的是代码块且 expanded 时才浮出来，横向滚动的语言 pill，
+// 选中态品牌紫底白字。选语言直接改 block.language，重新高亮交给 BlockCard
+// 每次 build 同步 _codeCtrl.language（见 block_card._buildCodeBlock）
+class CodeLangBar extends StatefulWidget {
+  final bool isDarkMode;
+  final EditorBlock? block;
+  final bool expanded;
+  final VoidCallback onChanged;
+
+  const CodeLangBar({
+    super.key,
+    required this.isDarkMode,
+    required this.block,
+    required this.expanded,
+    required this.onChanged,
+  });
+
+  bool get _applicable => block != null && block!.type == BlockType.code;
+
+  @override
+  State<CodeLangBar> createState() => _CodeLangBarState();
+}
+
+class _CodeLangBarState extends State<CodeLangBar> {
+  final _scrollCtrl = ScrollController();
+  bool _scrolledOnce = false;
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget._applicable || !widget.expanded) return const SizedBox.shrink();
+    final b = widget.block!;
+    final isDark = widget.isDarkMode;
+    final dividerColor = isDark
+        ? const Color(0xFF1E1E3A)
+        : const Color(0xFFF5F5F5);
+    final pillBg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF0F0F3);
+    final pillFg = isDark ? const Color(0xFFB0B0B8) : const Color(0xFF6B6B72);
+    final current = kCodeLanguages.contains(b.language) ? b.language! : 'python';
+    // 首帧把选中的 pill 滚进可视区（选的语言可能排在很后面），只做一次
+    if (!_scrolledOnce) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollCtrl.hasClients) return;
+        _scrolledOnce = true;
+        final idx = kCodeLanguages.indexOf(current);
+        if (idx <= 0) return;
+        _scrollCtrl.jumpTo(
+          (idx * 62.0).clamp(0.0, _scrollCtrl.position.maxScrollExtent),
+        );
+      });
+    }
+    return Container(
+      color: Colors.transparent,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(height: 0.5, thickness: 0.5, color: dividerColor),
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              controller: _scrollCtrl,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              itemCount: kCodeLanguages.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              itemBuilder: (ctx, i) {
+                final lang = kCodeLanguages[i];
+                final selected = lang == current;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: selected
+                      ? null
+                      : () {
+                          b.language = lang;
+                          widget.onChanged();
+                        },
+                  child: Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: selected ? _primary : pillBg,
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Text(
+                      capLang(lang),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: selected ? Colors.white : pillFg,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
