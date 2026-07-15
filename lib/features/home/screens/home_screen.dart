@@ -253,39 +253,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       backgroundColor: isDarkMode ? AppColors.darkBg : const Color(0xFFFAFAF8),
-      // 深色下顶部叠两片低透明度光晕，制造"背景有氛围、不是纯死黑"的
-      // 极光感；浅色沿用原本的纯背景，不需要这层
-      body: isDarkMode
-          ? Stack(
-              children: [
-                Positioned(
-                  top: -100,
-                  left: -60,
-                  child: Container(
-                    width: 280,
-                    height: 280,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _primary.withValues(alpha: 0.08),
+      // 顶部叠一层极淡的光晕，制造"背景有空气、不是纯平死白/死黑"的氛围。
+      // 深色：两片低透明度色块的极光感；浅色：一层 rgba(106,92,255,~5%) 的
+      // radial 光晕渐隐到透明——用户几乎意识不到，但页面有了空间感
+      body: Stack(
+        children: [
+          if (isDarkMode) ...[
+            Positioned(
+              top: -100,
+              left: -60,
+              child: Container(
+                width: 280,
+                height: 280,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _primary.withValues(alpha: 0.08),
+                ),
+              ),
+            ),
+            Positioned(
+              top: -80,
+              right: -40,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF50B4FF).withValues(alpha: 0.06),
+                ),
+              ),
+            ),
+          ] else
+            Positioned(
+              top: -140,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Container(
+                  height: 340,
+                  decoration: const BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment(0, -1),
+                      radius: 1.1,
+                      colors: [Color(0x0D6A5CFF), Color(0x006A5CFF)],
                     ),
                   ),
                 ),
-                Positioned(
-                  top: -80,
-                  right: -40,
-                  child: Container(
-                    width: 200,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF50B4FF).withValues(alpha: 0.06),
-                    ),
-                  ),
-                ),
-                feed,
-              ],
-            )
-          : feed,
+              ),
+            ),
+          feed,
+        ],
+      ),
     );
   }
 
