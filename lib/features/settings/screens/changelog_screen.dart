@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 
 // 最新版本号——每次发布前手动更新。设置页「更新日志」的"新动态"角标、
 // 本页"当前版本"、以及已读判断都用它当唯一真相
-const String kLatestVersion = 'v1.0.0';
+const String kLatestVersion = 'v1.1.0';
 
 const String _kLastSeenKey = 'about_last_seen_version';
 
@@ -68,6 +69,36 @@ class ChangelogScreen extends ConsumerStatefulWidget {
   // 节奏严格对齐，手工维护比接口/多语言词条更可靠）。changes 是扁平列表，
   // 卡片里按 type 分组渲染，只显示最近 10 个版本
   static const List<_Version> _versions = [
+    _Version(
+      version: 'v1.1.0',
+      date: '2026.07.15',
+      changes: [
+        _Change(
+          '创作者中心全功能打通——数据分析/创作指南/邀请好友/创作设置',
+          ChangeType.feature,
+        ),
+        _Change('邀请好友系统——专属邀请码/双方各得7天Pro', ChangeType.feature),
+        _Change(
+          'Notebook 文件导入——CSV/Excel/JSON/TXT数据集注入内核',
+          ChangeType.feature,
+        ),
+        _Change('付费管理页面——订阅详情/套餐切换/管理入口', ChangeType.feature),
+        _Change('小梦帮我写重设计——对话式问答/生成内容填入编辑器', ChangeType.feature),
+        _Change('专栏管理支持自定义封面——图片上传/预设配色方案', ChangeType.feature),
+        _Change('元老创作者专属卡片——ProMax剩余天数/永久Pro状态', ChangeType.feature),
+        _Change('更新日志新动态角标——已读后自动消失', ChangeType.feature),
+        _Change('小梦回答打字机逐字渲染效果', ChangeType.improve),
+        _Change('Notebook 数据集Cell橙色标识/内核状态指示/重置按钮', ChangeType.improve),
+        _Change('Block间插入+号——滚动时展开/静止收起', ChangeType.improve),
+        _Change('空内容块按Delete直接消失', ChangeType.improve),
+        _Change('非Python代码块点运行显示友好提示', ChangeType.improve),
+        _Change('极索/发布页文字公式混排渲染', ChangeType.fix),
+        _Change('Pro角标在别人主页正常显示', ChangeType.fix),
+        _Change('小梦代码块偶发残缺问题（SSE行缓冲修复）', ChangeType.fix),
+        _Change('群聊退出/发消息后标记已读', ChangeType.fix),
+        _Change('极光创作者权益修正——获得Pro而非ProMax', ChangeType.fix),
+      ],
+    ),
     _Version(
       version: 'v1.0.0',
       date: '2026.07.15',
@@ -138,23 +169,10 @@ class _ChangelogScreenState extends ConsumerState<ChangelogScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: const Color(0xFF6366F1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Center(
-              child: Text(
-                '极',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+          // 极梦极光弧线 logo（最新款）
+          SvgPicture.asset(
+            'assets/icons/logo_aurora.svg',
+            width: 60,
           ),
           const SizedBox(height: 14),
           Text(
