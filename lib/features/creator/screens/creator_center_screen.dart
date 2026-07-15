@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/pro_access.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
 import '../../notebook/services/notebook_service.dart';
@@ -332,6 +333,29 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
               ),
             ),
           ),
+          // 非 Pro 用户的会员中心入口——一颗克制的灰色皇冠图标，给还没开通
+          // 会员的用户一个明确的通道进 /settings/subscription（Pro 用户主页
+          // 已有金色会员角标，这里就不重复显示）
+          if (!(ref.watch(currentUserProvider)?.isPro ?? false))
+            GestureDetector(
+              onTap: () => context.push('/settings/subscription'),
+              child: Container(
+                width: 36,
+                height: 36,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : const Color(0xFFF5F5F7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.workspace_premium_outlined,
+                  size: 19,
+                  color: isDark ? Colors.white54 : const Color(0xFF888888),
+                ),
+              ),
+            ),
           GestureDetector(
             onTap: () => context.push('/publish'),
             child: Container(
