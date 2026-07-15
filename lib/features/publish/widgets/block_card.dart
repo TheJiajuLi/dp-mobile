@@ -345,21 +345,21 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                       ),
                     ),
                     const SizedBox(width: 2),
-                    // 光一个 Icon 摆在那不会自己变成拖拽热区——
-                    // ReorderableListView 默认是"长按列表项里任意没被别的
-                    // 手势抢走的地方"才能拖，跟"按住这个把手图标就立刻能拖"
-                    // 的直觉不一样。用 ReorderableDragStartListener 把拖拽
-                    // 手势精确绑定在这一个图标上，摁下就能拖，不用长按，
-                    // 也不会跟这一行其它按钮/下面的输入框抢手势
-                    ReorderableDragStartListener(
-                      index: widget.index,
-                      child: const Icon(
+                  ],
+                  // 拖拽手柄常驻显示（Notion 做法）——不用先点选，随时按住这个
+                  // 把手就能立刻拖，不长按、不跟下面输入框的长按选字抢手势。
+                  // chrome（AI/上移/下移/删除）仍然只在这个 block 激活时才露出。
+                  ReorderableDragStartListener(
+                    index: widget.index,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
                         Icons.drag_handle,
                         size: 18,
-                        color: Color(0xFFDDDDDD),
+                        color: Color(0xFFCFCFCF),
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
