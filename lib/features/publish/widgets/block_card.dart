@@ -244,7 +244,10 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         }
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        // 不再自带 bottom margin——发布页把每张卡片跟紧随其后的"+"插入条
+        // 打包进同一个 ReorderableListView item，卡片之间的间距完全交给
+        // 插入条自己的高度（静止收成4px/滚动展开成28px），不然会跟插入条
+        // 叠出双倍间距
         decoration: BoxDecoration(
           color: _isActive ? Theme.of(context).cardColor : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
@@ -266,19 +269,12 @@ class _BlockCardState extends ConsumerState<BlockCard> {
               padding: const EdgeInsets.fromLTRB(10, 8, 8, 0),
               child: Row(
                 children: [
+                  // 只保留类型图标，去掉类型名文字标签——创作界面更纯净，
+                  // 图标本身已经能表意
                   Icon(
                     blockTypeIcon(widget.block.type),
                     size: 14,
                     color: const Color(0xFF999999),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    blockTypeLabel(l10n, widget.block.type),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF999999),
-                    ),
                   ),
                   const Spacer(),
                   // AI入口/上移/下移/删除/拖拽手柄——只在这个block是当前
@@ -451,10 +447,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         initialValue: widget.block.content.isNotEmpty
             ? widget.block.content
             : null,
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           filled: false,
-          hintText: l10n.textBlockHint,
-          hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
           border: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
@@ -1088,10 +1082,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       key: ValueKey('heading_${widget.block.id}_$_textRevision'),
       focusNode: widget.block.focusNode,
       initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         filled: false,
-        hintText: l10n.headingBlockHint(widget.block.headingLevel ?? 2),
-        hintStyle: const TextStyle(color: Color(0xFFC7C7CC)),
         border: InputBorder.none,
         isDense: true,
         contentPadding: EdgeInsets.zero,
@@ -1319,13 +1311,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
               child: _withEmptyBackspace(
                 TextFormField(
                   controller: _codeCtrl,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     filled: false,
-                    hintText: l10n.codeBlockHint,
-                    hintStyle: TextStyle(
-                      color: isDark ? Colors.white24 : const Color(0xFFC7C7CC),
-                      fontFamily: 'monospace',
-                    ),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
@@ -1522,7 +1509,6 @@ th{background:$thBg;color:$thFg}
     final border = Theme.of(context).dividerColor;
     final mathColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
     final hintColor = isDark ? Colors.white38 : Colors.black38;
-    final inputHintColor = isDark ? Colors.white24 : const Color(0xFFC7C7CC);
     final inputTextColor = isDark ? Colors.white54 : Colors.grey;
 
     return Container(
@@ -1553,7 +1539,7 @@ th{background:$thBg;color:$thFg}
                     ),
                   ),
                 )
-              : Text(l10n.latexBlockHint, style: TextStyle(color: hintColor)),
+              : const SizedBox.shrink(),
           const SizedBox(height: 8),
           _withEmptyBackspace(
             TextFormField(
@@ -1561,14 +1547,8 @@ th{background:$thBg;color:$thFg}
               initialValue: widget.block.content.isNotEmpty
                   ? widget.block.content
                   : null,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 filled: false,
-                hintText: l10n.latexBlockHint,
-                hintStyle: TextStyle(
-                  fontFamily: 'monospace',
-                  color: inputHintColor,
-                  fontSize: 12,
-                ),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -2247,13 +2227,8 @@ th{background:$thBg;color:$thFg}
         initialValue: widget.block.content.isNotEmpty
             ? widget.block.content
             : null,
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           filled: false,
-          hintText: l10n.calloutBlockHint,
-          hintStyle: TextStyle(
-            fontStyle: FontStyle.italic,
-            color: textColor.withValues(alpha: 0.4),
-          ),
           border: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,

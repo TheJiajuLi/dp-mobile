@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -76,6 +78,16 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   // 底部工具栏"Tt"按钮收起/展开格式工具栏（粗体/颜色那行）用——默认展开，
   // 跟以前一样一聚焦文字/标题block就直接看得到
   bool _formatBarExpanded = true;
+  // 顶部信息区（标题栏+封面/摘要/更多设置）折叠开关——默认收起成一个朝下
+  // 的尖，点它才展开露出标题/发布/摘要那一整块（尖朝上），再点收起。把
+  // 屏幕高度尽量让给正文编辑区
+  bool _headerExpanded = false;
+  // Block 之间的"+"插入分隔条——静止编辑时收起（几乎无间距，减少干扰），
+  // 滚动时展开（露出插入点）；滚动停止1.5秒后自动收起，靠 Timer 而不是
+  // 裸的 Future.delayed，方便滚动一停又立刻再滚时取消上一个还没触发的
+  // 收起动作，不然会出现"手指还在滚，分隔条却被上一次的延时收起了"
+  bool _showDividers = false;
+  Timer? _hideDividersTimer;
 
   EditorBlock? get _focusedBlock {
     for (final b in _blocks) {
@@ -382,17 +394,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       'block_${DateTime.now().millisecondsSinceEpoch}_${_blocks.length}';
 
   void _addBlock(BlockType type) {
-    // 音频/视频块是 Pro 权益——按设计原则按钮照常显示，点了才校验，
-    // 非 Pro 弹会员 Sheet，不新建块
-    if ((type == BlockType.audio || type == BlockType.video) &&
-        !requirePro(context, ref, feature: '音视频发布')) {
-      return;
-    }
-    final newBlock = EditorBlock(
-      id: _uid(),
-      type: type,
-      language: type == BlockType.code ? 'python' : null,
-    );
+    final newBlock = _createBlock(type);
+    if (newBlock == null) return;
     setState(() {
       _activeToolbarType = type;
       _blocks.add(newBlock);
@@ -408,6 +411,35 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+    });
+  }
+
+  // block之间/最后一个block下方的"+"分隔条插入——跟_addBlock共用同一份
+  // Pro权益校验+构造逻辑，区别只是插进指定下标而不是永远追加到末尾，
+  // 也不需要_addBlock那段"滚到列表底部"的收尾（插入点本来就在可视区里）
+  EditorBlock? _createBlock(BlockType type) {
+    // 音频/视频块是 Pro 权益——按设计原则按钮照常显示，点了才校验，
+    // 非 Pro 弹会员 Sheet，不新建块
+    if ((type == BlockType.audio || type == BlockType.video) &&
+        !requirePro(context, ref, feature: '音视频发布')) {
+      return null;
+    }
+    return EditorBlock(
+      id: _uid(),
+      type: type,
+      language: type == BlockType.code ? 'python' : null,
+    );
+  }
+
+  void _insertBlockAt(int index, BlockType type) {
+    final newBlock = _createBlock(type);
+    if (newBlock == null) return;
+    setState(() {
+      _activeToolbarType = type;
+      _blocks.insert(index, newBlock);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      newBlock.focusNode.requestFocus();
     });
   }
 
@@ -893,16 +925,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
               bottom: false,
               child: Column(
                 children: [
-                  PublishTopBar(
-                    l10n: l10n,
-                    isDarkMode: isDarkMode,
-                    titleController: _titleCtrl,
-                    saving: _saving,
-                    onTitleChanged: () => setState(() {}),
-                    onSaveDraft: _saveDraft,
-                    onPublish: _publish,
-                    onClose: _handleExit,
-                  ),
+                  _buildCollapsibleHeader(l10n, isDarkMode, metaSection),
                   Expanded(
                     // 点空白区域（block之间的空隙、列表末尾没有block的地方）
                     // 收起格式工具栏——ReorderableListView本身不认"点了空白"
@@ -916,120 +939,130 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                       },
                       behavior: HitTestBehavior.translucent,
                       child: _blocks.isEmpty
-                          ? _buildEmptyState(l10n, isDarkMode, metaSection)
-                          : ReorderableListView.builder(
-                              scrollController: _scrollCtrl,
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                              // 摘要/更多设置卡当列表的header——随内容一起滚走，
-                              // 不再固定占位在顶部
-                              header: Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: metaSection,
-                              ),
-                              itemCount: _blocks.length,
-                              onReorder: _onReorder,
-                              // 默认拖拽代理是个不带圆角的矩形 Material，
-                              // 阴影跟卡片本身14px圆角对不上，拖起来卡片
-                              // 底下露出一个方形"底座"——换成圆角跟卡片
-                              // 一致、背景透明的 Material，阴影贴合卡片轮廓
-                              proxyDecorator: (child, index, animation) =>
-                                  Material(
-                                    color: Colors.transparent,
-                                    elevation: 6,
-                                    shadowColor: Colors.black.withValues(
-                                      alpha: 0.15,
+                          ? _buildEmptyState(l10n, isDarkMode)
+                          // 滚动时展开 block 间的"+"插入条、露出插入点；
+                          // 滚动停止1.5秒后自动收起——静止编辑时保持紧凑，
+                          // 不干扰阅读/输入
+                          : NotificationListener<ScrollNotification>(
+                              onNotification: (notification) {
+                                if (notification is ScrollStartNotification) {
+                                  _hideDividersTimer?.cancel();
+                                  if (!_showDividers) {
+                                    setState(() => _showDividers = true);
+                                  }
+                                } else if (notification
+                                    is ScrollEndNotification) {
+                                  _hideDividersTimer?.cancel();
+                                  _hideDividersTimer = Timer(
+                                    const Duration(milliseconds: 1500),
+                                    () {
+                                      if (mounted) {
+                                        setState(() => _showDividers = false);
+                                      }
+                                    },
+                                  );
+                                }
+                                return false;
+                              },
+                              child: ReorderableListView.builder(
+                                scrollController: _scrollCtrl,
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  12,
+                                  16,
+                                  4,
+                                ),
+                                // 摘要/更多设置卡不再当列表 header——挪进了顶部
+                                // 可折叠的信息区（见 _buildCollapsibleHeader）
+                                itemCount: _blocks.length,
+                                onReorder: _onReorder,
+                                // 默认拖拽代理是个不带圆角的矩形 Material，
+                                // 阴影跟卡片本身14px圆角对不上，拖起来卡片
+                                // 底下露出一个方形"底座"——换成圆角跟卡片
+                                // 一致、背景透明的 Material，阴影贴合卡片轮廓
+                                proxyDecorator: (child, index, animation) =>
+                                    Material(
+                                      color: Colors.transparent,
+                                      elevation: 6,
+                                      shadowColor: Colors.black.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: child,
                                     ),
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: child,
-                                  ),
-                              // 拖拽只从 BlockCard 里那个手柄图标触发（见
-                              // ReorderableDragStartListener），关掉默认的
-                              // "长按列表项任意位置拖拽"——不然长按 block 里的
-                              // 文字/代码输入框想选中文本时会跟这个默认拖拽
-                              // 手势抢
-                              buildDefaultDragHandles: false,
-                              itemBuilder: (ctx, i) => BlockCard(
-                                key: ValueKey(_blocks[i].id),
-                                block: _blocks[i],
-                                index: i,
-                                total: _blocks.length,
-                                membership: membership,
-                                onRunCode: _runBlockCode,
-                                onDelete: () => _deleteBlock(_blocks[i].id),
-                                onEmptyBackspace: () =>
-                                    _deleteBlockAndFocusPrevious(i),
-                                onMoveUp: i > 0
-                                    ? () => _swapBlocks(i, i - 1)
-                                    : null,
-                                onMoveDown: i < _blocks.length - 1
-                                    ? () => _swapBlocks(i, i + 1)
-                                    : null,
-                                onChanged: () => setState(() {}),
-                                focusedBlockId: _focusedBlockId,
-                                onFocusGained: () => setState(
-                                  () => _focusedBlockId = _blocks[i].id,
+                                // 拖拽只从 BlockCard 里那个手柄图标触发（见
+                                // ReorderableDragStartListener），关掉默认的
+                                // "长按列表项任意位置拖拽"——不然长按 block 里的
+                                // 文字/代码输入框想选中文本时会跟这个默认拖拽
+                                // 手势抢
+                                buildDefaultDragHandles: false,
+                                // "+"插入条不作为 ReorderableListView 自己的
+                                // list item（那样会跟拖拽排序的下标数学搅在
+                                // 一起），而是跟在每个 block 卡片后面一起
+                                // 打包进同一个 item——itemCount/下标含义完全
+                                // 不变，_onReorder 不用改一行
+                                itemBuilder: (ctx, i) => Column(
+                                  key: ValueKey(_blocks[i].id),
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    BlockCard(
+                                      key: ValueKey('card_${_blocks[i].id}'),
+                                      block: _blocks[i],
+                                      index: i,
+                                      total: _blocks.length,
+                                      membership: membership,
+                                      onRunCode: _runBlockCode,
+                                      onDelete: () =>
+                                          _deleteBlock(_blocks[i].id),
+                                      // 空 block 按 Delete 任意位置都能删（含首块）——
+                                      // 焦点落点交给 _deleteBlockAndFocusPrevious 内部
+                                      // 处理（合入 origin/main 的空块删除修复）
+                                      onEmptyBackspace: () =>
+                                          _deleteBlockAndFocusPrevious(i),
+                                      onMoveUp: i > 0
+                                          ? () => _swapBlocks(i, i - 1)
+                                          : null,
+                                      onMoveDown: i < _blocks.length - 1
+                                          ? () => _swapBlocks(i, i + 1)
+                                          : null,
+                                      onChanged: () => setState(() {}),
+                                      focusedBlockId: _focusedBlockId,
+                                      onFocusGained: () => setState(
+                                        () => _focusedBlockId = _blocks[i].id,
+                                      ),
+                                      // 非文字block（图片/代码/公式等）自己也要
+                                      // 设成 _focusedBlockId——这样它自己的
+                                      // chrome（移动/删除/拖拽）才能借同一个
+                                      // "当前激活block"的判断亮出来。格式工具栏
+                                      // 不会因此误显示：BlockFormattingToolbar
+                                      // 自己的 _applicable 只认 text/heading，
+                                      // 块类型一对不上就还是收着
+                                      onNonTextTap: () => setState(
+                                        () => _focusedBlockId = _blocks[i].id,
+                                      ),
+                                      onFileUploaded: (id) =>
+                                          _uploadedFileIds.add(id),
+                                    ),
+                                    _InsertDivider(
+                                      key: ValueKey(
+                                        'divider_${_blocks[i].id}',
+                                      ),
+                                      show: _showDividers,
+                                      isDark: isDarkMode,
+                                      onTap: () => showBlockPickerSheet(
+                                        context,
+                                        l10n: l10n,
+                                        isDarkMode: isDarkMode,
+                                        onPick: (type) =>
+                                            _insertBlockAt(i + 1, type),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                // 非文字block（图片/代码/公式等）自己也要设成
-                                // _focusedBlockId——这样它自己的chrome（移动/
-                                // 删除/拖拽）才能借同一个"当前激活block"的判断
-                                // 亮出来。格式工具栏不会因此误显示：
-                                // BlockFormattingToolbar 自己的 _applicable
-                                // 只认 text/heading，块类型一对不上就还是收着
-                                onNonTextTap: () => setState(
-                                  () => _focusedBlockId = _blocks[i].id,
-                                ),
-                                onFileUploaded: (id) =>
-                                    _uploadedFileIds.add(id),
                               ),
                             ),
                     ),
                   ),
-                  // "添加内容块"——放在列表下方常驻（不跟着滚动进 Reorderable
-                  // 列表里，那样会跟拖拽排序的下标数学搅在一起），打开紧凑的
-                  // 4列 Block 选择器，跟顶栏那排图标是两个不同入口：图标行是
-                  // "直接加"，这个是给已经滚到底部、不想再滚回顶栏的场景用
-                  if (_blocks.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      child: GestureDetector(
-                        onTap: () => showBlockPickerSheet(
-                          context,
-                          l10n: l10n,
-                          isDarkMode: isDarkMode,
-                          onPick: _addBlock,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isDarkMode
-                                  ? Colors.white.withValues(alpha: 0.1)
-                                  : const Color(0xFFDDDDF0),
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add,
-                                size: 16,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                l10n.addContentBlockLabel,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey[400],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                   BlockFormattingToolbar(
                     l10n: l10n,
                     isDarkMode: isDarkMode,
@@ -1081,20 +1114,76 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     );
   }
 
-  // 一个 block 都没有时的引导区——不是一片空白，而是问候语+快速开始+
-  // 今日灵感，让用户一打开就知道从哪下手，不会有"不知道写什么"的
-  // 空白焦虑。加了第一个 block 之后就自动切回正常的 block 列表
-  Widget _buildEmptyState(
+  // 顶部信息区（标题栏 + 封面/摘要/更多设置）折叠成一个隐藏式按钮：收起
+  // 时只留一个朝下的尖，点它展开整块（尖朝上），再点收起（尖朝下）。把
+  // 屏幕高度尽量让给正文编辑区，需要改标题/摘要/发布时再点开
+  Widget _buildCollapsibleHeader(
     AppLocalizations l10n,
     bool isDarkMode,
     Widget metaSection,
   ) {
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: _headerExpanded
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PublishTopBar(
+                        l10n: l10n,
+                        isDarkMode: isDarkMode,
+                        titleController: _titleCtrl,
+                        saving: _saving,
+                        onTitleChanged: () => setState(() {}),
+                        onSaveDraft: _saveDraft,
+                        onPublish: _publish,
+                        onClose: _handleExit,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                        child: metaSection,
+                      ),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+          // 折叠开关：一个居中的尖，展开时朝上、收起时朝下
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _headerExpanded = !_headerExpanded),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              alignment: Alignment.center,
+              child: Icon(
+                _headerExpanded
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
+                size: 22,
+                color: const Color(0xFF999999),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 一个 block 都没有时的引导区——不是一片空白，而是问候语+快速开始+
+  // 今日灵感，让用户一打开就知道从哪下手，不会有"不知道写什么"的
+  // 空白焦虑。加了第一个 block 之后就自动切回正常的 block 列表
+  Widget _buildEmptyState(AppLocalizations l10n, bool isDarkMode) {
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          metaSection,
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
             child: Column(
@@ -1391,6 +1480,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
 
   @override
   void dispose() {
+    _hideDividersTimer?.cancel();
     _titleCtrl.dispose();
     _summaryCtrl.dispose();
     _scrollCtrl.dispose();
@@ -1398,6 +1488,65 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       b.focusNode.dispose();
     }
     super.dispose();
+  }
+}
+
+// block 之间/最后一个 block 下方的插入点——静止时收成 4px 的窄缝（几乎
+// 无间距，减少干扰），滚动时展开成 28px 露出"+"，两侧细线用同一份中性
+// 描边色。show 完全由父级（滚动状态）驱动，这里不自己维护交互态
+class _InsertDivider extends StatelessWidget {
+  final bool show;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _InsertDivider({
+    super.key,
+    required this.show,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lineColor = isDark
+        ? const Color(0xFF2A2A3A)
+        : const Color(0xFFDDDDE8);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        height: show ? 28 : 4,
+        margin: const EdgeInsets.symmetric(horizontal: 14),
+        child: show
+            ? Row(
+                children: [
+                  Expanded(child: Container(height: 0.5, color: lineColor)),
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDark
+                          ? const Color(0xFF1A1A24)
+                          : const Color(0xFFF0F0F5),
+                      border: Border.all(color: lineColor, width: 0.5),
+                    ),
+                    child: Icon(
+                      Icons.add,
+                      size: 14,
+                      color: isDark
+                          ? const Color(0xFF7A80A0)
+                          : const Color(0xFF888888),
+                    ),
+                  ),
+                  Expanded(child: Container(height: 0.5, color: lineColor)),
+                ],
+              )
+            : null,
+      ),
+    );
   }
 }
 
