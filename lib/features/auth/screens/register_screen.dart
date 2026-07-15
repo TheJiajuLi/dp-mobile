@@ -34,6 +34,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _codeCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  // 好友推荐码（选填）——注册时带上，好友发首篇文章后双方各得 7 天 Pro
+  final _referralCtrl = TextEditingController();
 
   int _step = 0;
   bool _codeVerified = false;
@@ -68,6 +70,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _codeCtrl.dispose();
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
+    _referralCtrl.dispose();
     super.dispose();
   }
 
@@ -149,6 +152,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             email: _emailCtrl.text.trim(),
             password: _passwordCtrl.text,
             inviteCode: _codeVerified ? _codeCtrl.text.trim() : null,
+            referralCode: _referralCtrl.text.trim().isEmpty
+                ? null
+                : _referralCtrl.text.trim(),
           );
       if (!mounted) return;
       // register() 内部已经走完一次 /auth/login，currentUserProvider
@@ -793,6 +799,49 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   size: 20,
                 ),
               ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _primary, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '邀请码（选填）',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _ink,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _referralCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              hintText: '填好友邀请码，双方各得 7 天 Pro',
+              prefixIcon: const Icon(
+                Icons.card_giftcard_outlined,
+                size: 18,
+                color: Color(0xFF999999),
+              ),
+              filled: true,
+              fillColor: Colors.white,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.grey[200]!),

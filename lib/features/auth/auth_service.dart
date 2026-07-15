@@ -221,6 +221,9 @@ class AuthService {
     required String email,
     required String password,
     String? inviteCode,
+    // 好友推荐码——跟 invite_code（元老邀请码）是两套：注册时带上后端把
+    // referred_by 绑到推荐人，好友发布首篇文章时双方各得 7 天 Pro
+    String? referralCode,
   }) async {
     final registerRes = await _api.post(
       '/auth/register',
@@ -230,6 +233,8 @@ class AuthService {
         'password': password,
         if (inviteCode != null && inviteCode.isNotEmpty)
           'invite_code': inviteCode,
+        if (referralCode != null && referralCode.isNotEmpty)
+          'referralCode': referralCode,
       },
     );
     if (!registerRes.success) {
