@@ -1241,9 +1241,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get changelog => 'Changelog';
 
   @override
-  String get changelogNewBadge => 'New';
-
-  @override
   String get userAgreement => 'User Agreement';
 
   @override

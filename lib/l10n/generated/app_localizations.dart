@@ -2366,12 +2366,6 @@ abstract class AppLocalizations {
   /// **'Changelog'**
   String get changelog;
 
-  /// No description provided for @changelogNewBadge.
-  ///
-  /// In en, this message translates to:
-  /// **'New'**
-  String get changelogNewBadge;
-
   /// No description provided for @userAgreement.
   ///
   /// In en, this message translates to:
