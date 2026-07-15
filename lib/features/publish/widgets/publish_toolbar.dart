@@ -188,7 +188,6 @@ class PublishBottomToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (words, minutes) = computeBlockStats(blocks);
     return Container(
       // 跟顶栏一样透明，不再单独铺卡片色，工具栏跟正文视觉上是同一块背景
       color: Colors.transparent,
@@ -230,18 +229,8 @@ class PublishBottomToolbar extends StatelessWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Text(
-                l10n.wordBlocksReadTimeLabel(words, blocks.length, minutes),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDarkMode
-                      ? const Color(0xFF8E8E93)
-                      : const Color(0xFFCCCCCC),
-                ),
-              ),
-            ),
+            // 底部字数/块数/阅读时长那行去掉——腾出高度给上面的内容块，
+            // 这些统计只在预览抽屉里保留
           ],
         ),
       ),
