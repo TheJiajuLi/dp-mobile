@@ -89,8 +89,9 @@ class SettingsScreen extends ConsumerWidget {
                 padding: EdgeInsets.zero,
                 children: [
                   const SizedBox(height: 8),
-                  // 会员中心入口——顶部一张紫色渐变 Hero 卡，会员态显示当前
-                  // 档位、免费态引导开通
+                  // 会员中心入口——跟「账号」「通用」同一套白卡+细线容器，不再是
+                  // 突兀的紫色大卡；会员态显示档位/已激活/存储，免费态引导开通
+                  const SettingsSectionTitle('会员中心'),
                   _MembershipEntryCard(
                     membership: me?.membership,
                     isAurora: me?.isAuroraCreator ?? false,
@@ -720,7 +721,7 @@ class _NotifSettingsSheet extends ConsumerWidget {
 // 会员中心 Hero 卡——2026 一线产品视觉：紫色渐变 + 金色皇冠 + 柔和辉光，
 // 白色 CTA 药丸。会员态显示当前档位与「管理」，免费态引导「立即开通」，
 // 极光创作者显示已免费享 Pro。点击进 /settings/subscription
-class _MembershipEntryCard extends StatelessWidget {
+class _MembershipEntryCard extends ConsumerWidget {
   final String? membership;
   final bool isAurora;
   const _MembershipEntryCard({
@@ -728,10 +729,26 @@ class _MembershipEntryCard extends StatelessWidget {
     required this.isAurora,
   });
 
+  static String _fmtUsed(int b) {
+    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(0)} KB';
+    if (b < 1024 * 1024 * 1024) {
+      return '${(b / 1024 / 1024).toStringAsFixed(1)} MB';
+    }
+    return '${(b / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
+  }
+
+  static String _fmtQuota(int b) {
+    if (b >= 1024 * 1024 * 1024) {
+      return '${(b / 1024 / 1024 / 1024).toStringAsFixed(0)} GB';
+    }
+    return '${(b / 1024 / 1024).toStringAsFixed(0)} MB';
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isMax = membership == 'pro_max';
     final isPro = membership == 'pro';
+    final isActive = isMax || isPro || isAurora;
     final String title;
     final String sub;
     final String cta;
@@ -753,91 +770,174 @@ class _MembershipEntryCard extends StatelessWidget {
       cta = '立即开通';
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? Theme.of(context).cardColor : Colors.white;
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFEBEBEB);
+    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final subColor = isDark ? Colors.white38 : const Color(0xFFBBBBBB);
+    final manageBg = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFFF5F5F5);
+    final manageInk = isDark ? Colors.white70 : const Color(0xFF555555);
+    final track = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFFF0F0F0);
+
+    final storage = ref.watch(storageUsageProvider);
+    final storageBar = storage.maybeWhen(
+      data: (data) {
+        final total = (data['totalBytes'] as num?)?.toInt() ?? 0;
+        final quota = (data['quota'] as num?)?.toInt() ?? 200 * 1024 * 1024;
+        final ratio = quota > 0 ? (total / quota) : 0.0;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('存储空间', style: TextStyle(fontSize: 11, color: subColor)),
+                  Text(
+                    '${_fmtUsed(total)} / ${_fmtQuota(quota)}',
+                    style: TextStyle(fontSize: 11, color: subColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  value: total > 0 ? ratio.clamp(0.01, 1.0) : 0.0,
+                  minHeight: 4,
+                  backgroundColor: track,
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFF6366F1)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => context.push('/settings/subscription'),
         child: Container(
-          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF6D5DF6), Color(0xFF8B5CF6)],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF6D5DF6).withValues(alpha: 0.30),
-                blurRadius: 22,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            color: cardBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border, width: 0.5),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.workspace_premium,
-                  size: 24,
-                  color: Color(0xFFFFD66B),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                child: Row(
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: 0.2,
+                    // 小圆角方块图标，跟其它设置项统一（浅紫底 + 品牌紫图标）
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFEEF0FF), Color(0xFFDDD6FE)],
+                        ),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(
+                        Icons.workspace_premium_rounded,
+                        size: 20,
+                        color: Color(0xFF6366F1),
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      sub,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.2,
-                        color: Colors.white.withValues(alpha: 0.82),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: ink,
+                                  ),
+                                ),
+                              ),
+                              if (isActive) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF6366F1),
+                                        Color(0xFF8B5CF6),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                  child: const Text(
+                                    '已激活',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            sub,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, color: subColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: manageBg,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        cta,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: manageInk,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  cta,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF6D5DF6),
-                  ),
-                ),
-              ),
+              storageBar,
             ],
           ),
         ),
