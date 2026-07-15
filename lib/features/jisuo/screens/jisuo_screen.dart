@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:ui';
 
@@ -90,6 +91,14 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   final List<QaTurn> _turns = [];
   String? _convId;
   bool _stopRequested = false;
+
+  // 打字机效果：chunk 不直接整块上屏，而是逐字符入队，Timer 每 15ms 吐一个
+  // 字到当前这一轮的 answer 上，逐字渲染。任何终止路径（done/停止/出错/
+  // 离开页面）都要 _flushTyping 把队列剩余字符补齐并停掉 Timer，不能留悬空
+  // 定时器往一个可能已经不在 _turns 里的轮次继续追加
+  final Queue<String> _charQueue = Queue<String>();
+  Timer? _typeTimer;
+  QaTurn? _typingTurn;
   // "社区相关讨论"——回答态下方展示的社区问题（GET /auth/questions），
   // 跟着最新一轮问题刷新，不是每一轮各自一份
   List<Map<String, dynamic>> _related = [];
@@ -109,6 +118,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   @override
   void dispose() {
+    _typeTimer?.cancel();
     _inputCtrl.dispose();
     _inputFocusNode.dispose();
     _scrollCtrl.dispose();
@@ -143,6 +153,49 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   void _startQuestion(String q) => _askQuestion(q);
 
+  // 收到 chunk：逐字符（按 grapheme，中文/emoji 安全）入队，启动打字机
+  void _enqueueChunk(String text, QaTurn turn) {
+    if (text.isEmpty) return;
+    _typingTurn = turn;
+    _charQueue.addAll(text.characters);
+    _typeTimer ??= Timer.periodic(const Duration(milliseconds: 15), (_) {
+      if (!mounted) {
+        _typeTimer?.cancel();
+        _typeTimer = null;
+        return;
+      }
+      if (_charQueue.isEmpty) return;
+      final ch = _charQueue.removeFirst();
+      setState(() => _typingTurn?.answer += ch);
+    });
+  }
+
+  // 停打字机：取消 Timer，把队列里还没吐完的字符一次性补齐。done 带的
+  // fullText 是权威全文（分片偶发丢片），有就整段覆盖；没有（停止/出错）
+  // 就把已入队的补上，不丢字
+  void _flushTyping({String? finalText}) {
+    if (_typeTimer == null && _charQueue.isEmpty && finalText == null) return;
+    _typeTimer?.cancel();
+    _typeTimer = null;
+    final rest = _charQueue.join();
+    _charQueue.clear();
+    final turn = _typingTurn;
+    if (turn == null) return;
+    void apply() {
+      if (finalText != null && finalText.isNotEmpty) {
+        turn.answer = finalText;
+      } else {
+        turn.answer += rest;
+      }
+    }
+
+    if (mounted) {
+      setState(apply);
+    } else {
+      apply();
+    }
+  }
+
   // 问问小梦：页内展开流式回复，全程不跳转。流式拉 /auth/xmeng/chat/stream，
   // 每问一次都是新追加一轮 QaTurn 到列表末尾（方案A：多轮累加，不覆盖
   // 之前的问答），回答实时追加到这一轮自己的 answer 上就地渲染；完成后
@@ -153,6 +206,10 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     _inputCtrl.clear();
     FocusScope.of(context).unfocus();
     final turn = QaTurn(question: q);
+    // 打字机指向这一轮，并清掉上一轮可能残留的队列——保证即使这轮只收到
+    // done(fullText)、一个 chunk 都没有，_flushTyping 也能把全文写进去
+    _typingTurn = turn;
+    _charQueue.clear();
     setState(() {
       _jisuoMode = JisuoMode.streaming;
       _turns.add(turn);
@@ -197,21 +254,25 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           case 'done':
             _convId = data['conversationId']?.toString() ?? _convId;
             // 分片累加偶发会丢片（网络/后端 SSE 推送问题），done 事件带的
-            // fullText 是权威全文，收到就整段覆盖掉之前拼出来的 answer，
+            // fullText 是权威全文，收到就整段覆盖掉之前打字机拼出来的 answer，
             // 兜底修正任何遗漏，不管丢片具体发生在哪一层
             final fullText = data['fullText'] as String?;
-            if (fullText != null && fullText.isNotEmpty) {
-              setState(() => turn.answer = fullText);
-            }
+            _flushTyping(
+              finalText: (fullText != null && fullText.isNotEmpty)
+                  ? fullText
+                  : null,
+            );
             break;
           case 'chunk':
-            setState(() => turn.answer += data['text']?.toString() ?? '');
+            _enqueueChunk(data['text']?.toString() ?? '', turn);
             break;
           case 'error':
             errorMessage = data['message']?.toString() ?? '小梦暂时休息中，请稍后再试';
             break;
         }
       }
+      // 流正常结束但没收到 done（服务端直接断流）时，把队列里剩的字补齐
+      _flushTyping();
       if (!mounted) return;
       setState(() {
         _jisuoMode = JisuoMode.done;
@@ -225,6 +286,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         ).showSnackBar(SnackBar(content: Text(errorMessage)));
       }
     } on DioException catch (e) {
+      _flushTyping(); // 出错先停打字机、补齐已入队的字，再标这一轮出错
       if (!mounted) return;
       final msg = e.response?.data is Map
           ? ((e.response!.data as Map)['message']?.toString() ??
@@ -250,22 +312,32 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  void _stopStream() => setState(() {
-    _stopRequested = true;
-    _jisuoMode = JisuoMode.done;
-    if (_turns.isNotEmpty) {
-      final turn = _turns.last;
-      turn.status = QaTurnStatus.done;
-      // 已经吐了一部分就保留，一个字都还没来就给个占位，不然卡片空着
-      if (turn.answer.isEmpty) turn.answer = '已停止生成';
-      turn.suggestions = _generateSuggestions(turn.question);
-    }
-  });
+  void _stopStream() {
+    // 先把打字机队列里还没吐完的字补上，再判断 answer 是否为空——否则队列
+    // 里明明还有内容、answer 却被当成"空"塞了"已停止生成"
+    _flushTyping();
+    setState(() {
+      _stopRequested = true;
+      _jisuoMode = JisuoMode.done;
+      if (_turns.isNotEmpty) {
+        final turn = _turns.last;
+        turn.status = QaTurnStatus.done;
+        // 已经吐了一部分就保留，一个字都还没来就给个占位，不然卡片空着
+        if (turn.answer.isEmpty) turn.answer = '已停止生成';
+        turn.suggestions = _generateSuggestions(turn.question);
+      }
+    });
+  }
 
   // 顶栏"重置"：回落地页，清掉整个多轮对话——连 conversationId 一起
   // 清掉，不然"重置"完看着是回到欢迎页了，下一次提问其实还在续着
   // 已经清空的这段对话的上下文，答非所问
   void _resetToIdle() {
+    // 清空对话前先停掉打字机，避免悬空 Timer 往已清掉的轮次继续追加
+    _typeTimer?.cancel();
+    _typeTimer = null;
+    _charQueue.clear();
+    _typingTurn = null;
     setState(() {
       _jisuoMode = JisuoMode.idle;
       _turns.clear();
