@@ -275,42 +275,34 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
   }
 
   // 顶部三格总览——篇文章 / 总获赞 / 总收藏，全部真实数据（收藏来自
-  // listTutorials 已补上的 save_count）
+  // listTutorials 已补上的 save_count）。跟专栏管理页同一套风格：去掉
+  // 卡片底色/描边，就是纯数字+标签坐在页面背景上，更轻
   Widget _statsRow() {
-    Widget statCard(String value, String label) {
+    Widget stat(String value, String label) {
       return Expanded(
-        child: Container(
-          margin: const EdgeInsets.all(4),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _border, width: 0.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500,
-                  color: _ink,
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                color: _ink,
               ),
-              const SizedBox(height: 2),
-              Text(label, style: TextStyle(fontSize: 11, color: _muted)),
-            ],
-          ),
+            ),
+            const SizedBox(height: 3),
+            Text(label, style: TextStyle(fontSize: 12, color: _muted)),
+          ],
         ),
       );
     }
 
     return Row(
       children: [
-        statCard('${_allWorks.length}', '篇文章'),
-        statCard(_formatCount(_totalLikes), '总获赞'),
-        statCard(_formatCount(_totalSaves), '总收藏'),
+        stat('${_allWorks.length}', '篇文章'),
+        stat(_formatCount(_totalLikes), '总获赞'),
+        stat(_formatCount(_totalSaves), '总收藏'),
       ],
     );
   }
@@ -437,114 +429,103 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     );
   }
 
+  // 跟专栏管理同一套"两段式"卡片语言：顶部话题色头（图标+标题+副标题
+  // 都跟话题色走）+ 下方白色主体（摘要 + 数据行 + 描边药丸按钮），不再是
+  // 一整张白盒子里塞个小色块图标
   Widget _workCard(TutorialModel t) {
     final rule = matchedTopicRuleFor(t.tags);
     final bg = rule?.bg ?? const Color(0xFFF5F5F5);
     final fg = rule?.fg ?? const Color(0xFF999999);
-    final categoryLabel = topicCategoryLabelFor(t.tags);
 
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: _card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _border, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            color: _isDark ? bg.withValues(alpha: 0.14) : bg,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: bg,
-                    borderRadius: BorderRadius.circular(12),
+                    color: fg,
+                    borderRadius: BorderRadius.circular(11),
                   ),
-                  child: Icon(Icons.description_outlined, color: fg, size: 22),
+                  child: const Icon(
+                    Icons.description_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              t.title.isEmpty ? '无标题' : t.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: _ink,
-                              ),
-                            ),
-                          ),
-                          if (categoryLabel != null) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bg,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                categoryLabel,
-                                style: TextStyle(fontSize: 10, color: fg),
-                              ),
-                            ),
-                          ],
-                        ],
+                      Text(
+                        t.title.isEmpty ? '无标题' : t.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: fg,
+                        ),
                       ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          _statusChip(t.status),
-                          const SizedBox(width: 8),
-                          Text(
-                            _timeAgo(t.createdAt),
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: _isDark
-                                  ? AppColors.darkTextMuted
-                                  : const Color(0xFFC7C7CC),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _miniStat(Icons.thumb_up_outlined, '${t.likes}'),
-                          const SizedBox(width: 12),
-                          _miniStat(Icons.bookmark_outline, '${t.saveCount}'),
-                          const SizedBox(width: 12),
-                          _miniStat(
-                            Icons.visibility_outlined,
-                            _formatCount(t.views),
-                          ),
-                        ],
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_timeAgo(t.createdAt)} · ${_formatCount(t.views)} 阅读',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: fg.withValues(alpha: 0.75),
+                        ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                _statusChip(t.status),
               ],
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: _border, width: 0.5)),
-            ),
-            child: IntrinsicHeight(
-              child: Row(children: _withDividers(_actionsFor(t))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if ((t.summary ?? '').isNotEmpty) ...[
+                  Text(
+                    t.summary!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: _isDark ? Colors.white70 : const Color(0xFF444444),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Row(
+                  children: [
+                    _miniStat(Icons.thumb_up_outlined, '${t.likes}'),
+                    const SizedBox(width: 12),
+                    _miniStat(Icons.bookmark_outline, '${t.saveCount}'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(children: _withGaps(_actionsFor(t))),
+              ],
             ),
           ),
         ],
@@ -563,12 +544,12 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     );
   }
 
-  List<Widget> _withDividers(List<Widget> btns) {
+  // 按钮之间用间距而不是竖线分隔——描边药丸按钮本身已经有边界，
+  // 挨在一起再加一条竖分割线反而显得挤
+  List<Widget> _withGaps(List<Widget> btns) {
     final out = <Widget>[];
     for (var i = 0; i < btns.length; i++) {
-      if (i > 0) {
-        out.add(VerticalDivider(width: 0.5, thickness: 0.5, color: _border));
-      }
+      if (i > 0) out.add(const SizedBox(width: 8));
       out.add(btns[i]);
     }
     return out;
@@ -662,23 +643,40 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
 
   Color get _actionInk => _isDark ? Colors.white70 : const Color(0xFF555555);
 
+  // 描边药丸按钮——跟专栏管理"管理文章/编辑专栏"同一套：透明底+细描边，
+  // 不是原来贴在卡片底部、靠竖线分隔的一整排图标+文字
   Widget _actionBtn(
     String label,
     IconData icon,
     Color color,
     VoidCallback onTap,
   ) {
+    final isDanger = color == _danger;
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
         onTap: onTap,
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDanger ? _danger.withValues(alpha: 0.35) : _border,
+              width: 1,
+            ),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 15, color: color),
+              Icon(icon, size: 14, color: color),
               const SizedBox(width: 5),
-              Text(label, style: TextStyle(fontSize: 12.5, color: color)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ),
