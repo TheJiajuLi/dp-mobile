@@ -39,6 +39,8 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   // 选中的 cell 下标（-1=无）。标题也可直接改，单独一个 controller
   final Map<String, FocusNode> _focusNodes = {};
   int _activeIndex = -1;
+  // 内核状态：有 cell 正在跑 = 运行中(橙点)，否则就绪(绿点)。顶栏状态灯用
+  bool _kernelBusy = false;
   final TextEditingController _titleCtrl = TextEditingController();
 
   @override
@@ -172,14 +174,22 @@ result
 ''';
 
   Future<void> _runCell(NotebookCell cell) async {
-    switch (cell.type) {
-      case 'python':
-      case 'sql':
-        await _runWithPyodide(cell);
-        break;
-      case 'javascript':
-        await _runJavaScript(cell);
-        break;
+    // 只有真正下内核跑的（python/sql/js）才点亮"运行中"状态灯；latex/
+    // markdown 只是本地渲染，不算内核忙
+    final usesKernel =
+        cell.type == 'python' ||
+        cell.type == 'sql' ||
+        cell.type == 'javascript';
+    if (usesKernel && mounted) setState(() => _kernelBusy = true);
+    try {
+      switch (cell.type) {
+        case 'python':
+        case 'sql':
+          await _runWithPyodide(cell);
+          break;
+        case 'javascript':
+          await _runJavaScript(cell);
+          break;
       case 'latex':
         _setOutput(cell, cell.code, 'latex');
         break;
@@ -196,12 +206,15 @@ result
           'info',
         );
         break;
-      default:
-        _setOutput(
-          cell,
-          AppLocalizations.of(context)!.unsupportedCellType,
-          'info',
-        );
+        default:
+          _setOutput(
+            cell,
+            AppLocalizations.of(context)!.unsupportedCellType,
+            'info',
+          );
+      }
+    } finally {
+      if (usesKernel && mounted) setState(() => _kernelBusy = false);
     }
     _scheduleSave();
   }
@@ -444,6 +457,137 @@ finally:
     for (final cell in _nb!.cells) {
       await _runCell(cell);
     }
+  }
+
+  void _showResetDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final ink = isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).padding.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text(
+                '重置内核',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: ink,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Text(
+                '重置后所有变量（df、np 等）将清空。\n需要重新运行代码才能恢复。',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: muted, height: 1.6),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(
+                          color: isDark
+                              ? Colors.white24
+                              : const Color(0xFFDDDDDD),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text('取消', style: TextStyle(color: muted)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _resetKernel();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEF4444),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('确认重置'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 重置内核：跑一段清空用户全局变量的 python（Pyodide 是全局共享的持久
+  // 解释器，cell 之间变量互通——所以清 globals 就能"清空 df/np 等"），再把
+  // 所有 cell 的输出清掉。真正的解释器重载 compiler.js 没暴露 API，这是
+  // 现有黑盒能力下的最优做法
+  Future<void> _resetKernel() async {
+    final l10n = AppLocalizations.of(context)!;
+    final engine = ref.read(pyodideEngineProvider);
+    // 保留下划线开头的内部变量（含数据集注入的 _xxx_b64），清掉其余用户变量
+    const clearGlobals =
+        "for _k in [k for k in list(globals().keys()) if not k.startswith('_')]:\n"
+        "    try:\n"
+        "        del globals()[_k]\n"
+        "    except Exception:\n"
+        "        pass";
+    setState(() => _kernelBusy = true);
+    try {
+      await engine.run('__reset__', clearGlobals, 'python', l10n);
+    } catch (_) {
+      // 清理失败也继续把输出清掉
+    } finally {
+      if (mounted) setState(() => _kernelBusy = false);
+    }
+    if (!mounted || _nb == null) return;
+    setState(() {
+      for (final cell in _nb!.cells) {
+        cell.output = null;
+        cell.outputType = null;
+        _outputs[cell.id] = null;
+        _outputTypes[cell.id] = null;
+      }
+    });
+    _scheduleSave();
+    _showSnack('内核已重置，变量已清空');
   }
 
   Future<void> _openFileImport() async {
@@ -940,6 +1084,48 @@ finally:
                         // 标题(Expanded)和按钮组之间留一段间距——否则标题末字会
                         // 紧贴「全部运行」胶囊、被圆角盖住，看着像被遮挡
                         const SizedBox(width: 10),
+                        // 内核状态灯：就绪(绿)/运行中(橙)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _kernelBusy
+                                ? const Color(0xFFD97706)
+                                : const Color(0xFF16A34A),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _kernelBusy ? '运行中' : '就绪',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark
+                                ? const Color(0xFF7A80A0)
+                                : const Color(0xFF999999),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // 重置内核（图标按钮）
+                        GestureDetector(
+                          onTap: _showResetDialog,
+                          behavior: HitTestBehavior.opaque,
+                          child: Tooltip(
+                            message: '重置内核',
+                            child: Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: Icon(
+                                Icons.refresh,
+                                size: 17,
+                                color: isDark
+                                    ? const Color(0xFF7A80A0)
+                                    : const Color(0xFF888888),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         // 运行全部：淡紫底
                         _topBarChip(
                           isDark: isDark,

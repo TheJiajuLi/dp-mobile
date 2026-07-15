@@ -44,6 +44,9 @@ class NotebookCellCard extends StatelessWidget {
     required this.onDelete,
   });
 
+  // 导入数据文件生成的"数据集 cell"——橙色边框 + 暖黄头部 + 数据集徽标
+  bool get _isDataset => cell.metadata?['isDataset'] == true;
+
   @override
   Widget build(BuildContext context) {
     final activeBorder = isDark
@@ -63,8 +66,10 @@ class NotebookCellCard extends StatelessWidget {
         color: isDark ? const Color(0xFF1A1A2A) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isActive ? activeBorder : idleBorder,
-          width: isActive ? 1 : 0.5,
+          color: _isDataset
+              ? const Color(0xFFD97706)
+              : (isActive ? activeBorder : idleBorder),
+          width: (_isDataset || isActive) ? 1 : 0.5,
         ),
         // 浅色下加一层很淡的浮起阴影——跟底部工具栏同一套（alpha 0.06/
         // blur 12），卡片从背景的紫光晕上"浮"起来，不是纯靠描边贴在背景上
@@ -122,11 +127,17 @@ class NotebookCellCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: isDark
-            ? (isActive
-                  ? const Color(0xFF6366F1).withValues(alpha: 0.08)
-                  : Colors.white.withValues(alpha: 0.02))
-            : (isActive ? const Color(0xFFF5F5F5) : const Color(0xFFFAFAFA)),
+        color: _isDataset
+            ? (isDark
+                  ? const Color(0xFFD97706).withValues(alpha: 0.10)
+                  : const Color(0xFFFFFBEB))
+            : (isDark
+                  ? (isActive
+                        ? const Color(0xFF6366F1).withValues(alpha: 0.08)
+                        : Colors.white.withValues(alpha: 0.02))
+                  : (isActive
+                        ? const Color(0xFFF5F5F5)
+                        : const Color(0xFFFAFAFA))),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
         border: Border(
           bottom: BorderSide(
@@ -159,6 +170,43 @@ class NotebookCellCard extends StatelessWidget {
                         : const Color(0xFFAAAAAA)),
             ),
           ),
+          if (_isDataset) ...[
+            const SizedBox(width: 6),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFFD97706).withValues(alpha: 0.18)
+                      : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.storage_outlined,
+                      size: 9,
+                      color: Color(0xFFD97706),
+                    ),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        '数据集 · ${cell.metadata?['fileName'] ?? '数据'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFD97706),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const Spacer(),
           if (_isExecutable(cell.type)) ...[
             GestureDetector(
