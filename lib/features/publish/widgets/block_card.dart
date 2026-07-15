@@ -1083,7 +1083,9 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     TextFormField(
       key: ValueKey('heading_${widget.block.id}_$_textRevision'),
       focusNode: widget.block.focusNode,
-      initialValue: widget.block.content.isNotEmpty ? widget.block.content : null,
+      initialValue: widget.block.content.isNotEmpty
+          ? widget.block.content
+          : null,
       decoration: const InputDecoration(
         filled: false,
         border: InputBorder.none,
@@ -2185,25 +2187,27 @@ th{background:$thBg;color:$thFg}
             child: const Icon(Icons.link, color: _primary, size: 20),
           ),
           Expanded(
-            child: TextFormField(
-              initialValue: widget.block.content.isNotEmpty
-                  ? widget.block.content
-                  : null,
-              decoration: const InputDecoration(
-                filled: false,
-                hintText: 'https://...',
-                hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 13),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 10),
+            child: _withEmptyBackspace(
+              TextFormField(
+                initialValue: widget.block.content.isNotEmpty
+                    ? widget.block.content
+                    : null,
+                decoration: const InputDecoration(
+                  filled: false,
+                  hintText: 'https://...',
+                  hintStyle: TextStyle(color: Color(0xFFC7C7CC), fontSize: 13),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                ),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF1C1C1E)),
+                keyboardType: TextInputType.url,
+                onChanged: (v) {
+                  widget.block.content = v;
+                  widget.block.linkUrl = v;
+                  widget.onChanged();
+                },
               ),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF1C1C1E)),
-              keyboardType: TextInputType.url,
-              onChanged: (v) {
-                widget.block.content = v;
-                widget.block.linkUrl = v;
-                widget.onChanged();
-              },
             ),
           ),
         ],
@@ -2227,29 +2231,31 @@ th{background:$thBg;color:$thFg}
         color: Colors.transparent,
         border: Border(left: BorderSide(color: _primary, width: 3)),
       ),
-      child: TextFormField(
-        key: ValueKey('callout_${widget.block.id}_$_textRevision'),
-        focusNode: widget.block.focusNode,
-        initialValue: widget.block.content.isNotEmpty
-            ? widget.block.content
-            : null,
-        decoration: const InputDecoration(
-          filled: false,
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
+      child: _withEmptyBackspace(
+        TextFormField(
+          key: ValueKey('callout_${widget.block.id}_$_textRevision'),
+          focusNode: widget.block.focusNode,
+          initialValue: widget.block.content.isNotEmpty
+              ? widget.block.content
+              : null,
+          decoration: const InputDecoration(
+            filled: false,
+            border: InputBorder.none,
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+          style: TextStyle(
+            fontSize: 14,
+            fontStyle: FontStyle.italic,
+            color: textColor,
+            height: 1.6,
+          ),
+          maxLines: null,
+          onChanged: (v) {
+            widget.block.content = v;
+            widget.onChanged();
+          },
         ),
-        style: TextStyle(
-          fontSize: 14,
-          fontStyle: FontStyle.italic,
-          color: textColor,
-          height: 1.6,
-        ),
-        maxLines: null,
-        onChanged: (v) {
-          widget.block.content = v;
-          widget.onChanged();
-        },
       ),
     );
   }
