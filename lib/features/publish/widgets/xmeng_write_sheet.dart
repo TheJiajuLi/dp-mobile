@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,12 +37,18 @@ class XmengWriteSheet extends ConsumerStatefulWidget {
 }
 
 class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
-  // 0=初始对话，1=生成中，2=生成完成
+  // 0=初始对话，1=等待生成，2=流式展示/完成
   int _step = 0;
   String _userInput = '';
   String _generated = '';
+  // 后端 /auth/xmeng/chat 是一次性返回整段、不是 SSE 流——收到全文后用定时器
+  // 逐段"打字机"揭示：_typedLen 是当前已显示到第几个字符
+  int _typedLen = 0;
+  Timer? _typeTimer;
   final _ctrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+
+  bool get _typingDone => _typedLen >= _generated.length;
 
   static const _greeting =
       '你好！我是小梦 ✦\n\n'
@@ -48,9 +56,28 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
 
   @override
   void dispose() {
+    _typeTimer?.cancel();
     _ctrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  // 收到全文后启动打字机——按内容长度算步长，让整段大约 2 秒内揭示完；每
+  // 一跳都滚到底，跟着新出现的文字走
+  void _startTyping() {
+    _typeTimer?.cancel();
+    _typedLen = 0;
+    final total = _generated.length;
+    final chunk = (total / 100).ceil().clamp(1, 30);
+    _typeTimer = Timer.periodic(const Duration(milliseconds: 24), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      setState(() => _typedLen = (_typedLen + chunk).clamp(0, total));
+      _scrollToBottom();
+      if (_typedLen >= total) t.cancel();
+    });
   }
 
   void _scrollToBottom() {
@@ -75,9 +102,11 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
 
   Future<void> _runGenerate(String input) async {
     FocusScope.of(context).unfocus();
+    _typeTimer?.cancel();
     setState(() {
       _userInput = input;
       _generated = '';
+      _typedLen = 0;
       _step = 1;
     });
     _scrollToBottom();
@@ -116,7 +145,7 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         _generated = msg.trim();
         _step = 2;
       });
-      _scrollToBottom();
+      _startTyping();
     } catch (_) {
       if (mounted) _fail();
     }
@@ -262,7 +291,8 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
             _header(isDark, border),
             Expanded(child: _messages(isDark, border)),
             if (_step == 0) _inputBar(isDark, border),
-            if (_step == 2) _actionButtons(isDark, border),
+            // 打字机放完再露出操作按钮，让用户先读到完整草稿
+            if (_step == 2 && _typingDone) _actionButtons(isDark, border),
           ],
         ),
       ),
@@ -313,6 +343,8 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     final bubbleAi = isDark ? const Color(0xFF23232B) : const Color(0xFFF7F7F9);
     return ListView(
       controller: _scrollCtrl,
+      // 显式允许滚动——内容超过一屏时能滚动查看完整回复，短内容也能回弹
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
       children: [
         _aiBubble(_greeting, bubbleAi, border),
@@ -332,11 +364,21 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
             ),
           ),
         ],
+        // 生成完成：整段文章直接以打字机方式流式显示在气泡里（不再是截断的
+        // 预览框），内容超屏就能滚动查看
         if (_step == 2) ...[
           const SizedBox(height: 12),
-          _aiBubble('草稿已生成！点击下方按钮填入编辑器。', bubbleAi, border),
-          const SizedBox(height: 12),
-          _preview(isDark, border),
+          _aiBubble(
+            _generated.substring(0, _typedLen),
+            bubbleAi,
+            border,
+            trailing: _typingDone
+                ? null
+                : const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: _TypingDots(),
+                  ),
+          ),
         ],
       ],
     );
@@ -425,42 +467,6 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _preview(bool isDark, Color border) {
-    final muted = isDark ? Colors.white54 : const Color(0xFF888888);
-    final snippet = _generated.substring(
-      0,
-      _generated.length.clamp(0, 220),
-    );
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111118) : const Color(0xFFF5F5F5),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: border, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '预览',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: muted,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _generated.length > 220 ? '$snippet…' : snippet,
-            maxLines: 6,
-            overflow: TextOverflow.fade,
-            style: TextStyle(fontSize: 12, color: muted, height: 1.7),
-          ),
-        ],
-      ),
     );
   }
 
