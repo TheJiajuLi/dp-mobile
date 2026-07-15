@@ -1696,7 +1696,33 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         ? ref.watch(currentUserProvider)?.isAuroraCreator ?? false
         : _profile?.isAuroraCreator ?? false;
     final isMember = membership == 'pro' || membership == 'pro_max';
-    if (!isAurora && !isMember) return const SizedBox.shrink();
+    if (!isAurora && !isMember) {
+      // 免费用户——看自己主页时头像角标换成小皇冠，点了跳订阅页当升级
+      // 入口；看别人主页不显示（升级入口只对本人有意义，且看别人主页
+      // 拿不到对方真实membership，不该在这猜）
+      if (!isSelfView) return const SizedBox.shrink();
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return GestureDetector(
+        onTap: () => context.push('/settings/subscription'),
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A24) : Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isDark ? const Color(0xFF2A2A34) : const Color(0xFFF0F0F0),
+              width: 1.5,
+            ),
+          ),
+          child: const Icon(
+            Icons.workspace_premium_outlined,
+            size: 12,
+            color: Color(0xFFD97706),
+          ),
+        ),
+      );
+    }
 
     final label = isAurora ? '极光' : 'Pro';
     return GestureDetector(
