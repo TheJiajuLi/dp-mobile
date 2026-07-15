@@ -151,12 +151,14 @@ class NotebookCellCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // 语言彩色 pill——Python 紫 / Markdown 绿 / LaTeX violet…
+          // 语言 pill 的底色所有 cell 统一用 Python 那种极浅的中性紫（近白）——
+          // 不再每种语言各自上色（markdown 的浅绿底会显得发灰），视觉统一；
+          // 类型区分只靠文字颜色（Python 紫 / Markdown 绿 / LaTeX violet）
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: _langColor(
-                cell.type,
+              color: const Color(
+                0xFF6366F1,
               ).withValues(alpha: isDark ? 0.22 : 0.12),
               borderRadius: BorderRadius.circular(7),
             ),
