@@ -1145,44 +1145,13 @@ finally:
                           },
                         ),
                         const SizedBox(width: 6),
-                        // 一键发布为文章——品牌紫底白字（跟极索「问问小梦」按钮一套）
-                        GestureDetector(
+                        // 一键发布为文章——跟「全部运行」同款淡紫底紫字胶囊
+                        _topBarChip(
+                          isDark: isDark,
+                          label: l10n.publish,
+                          icon: Icons.ios_share,
                           onTap: _publishAsArticle,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _primary,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _primary.withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.ios_share,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  l10n.publish,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          accent: true,
                         ),
                         PopupMenuButton<String>(
                           icon: Icon(

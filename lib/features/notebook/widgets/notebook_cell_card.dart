@@ -240,34 +240,43 @@ class NotebookCellCard extends StatelessWidget {
     );
   }
 
-  // 运行按钮——浅紫圆角方钮 + 紫色播放图标；运行中换成小转圈
+  // 运行按钮——跟顶栏「全部运行」同款淡紫底紫字胶囊：播放图标 + "运行"，
+  // 运行中换成小转圈
   Widget _runButton() {
+    const accent = Color(0xFF6366F1);
     return GestureDetector(
       onTap: isRunning ? null : onRun,
       child: Container(
-        width: 34,
-        height: 28,
-        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(
-            0xFF6366F1,
-          ).withValues(alpha: isDark ? 0.22 : 0.10),
-          borderRadius: BorderRadius.circular(9),
+          color: accent.withValues(alpha: isDark ? 0.16 : 0.1),
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: isRunning
-            ? const SizedBox(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isRunning)
+              const SizedBox(
                 width: 13,
                 height: 13,
                 child: CircularProgressIndicator(
                   strokeWidth: 1.6,
-                  color: Color(0xFF6366F1),
+                  color: accent,
                 ),
               )
-            : const Icon(
-                Icons.play_arrow_rounded,
-                size: 19,
-                color: Color(0xFF6366F1),
+            else
+              const Icon(Icons.play_arrow_rounded, size: 15, color: accent),
+            const SizedBox(width: 4),
+            const Text(
+              '运行',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: accent,
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
