@@ -65,13 +65,18 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
   // 就占掉小半屏，把下面的正文编辑区挤得很靠下
   bool _expanded = false;
 
-  // 摘要支持行内 $...$ LaTeX——没聚焦时渲染成公式（跟 block_card.dart
-  // 的 text block 同一份 inlineLatexText，_focused 也用同一套
+  // 摘要支持行内 $...$/\(...\)/\[...\] LaTeX——没聚焦时渲染成公式（跟
+  // block_card.dart 的 text block 同一份 inlineLatexText，_focused 也用同一套
   // onEditingComplete 切回编辑态的触发方式，不引入 FocusNode 失焦监听
   // 这种这里没有的新机制）
   bool _summaryFocused = false;
   final _summaryFocusNode = FocusNode();
-  static final _inlineLatexPattern = RegExp(r'\$[^$\n]+\$');
+  static final _inlineLatexPattern = RegExp(
+    r'\$[^$\n]+\$'
+    r'|\\\(.+?\\\)'
+    r'|\\\[.+?\\\]',
+    dotAll: true,
+  );
 
   @override
   void dispose() {

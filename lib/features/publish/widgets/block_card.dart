@@ -372,7 +372,12 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     }
   }
 
-  static final _inlineLatexPattern = RegExp(r'\$[^$\n]+\$');
+  static final _inlineLatexPattern = RegExp(
+    r'\$[^$\n]+\$'
+    r'|\\\(.+?\\\)'
+    r'|\\\[.+?\\\]',
+    dotAll: true,
+  );
 
   Widget _buildTextBlock(AppLocalizations l10n) {
     final style = applyBlockTextFormat(
@@ -392,7 +397,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       lineHeightStep: widget.block.lineHeightStep,
     );
 
-    // 含 $...$ 的文字段——没聚焦时渲染成真正的公式（跟阅读页
+    // 含 $...$/\(...\)/\[...\] 的文字段——没聚焦时渲染成真正的公式（跟阅读页
     // inlineLatexText 同一份逻辑），不然编辑器里永远只能看到原始
     // $公式$ 源码，写完公式也不知道对不对。一点上去切回原始
     // TextFormField 改源码，光标一收起（onEditingComplete）就切回渲染态。

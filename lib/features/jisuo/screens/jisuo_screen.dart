@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/ai_content_renderer.dart';
+import '../../../shared/widgets/tutorial_block_renderer.dart' show inlineLatexText;
 import '../../messages/utils/message_avatar.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -856,13 +857,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               bottomRight: Radius.circular(4),
             ),
           ),
-          child: Text(
+          child: inlineLatexText(
             turn.question,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-              height: 1.6,
-            ),
+            const TextStyle(fontSize: 14, color: Colors.white, height: 1.6),
           ),
         ),
       ),
