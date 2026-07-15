@@ -1,863 +1,573 @@
-# 极梦 Flutter 开发上下文
+# 极梦 DreamingPolar — 项目完整上下文
+更新时间：2026年7月15日
 
-## 名字的由来
-极梦为什么叫极梦
-极 — 极致、极地、极限
-梦 — 梦想、梦境、Dreaming
+---
 
-两个字加在一起：
-→ 极致的梦想
-→ 来自极地的梦
-→ 把想法推到极限
+## 名字与品牌
 
-英文名 Dreaming Polar 同样：
-→ Dreaming = 梦想中、创造中
-→ Polar = 极地、极点、两极
-→ 极地是地球上最纯净、最辽阔的地方
-   也是人类探索精神的象征
+**极梦**为什么叫极梦：
+- 极 — 极致、极地、极限
+- 梦 — 梦想、梦境、Dreaming
+- 英文名 Dreaming Polar：Dreaming=梦想中/创造中，Polar=极地/极点
+- Logo：紫色 #6366F1 圆角方块 + 白色「极」字
+- Slogan：**极梦，为创造而生**
 
-Logo的含义
-紫色圆角方块 + 白色「极」字
+**产品定位**：知乎的深度 + 小红书的轻量 + Nature的专业质感
+覆盖领域：科学 / 经济 / 时事 / 生活 / 数据 / 编程 / 宇宙 / 生命科学
 
-紫色 #6366F1：
-→ 宇宙的颜色
-→ 知识与创造力的颜色
-→ 介于蓝色（理性）和红色（热情）之间
+---
 
-「极」字：
-→ 简单有力，一眼记住
-→ 像一个人张开双臂拥抱世界
-→ 也像数据流汇聚的中心点
+## 基础信息
 
-极梦的愿景
-不是一个App，是一个文明。
-短期（1-3年）：
-做中国最好的知识内容创作平台
-让创作者用最好的工具，
-把最硬核的知识变成最美的内容
+| 项目 | 极梦 DreamingPolar |
+|------|-------------------|
+| 公司 | 上海既白观海科技有限公司（办理中） |
+| 域名 | dreamingpolar.com |
+| 品牌色 | #6366F1 |
+| 深色背景 | #0A0A0F（AppColors.darkBg，见下方深色系统） |
+| 浅色背景 | #FAFAF8（米白，2026-07中旬起全局改用，见下方"颜色规范"更新说明） |
+| Apple账号 | 个人账号，审核中 |
+| 企业邮箱 | 腾讯企业邮箱，dreamingpolar.com |
+| 账号 | lijiaju@ / contact@ / creator@ / support@ |
 
-中期（3-10年）：
-成为人类知识创作的基础设施
-数学家在极梦推导公式
-天文学家在极梦发布星体数据
-经济学家在极梦解读市场
-程序员在极梦分享代码
-普通人在极梦理解世界
+---
 
-长期（10年以上）：
-让每一个有想法的人
-都能以最低的门槛
-把想法变成影响世界的作品
+## 技术栈
 
-不是只有顶尖学者才配发声
-不是只有专业写手才配创作
-任何人，只要有值得分享的思考
-极梦就是那个把它变成现实的地方
+### 移动端
+- Flutter 3.x + Dart（目标：iOS App Store + Android）
+- 两个仓库：`dp-flutter`（Flutter 1，维护/重构）/ `dp-flutter-2`（Flutter 2，新功能）
+- 状态管理：Riverpod（currentUserProvider 存登录用户）
+- 路由：GoRouter
+- 网络：ApiClient（封装 Dio，自动注入 Bearer token，返回 ApiResponse 不抛异常）
+- 本地存储：flutter_secure_storage + shared_preferences
+- 图片：cached_network_image + flutter_svg
+- LaTeX：flutter_math_fork
+- WebView（Notebook运行Python）：flutter_inappwebview
 
-为什么选极地作为意象
-极地是地球上最后的净土
-没有边界，没有喧嚣
-只有无尽的白与深邃的星空
+### 后端
+- Node.js + TypeScript + Express
+- 服务器：150.109.77.250，端口 3001，后端路径：/root/dp-auth-backend
+- PM2服务：dp-auth
+- 数据库：MySQL，内网 10.5.0.6:3306，库名 dp_users
+- 对象存储：腾讯云 COS，ap-hongkong，Bucket: dp-1317483118
+- COS URL: https://dp-1317483118.cos.ap-hongkong.myqcloud.com/${cosKey}
 
-在那里：
-→ 思想可以走到最远
-→ 目光可以看到最清
-→ 创造力不受任何干扰
+### 部署命令
+```bash
+cd /root/dp-auth-backend && git pull && npm run build && pm2 restart dp-auth && echo "Done"
+```
 
-极梦希望成为创作者的那片极地
-一个让思想自由生长的地方
-
-一句话总结
-极梦，为创造而生
-
-不是为了消费内容
-不是为了刷短视频
-不是为了社交娱乐
-
-是为了创造
-为了把人类脑海中
-最深邃、最美丽、最有价值的东西
-变成可以被世界看见的作品
-
-这就是极梦存在的理由
-
-## 产品定位
-极梦（Dreaming Polar）— 全领域知识内容社区
-覆盖：科学 / 经济 / 时事 / 生活 / 数据 / 编程 / 宇宙 / 生命科学
-定位：知乎的深度 + 小红书的轻量 + Nature的专业质感
-Slogan：极梦，为创造而生
-品牌色：#6366F1（紫蓝，只做点缀）
-主色调：#1A1A1A（近黑）+ #FAFAF8（米白底）
+---
 
 ## 设计语言（必读）
-- 底色：`AppColors.bg`（`#F7F7FB`，app_theme.dart 里定义，浅色主题的
-  `scaffoldBackgroundColor`）——**2026-07-06 起全局统一成这一个值**。
-  之前 home_screen.dart 自己配了 `#FAFAF8`、个人主页 `_heroBg` 也是
-  `#FAFAF8`、`main_shell.dart` 底部导航栏又是纯白 `#FFFFFF`——三个
-  肉眼很难分辨但确实不同的浅灰白，页面内容区跟底部导航栏拼接的地方会
-  露出一条很淡但看得出来的接缝（深色主题因为统一读
-  `Theme.of(context).scaffoldBackgroundColor` 反而没这个问题）。以后
-  任何页面需要"整体背景色"，直接引用 `AppColors.bg`（或干脆不设置，让
-  `Theme.of(context).scaffoldBackgroundColor` 自然生效），不要自己再开
-  一个新的浅灰白色值
+
+### 颜色规范
+- 浅色背景：**`#FAFAF8`（米白）— 全局统一**，2026-07中旬起大规模替换了原来的
+  `AppColors.bg`（冷灰白`#F7F7FB`）。首页最早用的就是`#FAFAF8`，后来陆续把
+  消息页/极索/Notebook/发布页/群聊/设置类页面等全部对齐成同一个米白，
+  不再用`#F7F7FB`或纯白`#FFFFFF`当页面背景。新页面直接用`#FAFAF8`（浅色）/
+  `Theme.of(context).scaffoldBackgroundColor`或`AppColors.darkBg`（深色），
+  不要再引用旧的`AppColors.bg`
 - 主文字：#1A1A1A，次要：#999，辅助：#6366F1
 - 无阴影，无渐变，用 0.5px #F0F0F0 细线分区
 - 卡片：白色 #FFF，border-radius:14px，border:0.5px solid #F0F0F0
-- 发布/主操作按钮：#1A1A1A 黑色，不用紫色
+- 发布/主操作按钮：#1A1A1A 黑色（不用紫色）
 - 紫色 #6366F1 只用于：链接/角标/选中态点缀
-- **例外：个人主页头图区**（2026-07-05 起，用户明确要求的深色玻璃拟态
-  方向）：深色渐变 #2A1F3D→#1A2A3D（无封面图时）+ 黑色蒙层、iOS原生
-  BackdropFilter 毛玻璃按钮（白色 12% 透明度背景）、领域 badge 用同一套
-  配色但改成半透明彩色底+浅色字。这个方向只用在个人主页头图区，是刻意
-  的局部例外，不代表整个 app 转向深色/渐变/毛玻璃——其余页面（发布页、
-  设置页、教程详情页等）继续遵守上面的米白/无渐变/无阴影规范，不要因为
-  看到这条例外就顺手把别的页面也套上玻璃拟态。**这条例外踩过一次坑**：
-  `InterestTag`（`shared/widgets/interest_tag.dart`）最初只实现了这套
-  毛玻璃配色（浅色字+半透明彩色底，靠 BackdropFilter 模糊深色背景才有
-  对比度），后来被复用到编辑资料页的兴趣标签选择器——那里是普通浅色
-  卡片/页面背景，同一套浅色字糊在浅色底上完全看不清。修复：给
-  `InterestTag` 加了个 `glass` 参数（默认 true，头图区例外场景保持不变），
-  `glass:false` 时改用 `topic_badge.dart` 那套"浅底实色字"配色（不是新写
-  一套，是复用已经验证过在浅色背景上可读的方案）；编辑资料页的三处调用
-  全部传 `glass:false`
+- **例外**：个人主页头图区用深色玻璃拟态（不代表全局转向）
 
 ### Badge 配色规则
+```
 数据科学 → bg:#EEF0FF color:#6366F1
 生命科学 → bg:#E8F8F0 color:#16A34A
 经济     → bg:#FFF7E6 color:#D97706
 宇宙天文 → bg:#FDF0F8 color:#C026D3
 编程     → bg:#E6F0FF color:#2563EB
 时事     → bg:#F5F5F5 color:#555555
+```
 
-## iOS HIG 交互设计原则（必读，组件/交互层面，区别于上面的配色规范）
-这些是从发布页、消息页、个人主页等模块的迭代里沉淀下来的交互层规则——上面
-「设计语言」管的是颜色/卡片这些静态视觉，这里管的是"东西怎么弹出来、怎么
-关掉、危险操作长什么样"这类交互层面，新写弹层/菜单/操作面板一律照此收敛，
-不要每个页面各发明一套：
+### 深色主题颜色系统（2026版，已升级）
+```dart
+// 背景层级（从深到浅）
+darkBg       = Color(0xFF0A0A0F)   // 最底层背景（带蓝调）
+darkCard     = Color(0xFF111118)   // 普通卡片
+darkCardHero = Color(0xFF141427)   // Hero大卡
+darkCardList = Color(0xFF101017)   // 小列表卡片
+darkSurface  = Color(0xFF17171F)   // 分类chip底色
+darkBorder   = rgba(255,255,255,.06) // 卡片边框
+darkDivider  = Color(0xFF1A1A28)   // 分割线
 
-1. **原生风格浮层菜单（Context Menu）替代常驻图标行**：多个次要操作（复制/
-   移动/折叠/删除）不平铺成一排常驻图标，收进一个「...」触发的 `showMenu`
-   浮层——圆角14px、`PopupMenuDivider` 细分割线分组、图标在左文字在右、
-   破坏性操作（删除）用 `#EF4444` 标红且和其它项之间加分割线隔开、背景纯
-   白无强投影。只有高频操作（AI入口、拖拽手柄）才常驻，低频操作一律收进
-   菜单（参考：`block_card.dart` 的 `_showMoreMenu`）
-2. **模态操作用 Bottom Sheet，不用 Dialog**：`showModalBottomSheet` +
-   `backgroundColor: Colors.transparent` + 自己套白色 `Container`
-   （`borderRadius: vertical top 20`），标题上方留一条灰色小圆角拖拽条
-   （36×4，暗示可下滑关闭）。`AlertDialog` 只用于真正需要"确认/取消"
-   二选一阻断的场景（应用AI优化结果这种），不用来做菜单
-3. **Safe Area 自己管，不整体套一层**：自定义顶栏/底栏各自用
-   `SafeArea(top:false)` 或 `SafeArea(bottom:false)` 包住并铺满自己的
-   背景色，不在 Scaffold 外层统一留白——否则页面背景色和顶/底栏背景色
-   刀切不齐，会露出一圈灰色缝隙（chat_screen.dart/publish_screen.dart
-   都踩过，见"踩过的坑"#18）
-4. **毛玻璃（BackdropFilter blur）只用在刻意选定的深色语境**：个人主页
-   头图区、侧边栏、底部导航——不是全局默认，米白主题的普通页面（发布页/
-   设置页/教程详情页）不套毛玻璃
-5. **拖拽热区精确绑定到手柄图标**：用 `ReorderableDragStartListener`
-   只包裹一个 `drag_handle` 图标，不是让整行/整卡片可长按拖拽——不然会
-   跟卡片内部的文字输入框/按钮抢手势
-6. **一次性反馈用 SnackBar，不打断操作**：复制成功这类"知道一下就行"的
-   反馈用 1~2 秒的 SnackBar，不用 Dialog 硬打断；需要用户做选择的才用
-   Dialog/Bottom Sheet
-7. **图标统一用线性/outline 风格，不用 emoji**：贴近 SF Symbols 的观感，
-   之前把发布页/侧边栏里的 emoji 全部换成了 Material Icons 的 outlined
-   变体（"提高档次"）
-8. **渐进式披露（Progressive Disclosure）**：内容多/占地方的区块默认给
-   最少信息，需要时才展开——block 折叠功能是这条原则的具体实现，折叠态
-   只显示类型标签+"已折叠"提示+单行内容预览，且折叠只是编辑器内的临时
-   视觉状态，不写进数据模型/不随发布内容持久化
-9. **测试规范**：验证任何新交互，必须能在测试完成后用 `git diff` 证明
-   反复横跳的临时测试代码（splash 跳转/postFrameCallback 钩子）已经
-   完全撤回，零残留（见"踩过的坑"#18）
+// AI对话页气泡（决策B：跟随App主题）
+bubble       = Color(0xFF23233A)   // 比背景亮一档
 
-## 技术栈
-- Flutter + Dart（目标：iOS App Store + Android）
-- 状态管理：Riverpod（currentUserProvider 存登录用户）
-- 路由：GoRouter
-- 网络：ApiClient（封装 Dio，自动注入 Bearer token，不抛异常返回 ApiResponse）
-- 本地存储：flutter_secure_storage + shared_preferences
-- 图片：cached_network_image + flutter_svg
-- LaTeX：flutter_math_fork
-- WebView（Notebook运行Python）：flutter_inappwebview
+// 毛玻璃（只用于个人主页/侧边栏等刻意场景）
+glassLight   = rgba(255,255,255,0.10)
+glassMid     = rgba(255,255,255,0.08)
+glassBorder  = rgba(255,255,255,0.06)
+```
+
+### Feed布局原则（已确认）
+- **无边框沉浸式**，内容直接浮在背景上
+- 条目之间只用 0.5px 分割线，无卡片背景色和边框
+- 每条结构：来源行 → 标题（bold）→ 作者行 → 摘要（2行）→ 图片（可选）→ 操作行（点赞/收藏/评论/×）
+- 深色：#000000底，主文字#FFFFFF，次要#666666，分割线#1A1A1A
+- 浅色：#FAFAF8底，主文字#1A1A1A，分割线#F0F0F0
+- 首页**不放**小梦AI入口条（极索里已有）
+
+### iOS HIG 交互设计原则
+1. 原生风格浮层菜单替代常驻图标行（低频操作收进「...」菜单）
+2. 模态操作用 Bottom Sheet，不用 Dialog（AlertDialog 只用于真正二选一阻断）
+3. Safe Area 自己管，不整体套一层（防止露出灰色缝隙）
+4. 毛玻璃只用在刻意选定的深色语境（头图区/侧边栏/底部导航）
+5. 拖拽热区精确绑定到手柄图标（ReorderableDragStartListener）
+6. 一次性反馈用 SnackBar，不打断操作
+7. 图标统一线性/outline 风格，不用 emoji
+8. 渐进式披露（内容多的区块默认最少信息，需要时展开）
+
+---
 
 ## 后端 API
+
 base: https://api.dreamingpolar.com
 
 ### 认证
+```
 POST /auth/login → {accessToken, username}
 POST /auth/refresh → {accessToken, user}（走 HttpOnly Cookie dp_refresh）
-POST /auth/register → {message:'注册成功'}，不返回token，需再调一次 /auth/login
-GET /auth/me → {id,username,email,avatar,bio,website,handle,gender,location,birthday,zodiac,ip_location,follower_count,following_count,privacy_public_profile,privacy_public_favorites,privacy_allow_comments,privacy_allow_messages,created_at}
-PATCH /auth/me → 更新 username/bio/website/gender/location/birthday/zodiac，birthday 传裸 "YYYY-MM-DD"（传完整ISO会 400）
-PUT /auth/users/privacy → body驼峰bool(publicProfile等)，GET /auth/me 回的是 privacy_* 蛇形int，两边字段命名不对称
-POST /auth/change-password → {oldPassword, newPassword}
-DELETE /auth/account → 注销账号
-403 "Token 无效或已过期" = token过期(可重试刷新)；401 "未携带 Access Token" = 根本没带token(不可重试)
+POST /auth/register → 不返回token，需再调/auth/login
+GET  /auth/me → 完整用户信息
+PATCH /auth/me → 更新资料（birthday传裸"YYYY-MM-DD"）
+PUT  /auth/users/privacy → body驼峰bool
+POST /auth/change-password
+DELETE /auth/account → 注销（级联清理所有COS文件）
+```
 
-### 教程
-GET /auth/tutorials?status=published&author=xxx&page=1&limit=12
-→ {tutorials:[{id,title,cover_image,summary,tags,likes,views,created_at,username,avatar,user_id}], total,page,pages}
-POST /auth/tutorials → {title,summary,cover_image,tags(array),blocks(JSON string),status}
-PUT /auth/tutorials/:id
+### 内容
+```
+GET  /auth/tutorials?status=published&author=xxx&page=1&limit=12
+POST /auth/tutorials → {title,summary,cover_image,tags,blocks,status}
+PUT  /auth/tutorials/:id
 DELETE /auth/tutorials/:id
 POST /auth/tutorials/:id/like
 DELETE /auth/tutorials/:id/like
-GET /auth/tutorials/:id/comments
-POST /auth/tutorials/:id/comments → {content}
-
-### 用户
-GET /auth/users/search?handle=xxx —— 目前是坏的，永远404，不要以为是客户端bug
-GET /auth/users/profile/:identifier → {id,username,handle,avatar,bio,website,follower_count,following_count,tutorial_count}，不含gender/location/zodiac；对方设了主页不公开时返回403
-GET /auth/users/:identifier（旧接口）/ GET /auth/users/:id/follow-status —— 不受主页不公开影响，作为兜底展示有限信息
-POST /auth/users/:targetId/follow
-DELETE /auth/users/:targetId/follow
-GET /auth/users/:targetId/follow-status → {isFollowing}
-GET /auth/users/:userId/followers
-GET /auth/users/:userId/following
-
-### 文件 / 存储
-POST /auth/files/upload (multipart, field='file') → {id,filename,file_type,size_bytes,created_at,updated_at,cos_key,url}
-  file_type 永远是 "other"——后端不区分图片/视频/音频，客户端只能靠文件名后缀猜
-DELETE /auth/files/:id → {message:'文件已删除'}
-GET /auth/storage/usage → {quota,membership,categories:{notebooks,tutorials,media,docs,other,avatars},totalBytes}
-  每个分类 {files:[...], totalBytes}；tutorials 的file自带id+status，cos_key已是完整URL；
-  media/docs/notebooks 的file没有id(靠cos_key末段UUID反推)，cos_key是相对路径，需拼COS前缀
-  图片/视频/音频没有独立分类，全部合并在 media 里
-POST /auth/update-avatar (multipart, field='avatar') → {avatar:'COS URL'}
-
-### 消息（后端待建，目前用 mock 数据）
-GET /auth/notifications
-GET /auth/conversations
-GET /auth/conversations/:id/messages
-POST /auth/messages → {toUserId,content,type}
-
-### ARIA
-POST /api/chat
-headers: Authorization: Bearer token
-body: {messages:[{role,content}], dataframe_context:{varName,columns,rowCount,sampleRows}}
-
-## Block 格式（教程/发布内容）
-blocks 是 JSON 字符串：
-[{id, type(text|code|latex|heading|image|callout|quote|video|audio|link), content, language, executable, level, variant, imageUrl, caption}]
-
-## 路由结构
-/splash        → 启动页（自动登录检查）
-/login         → 登录页
-/register      → 注册页
-/switch-account → 切换账号
-/home          → 首页（Feed）
-/discover      → 发现页（专题+领域地图+创作者）
-/publish       → 发布页（Block 编辑器）
-/aria          → ARIA 分析助手
-/messages      → 消息中心
-/messages/chat/:conversationId → 聊天页
-/profile       → 我的（个人主页）
-/edit-profile  → 编辑资料
-/settings      → 设置
-/settings/security         → 账号安全
-/settings/security/history → 登录历史
-/settings/payment          → 支付方式
-/settings/subscription     → 订阅/会员
-/settings/privacy          → 隐私设置
-/settings/storage          → 云端存储（用量+分类文件管理，封面/缩略图见下）
-/settings/about            → 关于
-/notebook      → Power Notebook 首页
-/notebook/:id  → Notebook 编辑器
-/users/:identifier       → 他人主页
-/users/:userId/followers → 粉丝列表
-/users/:userId/following → 关注列表
-/tutorial/:id  → 教程详情页
-
-## 底部导航（5个）
-首页 / 发现 / +发布（黑色方块按钮）/ 消息 / 我的
-
-## 已实现模块
-
-### 首页
-- Feed 三种卡片混排：大图头条 / 文字+缩略图 / 双列小卡
-- 话题标签横滑筛选（全部/科学/经济/时事/生活/数据/编程）
-- 下拉刷新 + 上拉加载更多
-
-### 发现页（待实现）
-三层结构：
-1. 本周专题：编辑精选大卡 + 专题文章横滑
-2. 领域地图：6宫格（数学物理/生命科学/经济金融/宇宙天文/编程数据/时事）
-3. 发现创作者：横滑卡片，按领域推荐
-
-### 社区
-- 2列瀑布流，搜索栏+标签筛选（本地过滤）
-- 下拉刷新+分页加载
-
-### 发布页（Block编辑器，视觉语言已深化）
-- 顶部：标题输入 + 草稿/发布按钮，SafeArea(bottom:false)+自己的白色背景，不留灰色安全区缝隙
-- 元信息卡：封面图缩成小方块塞进摘要卡片，加入专栏（bottom sheet选专栏，真实数据，GET /auth/columns/mine——2026-07-06 实测确认这个接口已经好了，不是之前记的404/mock，创作者中心的"我的专栏"页也是同一个接口）+ 标题植入（bottom sheet实时预览），两个功能2列并排放
-- 编辑已有内容（2026-07-06）：PublishScreen 现在支持传入 tutorialId 进入编辑模式（路由 /publish/:id）——initState 里 GET /auth/tutorials/:id 回填 title/summary/tags/cover/blocks（EditorBlock.fromJson，是 toJson 的反函数），保存时走 PUT 更新原记录而不是再 POST 一篇新的；同一次编辑会话里第一次保存成功后会记下后端返回的 id，后续再保存也走 PUT，不会重复创建
-- Block 列表：统一白色圆角卡片风格，代码块做成 macOS 风格（三个圆点header+语言下拉+运行按钮），编辑器和阅读态共用同一套语法高亮（HighlightingCodeController）
-- Block 头部操作（2026-07-06 收进「...」菜单）：上移/下移/复制/复制代码（仅代码块）/折叠/删除 不再常驻平铺图标，收进一个 iOS 原生风格的浮层菜单（圆角、细分割线、删除项标红），AI 入口和拖拽手柄因为用得最频繁仍然常驻。折叠是编辑器内的临时视觉状态，不写进 EditorBlock、不随发布内容持久化——重进编辑页永远是展开的，折叠态显示"已折叠"标签+单行内容预览
-- 拖拽排序：ReorderableListView + buildDefaultDragHandles:false，只有drag_handle图标本身可拖（用ReorderableDragStartListener包裹），不是长按任意位置
-- 底部横排工具栏，选中的block类型高亮
-- 抽屉式预览（不是全屏），预览抽屉作者行加了收藏/分享图标
-- 空白引导态：无block时显示"今天想写点什么？"问候语 + 6个快速开始按钮 + 轮播"今日灵感"卡片
-- Block 类型：文字/代码/LaTeX/图片/引用/视频(Pro)/音频(Pro)/链接
-
-### 创作者中心 + 极光创作者计划（2026-07-06）
-入口：个人主页侧边栏「创作者中心」，`lib/features/creator/` 下四个页面：
-- `creator_center_screen.dart`：整体跟随 ThemePreference（浅色白底/深色 `#0A0A1A`）。
-  顶部浏览量/获赞/新粉丝三格数据是真实累计值（GET /auth/tutorials
-  ?author=username&status=published 求和 + currentUserProvider.followerCount），
-  涨幅百分比（↑23%等）后端没有历史快照算不出真实环比，写死 mock，不要当真
-  数据看。作品管理/我的专栏两个快捷入口 + 常驻的 AuroraEntryCard（极光计划
-  入口卡，固定深色星空底，不跟随主题）+ 草稿箱行（点开直接跳作品管理的
-  草稿 tab，不是跳去空白发布页）
-- `aurora_screen.dart`：极光计划详情页，固定深色背景 `#0A0812`（不跟随
-  ThemePreference，跟个人主页头图区一样是刻意保留的局部深色例外）。除了
-  "我的申请进度"卡用真实数据，其余（加入权益/流量分成制度/结算规则/续期
-  条件/为什么选极梦/早期创作者）都是纯静态文案，没有对应的真实计算逻辑
-- `works_screen.dart`：作品管理，已发布/草稿/下架三个 tab，每个 tab 各自
-  查一次 `GET /auth/tutorials?author=username&status=X`（X=published/
-  draft/deleted）。**"下架"不是调 DELETE 硬删**——tutorials.status 是
-  MySQL ENUM('draft','published','deleted') 三个合法值，下架实际是 GET
-  完整教程内容后 PUT 回去把 status 改成 'deleted'，内容和评论/点赞都还在，
-  可以在"下架"tab里"恢复上架"（PUT 改回 published）；只有草稿的"删除"
-  和下架内容的"彻底删除"才是真正调 DELETE /auth/tutorials/:id（这两种
-  情况原本就没公开过或已经不公开，删掉没有社交层面的连带损失）。
-  updateTutorial 是整份覆盖语义，不传 blocks/tags 会被清空成默认值，所以
-  改 status 前必须先 GET 一次拿完整内容再原样传回去
-- `columns_screen.dart`：我的专栏，真实数据 `GET /auth/columns/mine`，
-  "新建专栏"真的调 `POST /auth/columns` 创建（不是占位 SnackBar）——这个
-  接口本来就在用（publish_screen 的加入专栏功能同一个接口），没有理由
-  在这里假装它不存在
-- 与最初给的任务描述有出入的地方（都是往更安全/更真实的方向改，不是
-  抄近路）：草稿箱本地存储实际上不存在，草稿是 POST /auth/tutorials 时
-  status='draft' 存在后端，不是 SharedPreferences；GET /auth/tutorials
-  的 author 参数实测已经在服务端正确过滤（2026-07-06 用一次性测试账号
-  curl 验证），不再是"传了也无效"的状态，但 Flutter 侧沿用了原有的
-  client-side 二次过滤当保险；WorksScreen 的"编辑"按钮需要 PublishScreen
-  真的支持编辑已有内容才有意义，为此把 PublishScreen 从"只能新建"扩展成
-  能编辑（见上面"发布页"一节的记录）
-
-### Power Notebook
-- 首页：最近打开（左滑删除）+ 模板 + 新建底部弹窗
-- 编辑器：Cell列表（Python/R/LaTeX/Markdown/SQL）
-- Python：隐藏WebView跑 Pyodide（dreamingpolar.com/components/compiler/compiler.js）
-- LaTeX：flutter_math_fork 渲染
-- 导入：file_picker（csv/xlsx/json/py/ipynb/tex/md）
-- 持久化：SharedPreferences，key带userId前缀
-
-### 个人主页（2026-07-05 深色玻璃拟态重设计）
-- 头图区固定高度（屏幕50%-Tab栏42-底部导航83，clamp在280~520之间），
-  不再是"内容撑多高算多高"——顶部毛玻璃按钮行（汉堡/返回 + 链接 + 更多，
-  BackdropFilter blur+白色12%透明度背景）和底部用户信息块都是 Positioned
-  绝对定位叠在封面上，互不影响
-- 无封面图时的占位渐变：#2A1F3D→#1A2A3D 深色渐变（不是米白系）
-- 头像+用户名一行 → 兴趣标签（2026-07-06起：编辑资料页里用户自己选的最多3个
-  标签，`lib/core/constants/tag_colors.dart` + `InterestTag` widget 渲染，
-  跟发布/首页用的 `shared/utils/topic_badge.dart` 是两套独立配色表——
-  topic_badge.dart 服务白色卡片上的浅底实色badge，tag_colors.dart 专门服务
-  这里的深色毛玻璃场景（真·BackdropFilter模糊+半透明彩色底+浅色字+同色
-  描边），不是重复维护，视觉语境完全不同。不再是"从发布过的教程tags统计
-  频率最高3个"那套自动推断了，后端 users.tags 字段已上线（GET/PATCH
-  /auth/me、GET /auth/users/profile/:identifier 都支持）
-  → bio单行 → 性别+所在地+IP属地+职业+星座+网站压成一行（Wrap 会自动换行，
-  不是固定单行 Row；IP属地/职业目前只有自己查看自己主页时有值——分别对应
-  currentUserProvider 的 ipLocation/occupation 字段，后端 GET
-  /auth/users/profile/:identifier 还没跟上，查看别人主页时恒为 null，
-  UI 已按"null 就不显示"处理）→ 统计+按钮一行
-- 统计行是内联文字（"3 文章"这种数字+小字标签紧挨着排成一行，横向可滚动
-  防溢出），显示的是文章/获赞/粉丝/关注这种社交数据，不是tab计数；编辑
-  资料(32px白底黑字)+分享(毛玻璃)/私信+关注 两个按钮跟统计同一行右侧
-- Tab栏是独立的 SliverPersistentHeader(pinned:true, 42px高)，不是
-  嵌进头图区的一部分：文章/专栏/Notebook/收藏/点赞五个（专栏在文章和
-  Notebook中间），5个tab要用更紧凑的字号(12px)+labelPadding，不然
-  "Notebook"这种比中文标签长的单词会被裁切显示不全
-- 文章/专栏等Tab：3列九宫格或列表（GridView.count 记得手动
-  padding:EdgeInsets.zero，否则安全区自动padding撑出大缝隙）
-- **下半部（Tab栏+内容区）2026-07-06 起跟着 ThemePreference 走**：深色
-  主题用 `_profileDarkBg` `#0A0A1A` + 深色两色渐变兜底封面
-  （`_coverPaletteDark`，5组，教程没有封面图时用）+ 白色/紫色高亮 TabBar +
-  半透明白玻璃专栏卡；浅色主题保持原来那套——米白底、`_coverPaletteLight`
-  浅色纯色块+图标兜底封面、黑字 TabBar、白底专栏卡。踩过一次坑：第一版
-  直接照抄头图区"不跟随主题、永远深色"的例外规则，结果浅色主题下背景/
-  卡片全变黑但配色还是深色主题那套，反而是浅色主题下唯一一块看不清的
-  区域——头图区可以这样做是因为它本来就一直是深色玻璃拟态设计，没有对应
-  的浅色版本；下半部这里在这次改动前已经有成熟的浅色设计，不能直接套用
-  同一条"局部深色例外"规则，必须两套配色都做，跟着 isDark 切
-- **2026-07-06：整个侧边栏（抽屉）已删除**——`_openProfileDrawer`/
-  `_buildProfileDrawer`/`_profileMenuItem`/`_bottomActionButton` 全部拿掉，
-  左上角不再有汉堡按钮。原来挂在抽屉里的功能重新分配：
-  - 深色模式：不再是"点图标弹出浅色/深色/跟随系统三选一的 bottom
-    sheet"，改成点头图右上角的太阳/月亮图标直接切换明暗（`_toggleTheme`，
-    在当前 `Theme.of(context).brightness` 的相反值之间二选一，不经过
-    "跟随系统"）。图标本身跟着实际生效的明暗态换，不是跟着
-    ThemePreference 的取值
-  - 创作者中心、设置：分别做成头图右上角的图标（`Icons.article_outlined`
-    push `/creator`，`Icons.settings_outlined` push `/settings`），三个
-    图标（主题/创作者中心/设置）从左到右一排，只在自己主页显示
-  - 我的消息/我的收藏/浏览历史/我的Notebook/草稿箱：这几项没有指定新
-    入口，drawer删除后暂时没有专门的菜单能到达——我的消息本来就有底部
-    "消息"tab不受影响，草稿箱可以从创作者中心的作品管理走，我的收藏/
-    浏览历史本来就是"即将上线"的占位，我的Notebook暂时确实少了一个
-    入口，如果需要恢复得另外找地方放
-  - 切换账号、退出登录：移进"全部设置"页最底部，不带 `_SectionTitle`
-    （页面顶部已经用过一次"账号"当分组标题，这里再来一次会像重复分组）
-  - 会员卡：抽屉那张会员升级卡直接删掉，不算功能损失——"全部设置"里
-    本来就有对等的"我的会员"入口（会员中心分组），不是新增的
-  - 头图顶部这一排图标（返回/主题/创作者中心/设置/其他主页的链接图标）
-    统一去掉了原来的 BackdropFilter 毛玻璃圆角底，改成裸图标+黑色投影
-    保证在任意背景亮暗下都能看清，不再靠白色半透明底衬托
-- 状态栏图标用 AnnotatedRegion<SystemUiOverlayStyle>(value: .light) 强制
-  白色，因为头图区总是深色；已知取舍：滚动很远头图完全滚出视口后状态栏
-  区域会露出白色Tab栏背景，白图标短暂不好辨认，没做滚动监听动态切换
-
-### 设置主页（settings_screen.dart）
-账号/通用/会员中心/关于 四组之后，2026-07-06 起追加一组不带标题的
-切换账号+退出登录（原来在侧边栏底部，侧边栏整个删除后搬过来）——退出
-登录复用跟以前一样的确认弹窗+`authServiceProvider.logout()`+
-`context.go('/login')`，没有改逻辑，只是从 profile 页搬到了这里
-
-### 设置 · 云端存储
-- 用量卡片（进度条+已用/总量/剩余）+ 4个可展开分类：Notebook/教程笔记/图片视频音频(media)/文档数据(docs)
-- 教程：封面缩略图(CachedNetworkImage)+已发布/草稿状态徽标
-- media分类内按文件名后缀客户端猜图片/视频/音频（后端file_type恒为"other"，不可靠）：
-  图片走CachedNetworkImage缩略图，视频用video_thumbnail截首帧+播放图标，音频紫色音符图标+模拟波形（非真实波形分析）
-- 删除逻辑：教程用自带id走DELETE /auth/tutorials/:id；其余分类从cos_key末段UUID反推id走DELETE /auth/files/:id，反推失败就不显示删除按钮
-
-### 编辑资料（网易云风格）
-- 全白背景，分割线分区，无色块
-- 生日选择 → 自动推断星座（ZodiacSignExt.fromBirthday）
-- 星座：自研SVG icon（ZodiacIcon）+ 紫色文字，无背景
-
-### 消息中心
-- 三Tab：通知/私信/群组（群组目前是空白占位，注释写着"下个版本上线"）
-- 私信支持：文字/代码/LaTeX/教程卡片/图片
-- 通知/私信都是真实后端数据（不是 mock），群组还没有对应接口
-- **陌生人消息限制（2026-07-06 后端上线，chat_screen.dart 跟着实现）**：
-  互相关注视为好友，完全不受限；非好友规则——对方从没回复过之前，
-  我的第一条消息只能是文字类型，发过之后要等对方回复才能再发；对方
-  只要回复过一次（不论当时是否互关、后续有没有取关）就永久解锁，两人
-  可以自由互发任何类型，这条判断只认"消息历史里有没有对方发的消息"，
-  不认实时关注状态。后端 403 时带 `{message, code}`，`code` 是
-  `STRANGER_LIMIT`（对方尚未回复）或 `TEXT_ONLY_LIMIT`（首条只能文字）。
-  是否互关本身查不了"互相"这个方向（`/auth/users/:id/follow-status`
-  只返回 `isFollowing`，是单向的"我关注了没"），用 `/auth/friends`
-  好友名单（互相关注的人）本身来判断在不在里面，才是跟后端同一套口径。
-  提示条 UI 不是常驻在输入框上方的通栏，是插进消息列表顶部、居中的小
-  胶囊——跟输入框上方的横栏比更像一条系统提示，不是一直杵在那的警告；
-  且只在真的没有聊天记录时出现，一旦对方回复过（哪怕之后取关了）就再
-  也不出现
-- **ApiResponse.error 现在会透传原始错误响应体到 `data` 字段**
-  （`core/network/api_response.dart`/`api_client.dart`）——2026-07-06 之前
-  失败响应只保留一个拍平的 `message` 字符串，`code` 这种结构化字段全部
-  丢失，想按错误类型精确处理只能匹配 message 文案（换一个字就失配）。
-  现在 `res.data?['code']` 能可靠读到，陌生人限制这两个 code 就是靠这个
-  修复才能用，以后其它接口的结构化错误也一样能读
-- **好友列表**（`friend_list_screen.dart`，路由 `/friends`）：互相关注的
-  用户列表，GET /auth/friends。入口不是消息页里的一个tab（消息页已经有
-  通知/私信/群组三个tab，跟最初任务描述假设的"单一会话列表页"不一样），
-  是个人主页头图区新增的一个图标，卡在"主题切换"和"创作中心"两个图标
-  中间。点开一个好友进聊天：接口本身没直接返回 conversation id，复用
-  user_profile_screen.dart"发消息"按钮那套"先查 /auth/conversations
-  里有没有现成会话，没有就发一条默认招呼语创建一个"逻辑
-
-## 共享组件
-lib/shared/widgets/
-- main_shell.dart — 底部导航（首页/发现/+/消息/我的）。2026-07-06 起
-  跟着 `Theme.of(context).brightness` 走——之前整条背景/图标颜色都是
-  写死的浅色（白底+近黑图标），个人主页下半部改深色之后滚到底会露出
-  这条刺眼的白条。深色主题：背景 `#1C1C1E`（复用 app_theme.dart 深色
-  scaffoldBackgroundColor 那个值，不是另配一个）、无阴影、选中态白色/
-  未选中 `Colors.white38`、中间发布按钮换成品牌紫 `#6366F1`（近黑在
-  深色导航条上对比度太低）；浅色主题同一天又从纯白 `#FFFFFF` 改成
-  `AppColors.bg`（跟首页/发现页/消息页/个人主页统一，见上面"设计语言"
-  里背景色统一的说明，不是重复的改动）
-- zodiac_icon.dart — 十二星座SVG图标 + ZodiacPicker
-
-lib/shared/models/
-- user_model.dart — UserModel
-- tutorial_model.dart — TutorialModel（含tags兼容解析）
-
-## 踩过的坑（必读）
-
-### 1. 账号数据隔离（最重要）
-所有缓存key必须带userId前缀：'${userId}_tutorials'
-退出登录只清当前用户缓存，不能 deleteAll()
-
-### 2. 时间戳秒级
-DateTime.fromMillisecondsSinceEpoch(created_at * 1000)
-
-### 3. 教程列表格式
-返回 {tutorials:[...], total, page, pages}，不是直接数组
-
-### 4. tags 兼容
-if (tags is String) jsonDecode(tags) else tags
-
-### 5. cover_image 可能为空
-无封面按标题首字符 hashCode 选色（紫/绿/橙/粉/蓝）
-
-### 6. avatar 两种格式
-avatar.startsWith('data:image')
-  ? Image.memory(base64Decode(去掉前缀))
-  : CachedNetworkImage(url)
-
-### 7. ApiClient 不抛异常
-内部 catch DioException，返回 ApiResponse.error()
-调用方必须检查 res.success，不能用 try/catch
-
-### 8. currentUserProvider
-ref.watch(currentUserProvider) → UserModel?
-不存在 authProvider 或 authProvider.userId
-
-### 9. token 存储 key
-AppConstants.tokenKey(userId) = 'user_${userId}_token'
-不要用裸字符串 'access_token'
-
-### 10. Cookie 自动管理
-已配置 cookie_jar + dio_cookie_manager
-refresh token 走 HttpOnly Cookie（dp_refresh），Dio 自动携带
-
-### 11. ChatScreen 必须携带 conversation
-context.push('/messages/chat/${id}', extra: conversation)
-extra 为 null 时发送按钮静默失效
-
-### 12. Scaffold drawer 做侧边栏
-个人主页侧边栏用 Scaffold(drawer: ...) 实现
-不要嵌入主页面 Column，否则变成页面内容而非抽屉
-
-### 13. 全局 InputDecorationTheme 会漏灰色底
-app_theme.dart 的亮/暗主题都设了 filled:true 的灰色fillColor
-任何 TextField 不显式加 filled:false，都会透出一层灰底，跟自定义/透明背景很违和
-
-### 14. GridView 会自动套安全区 padding
-GridView / GridView.count 不传 padding 时，会默认套 MediaQuery.padding（安全区）
-嵌在 Column/SingleChildScrollView 里的 GridView 必须显式 padding:EdgeInsets.zero，否则跟相邻元素之间会出现说不清的大缝隙（个人主页九宫格、发布页快速开始2列格都踩过）
-
-### 15. ReorderableListView 的拖拽默认是"长按任意位置"
-一个纯装饰性 Icon(Icons.drag_handle) 不会自动变成拖拽手柄
-要让"只有这个图标能拖"：ReorderableListView 传 buildDefaultDragHandles:false，图标外面包 ReorderableDragStartListener(index:...)
-
-### 16. GET /auth/storage/usage 里 cos_key 格式不统一
-tutorials 分类的 cos_key 已经是完整 https:// URL；media/docs/notebooks 分类是相对路径，要拼COS前缀
-无脑统一拼前缀会在tutorials上产出重复前缀的坏URL——渲染前必须判断 startsWith('http')
-
-### 17. file_type 字段不可信
-POST /auth/files/upload 返回的 file_type 不管传什么 contentType 上传，实测永远是 "other"
-要分辨图片/视频/音频只能靠文件名后缀，不能指望后端字段
-
-### 18. 测试路由跳转后必须用 git diff 验证复原
-没有UI自动化点击手段时，临时改 splash_screen.dart 的 context.go(...) 目标路由来做可视化验证是可行的
-但改完测试后必须 git diff 确认改动只有那一行、且改回原值后 diff 为空，否则容易在来回改的过程中误删周边代码
-另外要注意 _restore() 里有两条成功跳转分支（首次登录成功 + 刷新token后登录成功），只改一条可能测不出效果——本机token若已过期会走第二条分支
-
-### 19. ListView/SliverList 会把直接子项的 cross axis 撑成 tight constraint
-垂直滚动的 ListView（包括其他基于 Sliver 的滚动容器）给每个直接子项的横向
-约束是 min==max==视口宽度，一个明确写了 `width: 36` 的 Container 放进去，
-自己的 width 会被这个 tight constraint 顶掉、被拉伸撑满全宽——不是 Container
-的 bug，是 BoxConstraints.constrain() 的正常行为。踩过一次（aurora_screen.dart
-的返回按钮被拉成了一条通栏），修法是给这个子项外面套一层 `Align`（或
-`Row`/`Center`），不要指望子项自己的固定 width 能在 ListView 直接子项这一层
-生效
-
-## COS 存储
-bucket: dp-1317483118，region: ap-hongkong
-URL: https://dp-1317483118.cos.ap-hongkong.myqcloud.com/${cosKey}
-公共读，图片 URL 可直接访问
-头像目录：avatars/（不计入配额）
-
-## 服务器
-腾讯云香港，IP: 150.109.77.250
-后端：/root/dp-auth-backend，pm2 服务名 dp-auth，端口 3001
-数据库：MySQL，内网 10.5.0.6:3306，库名 dp_users
-
-## 品牌破圈思路
-用户发文章的动力来源
-现有平台的问题
-知乎：写了没人看，算法不扶持新人，大V垄断流量
-小红书：适合生活类，数据科学/学术内容没有受众
-微信公众号：封闭，没有发现机制，只能靠自己推广
-CSDN/博客园：太技术向，没有社区感，排版差
-极梦要填的空白：一个让知识型创作者觉得"值得写"的地方。
-
-动力一：被看见
-这是最基础的需求。极梦的优势是垂直受众精准——在极梦写一篇关于贝叶斯统计的文章，读者都是真正对这个感兴趣的人，点赞和评论的含金量远高于泛流量平台。
-比在朋友圈发文章被10个人无聊点赞，更有价值的是被100个真正懂的人认真阅读。
-
-动力二：Notebook 是天然的发布动机
-这是极梦独有的。
-用户在 Power Notebook 里做了一个分析，代码跑通了，图出来了——这个过程本身就是内容。发布只需要点一下"发布为文章"，Notebook 直接转成带可运行代码的教程。
-其他平台没有这个路径。用户在极梦创作的过程本身就产生了发布动机，不需要额外激励。
-
-动力三：变现预期
-早期即使没有知识付费，也要让创作者看到路径：
-
-公开粉丝数和阅读量，让创作者感受到积累
-早期创作者标签（"极梦认证创作者"）
-承诺未来开放付费专栏
-
-人愿意投入的前提是相信未来有回报，不需要现在就兑现。
-
-动力四：工具本身就值得用
-即使没有读者，Power Notebook 本身也是一个好用的工具——比 Jupyter 更轻量，比 Colab 更私密，带 LaTeX 渲染，带 ARIA 辅助。
-用户先因为工具来，然后自然而然地发布。这和 GitHub 的逻辑一样：开发者用 GitHub 管代码，不是为了涨粉，但代码公开之后自然形成了社区。
-
-动力五：社区归属感
-极梦的全领域定位创造了一个新的身份认同——"极梦创作者"，不是某个领域的专家，而是跨领域的知识探索者。
-这个身份在其他平台没有对应位置。物理系学生在知乎写经济，没人看；在极梦，"用物理思维理解经济"恰恰是平台鼓励的。
-
-冷启动的关键策略
-光靠产品功能不够，还需要：
-第一步：找50个种子创作者
-不是泛泛招募，是主动找那些在知乎、公众号上已经有积累但觉得"怀才不遇"的人，给他们开白名单、给他们流量扶持，让他们第一批内容在极梦独家发布。
-第二步：编辑团队主动约稿
-早期不能完全依赖自然投稿，要像杂志编辑一样主动选题、约稿、帮作者打磨，保证首页内容质量。
-第三步：让第一批内容破圈
-把极梦上最好的文章推到微博、微信、知乎——不是推极梦这个平台，而是推文章本身，让读者追着内容来注册。
-
-## 视觉风格（2026 风格，高质感）
-
-### 主视觉方向
-- 深色为主：主背景 `#0A0A1A` → `#1A0E2E` → `#0D1A3A` 渐变
-- 极光光效：`radial-gradient` 紫蓝光晕叠加，营造深空感
-- 毛玻璃层：`BackdropFilter blur(20-32px)` + `rgba(255,255,255,0.08-0.12)` 半透明
-- 主色调：`#6366F1` 紫蓝，点缀 `#8B5CF6` 深紫
-
-### 侧边栏（Drawer）视觉规范
-- 背景：`rgba(15,10,30,0.82)` + `BackdropFilter blur(32px) saturate(1.8)`
-- 右边框：`0.5px rgba(255,255,255,0.08)`
-- Header：深紫极光渐变 `rgba(99,102,241,0.25) → rgba(139,92,246,0.15) → transparent`
-- 菜单图标背景：各领域色 `.withOpacity(0.2)`，图标用浅色版本
-- 菜单文字：`rgba(255,255,255,0.85)`
-- 分割线：`rgba(255,255,255,0.06)`
-- 底部按钮：`rgba(255,255,255,0.4)`，退出用 `#FF6B6B`
-
-### 个人主页视觉规范
-- 封面区：深色渐变背景 + `radial-gradient` 极光光晕
-- 顶部按钮：毛玻璃 `rgba(255,255,255,0.10)` + `BackdropFilter blur(10px)`
-- Badge：领域色 `.withOpacity(0.3)` 背景 + 浅色文字 + `0.5px` 领域色边框
-- 统计行：`rgba(255,255,255,0.08)` 毛玻璃卡片
-- Tab 选中：`#6366F1` 下划线（深色主题）
-- 底部导航：`rgba(10,10,26,0.85)` + `BackdropFilter blur(20px)`
-
-### 技术实现栈
-- Flutter + Material 3 + 自定义 Design System
-- `CustomPainter`：渐变背景、极光光效
-- `BackdropFilter`：毛玻璃效果（侧边栏、顶部按钮、底部导航）
-- `AnimationController` / `ImplicitAnimation`：页面微交互
-- Lottie / Rive：局部动态效果（可选，后期）
-- Skia 渲染引擎：保证复杂渐变在 iOS/Android 一致
-
-  ### 颜色系统（深色主题）
-  ```dart
-  // 背景层
-  bgDeep:    Color(0xFF0A0A1A)
-  bgMid:     Color(0xFF1A0E2E)
-  bgLight:   Color(0xFF0D1A3A)
-
-  // 毛玻璃
-  glassLight: Color(0x1AFFFFFF)  // rgba(255,255,255,0.10)
-  glassMid:   Color(0x14FFFFFF)  // rgba(255,255,255,0.08)
-  glassBorder: Color(0x0FFFFFFF) // rgba(255,255,255,0.06)
-
-  // 主色
-  primary:   Color(0xFF6366F1)
-  primaryAlt: Color(0xFF8B5CF6)
-
-  // 文字
-  textPrimary:   Color(0xFFFFFFFF)
-  textSecondary: Color(0xCCFFFFFF)  // 0.8
-  textMuted:     Color(0x66FFFFFF)  // 0.4
-
-  // 功能色
-  danger: Color(0xFFFF6B6B)
-  ```
-
-  ### 注意事项
-  - `BackdropFilter` 在 iOS 上性能优秀，Android 需注意层数不要过多
-  - 渐变光晕用 `DecoratedBox` + `BoxDecoration` 叠加，不要用 `ShaderMask`（性能差）
-  - 深色模式下所有边框用 `rgba白色` 而非 `rgba黑色`
-  - 九宫格内容区卡片用深色渐变而非白色，保持整体调性一致
-
----
-
-## 产品生态架构（完整闭环）
-
-### 三层架构
-
-**层一：内容生产层**
-- 发布页（通用）：任何人可用，文字/代码/LaTeX/图片/视频 Block
-- 专业垂直模块：
-  - 编程及开发 → Notebook + CM6 + 小梦辅助
-  - 数学建模 → LaTeX渲染 + 公式生成 + 3D图形
-  - 天体物理 → 3D星体渲染 + 数据可视化
-  - 经济杂志 → 数据图表 + 宏观数据接入
-  - 科普内容 → 富媒体 + 交互式图解
-- 小梦 AI：辅助摘要生成、封面生成、写作建议
-
-**层二：内容分发层**
-- 发现页：按领域筛选，热度排序（浏览/点赞/收藏加权）
-- 首页推送：个性化推荐（基于用户兴趣标签），优质内容算法+人工筛选后推至首页，首页是流量最大入口
-
-**层三：商业化层**
-- 品牌赞助体系（内容原生广告）
-- 极光创作者计划（流量分成）
-- 极梦 Pro 订阅（工具付费）
-
----
-
-## 设备角色定位：iPhone vs iPad
-
-一句话结论：**iPhone 是极梦的发现和消费端，iPad 是极梦的创作主战场。**
-
-### 各自的角色
-**iPhone**：
-- 浏览、阅读、评论、点赞
-- 碎片化消费内容
-- 收到通知后快速查看
-- 轻量互动（回复评论/私信）
-
-**iPad**：
-- 认真创作的主战场
-- Notebook 编写和运行
-- 长文章撰写
-- 多窗口对照资料写教程
-- Apple Pencil 手写公式/批注
-- 外接键盘全键盘操作
-
-### 定位转变：iPad 不是「适配」，是「专属体验」
-不是把 iPhone 界面放大，而是重新设计创作者的工作台。参考对象要跟着升级——
-不是 iPad 版微信（沟通工具），而是：
-- **Notability**（Apple Pencil 创作）
-- **Craft**（文档创作，iPad 天花板）
-- **Bear**（写作，极简但强大）
-- **Replit**（iPad 上的 IDE 体验）
-- **GoodNotes**（手写+文字混排）
-
-### iPad 专属功能（iPhone 做不到的）
-1. **Split View 支持**——左边看参考资料，右边写教程，这是 iPad 最强的
-   生产力场景。极梦可以做到：左边别人的教程/自己的笔记，右边正在编辑
-   的 Notebook
-2. **Apple Pencil 集成**——数学公式手写识别→转 LaTeX，图表手绘→
-   矢量化插入，代码注释手写批注。这是极梦数学/天体物理模块独一无二的
-   差异化功能
-3. **外接键盘快捷键**——Cmd+Enter 发布/运行，Cmd+B 加粗，Cmd+K 插入
-   链接，Cmd+/ 插入代码块，Tab 在 Cell 间跳转，让 iPad 创作效率接近 Mac
-4. **宽屏 Notebook 布局**——iPhone 是单列上下滚动；iPad 应该是左侧目录
-   +右侧 Cell 内容，类似 JupyterLab 的双栏布局，这才是 Notebook 该有
-   的样子
-5. **悬浮工具栏（Hover）**——iPad 支持鼠标/触控板悬停，代码 Block
-   悬浮显示复制/运行、图片悬浮显示全屏/下载，iPhone 没有这个交互维度
-
-### 旗舰功能：Apple Pencil + LaTeX（极梦最大的武器）
-用户场景：数学系学生用 iPad 上课 → 手写推导过程 → 极梦识别为 LaTeX →
-直接插入教程 Block → 发布出来是完美渲染的公式。
-
-这件事市面上没有任何内容平台做到——Notability 只能存本地，GoodNotes
-不能发布，极梦可以做到「创作即发布」。
-
-实现路径：
-1. Apple Pencil handwriting API（PencilKit）
-2. 接 Vision 框架做手写识别
-3. 识别结果送小梦转换成 LaTeX
-4. 插入为 LaTeX Block
-
-预估工期 2-3 周，但价值极高。
-
-### 优先级：Track A（基础适配）+ Track B（iPad 专属）
-不是先做通用适配、iPad 专属留到以后——iPad 专属功能要单独拉一条更高
-优先级的轨道，跟基础适配并行看待：
-
-**Track A · 基础适配，维持体验（1-2 周）**
-- NavigationRail
-- 双栏布局
-- 网格列数自适应
-- 弹窗居中
-
-**Track B · iPad 专属，打出差异（核心卖点，值得专门投入时间）**
-- Notebook 双栏布局（最重要）
-- 外接键盘快捷键
-- Apple Pencil + LaTeX（旗舰功能）
-- Split View 支持
-
-### 一句话
-iPhone 是极梦的发现和消费端，iPad 是极梦的创作主战场。如果极梦的 iPad
-Notebook 体验能做到国内最好，再加上 Apple Pencil 写公式，这个产品就有了
-真正难以复制的护城河——不是靠功能多，而是靠场景深。
-
----
-
-## 品牌赞助体系
-
-### 核心逻辑
-赞助商购买赞助名额 → 系统匹配领域相关优质内容 → 内容顶部原生展示
-
-### 展示样式
-
-**教程详情页**（标题下方）：
-┌─────────────────────────────┐
-│ 本文由 [品牌名] 赞助           │
-│ 「品牌一句话广告语」            │
-└─────────────────────────────┘
-底部注释：作品创作人可获得赞助分成
-
-**发现页卡片**：
-┌────────────────────────┐
-│ 📌 赞助      [品牌Logo] │
-│ 文章标题                │
-│ 作者 · 1.2k浏览         │
-└────────────────────────┘
-
-### 收益分配
-- 创作者：**70%**（主要受益方）
-- 极梦平台：**20%**（匹配+分发服务费）
-- 极光基金：**10%**（流入流量分成池，壮大极光计划）
-
-### 定价建议
-- 普通优质内容（首页推送）：¥500–2,000 / 7天曝光周期
-- 极光创作者内容（高流量）：¥2,000–10,000 / 次
-- 爆款内容（专项谈判）：无上限，品牌价值导向
-
-### 优势
-- 对创作者：除流量分成外的额外被动收入，无需主动接广告
-- 对赞助商：内容原生不突兀，精准领域投放，用户接受度高
-- 对平台：不依赖流量广告，内容质量越高赞助价值越高，正向飞轮
-
-### 后端数据表（待实现）
-```sql
-sponsorships         -- 赞助合同
-sponsor_placements   -- 内容匹配记录
-sponsor_earnings     -- 创作者收益记录
+GET  /auth/tutorials/:id/comments
+POST /auth/tutorials/:id/comments
 ```
 
-### 后端接口（待实现）
-GET  /auth/sponsorships                    -- 赞助商列表
-POST /auth/sponsorships/apply              -- 申请赞助
-POST /auth/tutorials/:id/sponsor           -- 匹配内容
-GET  /auth/creator/sponsor-earnings        -- 创作者赞助收益
+### 用户
+```
+GET /auth/users/profile/:identifier → 主页信息（403=对方隐私）
+POST /auth/users/:targetId/follow
+DELETE /auth/users/:targetId/follow
+GET  /auth/users/:targetId/follow-status → {isFollowing}
+GET  /auth/users/:userId/followers
+GET  /auth/users/:userId/following
+GET  /auth/users/:userId/liked → {tutorials}
+GET  /auth/users/:userId/saves → {saves, total, page}
+GET  /auth/me/saves → 自己的收藏
+GET  /auth/friends → 互相关注的好友列表
+```
 
-### Flutter 待实现
-- 教程详情页顶部赞助展示区（标题下方插入赞助卡片）
-- 创作者中心新增「赞助收益」模块
-- 赞助商后台（独立入口，暂不开发）
+### 文件/存储
+```
+POST /auth/files/upload (multipart, field='file') → {id,filename,file_type,cos_key,url}
+  注意：file_type 永远是 "other"，按文件名后缀判断类型
+DELETE /auth/files/:id
+GET  /auth/storage/usage → {quota,membership,categories}
+POST /auth/update-avatar (multipart, field='avatar')
+```
+
+### 搜索/通知/消息
+```
+GET  /auth/search?q=xxx → 全类型搜索
+POST /auth/search/history → {keyword} 保存搜索历史
+GET  /auth/search/history → {history:[{keyword,...}]}（最多20条）
+DELETE /auth/search/history → 清空
+GET  /auth/notifications
+POST /auth/notifications/:id/read
+PUT  /auth/notifications/read-all
+GET  /auth/conversations
+GET  /auth/conversations/:id/messages
+POST /auth/messages → {toUserId,content,type}
+```
+
+### 群组/论坛/极索
+```
+群组：GET/POST /auth/groups，群消息收发，群成员管理
+论坛：GET/POST /auth/forums，发帖/回复
+极索：GET/POST /auth/questions，提问/回答/采纳/邀请
+专栏：GET /auth/columns/mine，POST /auth/columns
+```
+
+### 小梦AI
+```
+POST /auth/xmeng/chat/stream → SSE流式输出
+GET  /auth/xmeng/conversations → 对话历史
+DELETE /auth/xmeng/conversations/:id
+```
+
+### 在线状态
+```
+GET /auth/users/online-status → 基于last_seen_at推导 online/recently/offline
+```
 
 ---
 
-## 飞轮效应
-优质内容 → 更多流量 → 吸引赞助商
-↑                        ↓
-创作者收益增加 ← 赞助+分成收益
-↑                        ↓
-└──── 极光基金池扩大 ←────┘
-
-内容质量越高 → 赞助价值越高 → 极光基金越大 → 创作者收益越多 → 激励更多优质创作
+## Block 格式（教程/发布内容）
+```json
+[{
+  "id": "uuid",
+  "type": "text|code|latex|heading|image|callout|quote|video|audio|link",
+  "content": "内容",
+  "language": "python",
+  "executable": true,
+  "level": 1,
+  "variant": "info",
+  "imageUrl": "https://...",
+  "caption": "图片说明"
+}]
+```
 
 ---
 
-## 商业模式总结
+## 路由结构
+```
+/splash          → 启动页
+/login           → 登录
+/register        → 注册
+/home            → 首页 Feed
+/jisuo           → 极索问答
+/xiaomeng        → 小梦AI欢迎页
+/xiaomeng/chat   → 小梦AI对话
+/xiaomeng/history → 小梦AI历史
+/publish         → 发布页（Block编辑器）
+/publish/:id     → 编辑已有文章
+/messages        → 消息中心（通知/私信/群组）
+/messages/notifications → 通知页
+/messages/groups → 群组
+/messages/forums → 论坛
+/notebook        → Power Notebook首页
+/notebook/:id    → Notebook编辑器
+/profile         → 我的主页
+/edit-profile    → 编辑资料
+/settings        → 设置
+/settings/subscription → 订阅/会员中心（免费用户头像角标皇冠点击跳转到这）
+/settings/privacy → 隐私设置
+/settings/security → 账号安全
+/settings/storage → 云端存储管理（文件/教程删除，统一走底部Sheet确认）
+/users/:identifier → 他人主页
+/tutorial/:id    → 文章详情页
+/creator         → 创作者中心
+/aurora          → 极光计划
+/column/:id      → 专栏详情
+/friends         → 好友列表
+```
 
-| 收入来源 | 目标用户 | 现阶段优先级 |
-|---------|---------|------------|
-| Pro 订阅（¥39/月） | 数据/编程/建模用户 | ★★★ 主要收入 |
-| 品牌赞助体系 | 内容创作者+品牌方 | ★★☆ 中期 |
+---
+
+## 功能完成状态
+
+### ✅ 后端接口（已完成）
+- 用户认证：注册/登录/JWT/Refresh Token/注销全量COS清理
+- 用户系统：主页/编辑/关注/粉丝/在线状态/好友列表
+- 内容创作：文章CRUD/专栏/收藏/点赞/评论/分享
+- 极索问答：提问/回答/采纳/邀请
+- 即时通讯：私信/群组/富文本/撤回/已读/陌生人限制
+- 论坛社区：发帖/回复/精华
+- 小梦AI：SSE流式/历史对话持久化/System Prompt代码规范
+- 通知系统：多类型/已读/全部已读（群聊/论坛回复不进通知中心）
+- 搜索：全类型/历史记录（POST/GET/DELETE）
+- 文件：COS上传/删除
+- 删除级联清理：文章body图片/专栏封面/私信图片/AI对话/用户注销全量/群聊解散
+- search_history 表已建
+
+### ✅ StoreKit内购（2026-07中旬新增）
+- Flutter端：`lib/features/subscription/purchase_service.dart`（PurchaseService，
+  App启动时`main.dart`里`unawaited(ref.read(purchaseServiceProvider).init())`
+  预热，接住上次中断/挂起的交易）+ 订阅页面 + 收据验证已接入
+- iOS工程已开启 In-App Purchase Capability
+- 仍需等Apple开发者账号审核通过才能在App Store Connect配置真实商品/走通完整
+  沙盒到生产的收据验证链路
+
+### ❌ 后端接口（待做）
+- APNs推送通知（等Apple账号）
+- 创作者收益提现的真实资金对账/打款（分成规则已在Flutter端文案里定好，见
+  下方"商业模式"，后端资金侧尚未实现）
+- 品牌赞助体系接口
+
+### ✅ Flutter前端（已完成）
+**基础功能**
+- 双主题（深色/浅色），主题切换 Duration.zero（消除过渡期不同步）
+- 在线状态系统（last_seen推导/绿点/私信/群成员/用户主页）
+- 搜索历史前端（接入后端接口/展示/清空）
+- Firebase Crashlytics框架（脚手架，待flutterfire configure激活）
+
+**内容功能**
+- 小梦AI：SSE流式/LaTeX四格式渲染/代码运行跳Notebook/历史对话
+- 文章分享：8项分享/生成海报/保存相册/复制链接（RepaintBoundary+image_gallery_saver）
+- PDF导出：LaTeX离屏真渲染（Overlay+RepaintBoundary+endOfFrame双重防护）/代码块keep-together（≤40行/块）/图片嵌入/简洁+深色两种样式
+- Markdown导出
+- 音视频block加外部播放说明文字
+- SyntaxError透传原始报错（dreaming_polar仓库，commit 8885db0）
+
+**修复类**
+- 底部导航栏主题切换边缘渲染延迟（改读scaffoldBackgroundColor）
+- 发布按钮深色模式颜色（硬编码#6366F1，不走M3自动生成色）
+- 通知预览点击标记已读（messages_screen.dart）
+- PDF代码块跨页截断（keep-together防截断）
+- Overlay.insert推到endOfFrame之后（消除build阶段setState冲突）
+
+**视觉重构（已完成）**
+- 通知页重设计：分类筛选chips/头像角标/内容摘要引用卡/空状态（commit 4e62e70）
+- 文章阅读页重设计：进度条/封面16:9/Apple Books排版/作者卡片/底部操作栏（commit 29c6761）
+- 小梦AI对话页视觉重构：欢迎页/对话/历史/深色系/代码运行按钮（commit 38918c2）
+
+### ⏳ Flutter前端（进行中）
+- 上面"视觉重构进度"列的大页面基本都已完成，当前主要是细节打磨
+  （分割线粗细/背景色统一/空状态文案与插画/按钮描边vs填色这类微调），
+  不再有整页级别的"待重设计"任务积压
+- Pyodide运行引擎已从"每个页面/每个代码块各自一份隐藏WebView"改成
+  App级全局单例，见下方"Pyodide架构"一节
+
+---
+
+## 视觉重构进度
+
+**2026-07-15更新**：这轮重构规模很大（两个并行session同时在改这个仓库），
+下表只列确认完成的大项，commit hash不再逐条对——改动太密集，请以
+`git log --oneline`为准，这里只做"完成/进行中"的粗粒度状态跟踪。
+
+| 页面 | 状态 | 备注 |
+|------|------|--------|
+| 通知页 | ✅ 完成 | 分类筛选/头像角标/内容摘要卡 |
+| 文章阅读页 | ✅ 完成 | 进度条/封面/作者卡/底部操作栏；2026-07-15去掉了封面上方的阅读进度条（视觉噪音大于功能价值） |
+| 小梦AI页 | ✅ 完成 | 欢迎页/对话/历史/深色系 |
+| 首页Feed | ✅ 完成 | 无边框沉浸式，米白背景`#FAFAF8` |
+| 极索页 | ✅ 完成 | Hero收紧+径向光晕背景+示例问题卡 |
+| Notebook编辑页 | ✅ 完成 | Cell卡片/工具栏/紫光晕背景；Pyodide运行引擎已改为App级全局单例（见下方"Pyodide架构"） |
+| 消息页 | ✅ 完成 | 快捷入口/最近通知/私信预览 |
+| 作品管理页 | ✅ 完成 | 统计卡+单色文章卡+图标/文字操作行，封面支持真实cover_image |
+| 专栏管理页 | ✅ 完成 | 彩色封面卡+全交互Sheet |
+| 发布编辑页 | ✅ 完成 | Block编辑器/摘要LaTeX渲染/元信息卡 |
+| 用户主页 | ✅ 完成 | 网易云风格头图/头像角标（VIP/皇冠升级入口） |
+| 群组/论坛/搜索页 | ✅ 完成 | 背景统一米白，各页视觉细节持续微调中 |
+| 设置类页面（存储/隐私/协议/群设置） | ✅ 完成 | 删除确认统一改底部Sheet，隐私政策/用户协议改真实公司信息全文 |
+
+---
+
+## 数据库关键表结构
+
+```sql
+users                 用户（tags字段已上线）
+tutorials             文章（blocks LONGTEXT，status ENUM draft/published/deleted）
+columns_table         专栏（cover_image，无CASCADE需手动删）
+questions/answers     极索问答
+groups/group_messages 群聊（type: image/file/text，content存URL）
+messages              私信（type: image/file/text，无外键CASCADE）
+forums/forum_posts    论坛
+notifications         通知（群聊消息和论坛回复不进通知中心）
+ai_conversations      小梦对话（ON DELETE CASCADE）
+ai_messages           小梦消息（ON DELETE CASCADE，只有role/content，无图片字段）
+user_files            用户文件（cos_key）
+search_history        搜索历史（ON DELETE CASCADE，已建表）
+refresh_tokens        JWT刷新
+```
+
+**注意**：
+- tutorials 下架 = PUT status='deleted'，不是 DELETE（可恢复）
+- 草稿是 POST status='draft' 存后端，不是本地存储
+- GET /auth/tutorials 的 author 参数已实测可用
+
+---
+
+## 当前等待外部条件
+
+| 条件 | 状态 | 解锁后做 |
+|------|------|---------|
+| Apple开发者账号 | ⏳ 审核中 | Bundle ID + APNs + StoreKit + 上架 |
+| 营业执照 | ⏳ 办理中 | 隐私政策填公司名部署 |
+| Firebase Console | ❌ 未配置 | flutterfire configure 激活Crashlytics |
+
+---
+
+## 上线前Checklist
+- [ ] Apple开发者账号激活
+- [ ] Bundle ID配置
+- [ ] APNs证书配置
+- [ ] Firebase Crashlytics激活（flutterfire configure一次性完成）
+- [ ] StoreKit内购商品配置（月度¥39/年度¥128）
+- [ ] 隐私政策/用户协议部署到dreamingpolar.com
+- [ ] App Store截图准备（6.5寸/5.5寸）
+- [ ] TestFlight内测至少1周
+- [ ] 关键功能真机回归测试（尤其音视频/图片上传）
+
+---
+
+## 技术债（按优先级）
+
+### 🔴 高优先级（上线前）
+- APNs推送通知（等Apple账号，缺失会导致用户召回率极低）
+- Firebase Crashlytics激活
+- 隐私政策网页版部署（App Store审核必须）
+- 文件上传MIME类型校验缺失（安全风险）
+
+### 🟡 中优先级（上线后1个月）
+- 音视频50MB上限 → 腾讯云VOD替换（自动转码/流式播放）
+- in-app音视频播放器（video_player/just_audio包）
+- 图片加载无渐进式
+- 空状态缺设计感（全是文字，缺插图）
+- 作者卡片无统计数字（等可靠的作者主页接口）
+- 创作者收益系统未实现
+
+### 🟢 低优先级（有用户后）
+- Skeleton屏加载占位（替换CircularProgressIndicator）
+- 错误页面设计
+- 搜索结果关键词高亮
+- 文章阅读进度保存
+- 搜索历史单条删除接口（后端目前只有清空全部）
+
+---
+
+## Pyodide 运行引擎架构（2026-07-15更新）
+
+Notebook/发布页可运行代码块/文章阅读页可运行代码块，三处都要跑Python/SQL/
+JavaScript代码，底层都是同一套机制：一个隐藏的1x1 `InAppWebView`加载
+`compiler.js`（Web端`https://dreamingpolar.com/components/compiler/compiler.js`，
+封装了Pyodide），用`window.runCode(code, lang)`执行，用一个持久的
+`onRunResult` JS handler + `Map<String, Completer<String>>`按调用方传的id路由
+结果（不是每次调用注册一个新handler）。
+
+- **共享类**：`lib/shared/services/pyodide_engine.dart`的`PyodideEngine`——
+  `run(id, code, language, l10n, {timeout})`统一入口（内部处理SQL→Python包装、
+  60秒就绪等待、超时兜底），`runJavaScript(code)`是完全独立的直接eval分支，
+  不走compiler.js/Pyodide
+- **App级单例**：`pyodideEngineProvider`（Riverpod Provider），隐藏WebView挂在
+  `main.dart`的`MaterialApp.builder`里，跟路由无关，App启动就开始预热
+  compiler.js/Pyodide，不用等用户真正打开Notebook/发布页才开始冷启动
+- Notebook（`notebook_editor_screen.dart`）/发布页（`publish_screen.dart`）/
+  文章阅读页可运行代码块（`tutorial_block_renderer.dart`的`TutorialCodeBlock`）
+  三处都已迁移到这个共享单例，各自的内联WebView/JS桥接代码已删除
+- **SQL不是真的一门语言**：compiler.js的`compile()`只认python，SQL cell是
+  客户端自己把SQL文本包成一段调用内存sqlite3的python脚本再传进去
+- **超时差异**：Notebook传90秒（pandas/matplotlib首次import常超过默认30秒），
+  其它调用方用引擎默认的30秒，不是所有场景都要跟着调宽
+- **全局共享意味着Python全局命名空间跨页面共用**——不是新引入的风险，
+  Notebook内部同一个notebook的多个cell之间本来就依赖这个共享状态（后面的
+  cell用前面cell产出的变量）；唯一的新情况是"看完一篇文章的代码块后马上开
+  Notebook"这种跨页面场景，理论上会带着上一个页面遗留的全局变量，语义上
+  跟真实Jupyter kernel没重启是一回事，不会崩溃
+
+---
+
+## 踩过的坑（关键）
+
+1. **账号数据隔离**：所有缓存key必须带userId前缀，退出只清当前用户缓存
+2. **时间戳秒级**：`DateTime.fromMillisecondsSinceEpoch(ts * 1000)`
+3. **教程列表格式**：返回 `{tutorials:[...], total, page, pages}`，不是直接数组
+4. **tags兼容**：`if (tags is String) jsonDecode(tags) else tags`
+5. **ApiClient不抛异常**：返回ApiResponse.error()，调用方检查res.success
+6. **token存储key**：`AppConstants.tokenKey(userId) = 'user_${userId}_token'`
+7. **ChatScreen必须携带conversation extra**：extra为null时发送按钮静默失效
+8. **GridView自动套安全区padding**：嵌在Column里必须显式`padding:EdgeInsets.zero`
+9. **ReorderableListView拖拽**：传`buildDefaultDragHandles:false`，只包裹手柄图标
+10. **cos_key格式不统一**：tutorials分类已是完整URL，media/docs是相对路径，判断startsWith('http')
+11. **file_type字段不可信**：永远是"other"，靠文件名后缀判断类型
+12. **SafeArea各自管理**：自定义顶栏/底栏各自用SafeArea包住，不整体套一层
+13. **ListView/SliverList撑满子项宽度**：直接子项的width会被tight constraint覆盖，套Align或Row解决
+14. **birthday格式**：传裸"YYYY-MM-DD"，传完整ISO会400
+15. **主题切换**：Duration.zero消除过渡期各Surface不同步（#0A0A1A → themeAnimationDuration: Duration.zero）
+16. **发布按钮深色模式**：硬编码#6366F1，不走M3 colorScheme.primary（M3深色会自动变浅紫）
+17. **Overlay.insert在build阶段**：先await endOfFrame再insert，否则setState冲突
+18. **ai_messages无图片字段**：只有role/content，COS图片扫content里的myqcloud.com URL
+19. **陌生人消息限制**：用/auth/friends好友名单判断，不用单向follow-status
+20. **ReorderableListView会吞掉"点空白处收起键盘"的tap手势**：它内部自带一套
+    拖拽手势识别，会在"空白但仍在列表边界内"的区域抢先吃掉tap，不冒泡到外层
+    `GestureDetector`——跟普通`ListView`的行为不一样。修复不是给
+    `ReorderableListView`本身加手势，而是把`GestureDetector`挪到包住整个
+    页面（顶栏+画布+底部工具栏一起），不要只包`Expanded(child:
+    ReorderableListView(...))`这一层
+21. **`GET /auth/users/profile/:identifier`（看别人主页）目前不返回真实
+    membership字段**，对外恒为`'free'`——任何"根据对方是不是付费用户显示
+    不同UI"的功能，只能对`isSelfView`生效，看别人主页时不要用这个字段做
+    判断（会显示错误结论）
+22. **`CachedNetworkImage`按URL缓存，而`POST /auth/update-avatar`每次都覆写
+    同一个固定COS key**（`avatars/{userId}.jpg`，不是每次生成新URL）——头像
+    换成功后状态层是对的，但图片组件会因为URL没变而继续画旧的缓存字节。
+    换头像成功后要显式`CachedNetworkImage.evictFromCache(newAvatarUrl)`
+23. **多个Claude Code session同时改同一个仓库时，git rebase的冲突标记
+    偶尔会被静默剥离**（怀疑是IDE打开冲突文件时的自动解决功能误触发），
+    留下"新代码已经在但还在调用被删掉的旧函数"这种损坏状态，`flutter
+    analyze`能测出来但表现容易被误判成别的bug。发现代码"看起来对不上"时，
+    先用`git show <commit>:<path>`+`diff`直接比对base和origin两边的真实
+    内容，搞清楚真实冲突范围，不要凭感觉猜
+24. **同一份Pyodide执行逻辑不要在多个页面/多个组件各写一份**：Notebook/
+    发布页/文章阅读页三处一度各自维护几乎一样的隐藏WebView+JS桥接代码，
+    文章阅读页更夸张——一篇文章有几个可运行代码块就建几个独立WebView实例。
+    统一改成`pyodideEngineProvider`全局单例后解决，详见上方"Pyodide运行
+    引擎架构"一节
+
+---
+
+## 极梦HD（iPad版）规划
+
+- iPhone（极梦）和iPad（极梦HD）：两个独立App Store应用
+- 共享同一仓库，共用 `lib/features/` + `lib/shared/` 业务逻辑，Bundle ID独立
+- **iPhone = 发现和消费端，iPad = 创作主战场**
+- HD核心差异：
+  - 侧边栏导航（NavigationRail，类Linear/Notion）
+  - 双栏/三栏布局（文章阅读：目录+内容，Notebook：文件树+代码+输出）
+  - 小梦AI：历史列表+对话双栏（类ChatGPT桌面版）
+  - Apple Pencil + LaTeX（手写识别→转LaTeX，旗舰功能）
+  - 外接键盘快捷键（Cmd+N/F/K等）
+  - Split View支持
+- 时间线：iPhone上线+1000用户后启动，预计分三阶段各1个月
+
+---
+
+## 商业模式
+
+| 收入来源 | 目标用户 | 优先级 |
+|---------|---------|--------|
+| 极梦 PRO（¥38/月 或 ¥348/年，新用户首次订阅7天免费试用） | 数据/编程/建模用户 | ★★★ 主要收入 |
+| 极梦 PRO MAX（¥68/月） | 重度创作者 | ★★★ |
+| 品牌赞助体系 | 创作者+品牌方 | ★★☆ 中期 |
 | 极光流量分成 | 优质创作者激励 | ★★☆ 创作者留存 |
-| 不做流量广告 | — | 永久不做 |
+| 永久不做流量广告 | — | — |
 
+**极光Aurora Creator Program**（2026-07更新为自动达标制，不再是限量人工申请）：
+- 自动达标条件（累计）：发布文章 ≥10篇 · 累计获赞/收藏 ≥100 · 粉丝数 ≥50
+- 达标后自动获得：免费PRO MAX会员权益 / 流量分成资格 / 金色创作者标识
+- 每月需满足活跃条件（6项任意3项）才能自动续期，不是终身资格
+- 流量分成：每月从会员收入提取15-20%作为创作者基金，每月1日结算上月收益，
+  满¥50可提现，平台收取10%手续费，1-3个工作日到账，支持微信/支付宝/银行卡
+
+---
+
+## Agent工作规范
+
+- **Flutter 1**：维护型任务、bug修复、视觉重构（dp-flutter仓库）
+- **Flutter 2**：新功能开发、重设计（dp-flutter-2仓库）
+- **指令模式**：先grep确认结构 → 发给用户确认 → 再动手
+- **每次改动**：`flutter analyze --no-pub` → `git add -A` → commit → push
+- **后端改动**：npm run build → git push → 服务器 git pull + build + pm2 restart
+- **提交规范**：`feat:` 新功能，`fix:` 修复，`refactor:` 重构
+
+---
+
+## 产品评估（2026年7月）
+
+综合评级：**7.7/10，Beta级别**
+
+| 维度 | 评分 | 说明 |
+|------|------|------|
+| 功能完整度 | 9/10 | 核心模块齐全 |
+| 后端架构 | 8/10 | 接口规范，COS清理完善 |
+| 数据安全 | 7/10 | JWT完善，MIME校验待补 |
+| 前端体验 | 7/10 | 视觉重构进行中 |
+| AI集成 | 8/10 | SSE流式+LaTeX真渲染 |
+| 运维稳定性 | 7/10 | PM2+Nginx，缺崩溃监控 |
+| 可扩展性 | 8/10 | 模块化，HD路径清晰 |
+
+**TestFlight内测**：✅ 现在就可以开始
+**App Store正式上线**：⏳ 等Apple账号+隐私政策
+**生产级稳定运行**：❌ 还需Crashlytics+APNs+数据库备份
