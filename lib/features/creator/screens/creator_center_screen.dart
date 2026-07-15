@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,7 +14,6 @@ import '../widgets/aurora_entry_card.dart';
 
 const _primary = Color(0xFF6366F1);
 const _darkBg = Color(0xFF0A0A1A);
-const _hero = Color(0xFF1A1A1A);
 
 // 极光计划的达成门槛，跟 AuroraScreen 保持同一份数字，两处都是从这里改，
 // 不要各写各的
@@ -112,16 +112,17 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(currentUserProvider);
 
-    return Scaffold(
-      backgroundColor: isDark ? _darkBg : const Color(0xFFFAFAF8),
-      body: SafeArea(
-        bottom: false,
-        child: _loading
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // 整页米白背景，状态栏图标用深色才看得清（深色模式反过来）
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: isDark ? _darkBg : const Color(0xFFFAFAF8),
+        body: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  _buildHero(user),
+                  _buildHero(user, isDark),
                   const SizedBox(height: 18),
                   // 极光创作者进度卡——保留，位置在功能入口上方
                   Padding(
@@ -160,111 +161,118 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     );
   }
 
-  // ============ 顶部黑色 Hero ============
-  Widget _buildHero(dynamic user) {
-    return Container(
+  // ============ 顶部 Hero（米白，跟全页同背景，不再是黑块）============
+  Widget _buildHero(dynamic user, bool isDark) {
+    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final muted = isDark ? Colors.white54 : const Color(0xFF999999);
+    return SizedBox(
       width: double.infinity,
-      color: _hero,
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.arrow_back_ios_new,
-                    size: 18,
-                    color: Colors.white,
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => context.pop(),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.arrow_back_ios_new,
+                        size: 18,
+                        color: ink,
+                      ),
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => context.push('/publish'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add, size: 15, color: Colors.white),
+                          SizedBox(width: 3),
+                          Text(
+                            '发布',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => context.push('/publish'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 13,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, size: 15, color: Colors.white),
-                      SizedBox(width: 3),
-                      Text(
-                        '发布',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _heroAvatar(user),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (user?.username as String?)?.isNotEmpty == true
+                              ? user.username as String
+                              : '创作者',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: ink,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 3),
+                        Text(
+                          _handleLine(user),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 13, color: muted),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  _heroStat('作品', _formatCount(_publishedCount), isDark),
+                  const SizedBox(width: 8),
+                  _heroStat(
+                    '粉丝',
+                    _formatCount((user?.followerCount as int?) ?? 0),
+                    isDark,
+                  ),
+                  const SizedBox(width: 8),
+                  _heroStat('获赞', _formatCount(_totalLikes), isDark),
+                  const SizedBox(width: 8),
+                  // 收藏没有 per-user 聚合接口，先 0 占位
+                  _heroStat('收藏', '0', isDark),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _heroAvatar(user),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      (user?.username as String?)?.isNotEmpty == true
-                          ? user.username as String
-                          : '创作者',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _handleLine(user),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              _heroStat('作品', _formatCount(_publishedCount)),
-              const SizedBox(width: 8),
-              _heroStat('粉丝', _formatCount((user?.followerCount as int?) ?? 0)),
-              const SizedBox(width: 8),
-              _heroStat('获赞', _formatCount(_totalLikes)),
-              const SizedBox(width: 8),
-              // 收藏没有 per-user 聚合接口，先 0 占位
-              _heroStat('收藏', '0'),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -334,33 +342,32 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     ),
   );
 
-  Widget _heroStat(String label, String value) {
+  Widget _heroStat(String label, String value, bool isDark) {
+    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final muted = isDark ? Colors.white54 : const Color(0xFF888888);
+    final fill = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF0F0F3);
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: fill,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           children: [
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                color: ink,
               ),
             ),
             const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.5),
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 11, color: muted)),
           ],
         ),
       ),
