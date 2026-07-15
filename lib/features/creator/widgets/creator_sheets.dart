@@ -133,6 +133,67 @@ class CreatorSheetItem extends StatelessWidget {
   }
 }
 
+// 轻量结果提示——替代默认那条铺满全宽的纯色 SnackBar。浮动居中的圆角
+// 胶囊：卡片底 + 成功绿/失败红图标 + 柔和阴影，跟全站卡片语言一致
+void showCreatorToast(BuildContext context, String message, {bool ok = false}) {
+  final dark = _isDark(context);
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      duration: const Duration(milliseconds: 1800),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      padding: EdgeInsets.zero,
+      content: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xFF23262E) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: dark
+                ? Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    width: 0.5,
+                  )
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: dark ? 0.3 : 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                ok ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                size: 18,
+                color: ok ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _ink(context),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 Widget creatorSheetDivider(BuildContext context) => Divider(
   height: 12,
   thickness: 0.5,

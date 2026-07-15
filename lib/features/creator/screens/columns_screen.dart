@@ -425,12 +425,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
 
   void _toast(String msg, {bool ok = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: ok ? const Color(0xFF16A34A) : null,
-      ),
-    );
+    showCreatorToast(context, msg, ok: ok);
   }
 
   // 编辑专栏（名称/简介/封面）+ 删除入口——封面走 coverIndex/coverImage，

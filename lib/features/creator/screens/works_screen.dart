@@ -174,12 +174,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
 
   void _toast(String msg, {bool ok = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: ok ? const Color(0xFF16A34A) : null,
-      ),
-    );
+    showCreatorToast(context, msg, ok: ok);
   }
 
   List<TutorialModel> get _allWorks => [
