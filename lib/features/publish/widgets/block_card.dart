@@ -196,8 +196,10 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     return KeyEventResult.handled;
   }
 
-  Widget _withEmptyBackspace(Widget child) =>
-      Focus(onKeyEvent: (node, event) => _handleEmptyBackspace(event), child: child);
+  Widget _withEmptyBackspace(Widget child) => Focus(
+    onKeyEvent: (node, event) => _handleEmptyBackspace(event),
+    child: child,
+  );
 
   @override
   void dispose() {
@@ -1544,6 +1546,10 @@ th{background:$thBg;color:$thFg}
           _withEmptyBackspace(
             TextFormField(
               key: ValueKey('latex_${widget.block.id}_$_textRevision'),
+              // 接上 block 的 focusNode——聚焦公式输入框时才会触发
+              // _handleFocusChange→onFocusGained，把这个 block 标成激活，
+              // 外层才会浮出白色卡片（跟文字/标题块一致）
+              focusNode: widget.block.focusNode,
               initialValue: widget.block.content.isNotEmpty
                   ? widget.block.content
                   : null,
