@@ -15,6 +15,7 @@ import '../utils/block_text_style.dart';
 import '../utils/code_highlight.dart';
 
 const _primary = Color(0xFF6366F1);
+const _green = Color(0xFF16A34A);
 
 // 教程详情页（阅读视角）和发布页的实时预览抽屉共用同一套渲染逻辑——
 // 之前只有 tutorial_detail_screen.dart 自己一份私有实现，只认
@@ -537,47 +538,32 @@ td,th{border:1px solid #334155;padding:4px 8px;}
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 去掉原来那块深色 pill（macOS三色点+语言标签+满底#1C1C1E），跟公式块
+    // 一样统一成"中性圆框"：透明底+一圈中性描边，融进文章背景。只在可
+    // 运行的语言上保留一颗绿色运行键（不可运行的语言干脆不留头部这一行，
+    // 代码区顶到卡片顶部），减少同屏视觉噪音
+    final border = Theme.of(context).dividerColor;
+    final codeTextColor = isDark
+        ? const Color(0xFFE0E2F0)
+        : const Color(0xFF1E293B);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border, width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: Row(
-              children: [
-                // macOS 窗口三色点，跟发布页编辑态的代码块保持一致的
-                // 视觉语言（读者预览/正式阅读页共用这一份渲染逻辑）
-                const _ReaderMacDot(color: Color(0xFFFF5F56)),
-                const SizedBox(width: 6),
-                const _ReaderMacDot(color: Color(0xFFFFBD2E)),
-                const SizedBox(width: 6),
-                const _ReaderMacDot(color: Color(0xFF27C93F)),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _primary.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    widget.language,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                if (_canRun)
+          if (_canRun)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: Row(
+                children: [
+                  const Spacer(),
                   GestureDetector(
                     onTap: _running ? null : _run,
                     child: Container(
@@ -586,7 +572,7 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: _primary,
+                        color: _green,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -620,9 +606,9 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                       ),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: SingleChildScrollView(
@@ -632,10 +618,10 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                   children: highlightCode(
                     widget.content,
                     widget.language.toLowerCase(),
-                    const TextStyle(
+                    TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 13,
-                      color: Colors.white,
+                      color: codeTextColor,
                       height: 1.6,
                     ),
                   ),
@@ -766,16 +752,3 @@ Widget _tappableCard(
   );
 }
 
-class _ReaderMacDot extends StatelessWidget {
-  final Color color;
-  const _ReaderMacDot({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-}
