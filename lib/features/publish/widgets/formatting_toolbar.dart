@@ -38,6 +38,10 @@ class BlockFormattingToolbar extends StatelessWidget {
   // PublishScreen 那层把整个 block 换成新实例（同 id、同 content，
   // FocusNode 也要跟着重建），传 null 表示"转回普通文字段落"
   final void Function(int? headingLevel) onConvertHeading;
+  // 已经是当前标题级别时再点一次那个 H 按钮——收起辅助栏（字体/颜色
+  // 那行），跟底部"Tt"按钮再点一次收起的行为一致。由父级 PublishScreen
+  // 持有 _formatBarExpanded，这里只回调通知它收起
+  final VoidCallback onCollapse;
   // 底部工具栏"Tt"按钮点一下收起、再点一下展开——由父级 PublishScreen
   // 持有这个开关状态，这里只负责按它显示/隐藏，不自己管理状态
   final bool expanded;
@@ -50,6 +54,7 @@ class BlockFormattingToolbar extends StatelessWidget {
     required this.onChanged,
     required this.onShowFontSheet,
     required this.onConvertHeading,
+    required this.onCollapse,
     this.expanded = true,
   });
 
@@ -225,11 +230,17 @@ class BlockFormattingToolbar extends StatelessWidget {
     _toggle(() => b.fontSizeStep = step.clamp(0, 3));
   }
 
-  // 再点一次同一个 H 级别就转回普通文字段落，不用先切别的类型再切回来
+  // 点一个还不是当前级别的 H → 切到那个标题级别；再点一次已经是当前
+  // 级别的同一个 H → 收起辅助栏（字体/颜色），跟底部"Tt"按钮再点收起
+  // 一致（不再转回普通段落）
   void _toggleHeading(EditorBlock b, int level) {
     final alreadyThisLevel =
         b.type == BlockType.heading && b.headingLevel == level;
-    onConvertHeading(alreadyThisLevel ? null : level);
+    if (alreadyThisLevel) {
+      onCollapse();
+      return;
+    }
+    onConvertHeading(level);
   }
 
   Widget _fmtDivider(Color color) => Container(

@@ -1085,6 +1085,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                       if (id == null) return;
                       _convertHeading(id, level);
                     },
+                    // 再点一次已经激活的 H 按钮——收起辅助栏，跟 Tt 一致
+                    onCollapse: () =>
+                        setState(() => _formatBarExpanded = false),
                   ),
                   PublishBottomToolbar(
                     l10n: l10n,
