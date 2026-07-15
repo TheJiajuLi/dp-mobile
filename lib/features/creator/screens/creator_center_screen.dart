@@ -225,22 +225,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                 ],
               ),
               const SizedBox(height: 18),
-              Row(
-                children: [
-                  _heroStat('作品', _formatCount(_publishedCount), isDark),
-                  const SizedBox(width: 8),
-                  _heroStat(
-                    '粉丝',
-                    _formatCount((user?.followerCount as int?) ?? 0),
-                    isDark,
-                  ),
-                  const SizedBox(width: 8),
-                  _heroStat('获赞', _formatCount(_totalLikes), isDark),
-                  const SizedBox(width: 8),
-                  // 收藏没有 per-user 聚合接口，先 0 占位
-                  _heroStat('收藏', '0', isDark),
-                ],
-              ),
+              _buildHeroStats(user, isDark),
             ],
           ),
         ),
@@ -313,31 +298,105 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
     ),
   );
 
-  Widget _heroStat(String label, String value, bool isDark) {
+  // 顶部四项数据——跟下面「创作工具」白卡统一视觉：一张白底描边卡，四格
+  // 用竖细线连在一起，每格一个彩色图标 + 数值 + 标签
+  Widget _buildHeroStats(dynamic user, bool isDark) {
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFEBEBEB);
+    final divider = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFF0F0F0);
+    Widget vDiv() =>
+        VerticalDivider(width: 0.5, thickness: 0.5, color: divider);
+    return Container(
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border, width: 0.5),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            _heroStatCell(
+              icon: Icons.description_outlined,
+              iconBg: const Color(0xFFEEF0FF),
+              iconColor: const Color(0xFF6366F1),
+              value: _formatCount(_publishedCount),
+              label: '作品',
+              isDark: isDark,
+            ),
+            vDiv(),
+            _heroStatCell(
+              icon: Icons.people_outline,
+              iconBg: const Color(0xFFEFF6FF),
+              iconColor: const Color(0xFF2563EB),
+              value: _formatCount((user?.followerCount as int?) ?? 0),
+              label: '粉丝',
+              isDark: isDark,
+            ),
+            vDiv(),
+            _heroStatCell(
+              icon: Icons.favorite_border,
+              iconBg: const Color(0xFFFEECEC),
+              iconColor: const Color(0xFFEF4444),
+              value: _formatCount(_totalLikes),
+              label: '获赞',
+              isDark: isDark,
+            ),
+            vDiv(),
+            _heroStatCell(
+              icon: Icons.bookmark_border,
+              iconBg: const Color(0xFFFEF3C7),
+              iconColor: const Color(0xFFD97706),
+              // 收藏没有 per-user 聚合接口，先 0 占位
+              value: '0',
+              label: '收藏',
+              isDark: isDark,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _heroStatCell({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String value,
+    required String label,
+    required bool isDark,
+  }) {
     final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
     final muted = isDark ? Colors.white54 : const Color(0xFF888888);
-    final fill = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : const Color(0xFFF0F0F3);
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(10),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
         child: Column(
           children: [
+            Container(
+              width: 38,
+              height: 38,
+              // 跟「创作工具」图标盒同款：浅色彩底 + 彩色图标（深浅色一致）
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, size: 19, color: iconColor),
+            ),
+            const SizedBox(height: 8),
             Text(
               value,
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
                 color: ink,
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(label, style: TextStyle(fontSize: 11, color: muted)),
           ],
         ),
