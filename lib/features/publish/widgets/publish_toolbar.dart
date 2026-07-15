@@ -209,7 +209,9 @@ class PublishBottomToolbar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              height: 56,
+              // 收窄一点（原 56）——减少 block 图标行上下的空白，跟上面格式
+              // 工具栏靠得更近
+              height: 48,
               child: Row(
                 children: [
                   Expanded(
@@ -289,7 +291,8 @@ class PublishBottomToolbar extends StatelessWidget {
         ? const Color(0xFF3A3A3C)
         : const Color(0xFFF0F0F0);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+      // 竖向 5（原 9）——图标行更紧凑，跟上方格式工具栏的间距缩小
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
       child: Tooltip(
         message: tooltip,
         child: Material(

@@ -81,7 +81,8 @@ class BlockFormattingToolbar extends StatelessWidget {
           // 中间分割线，太占竖向空间；合成一行后高度砍掉约一半
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            // 底部只留 2（原来 6）——缩小跟下面 block 插入工具栏之间的间距
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
             child: Row(
               children: [
                 _fmtBtn(
