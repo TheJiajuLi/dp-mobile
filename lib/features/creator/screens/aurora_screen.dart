@@ -144,8 +144,9 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
                 border: Border.all(color: _glassBorder),
               ),
               child: const Icon(
+                // 金色——跟极光创作者徽章同一套暖金 #F59E0B
                 Icons.auto_awesome,
-                color: Colors.white,
+                color: Color(0xFFF59E0B),
                 size: 26,
               ),
             ),
