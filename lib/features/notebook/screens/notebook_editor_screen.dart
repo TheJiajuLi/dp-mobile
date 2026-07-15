@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/network/api_client.dart';
 import '../../publish/models/block_model.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -462,6 +460,7 @@ finally:
         'xlsx',
         'json',
         'xml',
+        'txt',
       ],
     );
     if (result == null || !mounted) return;
@@ -509,8 +508,8 @@ finally:
           ],
         ),
       );
-    } else if (['csv', 'xlsx', 'json', 'xml'].contains(ext)) {
-      await _importDataFile(file.name, bytes, ext);
+    } else if (['csv', 'xlsx', 'json', 'xml', 'txt'].contains(ext)) {
+      _importDataFile(file.name, bytes, ext);
     } else {
       final content = utf8.decode(bytes);
       final langMap = {
@@ -540,62 +539,170 @@ finally:
     }
   }
 
-  // 数据文件上传到后端 COS，并插入对应的读取代码
-  Future<void> _importDataFile(
-    String filename,
-    Uint8List bytes,
-    String ext,
-  ) async {
-    try {
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(
-          bytes,
-          filename: filename,
-          contentType: DioMediaType('application', ext),
-        ),
-      });
+  int _cellSeq = 0;
+  String _newCellId() =>
+      'cell_${DateTime.now().microsecondsSinceEpoch}_${_cellSeq++}';
 
-      final l10n = AppLocalizations.of(context)!;
-      final api = ref.read(apiClientProvider);
-      final res = await api.post('/auth/files/upload', data: formData);
-      if (!res.success) {
-        _showSnack(l10n.uploadFailedWithReason('${res.message}'));
-        return;
-      }
+  // 文件名 → 合法的 python 变量名（去扩展名、非法字符转下划线、小写，
+  // 数字开头补前缀）
+  String _varNameFrom(String filename) {
+    var v = filename
+        .replaceAll(RegExp(r'\.[^.]+$'), '')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+        .toLowerCase();
+    if (v.isEmpty || RegExp(r'^[0-9]').hasMatch(v)) v = 'df_$v';
+    return v;
+  }
 
-      final varName = filename
-          .replaceAll(RegExp(r'\.[^.]+$'), '')
-          .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
-
-      final importCode = ext == 'csv'
-          ? 'import pandas as pd\n$varName = pd.read_csv("$filename")\nprint($varName.shape)\n$varName.head()'
-          : ext == 'xlsx'
-          ? 'import pandas as pd\n$varName = pd.read_excel("$filename")\nprint($varName.shape)\n$varName.head()'
-          : ext == 'json'
-          ? 'import pandas as pd, json\n$varName = pd.read_json("$filename")\nprint($varName.shape)\n$varName.head()'
-          : 'import pandas as pd\n$varName = pd.read_xml("$filename")\nprint($varName.shape)';
-
-      if (_nb == null) return;
-      final cell = NotebookCell(
-        id: 'cell_${DateTime.now().millisecondsSinceEpoch}',
-        type: 'python',
-        code: importCode,
-      );
-      final ctrl = TextEditingController(text: importCode);
-      setState(() {
+  // 统一插入一批 cell 并把渲染要用的 controller/focus/output 各表补齐
+  // （跟 _addCell 一样，缺了会导致 cell 渲染时取空崩），末尾定位/保存/提示
+  void _insertCells(List<NotebookCell> cells, {String? snack}) {
+    if (_nb == null || cells.isEmpty) return;
+    setState(() {
+      for (final cell in cells) {
         _nb!.cells.add(cell);
-        _controllers[cell.id] = ctrl;
-        _outputs[cell.id] = null;
-        _outputTypes[cell.id] = null;
+        _controllers[cell.id] = TextEditingController(text: cell.code);
+        _focusNodes[cell.id] = FocusNode();
+        _outputs[cell.id] = cell.output;
+        _outputTypes[cell.id] = cell.outputType;
         _running[cell.id] = false;
-      });
-      _scheduleSave();
+      }
+      _activeIndex = _nb!.cells.length - 1;
+    });
+    _scheduleSave();
+    if (snack != null && mounted) _showSnack(snack);
+  }
 
-      _showSnack(l10n.fileImportedTapToRun(filename));
-    } catch (e) {
-      if (!mounted) return;
-      _showSnack(AppLocalizations.of(context)!.uploadFailedWithReason('$e'));
+  // 数据文件导入——不再上传 COS 再按路径读（Pyodide 内核里没有那个文件），
+  // 改成把文件内容 base64 直接注入生成的代码 cell，运行即在内核里还原成
+  // 变量，后续 cell 直接用。CSV 另配一个 Markdown 表格预览 cell
+  void _importDataFile(String filename, Uint8List bytes, String ext) {
+    switch (ext) {
+      case 'csv':
+        _importCsv(bytes, filename);
+      case 'xlsx':
+        _importXlsx(bytes, filename);
+      case 'json':
+        _importJson(bytes, filename);
+      default: // txt / xml
+        _importText(bytes, filename);
     }
+  }
+
+  void _importCsv(Uint8List bytes, String name) {
+    final b64 = base64Encode(bytes);
+    final content = utf8.decode(bytes, allowMalformed: true);
+    final lines = content
+        .split(RegExp(r'\r?\n'))
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+    final headerLine = lines.isNotEmpty ? lines.first : '';
+    final rowCount = (lines.length - 1).clamp(0, 999999);
+    final v = _varNameFrom(name);
+
+    final codeCell = NotebookCell(
+      id: _newCellId(),
+      type: 'python',
+      code:
+          '# $name · 自动注入 · $rowCount 行\n'
+          'import io, base64\n'
+          'import pandas as pd\n'
+          '_${v}_b64 = "$b64"\n'
+          '$v = pd.read_csv(io.StringIO(base64.b64decode(_${v}_b64).decode("utf-8")))\n'
+          '$v.head()',
+      metadata: {'isDataset': true, 'fileName': name, 'rowCount': rowCount},
+    );
+    final mdCell = _buildMarkdownTable(name, headerLine, lines, rowCount);
+    _insertCells([codeCell, mdCell], snack: '已导入 $name · $rowCount 行');
+  }
+
+  void _importXlsx(Uint8List bytes, String name) {
+    // 没有引入 excel 解析包，直接把 xlsx 字节 base64 注入，交给内核的
+    // pandas.read_excel（需 openpyxl）在运行时解析
+    final b64 = base64Encode(bytes);
+    final v = _varNameFrom(name);
+    final cell = NotebookCell(
+      id: _newCellId(),
+      type: 'python',
+      code:
+          '# $name · 自动注入\n'
+          'import io, base64\n'
+          'import pandas as pd\n'
+          '_${v}_b64 = "$b64"\n'
+          '$v = pd.read_excel(io.BytesIO(base64.b64decode(_${v}_b64)))\n'
+          '$v.head()',
+      metadata: {'isDataset': true, 'fileName': name},
+    );
+    _insertCells([cell], snack: '已导入 $name');
+  }
+
+  void _importJson(Uint8List bytes, String name) {
+    final b64 = base64Encode(bytes);
+    final content = utf8.decode(bytes, allowMalformed: true);
+    dynamic parsed;
+    try {
+      parsed = jsonDecode(content);
+    } catch (_) {}
+    final isArray = parsed is List;
+    final v = _varNameFrom(name);
+
+    final tail = isArray
+        ? 'import pandas as pd\ndf_$v = pd.DataFrame($v)\ndf_$v.head()'
+        : 'print(type($v))\n$v';
+    final cell = NotebookCell(
+      id: _newCellId(),
+      type: 'python',
+      code:
+          '# $name · 自动注入\n'
+          'import json, base64\n'
+          '_${v}_b64 = "$b64"\n'
+          '$v = json.loads(base64.b64decode(_${v}_b64).decode("utf-8"))\n'
+          '$tail',
+      metadata: {'isDataset': true, 'fileName': name},
+    );
+    _insertCells([cell], snack: '已导入 $name');
+  }
+
+  void _importText(Uint8List bytes, String name) {
+    final content = utf8.decode(bytes, allowMalformed: true);
+    final cell = NotebookCell(
+      id: _newCellId(),
+      type: 'markdown',
+      code: '### 导入自 $name\n\n$content',
+    );
+    _insertCells([cell], snack: '已导入 $name');
+  }
+
+  // CSV 前几行渲染成 Markdown 表格预览 cell（朴素按逗号切，够预览用；真正
+  // 解析在内核里由 pandas 做）
+  NotebookCell _buildMarkdownTable(
+    String name,
+    String headerLine,
+    List<String> lines,
+    int rowCount,
+  ) {
+    List<String> splitRow(String line) =>
+        line.split(',').map((c) => c.trim().replaceAll('"', '')).toList();
+
+    final cols = splitRow(headerLine);
+    final sb = StringBuffer()
+      ..writeln('### 数据预览：$name')
+      ..writeln()
+      ..writeln('| ${cols.join(' | ')} |')
+      ..writeln('| ${cols.map((_) => '---').join(' | ')} |');
+    for (final line in lines.skip(1).take(10)) {
+      sb.writeln('| ${splitRow(line).join(' | ')} |');
+    }
+    if (rowCount > 10) {
+      sb
+        ..writeln()
+        ..writeln('_共 $rowCount 行，仅显示前 10 行_');
+    }
+    return NotebookCell(
+      id: _newCellId(),
+      type: 'markdown',
+      code: sb.toString(),
+    );
   }
 
   Future<void> _exportIpynb() async {
@@ -966,6 +1073,7 @@ finally:
                     isDark: isDark,
                     activeType: _getActiveToolType(),
                     onTap: _onToolbarTap,
+                    onImport: _openFileImport,
                   ),
                 ],
               ),

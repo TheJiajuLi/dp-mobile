@@ -17,6 +17,9 @@ class NotebookCell {
   String? output;
   String? outputType; // text / error / image / latex / html / markdown / info
   bool isRunning;
+  // 附加信息——导入数据文件时标记为数据集 cell（{isDataset:true,fileName,
+  // rowCount}），供编辑器/阅读端显示「数据集」徽标、绿色就绪提示等
+  Map<String, dynamic>? metadata;
 
   NotebookCell({
     required this.id,
@@ -25,6 +28,7 @@ class NotebookCell {
     this.output,
     this.outputType,
     this.isRunning = false,
+    this.metadata,
   });
 
   factory NotebookCell.fromJson(Map<String, dynamic> json) => NotebookCell(
@@ -33,11 +37,15 @@ class NotebookCell {
     code: json['code'] ?? '',
     output: json['output'],
     outputType: json['outputType'],
+    metadata: json['metadata'] is Map
+        ? Map<String, dynamic>.from(json['metadata'] as Map)
+        : null,
   );
 
   Map<String, dynamic> toJson() => {
     'id': id, 'type': type, 'code': code,
     'output': output, 'outputType': outputType,
+    if (metadata != null) 'metadata': metadata,
   };
 }
 

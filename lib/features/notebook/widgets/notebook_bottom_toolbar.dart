@@ -20,12 +20,16 @@ class NotebookBottomToolbar extends StatelessWidget {
   // 由父级根据 _activeIndex 算好传进来，这个 widget 不持有 cell 列表状态
   final String? activeType;
   final void Function(String type) onTap;
+  // 右侧「导入数据」紫色按钮——选 CSV/Excel/JSON/TXT 文件，解析后 base64
+  // 注入内核并自动生成数据集 cell（见 notebook_editor_screen._openFileImport）
+  final VoidCallback? onImport;
 
   const NotebookBottomToolbar({
     super.key,
     required this.isDark,
     required this.activeType,
     required this.onTap,
+    this.onImport,
   });
 
   @override
@@ -53,8 +57,9 @@ class NotebookBottomToolbar extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
-        children: _toolbarItems.map((item) {
-          final isActive = activeType == item.$3;
+        children: [
+          ..._toolbarItems.map((item) {
+            final isActive = activeType == item.$3;
           final fg = isActive
               ? (isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A))
               : (isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC));
@@ -83,7 +88,44 @@ class NotebookBottomToolbar extends StatelessWidget {
               ),
             ),
           );
-        }).toList(),
+          }),
+          if (onImport != null) ...[
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: onImport,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.upload_file_outlined,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      '导入数据',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
