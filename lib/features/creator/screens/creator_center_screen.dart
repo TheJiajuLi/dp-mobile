@@ -517,7 +517,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                       iconBg: greyBg,
                       iconColor: greyIcon,
                       label: '创作指南',
-                      onTap: _soon,
+                      onTap: () => context.push('/creator/guide'),
                     ),
                     vDiv(),
                     _toolCell(
