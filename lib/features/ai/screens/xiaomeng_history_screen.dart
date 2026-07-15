@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/confirm_sheet.dart';
 import '../models/ai_conversation_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -88,24 +89,14 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
   // 复用 DELETE /auth/xmeng/conversations（不带id，后端按当前用户清空
   // 全部），跟单条删除同一套确认弹窗写法
   Future<void> _confirmClearAll() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.clearChatHistory),
-        content: Text('将删除全部 ${_conversations.length} 条对话记录，清空后无法恢复'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('清空', style: TextStyle(color: Color(0xFFDC2626))),
-          ),
-        ],
-      ),
+    final confirm = await showConfirmSheet(
+      context,
+      title: AppLocalizations.of(context)!.clearChatHistory,
+      message: '将删除全部 ${_conversations.length} 条对话记录，清空后无法恢复。',
+      confirmLabel: '清空',
+      isDanger: true,
     );
-    if (confirm != true) return;
+    if (!confirm) return;
     final res = await ref
         .read(apiClientProvider)
         .delete('/auth/xmeng/conversations');

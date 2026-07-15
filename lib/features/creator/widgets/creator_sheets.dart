@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/confirm_sheet.dart';
 
 // 创作者中心（作品管理 / 专栏管理）通用的底部弹层组件——图标方框 + 主标题
 // + 副标题的操作行，以及「危险确认」弹层。两个页面共用同一套视觉语言，
@@ -149,6 +150,7 @@ Widget creatorSheetDivider(BuildContext context) => Divider(
 );
 
 // 危险/确认弹层：标题 + 说明 + 主按钮（可危险红底）+ 取消
+// 转调全站统一的 showConfirmSheet（危险/确认底部弹层）
 Future<bool> showCreatorConfirmSheet(
   BuildContext context, {
   required String title,
@@ -156,97 +158,11 @@ Future<bool> showCreatorConfirmSheet(
   required String confirmLabel,
   bool isDanger = false,
   String cancelLabel = '取消',
-}) async {
-  final res = await showModalBottomSheet<bool>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) {
-      final dark = _isDark(ctx);
-      return Container(
-        decoration: BoxDecoration(
-          color: _sheetBg(ctx),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _grabber(),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: _ink(ctx),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                style: TextStyle(fontSize: 14, height: 1.6, color: _muted(ctx)),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: TextButton.styleFrom(
-                    backgroundColor: isDanger
-                        ? (dark
-                              ? _danger.withValues(alpha: 0.16)
-                              : const Color(0xFFFEF2F2))
-                        : const Color(0xFF1A1A1A),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: isDanger
-                          ? BorderSide(
-                              color: dark
-                                  ? _danger.withValues(alpha: 0.4)
-                                  : const Color(0xFFFECACA),
-                              width: 0.5,
-                            )
-                          : BorderSide.none,
-                    ),
-                  ),
-                  child: Text(
-                    confirmLabel,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isDanger ? _danger : Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  style: TextButton.styleFrom(
-                    backgroundColor: dark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : const Color(0xFFF5F5F5),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    cancelLabel,
-                    style: TextStyle(fontSize: 15, color: _muted(ctx)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-  return res ?? false;
-}
+}) => showConfirmSheet(
+  context,
+  title: title,
+  message: message,
+  confirmLabel: confirmLabel,
+  isDanger: isDanger,
+  cancelLabel: cancelLabel,
+);
