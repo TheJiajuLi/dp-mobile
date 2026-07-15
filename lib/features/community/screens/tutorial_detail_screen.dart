@@ -1381,100 +1381,100 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final aurora =
         t['is_aurora_creator'] == true || t['is_aurora_creator'] == 1;
     final bio = t['bio'] as String?;
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        // 卡片底色跟页面背景完全一致（浅色米白 #FAFAF8 / 深色 darkBg），
-        // 只靠边框勾出轮廓，完全融进背景，更干净
-        color: isDark ? AppColors.darkBg : const Color(0xFFFAFAF8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFE8E8FF),
-          width: 0.5,
+    // 去掉卡片边框/底色，改成上方一条全宽 0.5px 分割线——跟发现页文章之间
+    // 那根同款（AppColors.darkDivider / #F0F0F0）
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 0.5,
+          color: isDark ? AppColors.darkDivider : const Color(0xFFF0F0F0),
         ),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: username.isEmpty
-                ? null
-                : () => context.push('/users/$username'),
-            child: _buildAuthorAvatar(
-              avatar,
-              username,
-              radius: 22,
-              isFoundingCreator: founding,
-              isAuroraCreator: aurora,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: username.isEmpty
+                    ? null
+                    : () => context.push('/users/$username'),
+                child: _buildAuthorAvatar(
+                  avatar,
+                  username,
+                  radius: 22,
+                  isFoundingCreator: founding,
+                  isAuroraCreator: aurora,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        username,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: isDark
-                              ? const Color(0xFFF0F2F8)
-                              : const Color(0xFF1A1A1A),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            username,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? const Color(0xFFF0F2F8)
+                                  : const Color(0xFF1A1A1A),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (founding) const FoundingBadgeSmall(),
+                        if (aurora) const AuroraBadgeSmall(),
+                      ],
                     ),
-                    if (founding) const FoundingBadgeSmall(),
-                    if (aurora) const AuroraBadgeSmall(),
+                    if (bio != null && bio.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        bio,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                    ],
                   ],
                 ),
-                if (bio != null && bio.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    bio,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              ),
+              if (_isFollowing != null) ...[
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: _toggleFollow,
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    backgroundColor: _isFollowing!
+                        ? (isDark ? Colors.white10 : Colors.grey[200])
+                        : _primary,
+                    foregroundColor: _isFollowing!
+                        ? Colors.grey[600]
+                        : Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
-                ],
+                  child: Text(
+                    _isFollowing! ? l10n.followingAction : l10n.followAction,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
               ],
-            ),
+            ],
           ),
-          if (_isFollowing != null) ...[
-            const SizedBox(width: 10),
-            ElevatedButton(
-              onPressed: _toggleFollow,
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                backgroundColor: _isFollowing!
-                    ? (isDark ? Colors.white10 : Colors.grey[200])
-                    : _primary,
-                foregroundColor: _isFollowing!
-                    ? Colors.grey[600]
-                    : Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: Text(
-                _isFollowing! ? l10n.followingAction : l10n.followAction,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
