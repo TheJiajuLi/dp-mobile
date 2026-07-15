@@ -1527,12 +1527,9 @@ th{background:$thBg;color:$thFg}
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border, width: 0.8),
-      ),
+      // 去掉这层描边圆框——它套在「Σ LaTeX」block 卡里是多余的一层 box。
+      // 透明底直接融进卡片背景，只留下里面公式渲染那个视觉反馈
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         children: [
           widget.block.content.isNotEmpty
