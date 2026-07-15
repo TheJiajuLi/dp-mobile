@@ -138,8 +138,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   GlobalKey _keyFor(String commentId) =>
       _commentKeys.putIfAbsent(commentId, () => GlobalKey());
 
-  // 顶栏"滚过封面后显示标题/实底"的状态
+  // 阅读进度 + 顶栏"滚过封面后显示标题/实底"的状态
   final ScrollController _scrollCtrl = ScrollController();
+  final ValueNotifier<double> _progress = ValueNotifier(0);
   final ValueNotifier<bool> _barSolid = ValueNotifier(false);
 
   @override
@@ -155,6 +156,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   }
 
   void _onScroll() {
+    final max = _scrollCtrl.position.maxScrollExtent;
+    if (max > 0) {
+      _progress.value = (_scrollCtrl.offset / max).clamp(0.0, 1.0);
+    }
     final solid = _scrollCtrl.offset >= 100;
     if (solid != _barSolid.value) _barSolid.value = solid;
   }
@@ -162,6 +167,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+    _progress.dispose();
     _barSolid.dispose();
     _commentCtrl.dispose();
     _commentFocusNode.dispose();
@@ -894,6 +900,22 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   onPressed: _openExportSheet,
                 ),
               ],
+              // 阅读进度条——之前 backgroundColor 是实心浅灰，静止时（滚动
+              // 位置0）整条都是背景色，跟封面拼出一条很粗的分割线。这次
+              // track 改透明，静止时完全不可见，只有真的往下滚了才会看到
+              // 紫色进度往右长，功能保留但不再有"分割线"的观感
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(2),
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _progress,
+                  builder: (context, v, _) => LinearProgressIndicator(
+                    value: v,
+                    minHeight: 2,
+                    backgroundColor: Colors.transparent,
+                    valueColor: const AlwaysStoppedAnimation(_primary),
+                  ),
+                ),
+              ),
             ),
           ),
           // 封面区：16:9 封面图 + 底部渐变遮罩 + 标签浮层
