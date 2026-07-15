@@ -1811,12 +1811,15 @@ th{background:$thBg;color:$thFg}
     // 不做视觉加锁：块照常渲染，点上传时才在 _pickAudio 里 requirePro
 
     if (widget.block.fileName != null) {
+      // 已上传的音频跟其它内容块一样中性化——去掉紫色实底 pill，改成透明底
+      // + 一圈 dividerColor 细描边，文件名走正文色、副行走灰，只有播放按钮
+      // 保留品牌紫圆点（一眼认出可播放）
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFDF4FF),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE9D5FF)),
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -1824,7 +1827,7 @@ th{background:$thBg;color:$thFg}
               width: 44,
               height: 44,
               decoration: const BoxDecoration(
-                color: Color(0xFFA855F7),
+                color: _primary,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -1840,17 +1843,17 @@ th{background:$thBg;color:$thFg}
                 children: [
                   Text(
                     widget.block.fileName!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF6B21A8),
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                   ),
                   Text(
                     l10n.tapToPlayLabel,
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Color(0xFFA855F7),
+                      color: Color(0xFF999999),
                     ),
                   ),
                 ],
