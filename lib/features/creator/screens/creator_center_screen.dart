@@ -526,7 +526,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                       iconBg: greyBg,
                       iconColor: greyIcon,
                       label: '邀请好友',
-                      onTap: () => context.push('/invite-list'),
+                      onTap: () => context.push('/referral'),
                     ),
                   ],
                 ),

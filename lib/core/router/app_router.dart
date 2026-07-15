@@ -27,6 +27,7 @@ import '../../features/creator/screens/creator_center_screen.dart';
 import '../../features/creator/screens/creator_guide_screen.dart';
 import '../../features/creator/screens/creator_settings_screen.dart';
 import '../../features/creator/screens/creator_stats_screen.dart';
+import '../../features/creator/screens/invite_screen.dart';
 import '../../features/creator/screens/works_screen.dart';
 import '../../features/forums/screens/all_forums_screen.dart';
 import '../../features/groups/screens/create_group_screen.dart';
@@ -299,6 +300,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/invite-list',
       builder: (context, state) => const InviteListScreen(),
+    ),
+    GoRoute(
+      path: '/referral',
+      builder: (context, state) => const InviteScreen(),
     ),
     GoRoute(
       path: '/messages/mentions',
