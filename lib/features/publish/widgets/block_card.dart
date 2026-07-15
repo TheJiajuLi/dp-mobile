@@ -257,13 +257,18 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                               ),
                             )
                           : GestureDetector(
-                              onTap: _showAiMenu,
+                              onTap: _onSparklesTap,
                               child: Padding(
                                 padding: const EdgeInsets.all(4),
                                 child: Icon(
-                                  Icons.auto_awesome_outlined,
+                                  // 有 AI 回答时点亮成紫色实心，提示"再点一下清空"
+                                  _hasAiAnswer
+                                      ? Icons.auto_awesome
+                                      : Icons.auto_awesome_outlined,
                                   size: 15,
-                                  color: Colors.grey.shade400,
+                                  color: _hasAiAnswer
+                                      ? _primary
+                                      : Colors.grey.shade400,
                                 ),
                               ),
                             ),
@@ -469,6 +474,25 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         onEditingComplete: () => setState(() => _focused = false),
       ),
     );
+  }
+
+  // AI 回答块已生成完毕（有 outputContent、且不是 'info' loading 态）
+  bool get _hasAiAnswer =>
+      widget.block.outputContent != null && widget.block.outputType != 'info';
+
+  // ✨ 点击：已有 AI 回答（LaTeX 解释/代码解释；代码运行输出也走同一个
+  // outputContent，会一并清掉，重新运行即可）就二次点击清空、回到空白可
+  // 重新生成；没有回答时正常打开小梦菜单
+  void _onSparklesTap() {
+    if (_hasAiAnswer && !_polishing) {
+      setState(() {
+        widget.block.outputContent = null;
+        widget.block.outputType = null;
+      });
+      widget.onChanged();
+      return;
+    }
+    _showAiMenu();
   }
 
   void _showAiMenu() {
