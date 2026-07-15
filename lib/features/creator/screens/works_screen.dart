@@ -77,6 +77,10 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
       vsync: this,
       initialIndex: initialIndex.clamp(0, 3),
     );
+    // 分段控制器的高亮跟着 TabController 走（点分段/左右滑动都要同步）
+    _tabCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadAll();
   }
 
@@ -189,30 +193,11 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     ..._lists[_WorkTab.archived] ?? [],
   ];
 
-  int get _totalViews => _allWorks.fold(0, (s, t) => s + t.views);
   int get _totalLikes => _allWorks.fold(0, (s, t) => s + t.likes);
 
   String _formatCount(int n) {
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
     return '$n';
-  }
-
-  // 后端没有 updatedAt，"继续编辑"只能退而求其次用 createdAt 排序，
-  // 不是真的"最近编辑"，是"最近创建"的草稿——没有更精确的数据源可拼
-  TutorialModel? get _latestDraft {
-    final drafts = _lists[_WorkTab.draft] ?? [];
-    if (drafts.isEmpty) return null;
-    return ([
-      ...drafts,
-    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt))).first;
-  }
-
-  String get _greeting {
-    final h = DateTime.now().hour;
-    if (h < 5) return '夜深了';
-    if (h < 12) return '早上好';
-    if (h < 18) return '下午好';
-    return '晚上好';
   }
 
   @override
@@ -223,20 +208,12 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         bottom: false,
         child: Column(
           children: [
-            _hero(),
-            Container(
-              color: _bg,
-              child: TabBar(
-                controller: _tabCtrl,
-                isScrollable: true,
-                labelColor: _primary,
-                unselectedLabelColor: _muted,
-                indicatorColor: _primary,
-                tabs: _WorkTab.values
-                    .map((t) => Tab(text: '${t.label} ${_countFor(t)}'))
-                    .toList(),
-              ),
+            _header(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: _statsRow(),
             ),
+            _segmented(),
             Expanded(
               // 点空白处收起键盘
               child: GestureDetector(
@@ -254,164 +231,152 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     );
   }
 
-  int _countFor(_WorkTab tab) =>
-      tab == _WorkTab.all ? _allWorks.length : (_lists[tab]?.length ?? 0);
-
-  // 把原来的"标题栏+四格统计卡"合并成一张渐变Hero卡——问候语+核心数据+
-  // "继续写"入口一次给全，比一整排小方块更有"创作台"的感觉，不是后台
-  // 管理页。收藏数/评论数没有批量接口字段，跟原来一样只保留真实拿得到的
-  // 作品数/阅读量/点赞数三项，不硬凑
-  Widget _hero() {
-    final user = ref.watch(currentUserProvider);
-    final draft = _latestDraft;
+  Widget _header() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF6366F1), Color(0xFF818CF8)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: _primary.withValues(alpha: 0.28),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      color: _bg,
+      child: Row(
         children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: const Icon(
-                  Icons.arrow_back,
-                  size: 20,
-                  color: Colors.white,
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => setState(() {
-                  _searching = !_searching;
-                  if (!_searching) {
-                    _searchCtrl.clear();
-                    _query = '';
-                  }
-                }),
-                child: Icon(
-                  _searching ? Icons.close : Icons.search,
-                  size: 20,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 14),
-              GestureDetector(
-                onTap: () => ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('批量操作即将上线，敬请期待'))),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    '批量',
-                    style: TextStyle(fontSize: 12, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
+          GestureDetector(
+            onTap: () => context.pop(),
+            child: Icon(Icons.arrow_back, size: 20, color: _ink),
           ),
-          const SizedBox(height: 16),
-          Text(
-            '$_greeting${(user?.username.isNotEmpty ?? false) ? '，${user!.username}' : ''}',
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '继续你的创作',
-            style: TextStyle(fontSize: 13, color: Color(0xE6FFFFFF)),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              _heroStat('${_allWorks.length}', '作品'),
-              _heroStat(_formatCount(_totalViews), '阅读'),
-              _heroStat(_formatCount(_totalLikes), '点赞'),
-            ],
-          ),
-          if (draft != null) ...[
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: () => context.push('/publish/${draft.id}'),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.edit_outlined, size: 15, color: _primary),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        '继续写「${draft.title}」',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '作品管理',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: _ink,
               ),
             ),
-          ],
+          ),
+          GestureDetector(
+            onTap: () => setState(() {
+              _searching = !_searching;
+              if (!_searching) {
+                _searchCtrl.clear();
+                _query = '';
+              }
+            }),
+            child: Icon(
+              _searching ? Icons.close : Icons.search,
+              size: 20,
+              color: _isDark ? Colors.white70 : const Color(0xFF555555),
+            ),
+          ),
+          const SizedBox(width: 14),
+          GestureDetector(
+            onTap: () => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('批量操作即将上线，敬请期待'))),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _fill,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('批量', style: TextStyle(fontSize: 12, color: _ink)),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _heroStat(String value, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+  // 顶部三格总览——左对齐大数值 + 灰色小标签，克制不抢戏。收藏数列表
+  // 批量接口不返回（只有单篇详情接口带），先占位显示 0，等后端在
+  // listTutorials 里补上 save_count 直接生效
+  Widget _statsRow() {
+    Widget statCard(String value, String label) {
+      return Expanded(
+        child: Container(
+          margin: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _border, width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w500,
+                  color: _ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(label, style: TextStyle(fontSize: 11, color: _muted)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        statCard('${_allWorks.length}', '篇文章'),
+        statCard(_formatCount(_totalLikes), '总获赞'),
+        statCard('0', '总收藏'),
+      ],
+    );
+  }
+
+  // 全部/已发布/草稿/下架——iOS 风格分段控制器，选中项浮出白色胶囊，
+  // 替代原来的下划线 TabBar，视觉更一线。驱动同一个 _tabCtrl（点/滑同步）
+  Widget _segmented() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 2, 14, 10),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: _isDark ? AppColors.darkCard : const Color(0xFFF0F0F0),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: _WorkTab.values.map((t) {
+          final selected = _tabCtrl.index == t.index;
+          return Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _tabCtrl.animateTo(t.index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? (_isDark ? AppColors.darkSurface : Colors.white)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: selected && !_isDark
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  t.label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected
+                        ? (_isDark ? Colors.white : const Color(0xFF1A1A1A))
+                        : _muted,
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 1),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: Color(0xB3FFFFFF)),
-          ),
-        ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -431,12 +396,19 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
           .toList();
     }
     if (list.isEmpty) {
-      if (_query.isNotEmpty) {
-        return Center(
-          child: Text('没有匹配的作品', style: TextStyle(fontSize: 13, color: _muted)),
-        );
-      }
-      return _emptyState(tab);
+      return Center(
+        child: Text(
+          _query.isNotEmpty
+              ? '没有匹配的作品'
+              : switch (tab) {
+                  _WorkTab.all => '还没有任何作品',
+                  _WorkTab.published => '还没有发布的作品',
+                  _WorkTab.draft => '草稿箱是空的',
+                  _WorkTab.archived => '没有已下架的内容',
+                },
+          style: TextStyle(fontSize: 13, color: _muted),
+        ),
+      );
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -471,101 +443,6 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     );
   }
 
-  // 原来空状态只有一行灰字，太单薄。换成柔和渐变图标胶囊+标题+一句引导
-  // 文案+创建入口——下架tab没有"创建"的意义，不给CTA
-  Widget _emptyState(_WorkTab tab) {
-    final (icon, title, subtitle) = switch (tab) {
-      _WorkTab.all => (
-        Icons.auto_stories_outlined,
-        '还没有任何作品',
-        '分享知识、记录思考，建立属于自己的知识宇宙',
-      ),
-      _WorkTab.published => (
-        Icons.auto_stories_outlined,
-        '还没有发布的作品',
-        '完成一篇创作，分享给更多人',
-      ),
-      _WorkTab.draft => (Icons.edit_note_outlined, '草稿箱是空的', '想法先存起来，随时回来完成它'),
-      _WorkTab.archived => (Icons.inventory_2_outlined, '没有已下架的内容', ''),
-    };
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  colors: [
-                    _primary.withValues(alpha: _isDark ? 0.2 : 0.12),
-                    _primary.withValues(alpha: 0),
-                  ],
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 28,
-                color: _primary.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: _ink,
-              ),
-            ),
-            if (subtitle.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: _muted, height: 1.5),
-              ),
-            ],
-            if (tab != _WorkTab.archived) ...[
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTap: () => context.push('/publish'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _primary,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, size: 16, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        '创建新作品',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   _WorkTab _tabFor(TutorialModel t) {
     if (_lists[_WorkTab.draft]?.any((x) => x.id == t.id) == true) {
       return _WorkTab.draft;
@@ -581,10 +458,6 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     final bg = rule?.bg ?? const Color(0xFFF5F5F5);
     final fg = rule?.fg ?? const Color(0xFF999999);
     final categoryLabel = topicCategoryLabelFor(t.tags);
-    final time = DateTime.fromMillisecondsSinceEpoch(t.createdAt);
-    final timeLabel =
-        '${time.year}-${time.month.toString().padLeft(2, '0')}-'
-        '${time.day.toString().padLeft(2, '0')}';
 
     return Container(
       decoration: BoxDecoration(
@@ -653,7 +526,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
                           _statusChip(tab),
                           const SizedBox(width: 8),
                           Text(
-                            timeLabel,
+                            _timeAgo(t.createdAt),
                             style: TextStyle(
                               fontSize: 11.5,
                               color: _isDark
@@ -663,25 +536,16 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(
+                          _miniStat(Icons.thumb_up_outlined, '${t.likes}'),
+                          const SizedBox(width: 12),
+                          _miniStat(Icons.bookmark_outline, '0'),
+                          const SizedBox(width: 12),
+                          _miniStat(
                             Icons.visibility_outlined,
-                            size: 13,
-                            color: _muted,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${t.views}',
-                            style: TextStyle(fontSize: 12, color: _muted),
-                          ),
-                          const SizedBox(width: 10),
-                          Icon(Icons.favorite_border, size: 13, color: _muted),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${t.likes}',
-                            style: TextStyle(fontSize: 12, color: _muted),
+                            _formatCount(t.views),
                           ),
                         ],
                       ),
@@ -695,32 +559,74 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _border, width: 0.5)),
             ),
-            child: Row(children: _actionsFor(tab, t)),
+            child: IntrinsicHeight(
+              child: Row(children: _withDividers(_actionsFor(tab, t))),
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _miniStat(IconData icon, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: _muted),
+        const SizedBox(width: 3),
+        Text(value, style: TextStyle(fontSize: 12, color: _muted)),
+      ],
+    );
+  }
+
+  // 操作按钮之间插竖分割线——靠外层 IntrinsicHeight 给 VerticalDivider
+  // 一个有界高度
+  List<Widget> _withDividers(List<Widget> btns) {
+    final out = <Widget>[];
+    for (var i = 0; i < btns.length; i++) {
+      if (i > 0) {
+        out.add(VerticalDivider(width: 0.5, thickness: 0.5, color: _border));
+      }
+      out.add(btns[i]);
+    }
+    return out;
+  }
+
+  String _timeAgo(int ms) {
+    final d = DateTime.now().difference(
+      DateTime.fromMillisecondsSinceEpoch(ms),
+    );
+    if (d.inDays >= 365) return '${(d.inDays / 365).floor()}年前';
+    if (d.inDays >= 30) return '${(d.inDays / 30).floor()}个月前';
+    if (d.inDays >= 1) return '${d.inDays}天前';
+    if (d.inHours >= 1) return '${d.inHours}小时前';
+    if (d.inMinutes >= 1) return '${d.inMinutes}分钟前';
+    return '刚刚';
+  }
+
   Widget _statusChip(_WorkTab tab) {
+    // 已发布用绿色，其余（草稿/下架）用中性灰——胶囊 badge，浅底深字
     final (label, color) = switch (tab) {
       _WorkTab.published => ('已发布', const Color(0xFF16A34A)),
-      _WorkTab.draft => ('草稿', const Color(0xFFD97706)),
+      _WorkTab.draft => ('草稿', const Color(0xFF888888)),
       _WorkTab.archived => ('已下架', const Color(0xFF999999)),
       _WorkTab.all => ('', const Color(0xFF999999)),
     };
     if (label.isEmpty) return const SizedBox.shrink();
+    final published = tab == _WorkTab.published;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
+        color: _isDark
+            ? color.withValues(alpha: 0.12)
+            : (published ? const Color(0xFFF0FFF5) : const Color(0xFFF5F5F5)),
+        borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 10,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: color,
         ),
       ),

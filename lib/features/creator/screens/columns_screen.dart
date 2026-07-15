@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,22 +9,17 @@ import '../../profile/widgets/create_column_sheet.dart';
 
 const _primary = Color(0xFF6366F1);
 
-const _gradients = [
-  [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-  [Color(0xFFF59E0B), Color(0xFFEA580C)],
-  [Color(0xFF059669), Color(0xFF34D399)],
-  [Color(0xFFDC2626), Color(0xFFF87171)],
+// 专栏封面条轮换调色板——ColumnModel 目前没有 domain 字段，就按专栏
+// 顺序轮换上色（浅底色 + 同色系实心图标底），每个专栏一个稳定的颜色。
+// 记录: (浅色封面条底色, 图标/强调色, 图标)
+const _covers = <(Color, Color, IconData)>[
+  (Color(0xFFEEF0FF), Color(0xFF6366F1), Icons.functions),
+  (Color(0xFFEAF7EF), Color(0xFF16A34A), Icons.code),
+  (Color(0xFFFEF3C7), Color(0xFFD97706), Icons.insights),
+  (Color(0xFFF3E8FF), Color(0xFF8B5CF6), Icons.auto_stories),
+  (Color(0xFFFFE9EC), Color(0xFFDC2626), Icons.science_outlined),
+  (Color(0xFFE0F2FE), Color(0xFF2563EB), Icons.public),
 ];
-
-enum _ColumnSort { newest, mostSubscribed, mostViewed }
-
-extension on _ColumnSort {
-  String get label => switch (this) {
-    _ColumnSort.newest => '最新创建',
-    _ColumnSort.mostSubscribed => '订阅最多',
-    _ColumnSort.mostViewed => '阅读最多',
-  };
-}
 
 class ColumnsScreen extends ConsumerStatefulWidget {
   const ColumnsScreen({super.key});
@@ -36,14 +30,6 @@ class ColumnsScreen extends ConsumerStatefulWidget {
 class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
   bool _loading = true;
   List<ColumnModel> _columns = [];
-  // 0 = 我的专栏，1 = 收藏的专栏——后端目前只有 POST /columns/:id/subscribe
-  // 这个订阅开关接口，没有"我订阅了哪些专栏"的列表接口，收藏的专栏这个
-  // tab 先占位展示，不接真数据也不假造一份
-  int _tab = 0;
-  _ColumnSort _sort = _ColumnSort.newest;
-  bool _searching = false;
-  final _searchCtrl = TextEditingController();
-  String _query = '';
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   Color get _bg => _isDark ? AppColors.darkBg : const Color(0xFFFAFAF8);
@@ -51,10 +37,8 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
   Color get _ink =>
       _isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1A1A);
   Color get _muted =>
-      _isDark ? AppColors.darkTextSecondary : const Color(0xFF999999);
-  Color get _border => _isDark ? AppColors.darkBorder : const Color(0xFFF0F0F0);
-  Color get _fill =>
-      _isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF5F5F7);
+      _isDark ? AppColors.darkTextSecondary : const Color(0xFF888888);
+  Color get _border => _isDark ? AppColors.darkBorder : const Color(0xFFEBEBEB);
 
   @override
   void initState() {
@@ -62,32 +46,29 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     _load();
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
   Future<void> _load() async {
     final res = await ref.read(apiClientProvider).get('/auth/columns/mine');
     if (!mounted) return;
     setState(() {
-      _columns = res.success && res.data != null
+      final list = res.success && res.data != null
           ? ((res.data['columns'] as List?) ?? [])
                 .map(
                   (j) =>
                       ColumnModel.fromJson(Map<String, dynamic>.from(j as Map)),
                 )
                 .toList()
-          : [];
+          : <ColumnModel>[];
+      // 最新创建在前
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      _columns = list;
       _loading = false;
     });
   }
 
   void _createColumn() {
     // 复用「我的」页那套现代化的新建专栏底部弹层（封面/颜色/领域选择 +
-    // 黑色主按钮），跟产品视觉语言统一，不再用系统 AlertDialog。弹层内部
-    // 自己 POST /auth/columns 并广播刷新信号，这里创建成功后重拉本页列表
+    // 黑色主按钮）。弹层内部自己 POST /auth/columns 并广播刷新信号，
+    // 这里创建成功后重拉本页列表
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -101,28 +82,11 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     );
   }
 
-  List<ColumnModel> get _filteredSorted {
-    var list = _query.isEmpty
-        ? _columns
-        : _columns
-              .where((c) => c.name.toLowerCase().contains(_query.toLowerCase()))
-              .toList();
-    list = [...list];
-    switch (_sort) {
-      case _ColumnSort.newest:
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      case _ColumnSort.mostSubscribed:
-        list.sort((a, b) => b.subscriberCount.compareTo(a.subscriberCount));
-      case _ColumnSort.mostViewed:
-        list.sort((a, b) => b.viewCount.compareTo(a.viewCount));
-    }
-    return list;
-  }
-
-  int get _totalViews => _columns.fold(0, (s, c) => s + c.viewCount);
+  int get _totalArticles => _columns.fold(0, (s, c) => s + c.articleCount);
+  int get _totalSubscribers =>
+      _columns.fold(0, (s, c) => s + c.subscriberCount);
 
   String _formatCount(int n) {
-    if (n >= 10000) return '${(n / 1000).toStringAsFixed(1)}k';
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
     return '$n';
   }
@@ -136,14 +100,39 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
         child: Column(
           children: [
             _header(),
-            _tabBar(),
             Expanded(
-              // 点空白处收起键盘
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => FocusScope.of(context).unfocus(),
-                child: _tab == 0 ? _myColumnsBody() : _subscribedPlaceholder(),
-              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 32),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+                          child: _statsRow(),
+                        ),
+                        if (_columns.isEmpty)
+                          _emptyState()
+                        else ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                            child: Text(
+                              '我的专栏',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _muted,
+                              ),
+                            ),
+                          ),
+                          ..._columns.asMap().entries.map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                              child: _columnCard(e.value, e.key),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
             ),
           ],
         ),
@@ -153,7 +142,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
 
   Widget _header() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 12),
       color: _bg,
       child: Row(
         children: [
@@ -172,18 +161,17 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
               ),
             ),
           ),
+          // 右上角新建专栏
           GestureDetector(
-            onTap: () => setState(() {
-              _searching = !_searching;
-              if (!_searching) {
-                _searchCtrl.clear();
-                _query = '';
-              }
-            }),
-            child: Icon(
-              _searching ? Icons.close : Icons.search,
-              size: 20,
-              color: _isDark ? Colors.white70 : const Color(0xFF555555),
+            onTap: _createColumn,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.add, size: 20, color: Colors.white),
             ),
           ),
         ],
@@ -191,195 +179,263 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     );
   }
 
-  Widget _tabBar() {
-    Widget tab(String label, int index) {
-      final active = _tab == index;
-      return GestureDetector(
-        onTap: () => setState(() => _tab = index),
+  // 顶部三格总览——个专栏 / 篇文章 / 订阅者，左对齐大数值 + 灰色小标签
+  Widget _statsRow() {
+    Widget statCard(String value, String label) {
+      return Expanded(
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          margin: const EdgeInsets.only(right: 24),
+          margin: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: active ? _primary : Colors.transparent,
-                width: 2,
-              ),
-            ),
+            color: _card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _border, width: 0.5),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-              color: active ? _primary : _muted,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w500,
+                  color: _ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(label, style: TextStyle(fontSize: 11, color: _muted)),
+            ],
           ),
         ),
       );
     }
 
-    return Container(
-      color: _bg,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(children: [tab('我的专栏', 0), tab('收藏的专栏', 1)]),
-    );
-  }
-
-  Widget _myColumnsBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final list = _filteredSorted;
-    final hasData = _columns.isNotEmpty;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+    return Row(
       children: [
-        if (_searching) ...[
-          TextField(
-            controller: _searchCtrl,
-            autofocus: true,
-            onChanged: (v) => setState(() => _query = v),
-            decoration: InputDecoration(
-              hintText: '搜索专栏名称',
-              prefixIcon: const Icon(Icons.search, size: 18),
-              filled: true,
-              fillColor: _fill,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-        // Hero 标题区——大标题 + 一句概览，把「专栏管理」从后台报表拉回
-        // 内容产品的编辑感
-        _heroBlock(hasData),
-        const SizedBox(height: 18),
-        // 主 CTA——紫色轻渐变大按钮（Apple Card 质感），不描边
-        _gradientCta(hasData),
-        const SizedBox(height: 24),
-        if (!hasData)
-          // 全 0 的统计卡没有信息量，直接删掉；换成有插图/引导文案的编辑态
-          _emptyState()
-        else ...[
-          _listHeader(),
-          const SizedBox(height: 12),
-          if (list.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 40),
-              child: Center(
-                child: Text(
-                  '没有匹配的专栏',
-                  style: TextStyle(fontSize: 13, color: _muted),
-                ),
-              ),
-            )
-          else
-            ...list.asMap().entries.map(
-              (e) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _columnCard(e.value, e.key),
-              ),
-            ),
-        ],
+        statCard('${_columns.length}', '个专栏'),
+        statCard('$_totalArticles', '篇文章'),
+        statCard(_formatCount(_totalSubscribers), '订阅者'),
       ],
     );
   }
 
-  Widget _heroBlock(bool hasData) {
-    final sub = hasData
-        ? '你拥有 ${_columns.length} 个专栏 · 累计 ${_formatCount(_totalViews)} 阅读'
-        : '把文章、教程、研究整理成系列，开始构建属于你的知识世界';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '创建你的知识世界',
+  Widget _columnCard(ColumnModel c, int index) {
+    final (lightStrip, accent, icon) = _covers[index % _covers.length];
+    // 深色模式下浅色封面条会太亮，改用强调色的低透明度当底
+    final stripBg = _isDark ? accent.withValues(alpha: 0.16) : lightStrip;
+    final stripText = _isDark ? Colors.white : const Color(0xFF1A1A1A);
+
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          // 彩色封面条：图标 + 名称 + 文章/订阅者数
+          Container(
+            height: 72,
+            color: stripBg,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: stripText,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${c.articleCount}篇文章 · ${c.subscriberCount} 订阅者',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: stripText.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 简介 + 操作
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if ((c.description ?? '').trim().isNotEmpty) ...[
+                  Text(
+                    c.description!.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, height: 1.6, color: _muted),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: _cardBtn('管理文章', () async {
+                        await context.push('/columns/${c.id}');
+                        if (mounted) _load();
+                      }),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: _cardBtn('编辑专栏', () => _editColumn(c))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cardBtn(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _border, width: 0.8),
+        ),
+        child: Text(
+          label,
           style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            height: 1.15,
-            letterSpacing: -0.5,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
             color: _ink,
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(sub, style: TextStyle(fontSize: 13.5, height: 1.4, color: _muted)),
-      ],
-    );
-  }
-
-  Widget _gradientCta(bool hasData) {
-    return GestureDetector(
-      onTap: _createColumn,
-      child: Container(
-        height: 72,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF6D6AFF), Color(0xFF7A6CFF)],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: _isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: const Color(0xFF6D6AFF).withValues(alpha: 0.35),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.add, size: 22, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              hasData ? '新建专栏' : '创建第一个专栏',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-                color: Colors.white,
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 
-  Widget _listHeader() {
-    return Row(
-      children: [
-        Text(
-          '全部专栏 (${_columns.length})',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: _ink,
+  // 编辑专栏名称/简介——跟专栏详情页的编辑弹层同一套 PUT /auth/columns/:id
+  // 契约（只发 name/description），改完重拉本页
+  void _editColumn(ColumnModel c) {
+    final nameCtrl = TextEditingController(text: c.name);
+    final descCtrl = TextEditingController(text: c.description ?? '');
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-        ),
-        const Spacer(),
-        GestureDetector(
-          onTap: () => setState(() {
-            _sort = _ColumnSort
-                .values[(_sort.index + 1) % _ColumnSort.values.length];
-          }),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.swap_vert, size: 15, color: _muted),
-              const SizedBox(width: 3),
-              Text(_sort.label, style: TextStyle(fontSize: 12, color: _muted)),
+              Row(
+                children: [
+                  Text(
+                    '编辑专栏',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () async {
+                      if (nameCtrl.text.trim().isEmpty) return;
+                      final res = await ref
+                          .read(apiClientProvider)
+                          .put(
+                            '/auth/columns/${c.id}',
+                            data: {
+                              'name': nameCtrl.text.trim(),
+                              'description': descCtrl.text.trim(),
+                            },
+                          );
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      if (res.success) {
+                        if (mounted) _load();
+                      } else if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(res.message ?? '保存失败，请稍后重试')),
+                        );
+                      }
+                    },
+                    child: const Text(
+                      '保存',
+                      style: TextStyle(
+                        color: _primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _sheetField(nameCtrl, '专栏名称'),
+              const SizedBox(height: 12),
+              _sheetField(descCtrl, '专栏简介（选填）', maxLines: 3),
             ],
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _sheetField(
+    TextEditingController ctrl,
+    String label, {
+    int maxLines = 1,
+  }) {
+    return TextField(
+      controller: ctrl,
+      maxLines: maxLines,
+      style: TextStyle(color: _ink),
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: _isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : const Color(0xFFF5F5F7),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _primary),
+        ),
+      ),
     );
   }
 
@@ -387,10 +443,11 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
     const examples = ['教程', '数据分析', '动漫系列', '科研笔记', '读书笔记'];
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(4, 12, 4, 0),
       padding: const EdgeInsets.fromLTRB(24, 30, 24, 30),
       decoration: BoxDecoration(
         color: _isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _border, width: 0.5),
       ),
       child: Column(
@@ -429,7 +486,7 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, height: 1.5, color: _muted),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Text(
             '可以整理为',
             style: TextStyle(
@@ -443,147 +500,59 @@ class _ColumnsScreenState extends ConsumerState<ColumnsScreen> {
             spacing: 8,
             runSpacing: 8,
             alignment: WrapAlignment.center,
-            children: examples.map(_exampleChip).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _exampleChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: _primary.withValues(alpha: _isDark ? 0.14 : 0.07),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: _isDark ? const Color(0xFF9B9EF8) : _primary,
-        ),
-      ),
-    );
-  }
-
-  Widget _columnCard(ColumnModel c, int index) {
-    final gradient = _gradients[index % _gradients.length];
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border, width: 0.5),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 52,
-              height: 52,
-              child: (c.coverImage ?? '').isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: c.coverImage!,
-                      fit: BoxFit.cover,
-                    )
-                  : Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: gradient,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        c.name.isNotEmpty ? c.name.substring(0, 1) : '专',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  c.name,
+            children: examples.map((e) {
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: _isDark ? 0.14 : 0.07),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  e,
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: _ink,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _isDark ? const Color(0xFF9B9EF8) : _primary,
                   ),
                 ),
-                if ((c.description ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 3),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 22),
+          GestureDetector(
+            onTap: _createColumn,
+            child: Container(
+              width: double.infinity,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF6D6AFF), Color(0xFF7A6CFF)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add, size: 20, color: Colors.white),
+                  SizedBox(width: 6),
                   Text(
-                    c.description!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12.5, color: _muted),
+                    '创建第一个专栏',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '${c.articleCount}篇文章 · ${_formatCount(c.viewCount)}阅读 · ${c.subscriberCount}订阅',
-                      style: TextStyle(fontSize: 11.5, color: _muted),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      // 进「专栏管理」详情页可能会删除专栏，push 返回后重拉
-                      // 本页列表——不然删掉了这里还留着旧卡片，得退出再进才更新
-                      onTap: () async {
-                        await context.push('/columns/${c.id}');
-                        if (mounted) _load();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _fill,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '管理',
-                          style: TextStyle(fontSize: 11.5, color: _ink),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _subscribedPlaceholder() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.bookmark_border,
-            size: 44,
-            color: _isDark ? Colors.white24 : Colors.grey[300],
-          ),
-          const SizedBox(height: 12),
-          Text('收藏的专栏即将上线，敬请期待', style: TextStyle(fontSize: 13, color: _muted)),
         ],
       ),
     );
