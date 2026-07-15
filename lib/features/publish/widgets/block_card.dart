@@ -1465,6 +1465,105 @@ th{background:$thBg;color:$thFg}
     );
   }
 
+  // 图片/音频/视频空态共用的"上传区"——主题感知的虚线圆角框 + 圆形图标
+  // chip + 主/副提示，跟卡片背景融为一体（不再各自一块实底 pill / 黑框）。
+  // badge 用来放视频块右上角的 PRO 角标
+  Widget _buildUploadZone({
+    required IconData icon,
+    required String label,
+    String? subHint,
+    required VoidCallback onTap,
+    Widget? badge,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final zoneBg = isDark
+        ? Theme.of(context).cardColor
+        : const Color(0xFFFAFAFA);
+    final dashColor = isDark ? Colors.white24 : const Color(0xFFD1D1D6);
+    final iconChipBg = isDark
+        ? _primary.withValues(alpha: 0.18)
+        : const Color(0xFFEEF0FF);
+    final hintColor = isDark ? Colors.white54 : const Color(0xFF999999);
+    final subHintColor = isDark ? Colors.white30 : const Color(0xFFC7C7CC);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: CustomPaint(
+        painter: _DashedRRectPainter(color: dashColor, radius: 12),
+        child: Container(
+          height: 140,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: zoneBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Stack(
+            children: [
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: iconChipBg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: _primary, size: 22),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: hintColor,
+                      ),
+                    ),
+                    if (subHint != null) ...[
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          subHint,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            height: 1.5,
+                            color: subHintColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (badge != null) Positioned(top: 8, right: 8, child: badge),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 视频块的 PRO 角标——空态上传区右上角 + 已上传预览右上角共用
+  Widget _proBadge() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: _primary,
+      borderRadius: BorderRadius.circular(5),
+    ),
+    child: const Text(
+      'PRO',
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+      ),
+    ),
+  );
+
   Widget _buildImageBlock(AppLocalizations l10n) {
     if (widget.block.imageUrl != null) {
       return Column(
@@ -1503,74 +1602,12 @@ th{background:$thBg;color:$thFg}
         ],
       );
     }
-    // 之前不管明暗主题固定一块浅灰色方块，深色卡片里像是插错了一张白色
-    // 便签纸；改成主题感知的虚线"上传区"——虚线边框是这类空态在一线
-    // 产品里（Notion/Linear 等）的通用语言，一眼就能认出"这里可以点击/
-    // 拖拽上传"，图标也换成跟品牌色一致的圆形色块，不再是孤零零一个灰图标
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final zoneBg = isDark
-        ? Theme.of(context).cardColor
-        : const Color(0xFFFAFAFA);
-    final dashColor = isDark ? Colors.white24 : const Color(0xFFD1D1D6);
-    final iconChipBg = isDark
-        ? _primary.withValues(alpha: 0.18)
-        : const Color(0xFFEEF0FF);
-    final hintColor = isDark ? Colors.white54 : const Color(0xFF999999);
-    final subHintColor = isDark ? Colors.white30 : const Color(0xFFC7C7CC);
-
-    return GestureDetector(
+    // 空态跟音频/视频块共用同一套"虚线上传区"（见 _buildUploadZone）
+    return _buildUploadZone(
+      icon: Icons.add_photo_alternate_outlined,
+      label: l10n.tapToUploadLabel,
+      subHint: l10n.imageSizeHint,
       onTap: _pickImage,
-      child: CustomPaint(
-        painter: _DashedRRectPainter(color: dashColor, radius: 12),
-        child: Container(
-          height: 140,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: zoneBg,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: iconChipBg,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.add_photo_alternate_outlined,
-                  color: _primary,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                l10n.tapToUploadLabel,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: hintColor,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  l10n.imageSizeHint,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10,
-                    height: 1.5,
-                    color: subHintColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -1819,31 +1856,11 @@ th{background:$thBg;color:$thFg}
       );
     }
 
-    return GestureDetector(
+    // 空态跟图片/视频块共用同一套"虚线上传区"，不再是一块紫色实底 pill
+    return _buildUploadZone(
+      icon: Icons.audio_file_outlined,
+      label: l10n.uploadAudioLabel,
       onTap: _pickAudio,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFDF4FF),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE9D5FF)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.audio_file_outlined,
-              color: Color(0xFFA855F7),
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              l10n.uploadAudioLabel,
-              style: const TextStyle(fontSize: 13, color: Color(0xFFA855F7)),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1887,65 +1904,11 @@ th{background:$thBg;color:$thFg}
   }
 
   Widget _buildVideoBlock(AppLocalizations l10n) {
-    // 不做视觉加锁：块照常渲染，点上传时才 requirePro
-    return GestureDetector(
-      onTap: () async {
-        // 视频块是 Pro 权益——非 Pro 弹会员 Sheet
-        if (!requirePro(context, ref, feature: '视频块')) return;
-        final picker = ImagePicker();
-        final file = await picker.pickVideo(
-          source: ImageSource.gallery,
-          maxDuration: const Duration(minutes: 10),
-        );
-        if (file == null) return;
-        final bytes = await file.readAsBytes();
-
-        // Pro 视频上限 50MB、Pro Max 100MB。Pro 用户超过 50MB → 弹 Pro Max
-        // 升级 Sheet（不是干巴巴的报错）；Pro Max 超过 100MB 才是硬上限提示
-        final isMax = widget.membership == 'pro_max';
-        if (!isMax && bytes.length > 50 * 1024 * 1024) {
-          if (mounted) {
-            showProUpgradeSheet(context, feature: '上传 50MB 以上视频', proMax: true);
-          }
-          return;
-        }
-        if (isMax && bytes.length > 100 * 1024 * 1024) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.videoSizeExceedsLimit('100MB'))),
-            );
-          }
-          return;
-        }
-
-        try {
-          final formData = FormData.fromMap({
-            'file': MultipartFile.fromBytes(
-              bytes,
-              filename: file.name,
-              contentType: DioMediaType('video', 'mp4'),
-            ),
-          });
-          final res = await ref
-              .read(apiClientProvider)
-              .post('/auth/files/upload', data: formData);
-          if (!res.success || res.data == null) return;
-          final url = (res.data as Map)['url'] as String?;
-          final uploadedId = (res.data as Map)['id'] as String?;
-          if (uploadedId != null) widget.onFileUploaded?.call(uploadedId);
-          if (url != null && mounted) {
-            setState(() {
-              widget.block.content = url;
-              widget.block.fileName = file.name;
-              widget.block.fileSize = bytes.length;
-            });
-            widget.onChanged();
-          }
-        } catch (e) {
-          debugPrint('[video] 上传失败: $e');
-        }
-      },
-      child: Container(
+    // 不做视觉加锁：块照常渲染，点上传时才在 _pickVideo 里 requirePro。
+    // 已上传 → 深色预览框（视频缩略图本身偏暗，符合直觉）；空态 → 跟图片/
+    // 音频一样的虚线上传区（右上角挂 PRO 角标），不再是一整块黑底 box
+    if (widget.block.content.isNotEmpty) {
+      return Container(
         height: 140,
         decoration: BoxDecoration(
           color: const Color(0xFF111111),
@@ -1954,79 +1917,97 @@ th{background:$thBg;color:$thFg}
         child: Stack(
           children: [
             Center(
-              child: widget.block.content.isNotEmpty
-                  ? Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(
-                          Icons.play_circle_outline,
-                          color: Colors.white,
-                          size: 44,
-                        ),
-                        Positioned(
-                          bottom: -30,
-                          child: Text(
-                            widget.block.fileName ?? 'video.mp4',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.videocam_outlined,
-                          color: Colors.white54,
-                          size: 28,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          l10n.uploadVideoFromGallery,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.white54,
-                          ),
-                        ),
-                        Text(
-                          l10n.videoSizeHint,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.white38,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-            // 常驻的 PRO 角标——标记这是会员专属的 block 类型，不是"锁住了
-            // 才显示"的状态提示（免费用户走的是上面 free 分支那套完全
-            // 不同的锁定提示，走到这里已经是 Pro/Pro Max 用户）
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: _primary,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: const Text(
-                  'PRO',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.play_circle_outline,
                     color: Colors.white,
+                    size: 44,
                   ),
-                ),
+                  Positioned(
+                    bottom: -30,
+                    child: Text(
+                      widget.block.fileName ?? 'video.mp4',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+            Positioned(top: 8, right: 8, child: _proBadge()),
           ],
         ),
-      ),
+      );
+    }
+    return _buildUploadZone(
+      icon: Icons.videocam_outlined,
+      label: l10n.uploadVideoFromGallery,
+      subHint: l10n.videoSizeHint,
+      onTap: _pickVideo,
+      badge: _proBadge(),
     );
+  }
+
+  Future<void> _pickVideo() async {
+    // 视频块是 Pro 权益——非 Pro 弹会员 Sheet
+    if (!requirePro(context, ref, feature: '视频块')) return;
+    final picker = ImagePicker();
+    final file = await picker.pickVideo(
+      source: ImageSource.gallery,
+      maxDuration: const Duration(minutes: 10),
+    );
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+
+    // Pro 视频上限 50MB、Pro Max 100MB。Pro 用户超过 50MB → 弹 Pro Max
+    // 升级 Sheet（不是干巴巴的报错）；Pro Max 超过 100MB 才是硬上限提示
+    final isMax = widget.membership == 'pro_max';
+    if (!isMax && bytes.length > 50 * 1024 * 1024) {
+      showProUpgradeSheet(context, feature: '上传 50MB 以上视频', proMax: true);
+      return;
+    }
+    if (isMax && bytes.length > 100 * 1024 * 1024) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.videoSizeExceedsLimit('100MB'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: file.name,
+          contentType: DioMediaType('video', 'mp4'),
+        ),
+      });
+      final res = await ref
+          .read(apiClientProvider)
+          .post('/auth/files/upload', data: formData);
+      if (!res.success || res.data == null) return;
+      final url = (res.data as Map)['url'] as String?;
+      final uploadedId = (res.data as Map)['id'] as String?;
+      if (uploadedId != null) widget.onFileUploaded?.call(uploadedId);
+      if (url != null && mounted) {
+        setState(() {
+          widget.block.content = url;
+          widget.block.fileName = file.name;
+          widget.block.fileSize = bytes.length;
+        });
+        widget.onChanged();
+      }
+    } catch (e) {
+      debugPrint('[video] 上传失败: $e');
+    }
   }
 
   Widget _buildLinkBlock(AppLocalizations l10n) {
