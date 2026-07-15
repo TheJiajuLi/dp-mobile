@@ -192,8 +192,17 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         final data = jsonDecode(jsonStr) as Map<String, dynamic>;
         switch (data['type']) {
           case 'meta':
+            _convId = data['conversationId']?.toString() ?? _convId;
+            break;
           case 'done':
             _convId = data['conversationId']?.toString() ?? _convId;
+            // 分片累加偶发会丢片（网络/后端 SSE 推送问题），done 事件带的
+            // fullText 是权威全文，收到就整段覆盖掉之前拼出来的 answer，
+            // 兜底修正任何遗漏，不管丢片具体发生在哪一层
+            final fullText = data['fullText'] as String?;
+            if (fullText != null && fullText.isNotEmpty) {
+              setState(() => turn.answer = fullText);
+            }
             break;
           case 'chunk':
             setState(() => turn.answer += data['text']?.toString() ?? '');
