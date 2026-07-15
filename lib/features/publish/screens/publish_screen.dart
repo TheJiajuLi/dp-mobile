@@ -18,6 +18,7 @@ import '../widgets/formatting_toolbar.dart';
 import '../widgets/preview_drawer.dart';
 import '../widgets/publish_meta_sheet.dart';
 import '../widgets/publish_toolbar.dart';
+import '../widgets/xmeng_write_sheet.dart';
 import 'import_browser_screen.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -130,6 +131,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   }
 
   Future<void> _askXmeng() async {
+    // 已经有标题/正文了：小梦转去建议标题；空白编辑器才走"帮我写"——对话式
+    // 问答生成整篇文章再填入（见 XmengWriteSheet）
     if (_titleCtrl.text.isNotEmpty ||
         _blocks.any((b) => b.content.isNotEmpty)) {
       await _aiSuggestTitles();
@@ -139,94 +142,64 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEEF0FF),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.auto_awesome, color: _primary, size: 32),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '我是小梦，来帮你开始',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              '先告诉我你想写什么方向？',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children:
-                  [
-                    '数据分析',
-                    '机器学习',
-                    'Python编程',
-                    '数学公式',
-                    '可视化',
-                    '论文笔记',
-                    '个人总结',
-                    '读书笔记',
-                  ].map((topic) {
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _addBlock(BlockType.text);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(
-                                  Icons.auto_awesome,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text('开始写$topic吧！有问题随时叫我')),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          topic,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF1C1C1E),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => XmengWriteSheet(onFill: _fillFromXmeng),
     );
+  }
+
+  // 小梦生成的内容填入编辑器：空编辑器（没标题、所有 block 都空）→ 整个替换；
+  // 已经有内容 → 追加到后面（不毁掉用户已写的）。XmengBlock 是纯数据规格，
+  // 这里才用 _uid() 造成真正带 FocusNode 的 EditorBlock
+  void _fillFromXmeng(List<XmengBlock> specs) {
+    if (specs.isEmpty) return;
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    var i = 0;
+    final newBlocks = specs
+        .map(
+          (s) => EditorBlock(
+            id: 'block_${stamp}_${_blocks.length}_${i++}',
+            type: s.type,
+            content: s.content,
+            language: s.language ?? 'python',
+            headingLevel: s.headingLevel ?? 2,
+          ),
+        )
+        .toList();
+
+    final editorEmpty =
+        _titleCtrl.text.trim().isEmpty &&
+        _blocks.every(
+          (b) =>
+              b.content.trim().isEmpty &&
+              (b.imageUrl?.isEmpty ?? true) &&
+              b.fileName == null,
+        );
+
+    setState(() {
+      if (editorEmpty) {
+        for (final b in _blocks) {
+          b.focusNode.dispose();
+        }
+        _blocks
+          ..clear()
+          ..addAll(newBlocks);
+      } else {
+        _blocks.addAll(newBlocks);
+      }
+      _activeToolbarType = newBlocks.first.type;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      newBlocks.first.focusNode.requestFocus();
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          editorEmpty ? 0 : _scrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _aiSuggestTitles() async {
