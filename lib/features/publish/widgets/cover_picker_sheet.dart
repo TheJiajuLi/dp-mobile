@@ -438,7 +438,7 @@ void showCoverPickerSheet(
 // AI封面生成等待弹窗——带计时+轮换提示语，让用户知道是在正常等待而不是
 // 卡死。纯展示，不碰 aiGenerateCover 里那套 dialogShowing 防重复pop逻辑
 class AiGeneratingCoverDialog extends StatefulWidget {
-  const AiGeneratingCoverDialog();
+  const AiGeneratingCoverDialog({super.key});
 
   @override
   State<AiGeneratingCoverDialog> createState() =>
@@ -479,29 +479,103 @@ class _AiGeneratingCoverDialogState extends State<AiGeneratingCoverDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(color: Color(0xFF6366F1)),
-          const SizedBox(height: 20),
-          Text(
-            _tip,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '已等待 $_seconds 秒',
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '封面生成通常需要 20-60 秒',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-        ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C22) : const Color(0xFFFAFAF8);
+    final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final muted = isDark ? Colors.white54 : const Color(0xFF999999);
+    final faint = isDark ? Colors.white38 : const Color(0xFFBBBBBB);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 44),
+      child: Container(
+        // 米白底 + 大留白 + 柔和落影，把弹窗从页面里"托"起来一层
+        padding: const EdgeInsets.fromLTRB(28, 34, 28, 30),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(24),
+          border: isDark
+              ? Border.all(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  width: 0.5,
+                )
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+              blurRadius: 30,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 环形进度 + 中心紫色渐变小梦星标，做出层次
+            SizedBox(
+              width: 60,
+              height: 60,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: const AlwaysStoppedAnimation(_primary),
+                      backgroundColor: _primary.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          _primary.withValues(alpha: isDark ? 0.28 : 0.14),
+                          const Color(
+                            0xFF8B5CF6,
+                          ).withValues(alpha: isDark ? 0.28 : 0.12),
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      size: 20,
+                      color: _primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 26),
+            Text(
+              _tip,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: ink,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '已等待 $_seconds 秒',
+              style: TextStyle(fontSize: 12.5, color: muted),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '封面生成通常需要 20–60 秒',
+              style: TextStyle(fontSize: 11.5, color: faint),
+            ),
+          ],
+        ),
       ),
     );
   }
