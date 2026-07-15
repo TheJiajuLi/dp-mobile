@@ -19,6 +19,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/utils/avatar_upload.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
@@ -323,13 +324,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
       setState(() {
         _columns.removeWhere((c) => c.id == columnId);
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('专栏已删除')));
+      showAppToast(context, '专栏已删除', ok: true);
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message ?? '删除失败')));
+      showAppToast(context, res.message ?? '删除失败');
     }
   }
 

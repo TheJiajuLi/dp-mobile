@@ -9,6 +9,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../auth/auth_service.dart';
 import '../models/column_model.dart';
 
@@ -180,23 +181,11 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
     Navigator.of(context).pop(); // 关闭 loading
 
     if (res.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('专栏已删除'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Color(0xFF1A1A1A),
-        ),
-      );
+      showAppToast(context, '专栏已删除', ok: true);
       context.pop({'deleted': true, 'columnId': widget.columnId});
     } else {
       _deleting = false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.message ?? '删除失败，请稍后重试'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showAppToast(context, res.message ?? '删除失败，请稍后重试');
     }
   }
 
@@ -229,9 +218,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
       setState(() => _subscribed = (res.data as Map)['subscribed'] == true);
     } else {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
-      );
+      showAppToast(context, l10n.actionFailedWithReason('${res.message}'));
     }
   }
 
@@ -306,9 +293,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                     IconButton(
                       icon: const Icon(Icons.share_outlined),
                       onPressed: () =>
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(l10n.comingSoonStayTuned)),
-                          ),
+                          showAppToast(context, l10n.comingSoonStayTuned),
                     ),
                     if (isOwner)
                       IconButton(
@@ -793,12 +778,9 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                         notifyProfileShouldRefresh(ref);
                         await _load();
                       } else if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              l10n.actionFailedWithReason('${res.message}'),
-                            ),
-                          ),
+                        showAppToast(
+                          context,
+                          l10n.actionFailedWithReason('${res.message}'),
                         );
                       }
                     },
@@ -969,9 +951,7 @@ class _AddArticleSheetState extends ConsumerState<_AddArticleSheet> {
       widget.onAdded();
     } else if (mounted) {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
-      );
+      showAppToast(context, l10n.actionFailedWithReason('${res.message}'));
     }
   }
 
