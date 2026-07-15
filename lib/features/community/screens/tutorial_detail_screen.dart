@@ -428,7 +428,14 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         : await api.post('/auth/tutorials/${widget.tutorialId}/save');
     if (!mounted) return;
     if (res.success) {
-      setState(() => _saved = !_saved);
+      setState(() {
+        _saved = !_saved;
+        // 收藏数本地乐观更新——跟点赞一样即时反映，不等重新拉详情
+        final count = (_tutorial!['save_count'] as num?)?.toInt() ?? 0;
+        _tutorial!['save_count'] = _saved
+            ? count + 1
+            : (count > 0 ? count - 1 : 0);
+      });
     } else {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -819,6 +826,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final authorIsAuroraCreator =
         t['is_aurora_creator'] == true || t['is_aurora_creator'] == 1;
     final likes = (t['likes'] as num?)?.toInt() ?? 0;
+    final saveCount = (t['save_count'] as num?)?.toInt() ?? 0;
     final coverImage = t['cover_image'] as String?;
     final createdAt = (t['created_at'] as num?)?.toInt() ?? 0;
     final summary = t['summary'] as String?;
@@ -1294,7 +1302,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 _bottomAction(
                   icon: _saved ? Icons.bookmark : Icons.bookmark_border,
                   color: _saved ? _primary : Colors.grey[400]!,
-                  label: '收藏',
+                  label: '$saveCount',
                   onTap: _toggleSave,
                 ),
                 const Spacer(),
