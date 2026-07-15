@@ -49,9 +49,11 @@ class NotebookCellCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 选中态也走浅灰细描边，不再用偏深的 #CFCFD4 / 深色下的紫框——跟代码块
+    // 那种简约、纯净一致，只比 idle 略深一点点点明"这是当前编辑的 cell"
     final activeBorder = isDark
-        ? const Color(0xFF6366F1).withValues(alpha: 0.4)
-        : const Color(0xFFCFCFD4);
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFE2E2E6);
     final idleBorder = isDark
         ? Colors.white.withValues(alpha: 0.06)
         : const Color(0xFFEBEBEB);

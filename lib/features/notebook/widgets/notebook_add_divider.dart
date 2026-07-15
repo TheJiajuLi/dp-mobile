@@ -21,15 +21,14 @@ class NotebookAddDivider extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(4, 2, 4, 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(
-            0xFF6366F1,
-          ).withValues(alpha: isDark ? 0.08 : 0.05),
+          // 去掉紫色 pill 底色，只留一圈浅灰描边——跟代码块那种简约、纯净
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: const Color(
-              0xFF6366F1,
-            ).withValues(alpha: isDark ? 0.2 : 0.15),
-            width: 1,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFEBEBEB),
+            width: 0.5,
           ),
         ),
         child: const Row(
