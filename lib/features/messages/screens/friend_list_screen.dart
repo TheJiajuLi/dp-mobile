@@ -374,7 +374,11 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen> {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // 浅色下用米白色（跟发布页 _bg 一致），不再吃主题那个偏灰的
+      // #F7F7FB；深色仍走主题背景
+      backgroundColor: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFFAFAF8),
       body: SafeArea(
         child: Column(
           children: [
