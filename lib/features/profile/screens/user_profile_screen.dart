@@ -1696,46 +1696,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         ? ref.watch(currentUserProvider)?.isAuroraCreator ?? false
         : _profile?.isAuroraCreator ?? false;
     final isMember = membership == 'pro' || membership == 'pro_max';
-    if (!isAurora && !isMember) {
-      // 免费用户——看自己主页时头像角标换成小皇冠，点了跳订阅页当升级
-      // 入口；看别人主页不显示（升级入口只对本人有意义，且看别人主页
-      // 拿不到对方真实membership，不该在这猜）
-      if (!isSelfView) return const SizedBox.shrink();
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      // 用「投影代替边框」——第一层 spread 1.5/blur 0 的投影当描边（自定义
-      // 背景/彩色背景下都能勾出轮廓，不依赖固定边框色去融合），第二层柔和
-      // 落影让角标浮起来
-      return GestureDetector(
-        onTap: () => context.push('/settings/subscription'),
-        child: Container(
-          width: 22,
-          height: 22,
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A24) : Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.08),
-                blurRadius: 0,
-                spreadRadius: 1.5,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-                blurRadius: 3,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.workspace_premium,
-            size: 12,
-            color: isDark ? const Color(0xFFF59E0B) : const Color(0xFFD97706),
-          ),
-        ),
-      );
-    }
+    // 免费用户头像不再加皇冠角标（会员入口保留在创作者中心那颗灰色皇冠）——
+    // 头像角标只留给 Pro/Pro Max/极光 的身份展示，避免免费态的角标盖掉/
+    // 挤掉会员角标
+    if (!isAurora && !isMember) return const SizedBox.shrink();
 
     final label = isAurora ? '极光' : 'Pro';
     return GestureDetector(
