@@ -913,6 +913,20 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                               ),
                               itemCount: _blocks.length,
                               onReorder: _onReorder,
+                              // 默认拖拽代理是个不带圆角的矩形 Material，
+                              // 阴影跟卡片本身14px圆角对不上，拖起来卡片
+                              // 底下露出一个方形"底座"——换成圆角跟卡片
+                              // 一致、背景透明的 Material，阴影贴合卡片轮廓
+                              proxyDecorator: (child, index, animation) =>
+                                  Material(
+                                    color: Colors.transparent,
+                                    elevation: 6,
+                                    shadowColor: Colors.black.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: child,
+                                  ),
                               // 拖拽只从 BlockCard 里那个手柄图标触发（见
                               // ReorderableDragStartListener），关掉默认的
                               // "长按列表项任意位置拖拽"——不然长按 block 里的
