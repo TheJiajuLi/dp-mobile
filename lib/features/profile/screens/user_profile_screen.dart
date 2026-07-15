@@ -1734,18 +1734,18 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
     return GestureDetector(
       onTap: isSelfView ? () => context.push('/settings/subscription') : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 5.5, vertical: 1),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
           ),
           borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: Colors.white, width: 1.2),
+          border: Border.all(color: Colors.white, width: 1),
         ),
         child: Text(
           label,
           style: const TextStyle(
-            fontSize: 10,
+            fontSize: 8,
             fontWeight: FontWeight.w700,
             color: Colors.white,
           ),
