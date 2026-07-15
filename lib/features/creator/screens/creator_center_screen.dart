@@ -440,7 +440,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                       iconColor: Colors.white,
                       iconGradient: proGradient,
                       label: '会员中心',
-                      onTap: () => context.push('/settings/subscription'),
+                      onTap: () => context.push('/subscription/manage'),
                     ),
                     vDiv(),
                     _toolCell(

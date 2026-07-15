@@ -68,6 +68,7 @@ import '../../features/settings/screens/settings_screen.dart';
 import '../../features/settings/screens/storage_screen.dart';
 import '../../features/settings/screens/terms_of_service_screen.dart';
 import '../../features/settings/screens/subscription_screen.dart';
+import '../../features/subscription/screens/subscription_management_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
 final appRouter = GoRouter(
@@ -230,6 +231,11 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/subscription',
       builder: (context, state) => const SubscriptionScreen(),
+    ),
+    // 订阅管理——跟上面的「会员中心」分开，从创作者中心会员入口进
+    GoRoute(
+      path: '/subscription/manage',
+      builder: (context, state) => const SubscriptionManagementScreen(),
     ),
     GoRoute(
       path: '/settings/privacy',
