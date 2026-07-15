@@ -474,7 +474,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                       iconBg: const Color(0xFFFEF3C7),
                       iconColor: const Color(0xFFD97706),
                       label: '数据分析',
-                      onTap: _soon,
+                      onTap: () => context.push('/creator/stats'),
                     ),
                     vDiv(),
                     _toolCell(
