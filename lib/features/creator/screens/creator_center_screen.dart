@@ -189,35 +189,6 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                       ),
                     ),
                   ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => context.push('/publish'),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _primary,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, size: 15, color: Colors.white),
-                          SizedBox(width: 3),
-                          Text(
-                            '发布',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 2),
