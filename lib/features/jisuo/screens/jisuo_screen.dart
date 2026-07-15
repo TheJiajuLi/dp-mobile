@@ -889,7 +889,10 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     final line = isDark
         ? Colors.white.withValues(alpha: 0.06)
         : const Color(0xFFF0F0F0);
-    final cardBg = isDark ? const Color(0xFF141427) : Colors.white;
+    // 卡片底色改成跟页面背景同款米白 #FAFAF8（不再是纯白），让回答卡片
+    // 融进页面而不是浮成一块独立的白色色块——只靠下面的细描边勾出轮廓，
+    // 视觉噪音更小
+    final cardBg = isDark ? const Color(0xFF141427) : const Color(0xFFFAFAF8);
     final cardBorder = isDark
         ? Colors.white.withValues(alpha: 0.08)
         : const Color(0xFFEBEBEB);
