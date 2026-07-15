@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../utils/latex_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -397,10 +398,13 @@ Widget inlineLatexText(
 }
 
 // 教程详情页（阅读视角）里可运行的代码块——只有 python/javascript/sql
-// 才显示"运行"按钮，跟发布页共用同一套 PyodideEngine（compiler.js +
-// 隐藏 WebView），但各自拥有自己的引擎实例：详情页每次进来都是独立的
-// 页面生命周期，没必要也不应该跟发布页共享同一个 WebView
-class TutorialCodeBlock extends StatefulWidget {
+// 才显示"运行"按钮，跟发布页/Notebook 共用同一个 App 级单例
+// PyodideEngine（compiler.js + 全局唯一的隐藏 WebView，挂在 main.dart）。
+// 2026-07-15 前这里每个代码块自己 new 一份 PyodideEngine——一篇文章有
+// 3 个可运行代码块，就是 3 个各自独立的隐藏 WebView 各自重新拉一遍
+// compiler.js/Pyodide，既浪费又慢。改成全局单例后不用再在这里自己
+// 挂一份 buildHiddenWebView()
+class TutorialCodeBlock extends ConsumerStatefulWidget {
   final String content;
   final String language;
 
@@ -411,13 +415,12 @@ class TutorialCodeBlock extends StatefulWidget {
   });
 
   @override
-  State<TutorialCodeBlock> createState() => _TutorialCodeBlockState();
+  ConsumerState<TutorialCodeBlock> createState() => _TutorialCodeBlockState();
 }
 
-class _TutorialCodeBlockState extends State<TutorialCodeBlock> {
+class _TutorialCodeBlockState extends ConsumerState<TutorialCodeBlock> {
   static const _runnableLanguages = ['python', 'javascript', 'sql'];
 
-  late final PyodideEngine _engine;
   late final String _blockId;
   bool _running = false;
   String? _outputContent;
@@ -430,7 +433,6 @@ class _TutorialCodeBlockState extends State<TutorialCodeBlock> {
   void initState() {
     super.initState();
     _blockId = UniqueKey().toString();
-    _engine = PyodideEngine();
   }
 
   Future<void> _run() async {
@@ -438,12 +440,9 @@ class _TutorialCodeBlockState extends State<TutorialCodeBlock> {
     setState(() => _running = true);
     List<Map<String, dynamic>> outputs;
     try {
-      outputs = await _engine.run(
-        _blockId,
-        widget.content,
-        widget.language.toLowerCase(),
-        l10n,
-      );
+      outputs = await ref
+          .read(pyodideEngineProvider)
+          .run(_blockId, widget.content, widget.language.toLowerCase(), l10n);
     } finally {
       if (mounted) setState(() => _running = false);
     }
@@ -667,7 +666,6 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                       ),
                     ),
             ),
-          if (_canRun) _engine.buildHiddenWebView(),
         ],
       ),
     );

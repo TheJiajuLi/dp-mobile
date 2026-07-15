@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,6 +11,7 @@ import '../../../core/network/api_client.dart';
 import '../../publish/models/block_model.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/services/pyodide_engine.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../models/notebook_model.dart';
 import '../services/notebook_service.dart';
@@ -42,52 +42,6 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   final Map<String, FocusNode> _focusNodes = {};
   int _activeIndex = -1;
   final TextEditingController _titleCtrl = TextEditingController();
-
-  InAppWebViewController? _webCtrl;
-  bool _webReady = false;
-  // 每个 cell 最多同时有一次运行在等结果，key 是 cell.id
-  final Map<String, Completer<String>> _pendingRuns = {};
-
-  // 复用 Web 端已有的 compiler.js（Pyodide 基础设施），不重新造轮子
-  static const _compilerHtml = '''
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width">
-</head>
-<body>
-<script type="module">
-import { compile } from
-  'https://dreamingpolar.com/components/compiler/compiler.js';
-
-window.runCode = async (code, lang) => {
-  try {
-    const outputs = await compile(code, lang);
-    return JSON.stringify(outputs);
-  } catch(e) {
-    return JSON.stringify([{
-      type: 'error',
-      content: String(e)
-    }]);
-  }
-};
-
-// 测试函数是否可用
-window.testReady = () => {
-  return typeof window.runCode === 'function' ? 'ok' : 'fail';
-};
-
-// 通知 Flutter 就绪
-setTimeout(() => {
-  if (window.flutter_inappwebview) {
-    window.flutter_inappwebview.callHandler('compilerReady');
-  }
-}, 1000);
-</script>
-</body>
-</html>
-''';
 
   @override
   void initState() {
@@ -256,24 +210,13 @@ result
 
   Future<void> _runWithPyodide(NotebookCell cell) async {
     final l10n = AppLocalizations.of(context)!;
-    if (_webCtrl == null) {
-      _showSnack(l10n.envInitializing);
-      return;
-    }
+    final engine = ref.read(pyodideEngineProvider);
 
-    // compiler.js 可能还没加载完（首次要拉 Pyodide），耐心等最多 60 秒，
-    // 而不是直接判失败——这是之前"运行完成（无输出）"的根因之一
-    if (!_webReady) {
+    // compiler.js 可能还没加载完（首次要拉 Pyodide）——App 启动时已经在
+    // 全局预热了，正常情况下点运行时早就绪了；PyodideEngine.run() 内部
+    // 自己有最多 60 秒的就绪等待兜底，这里不用再重复一遍轮询
+    if (!engine.webReady) {
       _setOutput(cell, l10n.pythonEnvLoading, 'info');
-      for (var i = 0; i < 60; i++) {
-        await Future.delayed(const Duration(seconds: 1));
-        if (_webReady) break;
-      }
-      if (!mounted) return;
-      if (!_webReady) {
-        _setOutput(cell, l10n.loadTimeoutRestart, 'error');
-        return;
-      }
     }
 
     // 预扫描 input() 调用，运行前一次性弹框收集，不做运行时阻塞
@@ -298,11 +241,6 @@ result
 
     final isSql = cell.type == 'sql';
     var effectiveCode = isSql ? _wrapSql(cell.code) : cell.code;
-
-    // 后面 evaluateJavascript 的 async 回调没法安全地在事后再取 l10n（这时
-    // widget 可能已经被销毁），提前把这几条要塞进 JS 字符串的翻译值取出来
-    final compilerNotReadyMsg = l10n.compilerNotReady;
-    final execTimeoutMsg = l10n.execTimeout;
 
     if (userInputs.isNotEmpty) {
       // 把 input() 换成从预收集队列里取值的 mock；用完立刻还原，
@@ -335,65 +273,21 @@ finally:
     }
 
     try {
-      // 用 JavaScriptHandler 双向通信，比 evaluateJavascript 的返回值更可靠
-      // （evaluateJavascript 在不同平台/版本下对返回值的类型编组不一致）
-      final completer = Completer<String>();
-      _pendingRuns[cell.id] = completer;
-
-      await _webCtrl!.evaluateJavascript(
-        source:
-            '''
-(async () => {
-  try {
-    if (typeof window.runCode !== 'function') {
-      window.flutter_inappwebview.callHandler(
-        'onRunResult', ${jsonEncode(cell.id)},
-        JSON.stringify([{type:'error', content:${jsonEncode(compilerNotReadyMsg)}}])
-      );
-      return;
-    }
-    const outputs = await window.runCode(${jsonEncode(effectiveCode)}, "python");
-    window.flutter_inappwebview.callHandler(
-      'onRunResult', ${jsonEncode(cell.id)}, outputs
-    );
-  } catch(e) {
-    window.flutter_inappwebview.callHandler(
-      'onRunResult', ${jsonEncode(cell.id)},
-      JSON.stringify([{type:'error', content: String(e)}])
-    );
-  }
-})();
-''',
-      );
-
       // pandas/matplotlib 这类重量级包 Pyodide 是首次 import 才会懒加载，
-      // 冷启动经常超过之前的 30 秒——不是这次UI重写引入的问题，是这个阈值
-      // 对重包冷加载本来就偏紧，调宽到 90 秒
-      final raw = await completer.future.timeout(
-        const Duration(seconds: 90),
-        onTimeout: () => jsonEncode([
-          {'type': 'error', 'content': execTimeoutMsg},
-        ]),
+      // 冷启动经常超过引擎默认的 30 秒，这里按 Notebook 一贯的阈值传 90 秒
+      final outputs = await engine.run(
+        cell.id,
+        effectiveCode,
+        'python',
+        l10n,
+        timeout: const Duration(seconds: 90),
       );
-
-      debugPrint('[Notebook] raw output: $raw');
 
       if (!mounted) return;
 
-      dynamic parsed;
-      try {
-        parsed = jsonDecode(raw);
-      } catch (_) {
-        // 不是合法 JSON，直接当纯文本显示
-        _setOutput(cell, raw, 'text');
-        return;
-      }
-
-      final outputs = parsed is List ? parsed : [parsed];
       String? foundOutput;
       String? foundType;
       for (final out in outputs) {
-        if (out is! Map) continue;
         final type = out['type'] as String? ?? 'text';
         final content = out['content'] as String? ?? '';
         // 跳过调试信息和空文本
@@ -413,7 +307,6 @@ finally:
     } catch (e) {
       _setOutput(cell, l10n.runErrorWithReason('$e'), 'error');
     } finally {
-      _pendingRuns.remove(cell.id);
       if (mounted) setState(() => _running[cell.id] = false);
       _scheduleSave();
     }
@@ -519,59 +412,24 @@ finally:
     return result;
   }
 
-  // JavaScript 直接在承载 Pyodide 的隐藏 WebView 里 eval
+  // JavaScript 直接在全局共享的 Pyodide 隐藏 WebView 里 eval
   Future<void> _runJavaScript(NotebookCell cell) async {
     final l10n = AppLocalizations.of(context)!;
-    if (_webCtrl == null) {
-      _showSnack(l10n.envInitializing);
-      return;
-    }
     if (!mounted) return;
     setState(() => _running[cell.id] = true);
     try {
-      // 捕获 console.log 输出，返回值统一走 JSON.stringify，避免不同平台
-      // evaluateJavascript 对返回对象的处理不一致
-      final wrappedCode =
-          '''
-(function() {
-  const logs = [];
-  const _log = console.log;
-  console.log = (...args) => {
-    logs.push(args.map(a =>
-      typeof a === 'object' ? JSON.stringify(a) : String(a)
-    ).join(' '));
-    _log(...args);
-  };
-  try {
-    ${cell.code}
-    console.log = _log;
-    return JSON.stringify({ok: true, output: logs.join('\\n')});
-  } catch(e) {
-    console.log = _log;
-    return JSON.stringify({ok: false, error: e.message});
-  }
-})()
-''';
-
-      final result = await _webCtrl!.evaluateJavascript(source: wrappedCode);
-      if (result == null) {
+      final engine = ref.read(pyodideEngineProvider);
+      final outputs = await engine.runJavaScript(cell.code);
+      if (outputs.isEmpty) {
         _setOutput(cell, l10n.runCompleteNoOutput, 'text');
         return;
       }
-      final map = jsonDecode(result.toString()) as Map;
-      if (map['ok'] == true) {
-        _setOutput(
-          cell,
-          (map['output'] as String?) ?? l10n.runCompleteNoOutput,
-          'text',
-        );
-      } else {
-        _setOutput(
-          cell,
-          map['error']?.toString() ?? l10n.unknownError,
-          'error',
-        );
-      }
+      final first = outputs.first;
+      _setOutput(
+        cell,
+        first['content']?.toString() ?? l10n.runCompleteNoOutput,
+        first['type']?.toString() ?? 'text',
+      );
     } catch (e) {
       _setOutput(cell, e.toString(), 'error');
     } finally {
@@ -1085,11 +943,12 @@ finally:
                             // 默认拖拽会把 cell 裹进一层矩形高亮 Material（灰底+
                             // 阴影），露在卡片圆角之外，就是那圈"灰色 box"。用
                             // 透明、零高度的 proxy 代替，拖起来跟静态卡片一模一样
-                            proxyDecorator: (child, index, animation) => Material(
-                              color: Colors.transparent,
-                              elevation: 0,
-                              child: child,
-                            ),
+                            proxyDecorator: (child, index, animation) =>
+                                Material(
+                                  color: Colors.transparent,
+                                  elevation: 0,
+                                  child: child,
+                                ),
                             onReorder: _onReorder,
                             footer: NotebookAddDivider(
                               isDark: isDark,
@@ -1110,58 +969,6 @@ finally:
                   ),
                 ],
               ),
-            ),
-          ),
-
-          // 隐藏的 WebView，承载 Pyodide/compiler.js，Python、SQL、JavaScript 都走它。
-          // 挪到屏幕外而不是用 Opacity(0) 藏起来——平台视图（原生 WebView）不走
-          // Flutter 自己的合成管线，Opacity/裁剪类 widget 包住它会导致触摸命中
-          // 测试异常，实测表现是吞掉了下层 ListView/横向工具栏的滚动手势
-          Positioned(
-            left: -9999,
-            top: -9999,
-            width: 1,
-            height: 1,
-            child: InAppWebView(
-              initialData: InAppWebViewInitialData(
-                data: _compilerHtml,
-                baseUrl: WebUri('https://dreamingpolar.com'),
-              ),
-              initialSettings: InAppWebViewSettings(
-                allowsInlineMediaPlayback: true,
-                mediaPlaybackRequiresUserGesture: false,
-                javaScriptEnabled: true,
-                allowUniversalAccessFromFileURLs: true,
-                allowFileAccessFromFileURLs: true,
-              ),
-              onWebViewCreated: (ctrl) {
-                _webCtrl = ctrl;
-                // 单个持久 handler，按 cellId（第一个参数）分发给对应的 Completer，
-                // 不用每次运行都注册一个新的一次性 handler
-                ctrl.addJavaScriptHandler(
-                  handlerName: 'onRunResult',
-                  callback: (args) {
-                    if (args.isEmpty) return;
-                    final cellId = args[0].toString();
-                    final result = args.length > 1 ? args[1].toString() : '[]';
-                    _pendingRuns.remove(cellId)?.complete(result);
-                  },
-                );
-                ctrl.addJavaScriptHandler(
-                  handlerName: 'compilerReady',
-                  callback: (args) async {
-                    // 验证 runCode 是否真的可用
-                    final test = await ctrl.evaluateJavascript(
-                      source: 'typeof window.runCode',
-                    );
-                    debugPrint('[WebView] runCode type: $test');
-
-                    if (!mounted) return;
-                    setState(() => _webReady = true);
-                    debugPrint('[Notebook] ✅ Pyodide就绪');
-                  },
-                );
-              },
             ),
           ),
         ],

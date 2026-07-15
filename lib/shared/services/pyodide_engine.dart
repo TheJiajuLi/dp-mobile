@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 
@@ -10,8 +11,20 @@ import '../../l10n/generated/app_localizations.dart';
 // compiler.js，同一个隐藏 WebView 承载方式，同一个"整页共用一个
 // onRunResult handler，靠传回来的 id 在 _pendingRuns 这个 Map 里路由结果"
 // 的写法。发布页和教程详情页（可运行代码块）都要跑代码，与其各写一份
-// 几乎一样的 WebView/JS桥接代码，抽成这一个共享类，各自持有自己的实例
-// （不同页面生命周期不同，不共享同一个 WebView）
+// 几乎一样的 WebView/JS桥接代码，抽成这一个共享类。
+//
+// 2026-07-15 起改成 App 级单例（见下面 pyodideEngineProvider）——之前
+// Notebook/发布页/教程详情页三处各自持有一份独立实例，各自的隐藏
+// WebView 都要重新拉一次 compiler.js+Pyodide（几秒到十几秒），且教程
+// 详情页更夸张：一篇文章有几个可运行代码块，TutorialCodeBlock 就建几个
+// 独立实例。改成全局共享一个实例、一个隐藏 WebView，挂在 main.dart 的
+// MaterialApp.builder 里，App 启动就开始预热，真正打开这几个页面时
+// Pyodide 大概率已经就绪。全局共享意味着 Python 解释器的全局命名空间
+// 是跨页面共用的——Notebook 内部同一个 notebook 的多个 cell 之间本来就
+// 依赖这个共享状态（后面的 cell 用前面 cell 产出的变量），这不是新引入
+// 的风险；唯一的新情况是"看完一个教程的代码块后打开 Notebook"这种跨
+// 页面场景，理论上会带着上一个页面遗留的全局变量，但不会崩溃，语义上
+// 跟真实 Jupyter kernel 没重启是一回事
 class PyodideEngine {
   InAppWebViewController? _webCtrl;
   bool webReady = false;
@@ -114,8 +127,12 @@ result
     String id,
     String code,
     String language,
-    AppLocalizations l10n,
-  ) async {
+    AppLocalizations l10n, {
+    // Notebook 的 cell 可能首次 import pandas/matplotlib 这类重量级包，
+    // 冷加载经常超过 30 秒，调用方可以按场景传更宽的超时——默认值维持
+    // 原来这个类的 30 秒，不动其它调用方的既有行为
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     if (language == 'html' || language == 'markdown') {
       return [
         {'type': 'info', 'content': l10n.unsupportedCellType},
@@ -178,7 +195,7 @@ result
       );
 
       final raw = await completer.future.timeout(
-        const Duration(seconds: 30),
+        timeout,
         onTimeout: () => jsonEncode([
           {'type': 'error', 'content': l10n.execTimeout},
         ]),
@@ -193,7 +210,10 @@ result
         ];
       }
       final outputs = parsed is List ? parsed : [parsed];
-      return outputs.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+      return outputs
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
     } finally {
       _pendingRuns.remove(id);
     }
@@ -238,7 +258,10 @@ result
         ];
       }
       return [
-        {'type': 'error', 'content': map['error']?.toString() ?? 'unknown error'},
+        {
+          'type': 'error',
+          'content': map['error']?.toString() ?? 'unknown error',
+        },
       ];
     } catch (e) {
       return [
@@ -247,3 +270,7 @@ result
     }
   }
 }
+
+// App 级单例——整个 App 生命周期只有这一个实例、一个隐藏 WebView，
+// 挂载点见 main.dart（MaterialApp.builder 里）
+final pyodideEngineProvider = Provider<PyodideEngine>((ref) => PyodideEngine());

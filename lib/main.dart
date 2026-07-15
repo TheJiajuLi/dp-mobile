@@ -19,6 +19,7 @@ import 'core/theme_provider.dart';
 import 'features/auth/auth_service.dart';
 import 'features/subscription/purchase_service.dart';
 import 'l10n/generated/app_localizations.dart';
+import 'shared/services/pyodide_engine.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -180,7 +181,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _completeOAuth(String accessToken) async {
-    final ok = await ref.read(authServiceProvider).completeOAuthLogin(accessToken);
+    final ok = await ref
+        .read(authServiceProvider)
+        .completeOAuthLogin(accessToken);
     if (ok) {
       appRouter.go('/home');
     } else {
@@ -238,7 +241,22 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         data: MediaQuery.of(
           context,
         ).copyWith(textScaler: TextScaler.linear(fontSize)),
-        child: child!,
+        child: Stack(
+          children: [
+            child!,
+            // 全局共享的隐藏 Pyodide WebView——App 启动就开始预热
+            // compiler.js/Pyodide，Notebook/发布页/教程详情页运行代码块
+            // 时不用再各自等一遍冷启动。挂在 builder 里而不是某个具体
+            // 页面，跟路由切换无关，整个 App 生命周期只建一次
+            Positioned(
+              left: -9999,
+              top: -9999,
+              width: 1,
+              height: 1,
+              child: ref.read(pyodideEngineProvider).buildHiddenWebView(),
+            ),
+          ],
+        ),
       ),
     );
   }
