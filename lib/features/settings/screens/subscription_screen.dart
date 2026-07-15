@@ -33,12 +33,27 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   Color get _ink =>
       Theme.of(context).textTheme.bodyLarge?.color ?? const Color(0xFF1A1A1A);
   Color get _muted => _isDark ? Colors.white54 : const Color(0xFF999999);
-  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  // 浅色统一成首页/极索/创作者中心那种偏米白的 #FAFAF8，不再是冷灰白的
+  // 全局 scaffoldBackgroundColor——页面背景暖一档，卡片保持纯白，两者
+  // 拉开一点差才有"卡片浮在页面上"的层次感，深色维持主题背景
+  Color get _bg =>
+      _isDark ? Theme.of(context).scaffoldBackgroundColor : const Color(0xFFFAFAF8);
   Color get _cardBg => Theme.of(context).cardColor;
   Color get _border => Theme.of(context).dividerColor;
   Color get _solidFill => _isDark ? _primary : const Color(0xFF1A1A1A);
   Color get _subtleBg =>
       _isDark ? Theme.of(context).dividerColor : const Color(0xFFF5F5F2);
+  // 卡片投影——只在浅色下给，深色沿用"描边而非投影"分层的既有约定
+  // （跟 settings_row.dart 的 SettingsGroup 同一份取值）
+  List<BoxShadow>? get _cardShadow => _isDark
+      ? null
+      : [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ];
 
   _Plan _tab = _Plan.pro;
   String _currentPlan = 'free';
@@ -181,12 +196,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                   _buildTopBar(),
                   Expanded(
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
                       children: [
                         _buildCurrentPlanCard(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 18),
                         _buildTabSwitch(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         switch (_tab) {
                           _Plan.pro => _buildProTab(),
                           _Plan.proMax => _buildProMaxTab(),
@@ -244,11 +259,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     // 真头像，跟应用其它地方（消息/好友列表）同一套渲染规则
     final user = ref.watch(currentUserProvider);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border, width: 0.5),
+        boxShadow: _cardShadow,
       ),
       child: Row(
         children: [
@@ -353,11 +369,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     bool busy = false,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accent.withValues(alpha: 0.4), width: 1),
+        boxShadow: _cardShadow,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -500,7 +517,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       final f = features[i];
       rows.add(
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Row(
             children: [
               Container(
@@ -548,6 +565,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         color: bg ?? _cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: border ?? _border, width: 0.5),
+        boxShadow: _cardShadow,
       ),
       child: Column(children: rows),
     );
@@ -576,11 +594,11 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               svc.isPurchasing(kProProductYearly),
           onCta: () => _handleUpgrade('pro'),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 22),
         for (final section in _proSections) ...[
           _sectionTitle(section.$1),
           _featureCard(section.$2),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
         ],
         _sectionTitle('存储空间对比'),
         _buildStorageCompare(),
@@ -603,7 +621,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           busy: svc.isPurchasing(kProMaxProductMonthly),
           onCta: () => _handleUpgrade('pro_max'),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 22),
         // "专属升级"这块无论明暗主题都固定用深色卡片——顶级套餐的
         // "尊贵感"是设计上刻意的，不需要跟随主题反色
         _sectionTitle('Pro Max 专属升级', color: Colors.white54),
@@ -618,11 +636,11 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           checkColor: _proMaxAccent,
           dividerColor: Colors.white12,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         _sectionTitle('包含全部 Pro 权益'),
         for (final section in _proSections) ...[
           _featureCard(section.$2),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
         ],
       ],
     );
@@ -642,7 +660,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               end: Alignment.bottomRight,
               colors: [Color(0xFF241D52), Color(0xFF3A2E7A)],
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: _cardShadow,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,13 +733,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 22),
         _sectionTitle('申请条件（同时满足）'),
         _requirementCard(_auroraRequirements),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         _sectionTitle('极光专属权益'),
         _featureCardNoCheck(_auroraBenefits),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         _sectionTitle('每月续期（满足任意 3 项）'),
         _renewalGrid(),
       ],
@@ -761,6 +780,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         color: _cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border, width: 0.5),
+        boxShadow: _cardShadow,
       ),
       child: Column(children: rows),
     );
@@ -814,6 +834,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         color: _cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border, width: 0.5),
+        boxShadow: _cardShadow,
       ),
       child: Column(children: rows),
     );
@@ -878,6 +899,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         color: _cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border, width: 0.5),
+        boxShadow: _cardShadow,
       ),
       child: Column(
         children: rows
