@@ -118,6 +118,14 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
 
   @override
   void dispose() {
+    // 离开群聊补标记一次已读（fire-and-forget，不能 await dispose）——先同步
+    // 取出 apiClient 再发请求，避免在 dispose 之后还用 ref；有消息才发
+    if (_messages.isNotEmpty) {
+      ref
+          .read(apiClientProvider)
+          .post('/auth/groups/${widget.groupId}/read')
+          .ignore();
+    }
     _pollTimer?.cancel();
     _inputCtrl.dispose();
     _searchCtrl.dispose();
@@ -157,9 +165,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         if (msgs.isNotEmpty) _lastMsgId = msgs.last.id;
       });
       _scrollToBottom(animated: false);
-      await ref
-          .read(apiClientProvider)
-          .post('/auth/groups/${widget.groupId}/read');
+      await _markGroupRead();
       return;
     }
     // 消息接口拉取失败（比如 /auth/groups/:id/messages 还没上线）——不再兜底
@@ -238,9 +244,22 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     final pos = _scrollCtrl.hasClients ? _scrollCtrl.position : null;
     final nearBottom = pos == null || pos.maxScrollExtent - pos.pixels < 120;
     if (nearBottom) _scrollToBottom();
-    await ref
-        .read(apiClientProvider)
-        .post('/auth/groups/${widget.groupId}/read');
+    await _markGroupRead();
+  }
+
+  // 标记本群已读——推进服务端 last_read_at 到当前时间。后端 markRead 只按
+  // URL 参数（groupId + 登录态）更新 group_members.last_read_at，不读任何
+  // body（实测确认 group.controller.ts），所以不传 lastReadMessageId。发消息
+  // 后/离开群聊时都要调：否则自己刚发的消息 created_at > last_read_at，会在
+  // 群列表/通知里被算成未读
+  Future<void> _markGroupRead() async {
+    try {
+      await ref
+          .read(apiClientProvider)
+          .post('/auth/groups/${widget.groupId}/read');
+    } catch (_) {
+      // 标记失败不影响聊天/发送流程
+    }
   }
 
   Future<void> _sendText() async {
@@ -274,6 +293,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       _sending = false;
     });
     _scrollToBottom();
+    // 自己刚发完立刻标记已读，别让这条在群列表/通知里显示成未读
+    await _markGroupRead();
   }
 
   Future<void> _shareContent(String type) async {
@@ -315,6 +336,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       _lastMsgId = msg.id;
     });
     _scrollToBottom();
+    await _markGroupRead();
   }
 
   // 图片/文件/代码/公式共用的发送收尾——POST 真实接口，优先用响应里的
@@ -361,6 +383,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       _lastMsgId = msg.id;
     });
     _scrollToBottom();
+    await _markGroupRead();
   }
 
   Future<void> _sendImage({ImageSource source = ImageSource.gallery}) async {
