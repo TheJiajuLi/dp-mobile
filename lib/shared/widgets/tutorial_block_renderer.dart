@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,9 +14,9 @@ import '../../l10n/generated/app_localizations.dart';
 import '../services/pyodide_engine.dart';
 import '../utils/block_text_style.dart';
 import '../utils/code_highlight.dart';
+import 'app_toast.dart';
 
 const _primary = Color(0xFF6366F1);
-const _green = Color(0xFF16A34A);
 
 // 教程详情页（阅读视角）和发布页的实时预览抽屉共用同一套渲染逻辑——
 // 之前只有 tutorial_detail_screen.dart 自己一份私有实现，只认
@@ -436,6 +437,11 @@ class _TutorialCodeBlockState extends ConsumerState<TutorialCodeBlock> {
     _blockId = UniqueKey().toString();
   }
 
+  void _copyCode() {
+    Clipboard.setData(ClipboardData(text: widget.content));
+    showAppToast(context, '已复制代码', ok: true);
+  }
+
   Future<void> _run() async {
     final l10n = AppLocalizations.of(context)!;
     setState(() => _running = true);
@@ -540,10 +546,11 @@ td,th{border:1px solid #334155;padding:4px 8px;}
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // 去掉原来那块深色 pill（macOS三色点+语言标签+满底#1C1C1E），跟公式块
-    // 一样统一成"中性圆框"：透明底+一圈中性描边，融进文章背景。只在可
-    // 运行的语言上保留一颗绿色运行键（不可运行的语言干脆不留头部这一行，
-    // 代码区顶到卡片顶部），减少同屏视觉噪音
+    // 一样统一成"中性圆框"：透明底+一圈中性描边，融进文章背景。头部只留
+    // 运行键（浅紫底+描边，跟发布页编辑态代码块同一套样式）+ 复制键，
+    // 减少同屏视觉噪音
     final border = Theme.of(context).dividerColor;
+    final iconColor = isDark ? Colors.white38 : const Color(0xFF9AA0AB);
     final codeTextColor = isDark
         ? const Color(0xFFE0E2F0)
         : const Color(0xFF1E293B);
@@ -558,12 +565,12 @@ td,th{border:1px solid #334155;padding:4px 8px;}
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_canRun)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: Row(
-                children: [
-                  const Spacer(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: Row(
+              children: [
+                const Spacer(),
+                if (_canRun) ...[
                   GestureDetector(
                     onTap: _running ? null : _run,
                     child: Container(
@@ -572,8 +579,12 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: _green,
-                        borderRadius: BorderRadius.circular(6),
+                        color: _primary.withValues(alpha: isDark ? 0.16 : 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _primary.withValues(alpha: 0.22),
+                          width: 0.5,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -584,21 +595,21 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                               height: 12,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: _primary,
                               ),
                             )
                           else
                             const Icon(
-                              Icons.play_arrow,
-                              size: 14,
-                              color: Colors.white,
+                              Icons.play_arrow_outlined,
+                              size: 15,
+                              color: _primary,
                             ),
                           const SizedBox(width: 4),
                           Text(
                             _running ? l10n.runningLabel : l10n.runAction,
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Colors.white,
+                              color: _primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -606,9 +617,26 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                       ),
                     ),
                   ),
+                  const SizedBox(width: 6),
                 ],
-              ),
+                GestureDetector(
+                  onTap: _copyCode,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: border, width: 0.5),
+                    ),
+                    child: Icon(
+                      Icons.copy_outlined,
+                      size: 15,
+                      color: iconColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
+          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: SingleChildScrollView(
