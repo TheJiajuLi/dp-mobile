@@ -87,10 +87,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   // 代码块的语言选择条（CodeLangBar）开关——跟 _formatBarExpanded 完全
   // 同一套路，聚焦代码 block 后由工具栏右侧的语言图标点开
   bool _langBarExpanded = false;
-  // 顶部信息区（标题栏+封面/摘要/更多设置）折叠开关——默认收起成一个朝下
-  // 的尖，点它才展开露出标题/发布/摘要那一整块（尖朝上），再点收起。把
-  // 屏幕高度尽量让给正文编辑区
-  bool _headerExpanded = false;
+  // 顶部信息区（标题栏+封面/摘要/更多设置）折叠开关——默认展开，露出标题/
+  // 发布/摘要那一整块（尖朝上），点它收起成一个朝下的尖把高度让给正文编辑区
+  bool _headerExpanded = true;
   // Block 之间的"+"插入分隔条——静止编辑时收起（几乎无间距，减少干扰），
   // 滚动时展开（露出插入点）；滚动停止1.5秒后自动收起，靠 Timer 而不是
   // 裸的 Future.delayed，方便滚动一停又立刻再滚时取消上一个还没触发的
