@@ -1114,8 +1114,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     bool showChevron = true,
   }) {
     final row = Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      // 固定 52 高度会把「兴趣标签」这种多标签换行的内容截掉（第二行胶囊
+      // 被裁），改成最小高度：单行行保持 52，内容超出时（标签换行）自然
+      // 撑高，不再裁切
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
           SizedBox(
