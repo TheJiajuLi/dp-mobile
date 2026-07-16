@@ -11,6 +11,8 @@ import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/topic_badge.dart';
+import '../../../shared/widgets/tutorial_block_renderer.dart'
+    show inlineLatexText;
 import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
 import '../community_provider.dart';
 
@@ -192,9 +194,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     final splitAt = feedList.length < 4 ? feedList.length : 4;
     final firstFeed = feedList.take(splitAt).toList();
     final restFeed = feedList.skip(splitAt).toList();
-    final rankList = ([...list]..sort((a, b) => b.views.compareTo(a.views)))
-        .take(5)
-        .toList();
+    final rankList = ([
+      ...list,
+    ]..sort((a, b) => b.views.compareTo(a.views))).take(5).toList();
 
     final seenAuthors = <String>{};
     final suggestedAuthors = <TutorialModel>[];
@@ -504,10 +506,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            base.withValues(alpha: 0.9),
-            base.withValues(alpha: 0.55),
-          ],
+          colors: [base.withValues(alpha: 0.9), base.withValues(alpha: 0.55)],
         ),
       ),
     );
@@ -624,9 +623,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                         onPressed: () => _toggleFollow(t.userId),
                         style: OutlinedButton.styleFrom(
                           padding: EdgeInsets.zero,
-                          backgroundColor: following
-                              ? null
-                              : AppColors.primary,
+                          backgroundColor: following ? null : AppColors.primary,
                           side: BorderSide(
                             color: following
                                 ? Theme.of(context).dividerColor
@@ -673,7 +670,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
     AppLocalizations l10n,
     TutorialModel t,
   ) {
-    final badgeStyle = topicBadgeStyleFor(t.tags.isNotEmpty ? t.tags.first : '');
+    final badgeStyle = topicBadgeStyleFor(
+      t.tags.isNotEmpty ? t.tags.first : '',
+    );
     final category = topicCategoryLabelFor(t.tags);
     final liked = _likedIds.contains(t.id);
 
@@ -730,14 +729,15 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                   ),
                   if (t.summary?.isNotEmpty == true) ...[
                     const SizedBox(height: 4),
-                    Text(
+                    // 摘要跟信息流卡片一致走 inlineLatexText，$…$ 行内公式渲染
+                    inlineLatexText(
                       t.summary!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).textTheme.bodySmall?.color,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                   const SizedBox(height: 8),
@@ -780,15 +780,18 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                               size: 14,
                               color: liked
                                   ? const Color(0xFFEF4444)
-                                  : Theme.of(context).textTheme.bodySmall?.color,
+                                  : Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.color,
                             ),
                             const SizedBox(width: 3),
                             Text(
                               '${_displayLikes(t)}',
                               style: TextStyle(
                                 fontSize: 11,
-                                color:
-                                    Theme.of(context).textTheme.bodySmall?.color,
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.color,
                               ),
                             ),
                           ],
@@ -806,7 +809,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
   }
 
   Widget _newsRanking(BuildContext context, List<TutorialModel> rankList) {
-    const rankColors = [Color(0xFFF43F5E), Color(0xFFF59E0B), Color(0xFF10B981)];
+    const rankColors = [
+      Color(0xFFF43F5E),
+      Color(0xFFF59E0B),
+      Color(0xFF10B981),
+    ];
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       padding: const EdgeInsets.all(16),
