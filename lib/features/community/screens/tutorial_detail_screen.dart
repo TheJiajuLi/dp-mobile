@@ -1062,9 +1062,11 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   ),
                   if (summary != null && summary.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text(
+                    // 摘要跟卡片/预览抽屉一样走 inlineLatexText，$...$ 行内
+                    // 公式才能渲染，不再显示原始源码
+                    inlineLatexText(
                       summary,
-                      style: const TextStyle(
+                      const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF888888),
                         height: 1.65,
