@@ -394,10 +394,21 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     final card = isDark ? const Color(0xFF17171F) : Colors.white;
     final border = isDark ? Colors.white12 : const Color(0xFFEBEBEB);
 
+    final media = MediaQuery.of(context);
+    final kb = media.viewInsets.bottom;
+    // 键盘弹起时，白卡撑满键盘上方的全部空间（顶满键盘、四边不留缝），
+    // 不再是固定 70% 高度——否则固定高度短于键盘上方可用高度时，底部/两侧
+    // 会漏出后面的灰色蒙层。键盘收起时仍是 70%
+    final sheetHeight = kb > 0
+        ? (media.size.height - kb - media.padding.top).clamp(
+            media.size.height * 0.4,
+            media.size.height,
+          )
+        : media.size.height * 0.7;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(bottom: kb),
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        height: sheetHeight,
         decoration: BoxDecoration(
           color: card,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
