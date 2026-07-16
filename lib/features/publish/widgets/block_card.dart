@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -125,6 +127,11 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   // 每次内容更新后自动滚到底部，跟着最新文字走
   final ScrollController _aiScrollCtrl = ScrollController();
 
+  // 小梦流式输出的字符队列 + 15ms 打字机 Timer（跟极索页同一套）——SSE 分片
+  // 逐字符入队，Timer 每 15ms 吐一个到 outputContent，实现打字机效果
+  final Queue<String> _aiCharQueue = Queue<String>();
+  Timer? _aiTypeTimer;
+
   @override
   void initState() {
     super.initState();
@@ -173,7 +180,124 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     widget.block.focusNode.removeListener(_handleFocusChange);
     _codeCtrl.dispose();
     _aiScrollCtrl.dispose();
+    _aiTypeTimer?.cancel();
     super.dispose();
+  }
+
+  // ———————————————————————— 小梦流式打字机（输出区展示类动作）
+  // 流式拉 /auth/xmeng/chat/stream，SSE 分片入队、15ms 逐字吐进 outputContent。
+  // done 带的 fullText 是权威全文（分片偶发丢片），有就整段覆盖兜底。调用前
+  // 已把 outputContent 置为 '' + type 'text'，进来就是空白开始打字
+  Future<void> _streamXmengToOutput(String prompt) async {
+    _aiTypeTimer?.cancel();
+    _aiTypeTimer = null;
+    _aiCharQueue.clear();
+    try {
+      final response = await ref
+          .read(apiClientProvider)
+          .dio
+          .post(
+            '/auth/xmeng/chat/stream',
+            data: {'message': prompt},
+            options: Options(
+              responseType: ResponseType.stream,
+              receiveTimeout: const Duration(seconds: 120),
+            ),
+          );
+      final body = response.data as ResponseBody;
+      final lines = body.stream
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter());
+      await for (final line in lines) {
+        if (!mounted) return;
+        if (!line.startsWith('data:')) continue;
+        final jsonStr = line.substring(5).trim();
+        if (jsonStr.isEmpty) continue;
+        Map<String, dynamic> data;
+        try {
+          data = jsonDecode(jsonStr) as Map<String, dynamic>;
+        } catch (_) {
+          continue;
+        }
+        switch (data['type']) {
+          case 'chunk':
+            _enqueueAiChunk(data['text']?.toString() ?? '');
+            break;
+          case 'done':
+            final full = data['fullText']?.toString();
+            _flushAiTyping(
+              fullText: (full != null && full.isNotEmpty) ? full : null,
+            );
+            break;
+          case 'error':
+            _flushAiTyping();
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+            }
+            break;
+        }
+      }
+      // 流正常结束但没收到 done：把队列剩余的字补齐
+      _flushAiTyping();
+      widget.onChanged();
+    } catch (e) {
+      _flushAiTyping();
+      // 一个字都没吐出来就失败：清掉空白输出气泡，别留一条空的
+      if (mounted && (widget.block.outputContent ?? '').isEmpty) {
+        setState(() {
+          widget.block.outputContent = null;
+          widget.block.outputType = null;
+        });
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+      }
+      widget.onChanged();
+    }
+  }
+
+  // 收到 chunk：按 grapheme（中文/emoji 安全）入队，启动/复用 15ms 打字机
+  void _enqueueAiChunk(String text) {
+    if (text.isEmpty) return;
+    _aiCharQueue.addAll(text.characters);
+    _aiTypeTimer ??= Timer.periodic(const Duration(milliseconds: 15), (_) {
+      if (!mounted) {
+        _aiTypeTimer?.cancel();
+        _aiTypeTimer = null;
+        return;
+      }
+      if (_aiCharQueue.isEmpty) return;
+      final ch = _aiCharQueue.removeFirst();
+      setState(() {
+        widget.block.outputContent = (widget.block.outputContent ?? '') + ch;
+        widget.block.outputType = 'text';
+      });
+      _autoScrollAiOutput();
+    });
+  }
+
+  // 停打字机：取消 Timer，把队列里没吐完的字一次性补齐；done 带 fullText 就
+  // 整段覆盖（兜底丢片），跟极索页 _flushTyping 同一套
+  void _flushAiTyping({String? fullText}) {
+    _aiTypeTimer?.cancel();
+    _aiTypeTimer = null;
+    final rest = _aiCharQueue.join();
+    _aiCharQueue.clear();
+    if (!mounted) return;
+    setState(() {
+      if (fullText != null && fullText.isNotEmpty) {
+        widget.block.outputContent = fullText;
+      } else if (rest.isNotEmpty) {
+        widget.block.outputContent = (widget.block.outputContent ?? '') + rest;
+      }
+      widget.block.outputType = 'text';
+    });
+    _autoScrollAiOutput();
   }
 
   // 输出内容更新后把滚动区滚到底部——打字机流式输出时跟着最新文字走。
@@ -789,7 +913,20 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           '$langHint检查以下代码中可能存在的bug或问题，列出问题和修改建议：\n\n'
           '```${widget.block.language}\n$code\n```',
     };
+    final prompt = prompts[action] ?? '';
 
+    // 解释代码 / 查找问题：结果展示在块下方 → 流式打字机逐字吐出（空白开始打字）
+    if (action == 'explain' || action == 'bug') {
+      setState(() {
+        widget.block.outputContent = '';
+        widget.block.outputType = 'text';
+      });
+      widget.onChanged();
+      await _streamXmengToOutput(prompt);
+      return;
+    }
+
+    // 优化代码 / 添加注释：结果是要替换的完整代码，仍走非流式 + 确认弹层
     setState(() {
       widget.block.outputContent = '小梦分析中...';
       widget.block.outputType = 'info';
@@ -803,7 +940,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             '/auth/xmeng/chat',
             data: {
               'messages': [
-                {'role': 'user', 'content': prompts[action] ?? ''},
+                {'role': 'user', 'content': prompt},
               ],
             },
             options: Options(receiveTimeout: const Duration(seconds: 60)),
@@ -818,7 +955,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       final result = (res.data as Map?)?['message'] as String? ?? '';
       if (result.isEmpty) return;
 
-      if (action == 'optimize' || action == 'comment') {
+      {
         // 优化/注释这两种是"替换代码"操作，弹确认框而不是直接覆盖，避免
         // 一言不合就把用户已经写好的代码冲掉
         // 解析小梦返回的 markdown：把代码围栏内的代码抽出来单独用深色高亮
@@ -852,9 +989,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             final ink = isDark
                 ? const Color(0xFFF0F2F8)
                 : const Color(0xFF1A1A1A);
-            final muted = isDark
-                ? Colors.white60
-                : const Color(0xFF8A8F99);
+            final muted = isDark ? Colors.white60 : const Color(0xFF8A8F99);
             const codeBase = TextStyle(
               fontFamily: 'monospace',
               fontSize: 12.5,
@@ -1026,14 +1161,6 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             );
           },
         );
-      } else {
-        // 解释/查找问题：直接当作一次"运行输出"展示在代码块下方
-        setState(() {
-          widget.block.outputContent = result;
-          widget.block.outputType = 'text';
-        });
-        _autoScrollAiOutput();
-        widget.onChanged();
       }
     } catch (e) {
       setState(() {
@@ -1219,50 +1346,14 @@ class _BlockCardState extends ConsumerState<BlockCard> {
 
   Future<void> _explainLatex() async {
     final formula = widget.block.content;
+    final langHint = await aiLangHint();
+    // 解释公式：结果展示在块下方 → 流式打字机逐字吐出（空白开始打字）
     setState(() {
-      widget.block.outputContent = '小梦解释中...';
-      widget.block.outputType = 'info';
+      widget.block.outputContent = '';
+      widget.block.outputType = 'text';
     });
     widget.onChanged();
-
-    final langHint = await aiLangHint();
-    try {
-      final res = await ref
-          .read(apiClientProvider)
-          .post(
-            '/auth/xmeng/chat',
-            data: {
-              'messages': [
-                {
-                  'role': 'user',
-                  'content': '$langHint请用通俗语言解释以下LaTeX公式的数学含义：\n\n$formula',
-                },
-              ],
-            },
-            options: Options(receiveTimeout: const Duration(seconds: 60)),
-          );
-
-      if (!mounted) return;
-      setState(() {
-        widget.block.outputContent = res.success
-            ? ((res.data as Map?)?['message'] as String? ?? '')
-            : null;
-        widget.block.outputType = 'text';
-      });
-      _autoScrollAiOutput();
-      widget.onChanged();
-    } catch (e) {
-      setState(() {
-        widget.block.outputContent = null;
-        widget.block.outputType = null;
-      });
-      widget.onChanged();
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
-      }
-    }
+    await _streamXmengToOutput('$langHint请用通俗语言解释以下LaTeX公式的数学含义：\n\n$formula');
   }
 
   Future<void> _generateLatex(String description) async {
