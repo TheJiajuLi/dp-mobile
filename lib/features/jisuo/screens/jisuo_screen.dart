@@ -435,8 +435,15 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     final res = await ref
         .read(apiClientProvider)
         .post(
+          // 后端 /auth/xmeng/chat（非流式）读的是 {messages:[...]} 数组，不是
+          // 单数 message——之前传错形状每次都 400，推荐问题一直悄悄回落到固定
+          // _sampleQuestions（从没真正用过 AI）。响应仍是 res.data['message']
           '/auth/xmeng/chat',
-          data: {'message': prompt, 'conversationId': null},
+          data: {
+            'messages': [
+              {'role': 'user', 'content': prompt},
+            ],
+          },
         );
 
     if (res.success && res.data != null) {
