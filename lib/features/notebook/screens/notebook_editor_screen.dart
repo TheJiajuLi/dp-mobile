@@ -877,6 +877,10 @@ finally:
 
   void _clearOutputs() {
     if (_nb == null) return;
+    // 有没有真的可清的输出——没有的话也给个反馈，不然点了"没反应"
+    final hadOutput = _nb!.cells.any(
+      (c) => (c.output?.isNotEmpty ?? false),
+    );
     setState(() {
       for (final cell in _nb!.cells) {
         cell.output = null;
@@ -886,6 +890,7 @@ finally:
       }
     });
     _scheduleSave();
+    _showSnack(hadOutput ? '已清空所有输出' : '没有可清空的输出');
   }
 
   // 顶栏 ⋯ 更多菜单——从系统默认的白色 PopupMenu 换成全站统一的底部弹层
