@@ -1311,33 +1311,46 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   onTap: _toggleSave,
                 ),
                 const Spacer(),
-                // 分享——紫色突出
+                // 分享——品牌紫渐变胶囊，配一道柔和的同色投影做出悬浮感，
+                // 达到 2026 一线品牌的质感（不再是扁平纯色块）
                 GestureDetector(
                   onTap: _showShare,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                      horizontal: 20,
+                      vertical: 11,
                     ),
                     decoration: BoxDecoration(
-                      color: _primary,
-                      borderRadius: BorderRadius.circular(20),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primary.withValues(alpha: 0.36),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.share_outlined,
-                          size: 14,
+                          Icons.ios_share_rounded,
+                          size: 16,
                           color: Colors.white,
                         ),
-                        SizedBox(width: 5),
+                        SizedBox(width: 7),
                         Text(
                           '分享',
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                             color: Colors.white,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ],
