@@ -153,6 +153,10 @@ const _toolbarTypes = [
   BlockType.text,
   BlockType.heading,
   BlockType.code,
+  // Markdown 块紧挨代码块——模型/渲染（block_model、block_card）和图标/
+  // 文案（block_picker_sheet 的 blockTypeIcon/blockTypeLabel → Icons.notes /
+  // "Markdown"）本来就都齐了，之前只是工具栏没给入口
+  BlockType.markdown,
   BlockType.latex,
   BlockType.callout,
   BlockType.image,
