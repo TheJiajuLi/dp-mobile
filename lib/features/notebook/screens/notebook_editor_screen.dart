@@ -2,16 +2,19 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/network/api_client.dart';
 import '../../publish/models/block_model.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/services/pyodide_engine.dart';
+import '../../../shared/utils/ai_lang.dart';
 import '../../../shared/utils/code_highlight.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/widgets/app_toast.dart';
@@ -168,6 +171,535 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
       if (ctrl is HighlightingCodeController) ctrl.language = type;
     });
     _scheduleSave();
+  }
+
+  // ———————————————————————————— 小梦 AI 辅助（代码块 / 公式块）
+  // 点 ✨ 按钮的入口——AI 辅助是 Pro 权益，点了才校验，非 Pro 弹升级 Sheet
+  void _showCellAiMenu(NotebookCell cell, TextEditingController controller) {
+    if (!requirePro(context, ref, feature: 'AI代码辅助')) return;
+    if (cell.type == 'latex') {
+      _showLatexAiMenu(cell, controller);
+    } else {
+      _showCodeAiMenu(cell, controller);
+    }
+  }
+
+  // 统一走 /auth/xmeng/chat，跟发布页 block_card 同一套；返回 message 文本
+  Future<String?> _xmengChat(String prompt) async {
+    final res = await ref
+        .read(apiClientProvider)
+        .post(
+          '/auth/xmeng/chat',
+          data: {
+            'messages': [
+              {'role': 'user', 'content': prompt},
+            ],
+          },
+          options: Options(receiveTimeout: const Duration(seconds: 60)),
+        );
+    if (!res.success) return null;
+    return (res.data as Map?)?['message'] as String? ?? '';
+  }
+
+  void _showCodeAiMenu(NotebookCell cell, TextEditingController controller) {
+    const actions = [
+      ('explain', Icons.menu_book_outlined, '解释代码', '用简单语言解释这段代码'),
+      ('optimize', Icons.speed_outlined, '优化代码', '提升可读性和性能'),
+      ('comment', Icons.comment_outlined, '添加注释', '为每行添加简洁注释'),
+      ('bug', Icons.bug_report_outlined, '查找问题', '检查潜在的 bug'),
+    ];
+    _showAiActionSheet(
+      '小梦代码助手',
+      actions,
+      (action) => _assistCode(cell, controller, action),
+    );
+  }
+
+  void _showLatexAiMenu(NotebookCell cell, TextEditingController controller) {
+    const actions = [
+      ('generate', Icons.auto_awesome_outlined, '生成公式', '描述数学概念，小梦写 LaTeX'),
+      ('explain', Icons.menu_book_outlined, '解释公式', '用通俗语言解释这个公式'),
+    ];
+    _showAiActionSheet('小梦公式助手', actions, (action) {
+      if (action == 'generate') {
+        _showLatexGenSheet(cell, controller);
+      } else {
+        _explainLatex(cell);
+      }
+    });
+  }
+
+  // 代码 AI：解释/查找问题 → 结果显示在紫色 AI 输出区；优化/注释 → 确认后替换代码
+  Future<void> _assistCode(
+    NotebookCell cell,
+    TextEditingController controller,
+    String action,
+  ) async {
+    final code = controller.text.trim();
+    if (code.isEmpty) {
+      _showSnack('先写点代码，小梦才能帮忙', ok: false);
+      return;
+    }
+    final langHint = await aiLangHint();
+    final lang = cell.type;
+    final prompts = {
+      'explain': '$langHint请用简洁的语言解释以下代码的功能和逻辑，分点说明：\n\n```$lang\n$code\n```',
+      'optimize':
+          '$langHint请优化以下代码，提升可读性和性能，直接输出优化后的完整代码：\n\n```$lang\n$code\n```',
+      'comment':
+          '$langHint为以下代码每行添加简洁的注释，直接输出带注释的完整代码：\n\n```$lang\n$code\n```',
+      'bug': '$langHint检查以下代码中可能存在的bug或问题，列出问题和修改建议：\n\n```$lang\n$code\n```',
+    };
+    _setOutput(cell, '小梦分析中…', 'ai');
+    try {
+      final result = await _xmengChat(prompts[action] ?? '');
+      if (!mounted) return;
+      if (result == null || result.isEmpty) {
+        _setOutput(cell, null, null);
+        return;
+      }
+      if (action == 'optimize' || action == 'comment') {
+        _setOutput(cell, null, null);
+        _confirmReplaceCode(cell, controller, result);
+      } else {
+        _setOutput(cell, result, 'ai');
+      }
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('小梦开小差了，请重试', ok: false);
+      }
+    }
+  }
+
+  Future<void> _explainLatex(NotebookCell cell) async {
+    final formula = cell.code.trim();
+    if (formula.isEmpty) {
+      _showSnack('先写公式，小梦才能解释', ok: false);
+      return;
+    }
+    final langHint = await aiLangHint();
+    _setOutput(cell, '小梦解释中…', 'ai');
+    try {
+      final result = await _xmengChat(
+        '$langHint请用通俗语言解释以下LaTeX公式的数学含义：\n\n$formula',
+      );
+      if (!mounted) return;
+      final ok = result != null && result.isNotEmpty;
+      _setOutput(cell, ok ? result : null, ok ? 'ai' : null);
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('小梦开小差了，请重试', ok: false);
+      }
+    }
+  }
+
+  Future<void> _generateLatex(
+    NotebookCell cell,
+    TextEditingController controller,
+    String desc,
+  ) async {
+    _setOutput(cell, '小梦生成中…', 'ai');
+    try {
+      final latex = await _xmengChat(
+        '请把以下数学概念转换为LaTeX公式代码，只输出LaTeX代码本身，'
+        '不要解释，不要markdown代码块：\n\n$desc',
+      );
+      if (!mounted) return;
+      _setOutput(cell, null, null);
+      if (latex != null && latex.trim().isNotEmpty) {
+        setState(() {
+          cell.code = latex.trim();
+          controller.text = latex.trim();
+        });
+        _scheduleSave();
+      }
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('生成失败，请重试', ok: false);
+      }
+    }
+  }
+
+  // 通用 AI 动作底部弹层——抓手 + 标题 + 图标方框行，跟顶栏「更多」同一套语言
+  void _showAiActionSheet(
+    String title,
+    List<(String, IconData, String, String)> actions,
+    void Function(String action) onSelect,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, size: 17, color: _primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              for (final a in actions)
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onSelect(a.$1);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 9,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : const Color(0xFFF5F5F2),
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Icon(
+                            a.$2,
+                            size: 18,
+                            color: const Color(0xFF555555),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                a.$3,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: ink,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                a.$4,
+                                style: TextStyle(fontSize: 12, color: muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 公式「生成」输入弹层——描述框 + 预设词 + 生成按钮
+  void _showLatexGenSheet(NotebookCell cell, TextEditingController controller) {
+    final promptCtrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: BoxDecoration(
+            color: card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome, size: 17, color: _primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    '生成 LaTeX 公式',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: promptCtrl,
+                autofocus: true,
+                maxLines: 2,
+                style: TextStyle(fontSize: 14, color: ink),
+                decoration: InputDecoration(
+                  hintText: '如：泊松分布的概率质量函数',
+                  hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                  filled: true,
+                  fillColor: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFF6F6F4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _primary),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: ['正态分布', '贝叶斯定理', '泰勒展开', '矩阵行列式'].map((t) {
+                  return GestureDetector(
+                    onTap: () => promptCtrl.text = t,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF5F5F2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        t,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? const Color(0xFFB0B4C8)
+                              : const Color(0xFF555555),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final desc = promptCtrl.text.trim();
+                    if (desc.isEmpty) return;
+                    Navigator.pop(ctx);
+                    _generateLatex(cell, controller, desc);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '生成',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 优化/注释：弹层展示小梦给的完整代码，确认「应用」才覆盖，避免冲掉已写内容
+  void _confirmReplaceCode(
+    NotebookCell cell,
+    TextEditingController controller,
+    String result,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.7,
+        ),
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 10),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_awesome, size: 17, color: _primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    '小梦的建议',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Text(
+                  result,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12.5,
+                    height: 1.6,
+                    color: isDark
+                        ? const Color(0xFFC7CBDC)
+                        : const Color(0xFF444444),
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: TextButton.styleFrom(
+                          backgroundColor: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : const Color(0xFFF5F5F5),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          '关闭',
+                          style: TextStyle(color: Color(0xFF888888)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () {
+                          final m = RegExp(
+                            r'```\w*\n?([\s\S]*?)```',
+                          ).firstMatch(result);
+                          final extracted =
+                              m?.group(1)?.trim() ?? result.trim();
+                          setState(() {
+                            cell.code = extracted;
+                            controller.text = extracted;
+                          });
+                          _scheduleSave();
+                          Navigator.pop(ctx);
+                        },
+                        style: TextButton.styleFrom(
+                          backgroundColor: _primary,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          '应用',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // 空白 cell 按 Delete 删除本 cell，并把焦点移到上一个 cell（没有上一个就
@@ -1429,6 +1961,7 @@ finally:
       onDelete: () => _deleteCell(cell.id),
       onChangeLanguage: (type) => _changeCellLanguage(cell, type),
       onEmptyBackspace: () => _deleteCellFromBackspace(index),
+      onAiAssist: () => _showCellAiMenu(cell, ctrl),
     );
   }
 

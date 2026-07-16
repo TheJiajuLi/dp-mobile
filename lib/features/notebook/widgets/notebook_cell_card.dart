@@ -29,6 +29,8 @@ class NotebookCellCard extends StatelessWidget {
   final void Function(String type)? onChangeLanguage;
   // 空白 cell 按 Backspace/Delete 删除本 cell
   final VoidCallback? onEmptyBackspace;
+  // 点 ✨ 小梦按钮：代码/公式块 AI 辅助（Pro 门禁在编辑器侧校验）
+  final VoidCallback? onAiAssist;
 
   const NotebookCellCard({
     super.key,
@@ -48,7 +50,20 @@ class NotebookCellCard extends StatelessWidget {
     required this.onDelete,
     this.onChangeLanguage,
     this.onEmptyBackspace,
+    this.onAiAssist,
   });
+
+  // AI 辅助只给代码块和公式块（markdown/image 不给）
+  bool get _aiEligible =>
+      cell.type == 'latex' ||
+      const {
+        'python',
+        'sql',
+        'javascript',
+        'r',
+        'julia',
+        'html',
+      }.contains(cell.type);
 
   // 导入数据文件生成的"数据集 cell"——橙色边框 + 暖黄头部 + 数据集徽标
   bool get _isDataset => cell.metadata?['isDataset'] == true;
@@ -271,8 +286,31 @@ class NotebookCellCard extends StatelessWidget {
             ),
             const SizedBox(width: 10),
           ],
+          // ✨ 小梦 AI 辅助——代码/公式块可用，放在运行按钮左侧
+          if (_aiEligible && onAiAssist != null) ...[
+            _aiButton(),
+            const SizedBox(width: 6),
+          ],
           if (_isExecutable(cell.type)) _runButton(),
         ],
+      ),
+    );
+  }
+
+  // ✨ 小梦按钮——浅紫方钮，跟运行按钮同一套 chrome
+  Widget _aiButton() {
+    const accent = Color(0xFF6366F1);
+    return GestureDetector(
+      onTap: onAiAssist,
+      child: Container(
+        width: 34,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: isDark ? 0.22 : 0.10),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: const Icon(Icons.auto_awesome_outlined, size: 16, color: accent),
       ),
     );
   }
