@@ -7,9 +7,6 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/greeting.dart';
 import '../services/notebook_service.dart';
 
-// 中性主色（原品牌紫 #6366F1 已下线）：主按钮/强调用近黑，图标用中性灰。
-const _accent = Color(0xFF1A1A1A);
-
 // 欢迎页重新走活泼的彩色方向：每个 notebook 图标取一组"浅底 + 同色字形"
 // （$1=浅底 tint，$2=图标/角标 accent）。最近打开按稳定 hash 取，保证同一个
 // notebook 每次颜色不变；模板卡各自显式指定。
@@ -125,46 +122,73 @@ class _State extends ConsumerState<NotebookHomeScreen> {
               const SizedBox(height: 14),
               Row(
                 children: [
+                  // 每种类型一个彩色图标盒（跟主页模板卡同款语言），选中态用
+                  // 该类型自己的颜色描边+淡色底，跟主页的彩色语言一致
                   for (final t in [
-                    ('python', 'Python', Icons.code),
-                    ('latex', 'LaTeX', Icons.functions),
-                    ('mixed', l10n.langMixed, Icons.layers),
+                    (
+                      'python',
+                      'Python',
+                      Icons.code_rounded,
+                      const Color(0xFF6366F1),
+                      const Color(0xFFEEF0FF),
+                    ),
+                    (
+                      'latex',
+                      'LaTeX',
+                      Icons.functions,
+                      const Color(0xFF8B5CF6),
+                      const Color(0xFFEDE9FE),
+                    ),
+                    (
+                      'mixed',
+                      l10n.langMixed,
+                      Icons.layers_rounded,
+                      const Color(0xFF2563EB),
+                      const Color(0xFFEFF6FF),
+                    ),
                   ])
                     Expanded(
                       child: GestureDetector(
                         onTap: () => setState(() => type = t.$1),
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          margin: EdgeInsets.only(right: t.$1 == 'mixed' ? 0 : 8),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
-                            // 未选中不再用填充背景（深色下会糊成白块），
-                            // 跟选中态一样只用边框区分
                             color: type == t.$1
-                                ? _accent.withValues(alpha: 0.08)
+                                ? t.$4.withValues(alpha: 0.08)
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: type == t.$1
-                                  ? _accent
-                                  : Colors.grey.withValues(alpha: 0.35),
+                                  ? t.$4
+                                  : Colors.grey.withValues(alpha: 0.25),
+                              width: type == t.$1 ? 1.5 : 0.5,
                             ),
                           ),
                           child: Column(
                             children: [
-                              Icon(
-                                t.$3,
-                                color: type == t.$1 ? _accent : Colors.grey,
-                                size: 20,
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: t.$5,
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                child: Icon(t.$3, color: t.$4, size: 19),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 8),
                               Text(
                                 t.$2,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                   color: type == t.$1
-                                      ? _accent
-                                      : Colors.grey[600],
+                                      ? t.$4
+                                      : (Theme.of(ctx).brightness ==
+                                            Brightness.dark
+                                          ? Colors.white70
+                                          : const Color(0xFF555555)),
                                 ),
                               ),
                             ],
@@ -187,19 +211,27 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                     if (mounted) context.push('/notebook/${nb.id}');
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _accent,
+                    // 品牌紫，跟主页 Hero「新建 Notebook」和顶栏「+」一套
+                    backgroundColor: const Color(0xFF6366F1),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: Text(
-                    l10n.create,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add, color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        l10n.create,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -413,27 +445,8 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                               : const Color(0xFF1A1A1A),
                         ),
                       ),
-                      const Spacer(),
-                      // 新建：描边按钮，边框 + 图标都用极梦主题紫（深浅色一致）
-                      GestureDetector(
-                        onTap: _showNewSheet,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFF6366F1),
-                              width: 1,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            color: Color(0xFF6366F1),
-                            size: 18,
-                          ),
-                        ),
-                      ),
+                      // 顶栏右上角「+」已删除——Hero 的「新建 Notebook」和下面
+                      // 的模板卡已经是充分的创建入口，这里多一个是冗余
                     ],
                   ),
                 ),
