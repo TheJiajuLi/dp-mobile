@@ -1,10 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../widgets/settings_row.dart';
 import 'changelog_screen.dart' show kLatestVersion;
+
+// 极梦品牌 logo——极光叠弧（金→绿→紫→蓝渐变），透明底，直接铺在页面
+// 背景上，不再套原来的紫色圆角方块
+const String _kLogoSvg = '''
+<svg width="200" height="150" viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M8 130 Q100 18 192 130" stroke="url(#t1)" stroke-width="11" stroke-linecap="round" fill="none"/>
+  <path d="M26 130 Q100 38 174 130" stroke="url(#t2)" stroke-width="11" stroke-linecap="round" fill="none"/>
+  <path d="M44 130 Q100 57 156 130" stroke="url(#t3)" stroke-width="11" stroke-linecap="round" fill="none"/>
+  <path d="M62 130 Q100 76 138 130" stroke="url(#t4)" stroke-width="11" stroke-linecap="round" fill="none"/>
+  <defs>
+    <linearGradient id="t1" x1="8" y1="130" x2="192" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C9A840"/>
+      <stop offset="100%" stop-color="#8BC34A"/>
+    </linearGradient>
+    <linearGradient id="t2" x1="26" y1="130" x2="174" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6B7FD4"/>
+      <stop offset="100%" stop-color="#5B8FE0"/>
+    </linearGradient>
+    <linearGradient id="t3" x1="44" y1="130" x2="156" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5B5DA8"/>
+      <stop offset="100%" stop-color="#7B6FC4"/>
+    </linearGradient>
+    <linearGradient id="t4" x1="62" y1="130" x2="138" y2="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4CAF60"/>
+      <stop offset="100%" stop-color="#66BB6A"/>
+    </linearGradient>
+  </defs>
+</svg>
+''';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -38,20 +68,12 @@ class AboutScreen extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.auto_awesome,
-                    color: Colors.white,
-                    size: 40,
-                  ),
+                SvgPicture.string(
+                  _kLogoSvg,
+                  width: 116,
+                  height: 87,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Text(
                   l10n.appName,
                   style: const TextStyle(
