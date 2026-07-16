@@ -451,8 +451,8 @@ finally:
 
   Future<void> _runAll() async {
     if (_nb == null) return;
-    // 运行代码是 Pro 权益
-    if (!requirePro(context, ref, feature: '运行代码')) return;
+    // Notebook 编辑器是创作者自己的工作台，运行自己的代码永远不设 Pro 门禁。
+    // Pro 门禁只在读者阅读【他人】文章里运行代码时才有（tutorial 阅读态）
     // 顺序执行：SQL cell 依赖前面 cell 产出的 df，并发跑会互相踩
     for (final cell in _nb!.cells) {
       await _runCell(cell);
@@ -1347,8 +1347,7 @@ finally:
         _scheduleSave();
       },
       onRun: () {
-        // 运行代码是 Pro 权益——点了才校验，非 Pro 弹会员 Sheet
-        if (!requirePro(context, ref, feature: '运行代码')) return;
+        // 自己在编辑器里运行自己的代码，永远不拦 Pro（门禁只在读者阅读态）
         cell.code = ctrl.text;
         _runCell(cell);
       },
