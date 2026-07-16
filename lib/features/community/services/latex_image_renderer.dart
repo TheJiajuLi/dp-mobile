@@ -27,23 +27,30 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
   //  · latex 块整块就是一条公式（key = 整块 content）
   //  · text/heading/callout 块里的行内 $...$ / \(...\) / \[...\]（key = 含定界
   //    符原文，跟渲染端 splitInlineLatex 出来的一致）
-  final formulas = <String>{};
+  // 分开收集「块级公式」和「行内公式」——两者要用不同排版：块级 display（大、
+  // 独占一行），行内 text（紧凑、跟正文一个量级）。混在一起统一 display+22 会
+  // 让行内的 \mathbf{x} 这类比周围正文大一圈
+  final blockFormulas = <String>{};
+  final inlineFormulas = <String>{};
   for (final b in blocks.whereType<Map>()) {
     final type = b['type'] as String? ?? 'text';
     final content = b['content'] as String? ?? '';
     if (content.trim().isEmpty) continue;
     if (type == 'latex') {
-      formulas.add(content);
+      blockFormulas.add(content);
     } else if (type == 'text' || type == 'heading' || type == 'callout') {
       for (final seg in splitInlineLatex(content)) {
-        if (seg.isFormula) formulas.add(seg.raw);
+        if (seg.isFormula) inlineFormulas.add(seg.raw);
       }
     }
   }
-  if (formulas.isEmpty) return {};
+  final allFormulas = {...blockFormulas, ...inlineFormulas};
+  if (allFormulas.isEmpty) return {};
 
   final overlayState = Overlay.of(context, rootOverlay: true);
-  final glyphColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF4F46E5);
+  // PDF 是白底纸张——公式用黑色（原来浅色分支是品牌紫 #4F46E5，导出后公式
+  // 全是紫的）。深色 PDF 才用白
+  final glyphColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF1A1A1A);
   final result = <String, Uint8List>{};
 
   // 第二道防线：调用方已改成在 addPostFrameCallback 里启动（脱离 build
@@ -54,9 +61,12 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
   await WidgetsBinding.instance.endOfFrame;
   if (!context.mounted) return {};
 
-  for (final raw in formulas) {
+  for (final raw in allFormulas) {
     final body = latexInnerBody(raw);
     if (body.isEmpty) continue;
+    // 块级公式用 display+较大字号；行内公式用 text 模式+较小字号，跟正文一个
+    // 量级，避免 \mathbf 等粗体字比周围文字大一圈
+    final isBlock = blockFormulas.contains(raw);
     final boundaryKey = GlobalKey();
     final entry = OverlayEntry(
       builder: (_) => Positioned(
@@ -70,8 +80,11 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
             key: boundaryKey,
             child: Math.tex(
               preprocessLatex(body),
-              mathStyle: MathStyle.display,
-              textStyle: TextStyle(fontSize: 22, color: glyphColor),
+              mathStyle: isBlock ? MathStyle.display : MathStyle.text,
+              textStyle: TextStyle(
+                fontSize: isBlock ? 20 : 15,
+                color: glyphColor,
+              ),
               onErrorFallback: (_) =>
                   Text(body, style: TextStyle(fontSize: 15, color: glyphColor)),
             ),
