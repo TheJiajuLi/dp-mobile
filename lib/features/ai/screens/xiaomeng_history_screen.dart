@@ -58,7 +58,7 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('删除此对话'),
-        content: Text('删除"${conv.title}"后无法恢复'),
+        content: Text('删除"${_cleanTitle(conv.title)}"后无法恢复'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -113,6 +113,25 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(res.message ?? '清空失败，请稍后重试')));
     }
+  }
+
+  // 历史标题是后端截取「首条用户消息前 20 字」自动生成的，而首条消息前面
+  // 拼了「AI 偏好语言」指令（[请用简体中文。] / [Please respond in English.] /
+  // [请用中英混合：…] 等，全都是 [...] 包裹 + 换行），于是标题被前缀顶成了
+  // 语言指令、真实问题被挤到被截断的第二行看不见。后端不改，这里在展示层把
+  // 开头的语言前缀剥掉，露出真实问题
+  String _cleanTitle(String raw) {
+    var t = raw.trim();
+    // 闭合的 [ ... ] 语言前缀（后面跟空白/换行才算，避免误伤"[数组]怎么用"）
+    t = t.replaceFirst(RegExp(r'^\[[^\]]*\]\s+'), '');
+    // 中英混合那条指令较长，可能被 20 字截断得没了闭合 ]，兜底再剥一次
+    t = t.replaceFirst(RegExp(r'^\[(请用|Please respond)[^\n]*'), '').trim();
+    // 剥完取第一行非空文字——真实问题常被后端留在换行后的第二行
+    for (final line in t.split('\n')) {
+      if (line.trim().isNotEmpty) return line.trim();
+    }
+    // 整条都是语言指令、没留下问题（长指令+问题被一起截断）：退回原文不留空
+    return raw.trim();
   }
 
   // 后端没有存"这个对话属于哪个类型"，用标题里的关键词粗略猜一个图标——
@@ -314,12 +333,16 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
                     : const Color(0xFFEEF0FF),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(_iconFor(conv.title), size: 17, color: _primary),
+              child: Icon(
+                _iconFor(_cleanTitle(conv.title)),
+                size: 17,
+                color: _primary,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                conv.title,
+                _cleanTitle(conv.title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
