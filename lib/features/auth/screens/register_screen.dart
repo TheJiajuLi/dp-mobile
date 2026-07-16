@@ -326,6 +326,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _emailCtrl,
+            // 显式深色输入字色——不给 style 时会落到主题默认，在白底输入框上
+            // 太浅、看不清刚输入的内容（注册页所有输入框统一补上）
+            style: const TextStyle(fontSize: 16, color: Color(0xFF1A1A1A)),
             keyboardType: TextInputType.emailAddress,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
@@ -567,6 +570,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               Expanded(
                 child: TextField(
                   controller: _codeCtrl,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF1A1A1A),
+                  ),
                   textCapitalization: TextCapitalization.characters,
                   onChanged: (_) {
                     if (_codeVerified || _codeError != null) {
@@ -770,6 +777,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _usernameCtrl,
+            style: const TextStyle(fontSize: 16, color: Color(0xFF1A1A1A)),
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: '字母、数字、下划线',
@@ -808,6 +816,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _passwordCtrl,
+            style: const TextStyle(fontSize: 16, color: Color(0xFF1A1A1A)),
             obscureText: _obscurePw,
             onChanged: (_) => setState(() {}),
             onSubmitted: (_) => _register(),
@@ -858,6 +867,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _referralCtrl,
+            style: const TextStyle(fontSize: 16, color: Color(0xFF1A1A1A)),
             textCapitalization: TextCapitalization.characters,
             decoration: InputDecoration(
               hintText: '填好友邀请码，双方各得 7 天 Pro',
