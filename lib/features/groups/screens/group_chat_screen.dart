@@ -19,6 +19,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/pro_access.dart';
+import '../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/confirm_dialog.dart';
 import '../../../shared/widgets/formula_error.dart';
 import '../../../shared/widgets/question_share_card.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
@@ -1379,10 +1381,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
             maxWidth: MediaQuery.of(context).size.width * 0.68,
           ),
           child: GestureDetector(
-            // 长按自己发的、未撤回消息 → 复制/撤回菜单
-            onLongPress: msg.isMe && !msg.isRecalled
-                ? () => _showMessageMenu(msg)
-                : null,
+            // 长按任意消息 → 操作菜单（菜单内部按情况显示复制/撤回/删除）
+            onLongPress: () => _showMessageMenu(msg),
             child: msg.isRecalled
                 ? _buildRecalledBubble(isDark)
                 : switch (msg.type) {
@@ -1962,12 +1962,16 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     );
   }
 
-  // 长按自己消息 → 复制/撤回菜单
+  // 长按消息 → 操作菜单：复制（文本/代码、未撤回）/ 撤回（仅自己 + 2分钟内）/
+  // 删除（全部消息都可删，仅对自己不可见）
   void _showMessageMenu(GroupMessage msg) {
     final ageMs = DateTime.now().millisecondsSinceEpoch - msg.createdAt;
-    final canRecall = ageMs < 2 * 60 * 1000; // 2分钟内，跟后端一致
+    final canRecall =
+        msg.isMe && !msg.isRecalled && ageMs < 2 * 60 * 1000; // 2分钟内，跟后端一致
     final canCopy =
-        msg.type == GroupMessageType.text || msg.type == GroupMessageType.code;
+        !msg.isRecalled &&
+        (msg.type == GroupMessageType.text ||
+            msg.type == GroupMessageType.code);
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).cardColor,
@@ -2003,19 +2007,56 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                   Navigator.pop(ctx);
                   _recallMessage(msg);
                 },
-              )
-            else
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Text(
-                  '超过2分钟无法撤回',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
               ),
+            // 删除：所有消息都可删（含他人/已撤回），仅对自己不可见
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Color(0xFFEF4444),
+              ),
+              title: const Text(
+                '删除',
+                style: TextStyle(color: Color(0xFFEF4444)),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteMessage(msg);
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+
+  // 删除（仅对自己不可见）——后端只标记当前用户删除，不物理删除、不影响他人。
+  // 先弹品牌红色二次确认，确认后调 DELETE 接口，成功才本地移除
+  Future<void> _deleteMessage(GroupMessage msg) async {
+    final ok = await showDangerConfirm(
+      context,
+      title: '删除消息',
+      message: '删除后仅对你不可见，对方仍可看到。确认删除？',
+      confirmText: '删除',
+    );
+    if (!ok || !mounted) return;
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .delete(
+            '/auth/groups/${widget.groupId}/messages/${msg.id}',
+            data: {'deleteForSelf': true},
+          );
+      if (!mounted) return;
+      if (res.success) {
+        setState(() => _messages.removeWhere((m) => m.id == msg.id));
+      } else {
+        showAppToast(context, '删除失败，请重试');
+      }
+    } catch (e) {
+      debugPrint('删除群消息失败: $e');
+      if (mounted) showAppToast(context, '删除失败，请重试');
+    }
   }
 
   Future<void> _recallMessage(GroupMessage msg) async {

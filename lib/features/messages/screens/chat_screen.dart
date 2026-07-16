@@ -21,6 +21,8 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/online_status.dart';
 import '../../../shared/utils/pro_access.dart';
+import '../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/confirm_dialog.dart';
 import '../../../shared/widgets/formula_error.dart';
 import '../../../shared/widgets/question_share_card.dart';
 import '../../auth/auth_service.dart';
@@ -1389,6 +1391,77 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  // 长按消息 → 操作菜单：复制（文本/代码）/ 删除（全部消息，仅对自己不可见）。
+  // 私信没有撤回（后端无接口），只有复制 + 删除
+  void _showMessageMenu(ChatMessage msg) {
+    final canCopy = msg.type == 'text' || msg.type == 'code';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            if (canCopy)
+              ListTile(
+                leading: const Icon(Icons.copy_outlined, size: 20),
+                title: const Text('复制'),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: msg.content));
+                  Navigator.pop(ctx);
+                },
+              ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Color(0xFFEF4444),
+              ),
+              title: const Text(
+                '删除',
+                style: TextStyle(color: Color(0xFFEF4444)),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteMessage(msg);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 删除（仅对自己不可见）——后端只标记当前用户删除，不物理删除、不影响对方。
+  // 先弹品牌红色二次确认，成功才本地移除该条
+  Future<void> _deleteMessage(ChatMessage msg) async {
+    final ok = await showDangerConfirm(
+      context,
+      title: '删除消息',
+      message: '删除后仅对你不可见，对方仍可看到。确认删除？',
+      confirmText: '删除',
+    );
+    if (!ok || !mounted) return;
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .delete('/auth/messages/${msg.id}', data: {'deleteForSelf': true});
+      if (!mounted) return;
+      if (res.success) {
+        setState(() => _messages.removeWhere((m) => m.id == msg.id));
+      } else {
+        showAppToast(context, '删除失败，请重试');
+      }
+    } catch (e) {
+      debugPrint('删除私信失败: $e');
+      if (mounted) showAppToast(context, '删除失败，请重试');
+    }
+  }
+
   Widget _buildBubble(ChatMessage msg, String currentUserId) {
     final isMe = msg.senderId == currentUserId;
 
@@ -1417,16 +1490,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                // 长按预留消息互动（点赞/表情回应）的手势位置——后端还没有
-                // 反应接口，先给"即将上线"反馈，不是编一套本地假状态
+                // 长按消息 → 操作菜单（复制 / 删除）
                 GestureDetector(
-                  onLongPress: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        AppLocalizations.of(context)!.comingSoonStayTuned,
-                      ),
-                    ),
-                  ),
+                  onLongPress: () => _showMessageMenu(msg),
                   child: _buildBubbleContent(msg, isMe),
                 ),
                 const SizedBox(height: 3),
