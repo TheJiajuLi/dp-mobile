@@ -12,7 +12,7 @@ import 'tutorial_block_renderer.dart';
 // TutorialCodeBlock，自带复制+Pyodide运行）、块级公式 \[...\]/$$...$$、
 // 以及**行内公式 \(...\)/$...$ 真正嵌在文字行内流排**（WidgetSpan）。
 
-enum AiSegmentType { text, code, latexBlock, latexInline }
+enum AiSegmentType { text, code, latexBlock, latexInline, image }
 
 class AiSegment {
   final AiSegmentType type;
@@ -51,7 +51,9 @@ List<List<AiSegment>> parseAiContent(String text) {
   final blockPattern = RegExp(
     r'```(\w*)\n([\s\S]*?)```'
     r'|\\+\[([\s\S]*?)\\+\]'
-    r'|\$\$([\s\S]*?)\$\$',
+    r'|\$\$([\s\S]*?)\$\$'
+    // 图片：![alt](url) —— 论坛帖子里图片块序列化成这个语法（group 5=url）
+    r'|!\[[^\]]*\]\(([^)]+)\)',
     dotAll: true,
   );
 
@@ -75,6 +77,8 @@ List<List<AiSegment>> parseAiContent(String text) {
       raw.add(_RawSegment(type: 'latexBlock', content: m.group(3)!));
     } else if (m.group(4) != null) {
       raw.add(_RawSegment(type: 'latexBlock', content: m.group(4)!));
+    } else if (m.group(5) != null) {
+      raw.add(_RawSegment(type: 'image', content: m.group(5)!.trim()));
     }
     lastEnd = m.end;
   }
@@ -96,6 +100,12 @@ List<List<AiSegment>> parseAiContent(String text) {
     if (seg.type == 'latexBlock') {
       paragraphs.add([
         AiSegment(type: AiSegmentType.latexBlock, content: seg.content),
+      ]);
+      continue;
+    }
+    if (seg.type == 'image') {
+      paragraphs.add([
+        AiSegment(type: AiSegmentType.image, content: seg.content),
       ]);
       continue;
     }
@@ -167,6 +177,9 @@ class AiContentRenderer extends StatelessWidget {
         }
         if (segs.length == 1 && segs[0].type == AiSegmentType.latexBlock) {
           return _buildLatexBlock(segs[0].content);
+        }
+        if (segs.length == 1 && segs[0].type == AiSegmentType.image) {
+          return _buildImage(segs[0].content);
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -255,6 +268,31 @@ class AiContentRenderer extends StatelessWidget {
     }
     return spans;
   }
+
+  // 图片段（![](url)）——圆角图片，加载失败给友好占位
+  Widget _buildImage(String url) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorBuilder: (c, e, s) => Container(
+          height: 120,
+          alignment: Alignment.center,
+          color: isDark ? Colors.white10 : const Color(0xFFF0F0F0),
+          child: Text(
+            '图片加载失败',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.white38 : Colors.grey,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 
   TextStyle _bodyStyle() => TextStyle(
     fontSize: 15,

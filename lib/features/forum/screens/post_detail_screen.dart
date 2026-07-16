@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/ai_content_renderer.dart';
 import '../models/forum_post_model.dart';
 import '../models/forum_reply_model.dart';
 import '../widgets/post_card.dart' show forumTimeAgo;
@@ -335,16 +336,10 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
           ),
           const SizedBox(height: 12),
 
-          Text(
-            post.content,
-            style: TextStyle(
-              fontSize: 15,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.75)
-                  : const Color(0xFF444444),
-              height: 1.8,
-            ),
-          ),
+          // 正文富渲染——支持 Markdown / LaTeX 公式 / 代码高亮 / 图片
+          // （发帖 Block 编辑器序列化成 markdown-ish，这里还原）。代码只显示
+          // 高亮不可运行（读者端），跟发布器里的"可运行"区分开
+          AiContentRenderer(content: post.content, isDark: isDark),
           const SizedBox(height: 14),
 
           Container(
