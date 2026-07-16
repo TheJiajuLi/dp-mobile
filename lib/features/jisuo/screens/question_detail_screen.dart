@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../core/jisuo_refresh_signal.dart';
+import '../../community/widgets/question_share_sheet.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../features/auth/auth_service.dart';
@@ -92,10 +92,11 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
     return askerId != null && askerId == ref.watch(currentUserProvider)?.id;
   }
 
-  Future<void> _share() async {
-    final text = widget.initialQuestion?['text'] as String? ?? '';
-    if (text.isEmpty) return;
-    await Share.share('来看看极索上的这个问题：\n$text');
+  void _share() {
+    final q = widget.initialQuestion;
+    if (q == null || (q['text'] as String?)?.isEmpty != false) return;
+    // 论坛/群组/好友三选一的 in-app 分享 Sheet（替代原来的系统分享面板）
+    showQuestionShareSheet(context, q);
   }
 
   void _edit() {
