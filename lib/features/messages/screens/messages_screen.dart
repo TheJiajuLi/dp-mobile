@@ -71,11 +71,15 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         .read(apiClientProvider)
         .get('/auth/notifications/unread-count');
     if (res.success && res.data != null && mounted) {
-      // 后端这个接口更新过了：'unread' 现在只算通知，'total' 才是
-      // 通知+群组消息未读之和——消息Tab红点该用 total，不然群里来了新
-      // 消息，底部导航栏完全看不出来
-      ref.read(unreadCountProvider.notifier).state =
-          (res.data['total'] as num?)?.toInt() ?? 0;
+      // 群聊消息不再进底部红点——只保留系统通知 + 私信未读，不含群消息。
+      // 后端 total = notifications + groups(群消息)，这里刻意不用 total，改用
+      // notifications(=unread，只算通知) + 私信会话未读之和；群里来新消息只在
+      // 消息页群聊区那一栏显示，不再触发底部导航的通知红点
+      final notifUnread = (res.data['unread'] as num?)?.toInt() ?? 0;
+      final dmUnread = ref
+          .read(conversationsProvider)
+          .fold<int>(0, (s, c) => s + c.unreadCount);
+      ref.read(unreadCountProvider.notifier).state = notifUnread + dmUnread;
       ref.read(mentionUnreadCountProvider.notifier).state =
           (res.data['mention'] as num?)?.toInt() ?? 0;
     }
