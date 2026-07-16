@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -402,26 +401,14 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     '有哪些相关的延伸知识？',
   ];
 
-  // 落地页推荐问题：优先用 24h 内的本地缓存，过期/无缓存才调 AI 重新生成
+  // 落地页推荐问题：每次进入页面（冷启动/退出重进都会触发 initState）都调 AI
+  // 重新生成一组，不再做本地缓存/24h 判断——始终是新鲜的一批。下拉刷新也走
+  // 这个方法
   Future<void> _loadStarterQuestions() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastRefresh = prefs.getInt('jisuo_starter_refresh') ?? 0;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final shouldRefresh = now - lastRefresh > 24 * 60 * 60 * 1000;
-
-    if (!shouldRefresh) {
-      final cached = prefs.getStringList('jisuo_starter_cache');
-      if (cached != null && cached.isNotEmpty) {
-        if (!mounted) return;
-        setState(() => _starterQuestions = cached);
-        return;
-      }
-    }
-
     if (!mounted) return;
     setState(() => _loadingStarters = true);
     try {
-      await _generateStarterQuestions(prefs);
+      await _generateStarterQuestions();
     } catch (_) {
       // 失败（网络/解析异常）回退到离线兜底问题
       if (!mounted) return;
@@ -432,7 +419,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     }
   }
 
-  Future<void> _generateStarterQuestions(SharedPreferences prefs) async {
+  Future<void> _generateStarterQuestions() async {
     final domains = List<String>.from(_starterDomains)..shuffle();
     final selected = domains.take(3).toList();
     final prompt =
@@ -467,9 +454,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           .toList();
 
       if (lines.length >= 2) {
-        final ts = DateTime.now().millisecondsSinceEpoch;
-        await prefs.setStringList('jisuo_starter_cache', lines);
-        await prefs.setInt('jisuo_starter_refresh', ts);
         if (!mounted) return;
         setState(() {
           _starterQuestions = lines;
@@ -484,14 +468,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       _starterQuestions = _sampleQuestions;
       _loadingStarters = false;
     });
-  }
-
-  // 「换一批」：清掉时间戳+缓存强制重新生成
-  Future<void> _refreshStarterQuestions() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('jisuo_starter_refresh');
-    await prefs.remove('jisuo_starter_cache');
-    await _loadStarterQuestions();
   }
 
   Future<void> _loadRelated(String q) async {
@@ -728,11 +704,19 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   static const _composerClearance = 96.0;
 
   Widget _buildIdleView(bool isDark) {
-    return ListView(
-      children: [
-        _buildHero(isDark),
-        const SizedBox(height: _composerClearance),
-      ],
+    // 下拉刷新推荐问题。这个落地页没有会话列表（历史对话是独立页面），可刷新
+    // 的内容就是这组推荐问题，所以 onRefresh 只重跑 _loadStarterQuestions。
+    // AlwaysScrollableScrollPhysics 保证内容不满一屏时也能下拉触发
+    return RefreshIndicator(
+      color: _primary,
+      onRefresh: _loadStarterQuestions,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          _buildHero(isDark),
+          const SizedBox(height: _composerClearance),
+        ],
+      ),
     );
   }
 
@@ -849,33 +833,8 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                       ),
                     ),
                   ),
-                // 换一批：清缓存立即用 AI 重新生成一组（生成中隐藏）
-                if (!_loadingStarters)
-                  GestureDetector(
-                    onTap: _refreshStarterQuestions,
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.refresh,
-                            size: 14,
-                            color: isDark ? Colors.white38 : Colors.grey[400],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '换一批',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? Colors.white38 : Colors.grey[400],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // 「换一批」入口已删除——推荐问题改为每次进入页面自动刷新，
+                // 外加下拉刷新，不再需要手动换一批按钮
               ],
             ),
           ),
