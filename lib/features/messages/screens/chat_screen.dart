@@ -1302,6 +1302,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               controller: _ctrl,
                               decoration: InputDecoration(
                                 border: InputBorder.none,
+                                // filled:false 显式关掉——否则会吃全局
+                                // InputDecorationTheme 的灰底，在白胶囊里夹出
+                                // 一条灰色长条「夹心」
+                                filled: false,
                                 hintText: l10n.messageInputHint,
                                 hintStyle: const TextStyle(color: Colors.grey),
                                 isDense: true,
