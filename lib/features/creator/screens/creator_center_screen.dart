@@ -687,7 +687,9 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
               ),
               const Spacer(),
               GestureDetector(
-                onTap: _soon,
+                // 本月数据「查看详情」接入现有的 CreatorStatsScreen（总览四格/
+                // 互动分布/热门文章/获赞趋势/真实接口），不再是占位 toast
+                onTap: () => context.push('/creator/stats'),
                 child: const Text(
                   '查看详情',
                   style: TextStyle(fontSize: 13, color: _primary),
