@@ -7,7 +7,7 @@ import '../../../l10n/generated/app_localizations.dart';
 
 // 最新版本号——每次发布前手动更新。设置页「更新日志」的"新动态"角标、
 // 本页"当前版本"、以及已读判断都用它当唯一真相
-const String kLatestVersion = 'v1.1.0';
+const String kLatestVersion = 'v1.2.0';
 
 const String _kLastSeenKey = 'about_last_seen_version';
 
@@ -70,18 +70,45 @@ class ChangelogScreen extends ConsumerStatefulWidget {
   // 卡片里按 type 分组渲染，只显示最近 10 个版本
   static const List<_Version> _versions = [
     _Version(
+      version: 'v1.2.0',
+      date: '2026.07.16',
+      changes: [
+        _Change('Notebook AI辅助——查错/优化/解释/续写/转换语言（Pro）', ChangeType.feature),
+        _Change('问题详情页任何人可回答——底部悬浮写回答按钮', ChangeType.feature),
+        _Change('问题详情分享——论坛/群组/好友三种方式', ChangeType.feature),
+        _Change('发布前原创声明——一次签署永久记录', ChangeType.feature),
+        _Change('发布页工具栏新增Markdown块', ChangeType.feature),
+        _Change('小梦帮我写/AI辅助流式打字机输出', ChangeType.feature),
+        _Change('极索推荐问题每次进入刷新/下拉刷新', ChangeType.feature),
+        _Change('小梦推荐问题每次进入App刷新——随机领域', ChangeType.feature),
+        _Change('发布页今日灵感24小时AI刷新', ChangeType.feature),
+        _Change('新用户注册后自动跳转创作指南', ChangeType.feature),
+        _Change('各内容块工具栏加复制按钮', ChangeType.improve),
+        _Change('滚动时自动隐藏键盘——私聊/群聊/Notebook/发布页', ChangeType.improve),
+        _Change('小梦AI输出区域限高+滚动——打字机自动滚到底', ChangeType.improve),
+        _Change('极索历史会话标题/气泡去掉语言指令前缀', ChangeType.improve),
+        _Change('搜索页统一淡入动画/骨架屏/并行加载', ChangeType.improve),
+        _Change('Notebook代码高亮接入/文件导入bytes兜底', ChangeType.improve),
+        _Change('创作设置全面落地——可见性/自动保存/预览/默认块等', ChangeType.improve),
+        _Change('ProMax文案改为「AI工具使用无限制」', ChangeType.improve),
+        _Change('免费用户内容发布数量限制移除', ChangeType.improve),
+        _Change('小梦帮我写公式跨行匹配修复/脏格式清理', ChangeType.fix),
+        _Change('极索AI回答h4-h6标题正确渲染', ChangeType.fix),
+        _Change('LaTeX结尾孤立反斜杠自动清理', ChangeType.fix),
+        _Change('Notebook编辑器运行代码无需Pro门禁', ChangeType.fix),
+        _Change('代码编辑器禁用智能标点/弯引号自动替换', ChangeType.fix),
+        _Change('空白Cell按Delete直接删除', ChangeType.fix),
+        _Change('登录记录繁体字统一改为简体', ChangeType.fix),
+        _Change('转载设置落地——关闭时隐藏PDF导出和分享按钮', ChangeType.fix),
+      ],
+    ),
+    _Version(
       version: 'v1.1.0',
       date: '2026.07.15',
       changes: [
-        _Change(
-          '创作者中心全功能打通——数据分析/创作指南/邀请好友/创作设置',
-          ChangeType.feature,
-        ),
+        _Change('创作者中心全功能打通——数据分析/创作指南/邀请好友/创作设置', ChangeType.feature),
         _Change('邀请好友系统——专属邀请码/双方各得7天Pro', ChangeType.feature),
-        _Change(
-          'Notebook 文件导入——CSV/Excel/JSON/TXT数据集注入内核',
-          ChangeType.feature,
-        ),
+        _Change('Notebook 文件导入——CSV/Excel/JSON/TXT数据集注入内核', ChangeType.feature),
         _Change('付费管理页面——订阅详情/套餐切换/管理入口', ChangeType.feature),
         _Change('小梦帮我写重设计——对话式问答/生成内容填入编辑器', ChangeType.feature),
         _Change('专栏管理支持自定义封面——图片上传/预设配色方案', ChangeType.feature),
@@ -170,10 +197,7 @@ class _ChangelogScreenState extends ConsumerState<ChangelogScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 极梦极光弧线 logo（最新款）
-          SvgPicture.asset(
-            'assets/icons/logo_aurora.svg',
-            width: 60,
-          ),
+          SvgPicture.asset('assets/icons/logo_aurora.svg', width: 60),
           const SizedBox(height: 14),
           Text(
             '极梦 DreamingPolar',
