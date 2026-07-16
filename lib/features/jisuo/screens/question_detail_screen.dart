@@ -872,6 +872,9 @@ class _WriteAnswerSheetState extends ConsumerState<_WriteAnswerSheet> {
                   decoration: InputDecoration(
                     isCollapsed: true,
                     border: InputBorder.none,
+                    // filled:false 显式关掉——否则吃全局 InputDecorationTheme
+                    // 的灰底，在白框里夹出一块灰色「夹心」
+                    filled: false,
                     hintText: '写下你的回答，支持 LaTeX 公式和代码…',
                     hintStyle: TextStyle(
                       fontSize: 15,
