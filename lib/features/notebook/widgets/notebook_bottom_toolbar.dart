@@ -35,7 +35,10 @@ class NotebookBottomToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      // 底部外边距收窄（12→4）：工具栏本就浮在外层 SafeArea 的 home 指示条
+      // 安全区之上，再叠 12px 显得下方留白过多。收到 4，把腾出的高度让给
+      // 上方的 Cell 画布，同时保留 SafeArea 对 home 指示条的避让
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF17171F) : Colors.white,
         borderRadius: BorderRadius.circular(14),
