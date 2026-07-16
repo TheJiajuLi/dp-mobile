@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/aurora_badge.dart';
@@ -32,7 +34,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _primary = Color(0xFF6366F1);
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
@@ -49,6 +51,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   late final TextEditingController _ctrl;
   late final FocusNode _focusNode;
   late final TabController _tabCtrl;
+
+  // 空状态四区块统一淡入——共用一个 controller，数据就绪后 forward() 一次，
+  // 四块同时淡入，不再各自到齐就闪出来。就绪前显示骨架屏
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeAnim;
+  bool _emptyReady = false;
+
+  // 热门话题本地缓存 key（SharedPreferences，1 小时内直接用缓存，秒出不闪）
+  static const _hotTagsCacheKey = 'search_hottags_cache_v1';
+  static const _hotTagsCacheTtl = Duration(hours: 1);
 
   Timer? _debounce;
   bool _loading = false;
@@ -86,8 +98,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       setState(() {});
     });
 
-    _loadHistory();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+
     _loadMyGroups();
+    // 预加载：进页面立刻并行拉空状态要用的数据（历史 + 热门话题），不等用户
+    // 看到页面才请求；就绪后统一触发淡入
+    _loadDefaultData();
 
     if (widget.initialQuery?.isNotEmpty == true) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -96,9 +116,50 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _focusNode.requestFocus();
-        _loadHotTags();
       });
     }
+  }
+
+  // 空状态数据的统一加载：先吃热门话题本地缓存（1h 内秒出），再并行拉最新的
+  // 历史 + 热门话题，全部就绪后一次性淡入
+  Future<void> _loadDefaultData() async {
+    await _loadCachedHotTags();
+    await Future.wait([_loadHistory(), _loadHotTags()]);
+    if (!mounted) return;
+    setState(() => _emptyReady = true);
+    _fadeController.forward();
+  }
+
+  // 读热门话题缓存——1 小时内直接用，先让区块有内容（后面 _loadHotTags 拉到
+  // 新数据会再刷新一次，但用户先看到的是缓存、不是空白）
+  Future<void> _loadCachedHotTags() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_hotTagsCacheKey);
+      if (raw == null) return;
+      final cached = jsonDecode(raw) as Map<String, dynamic>;
+      final ts = (cached['ts'] as num?)?.toInt() ?? 0;
+      if (DateTime.now().millisecondsSinceEpoch - ts >
+          _hotTagsCacheTtl.inMilliseconds) {
+        return;
+      }
+      final tags = cached['tags'] as List? ?? [];
+      if (tags.isNotEmpty && mounted) {
+        setState(() => _hotTags = tags);
+      }
+    } catch (_) {
+      // 缓存损坏就当没有，走正常网络加载
+    }
+  }
+
+  Future<void> _cacheHotTags(List<dynamic> tags) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _hotTagsCacheKey,
+        jsonEncode({'ts': DateTime.now().millisecondsSinceEpoch, 'tags': tags}),
+      );
+    } catch (_) {}
   }
 
   String? get _userId => ref.read(currentUserProvider)?.id;
@@ -201,9 +262,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           .read(apiClientProvider)
           .get('/auth/search', queryParameters: {'q': ''});
       if (res.success && mounted) {
-        setState(() {
-          _hotTags = (res.data as Map?)?['hotTags'] as List? ?? [];
-        });
+        final tags = (res.data as Map?)?['hotTags'] as List? ?? [];
+        setState(() => _hotTags = tags);
+        if (tags.isNotEmpty) unawaited(_cacheHotTags(tags));
       }
     } catch (e) {
       // 热门话题只是空状态下的引导内容，加载失败不影响主搜索流程，静默即可
@@ -343,7 +404,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _focusNode.unfocus(),
-                      child: _buildEmptyState(),
+                      // 数据就绪前显示骨架屏，就绪后四区块统一淡入——不再逐块
+                      // 闪出来
+                      child: _emptyReady
+                          ? FadeTransition(
+                              opacity: _fadeAnim,
+                              child: _buildEmptyState(),
+                            )
+                          : _buildEmptySkeleton(),
                     ),
                   )
                 else if (_loading)
@@ -460,6 +528,91 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // 空状态骨架屏——大致比着真实布局摆占位灰块（区块标题条 + 横滑卡片 +
+  // 列表行 + 话题 chip），数据没到位时先撑住结构，不留白也不逐块弹
+  Color get _skelColor =>
+      _isDark ? const Color(0xFF2A2A3A) : const Color(0xFFEEEEEE);
+
+  Widget _skelBox(double w, double h, {double r = 7}) => Container(
+    width: w,
+    height: h,
+    decoration: BoxDecoration(
+      color: _skelColor,
+      borderRadius: BorderRadius.circular(r),
+    ),
+  );
+
+  Widget _skelSection({required Widget body}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _skelBox(96, 16),
+      const SizedBox(height: 12),
+      body,
+      const SizedBox(height: 24),
+    ],
+  );
+
+  Widget _buildEmptySkeleton() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        // 最近搜索：一排 chip
+        _skelSection(
+          body: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              72.0,
+              96.0,
+              60.0,
+              84.0,
+            ].map((w) => _skelBox(w, 24, r: 12)).toList(),
+          ),
+        ),
+        // 推荐关注：横滑卡片
+        _skelSection(
+          body: SizedBox(
+            height: 156,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 3,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, __) => _skelBox(130, 156, r: 16),
+            ),
+          ),
+        ),
+        // 为你推荐：列表行
+        _skelSection(
+          body: Column(
+            children: List.generate(
+              3,
+              (_) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _skelBox(double.infinity, 52, r: 12),
+              ),
+            ),
+          ),
+        ),
+        // 热门话题：一排 chip
+        _skelSection(
+          body: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              80.0,
+              64.0,
+              100.0,
+              72.0,
+              56.0,
+            ].map((w) => _skelBox(w, 24, r: 12)).toList(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1179,6 +1332,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _ctrl.dispose();
     _focusNode.dispose();
     _tabCtrl.dispose();
+    _fadeController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
