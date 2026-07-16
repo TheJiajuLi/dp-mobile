@@ -17,6 +17,7 @@ import '../models/block_model.dart';
 import '../widgets/block_card.dart';
 import '../widgets/column_picker_sheet.dart';
 import '../widgets/cover_picker_sheet.dart';
+import '../widgets/declaration_sheet.dart';
 import '../widgets/formatting_toolbar.dart';
 import '../widgets/preview_drawer.dart';
 import '../widgets/publish_meta_sheet.dart';
@@ -660,6 +661,18 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       showAppToast(context, l10n.pleaseEnterNoteTitle);
       return;
     }
+    // 原创声明门禁（最外层）：当前用户没签过就先弹声明，签完再走正常发布
+    // 流程；签过的直接跳过。签署走 _publishFlow（保留自动摘要/发布前预览）
+    if (!await _isDeclarationSigned()) {
+      if (!mounted) return;
+      _showDeclarationSheet(_publishFlow);
+      return;
+    }
+    await _publishFlow();
+  }
+
+  // 声明通过后的正常发布流程：自动摘要 +「发布前预览」门禁
+  Future<void> _publishFlow() async {
     // 「创作设置」开了自动摘要、且摘要还空着：发布前先让小梦生成一版。
     // 只对 Pro 用户静默触发——非 Pro 不弹订阅 Sheet 打断发布（摘要本是
     // Pro 权益），直接跳过继续发布
@@ -679,15 +692,57 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     }
   }
 
-  // 预览抽屉里点"确认发布"——再校验一次标题（可能是从预览眼睛图标进来的、
-  // 标题还空着）后真正发布
+  // 预览抽屉里点"确认发布"——再校验一次标题（可能是从预览眼睛图标直接进来、
+  // 没走 _publish 的声明门禁），未签过同样先弹声明；签过/签完直接发布
   Future<void> _doPublish() async {
     if (_titleCtrl.text.trim().isEmpty) {
       final l10n = AppLocalizations.of(context)!;
       showAppToast(context, l10n.pleaseEnterNoteTitle);
       return;
     }
+    if (!await _isDeclarationSigned()) {
+      if (!mounted) return;
+      // 已经在预览里了，签完直接发，不再重复弹预览
+      _showDeclarationSheet(() => _save('published'));
+      return;
+    }
     await _save('published');
+  }
+
+  // ---- 原创声明：同一 userId 签一次永久记录，不同用户各自独立的 key ----
+  String get _declarationKey {
+    final userId = ref.read(currentUserProvider)?.id ?? '';
+    return 'declaration_signed_$userId';
+  }
+
+  Future<bool> _isDeclarationSigned() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_declarationKey) ?? false;
+  }
+
+  // onSigned：签署成功后接着做什么（AppBar 入口传 _publishFlow 保留预览；
+  // 预览里确认入口传直接 _save，避免二次弹预览）
+  void _showDeclarationSheet(Future<void> Function() onSigned) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DeclarationSheet(
+        onConfirmed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final userId = ref.read(currentUserProvider)?.id ?? '';
+          await prefs.setBool('declaration_signed_$userId', true);
+          await prefs.setString(
+            'declaration_signed_at_$userId',
+            DateTime.now().toIso8601String(),
+          );
+          await prefs.setString('declaration_version_$userId', 'v1.0');
+          if (!mounted) return;
+          Navigator.pop(context);
+          await onSigned();
+        },
+      ),
+    );
   }
 
   Future<void> _save(String status) async {
@@ -731,6 +786,12 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         'subtitle': _subtitle,
         'series_tag': _seriesTag,
         'issue_number': _issueNumber,
+        // 原创声明留后手：发布时随文章一起落库（后端目前不校验，日后追查
+        // 用）。只在正式发布时带——草稿还没经过声明门禁
+        if (status == 'published') ...{
+          'declarationSigned': true,
+          'declarationSignedAt': DateTime.now().millisecondsSinceEpoch,
+        },
       };
 
       // 编辑已有教程走 PUT 更新原记录；新建走 POST。updateTutorial 是
