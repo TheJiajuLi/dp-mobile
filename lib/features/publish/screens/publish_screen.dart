@@ -61,6 +61,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   final List<String> _uploadedFileIds = [];
   bool _saving = false;
   bool _generatingSummary = false;
+  // 创作设置（SharedPreferences）——新建代码块默认语言、发布时是否自动生成摘要
+  String _defaultCodeLang = 'python';
+  bool _autoSummary = false;
   String? _coverImageUrl;
   // 编辑模式下拉取原教程数据期间显示 loading，拉完之前不能让用户看到/
   // 误操作一个空白编辑器
@@ -310,7 +313,44 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       if (widget.initialTitle != null) _titleCtrl.text = widget.initialTitle!;
       _blocks.addAll(widget.initialBlocks!);
     }
+    _loadCreatorSettings();
   }
+
+  // 读取「创作设置」里的三项偏好并落地：
+  //  · creator_default_block → 新建文章预置第一个块的类型（默认 text 时保留
+  //    空状态引导不变，只有显式选了标题/代码/LaTeX 才预置一个空块）
+  //  · creator_ai_code_lang  → 新建代码块的默认语言（AI 生成/解释代码时
+  //    block_card 的 prompt 也用 block.language，自动跟着走）
+  //  · creator_ai_auto_summary → 发布时摘要为空则自动生成（见 _publish）
+  Future<void> _loadCreatorSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    _defaultCodeLang = prefs.getString('creator_ai_code_lang') ?? 'python';
+    _autoSummary = prefs.getBool('creator_ai_auto_summary') ?? false;
+
+    final defaultBlock = prefs.getString('creator_default_block') ?? 'text';
+    final isNewArticle =
+        widget.tutorialId == null && widget.initialBlocks == null;
+    if (isNewArticle && _blocks.isEmpty && defaultBlock != 'text') {
+      final type = _blockTypeFromString(defaultBlock);
+      setState(() {
+        _blocks.add(
+          EditorBlock(
+            id: _uid(),
+            type: type,
+            language: type == BlockType.code ? _defaultCodeLang : null,
+          ),
+        );
+      });
+    }
+  }
+
+  BlockType _blockTypeFromString(String s) => switch (s) {
+    'heading' => BlockType.heading,
+    'code' => BlockType.code,
+    'latex' => BlockType.latex,
+    _ => BlockType.text,
+  };
 
   Future<void> _loadExisting(String id) async {
     setState(() => _loadingExisting = true);
@@ -405,7 +445,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     return EditorBlock(
       id: _uid(),
       type: type,
-      language: type == BlockType.code ? 'python' : null,
+      // 代码块默认语言取「创作设置」里的 AI 默认代码语言
+      language: type == BlockType.code ? _defaultCodeLang : null,
     );
   }
 
@@ -563,6 +604,14 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.pleaseEnterNoteTitle)));
       return;
+    }
+    // 「创作设置」开了自动摘要、且摘要还空着：发布前先让小梦生成一版。
+    // 只对 Pro 用户静默触发——非 Pro 不弹订阅 Sheet 打断发布（摘要本是
+    // Pro 权益），直接跳过继续发布
+    final isPro = ref.read(currentUserProvider)?.isPro ?? false;
+    if (_autoSummary && isPro && _summaryCtrl.text.trim().isEmpty) {
+      await _aiGenerateSummary();
+      if (!mounted) return;
     }
     await _save('published');
   }
