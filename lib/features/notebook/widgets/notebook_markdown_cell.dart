@@ -93,6 +93,9 @@ class NotebookMarkdownCellBody extends StatelessWidget {
         color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
       ),
       decoration: InputDecoration(
+        // 同 code cell：显式关掉全局 InputDecorationTheme 的 filled 灰底，
+        // 编辑 markdown/latex 时正文区也保持白底一致
+        filled: false,
         border: InputBorder.none,
         isDense: true,
         contentPadding: const EdgeInsets.all(12),

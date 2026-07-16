@@ -45,6 +45,9 @@ class NotebookCodeCellBody extends StatelessWidget {
           color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
         ),
         decoration: InputDecoration(
+          // filled:false 显式关掉——否则会吃全局 InputDecorationTheme 的
+          // filled:true 灰底，代码块正文区就跟 markdown/latex 的白底不一致了
+          filled: false,
           border: InputBorder.none,
           isDense: true,
           contentPadding: const EdgeInsets.all(12),
