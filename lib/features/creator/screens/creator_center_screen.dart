@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/app_toast.dart';
@@ -32,6 +33,9 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
   bool _loading = true;
   int _publishedCount = 0;
   int _draftCount = 0;
+  // 「作品管理」红点是"有新草稿"提醒——记住上次进作品管理时看到的草稿数，
+  // 只在草稿数比上次看过的更多时才亮红点，进过一次就消。按 userId 独立
+  int _seenDraftCount = 0;
   int _totalViews = 0;
   // 获赞/收藏没有单独的"收藏数"接口，用点赞数顶替——跟极光计划详情页的
   // 口径保持一致，不是这里独有的简化
@@ -90,13 +94,37 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
         ? (draftRes.data['total'] as num?)?.toInt() ?? 0
         : 0;
 
+    // 上次进作品管理时看过的草稿数。草稿被发布/删除后总数会下降，把 seen
+    // 夹到当前草稿数——否则旧的高 seen 会把之后真正的新草稿红点吞掉
+    final prefs = await SharedPreferences.getInstance();
+    final seenKey = 'creator_works_seen_${user.id}';
+    var seen = prefs.getInt(seenKey) ?? 0;
+    if (seen > draftTotal) {
+      seen = draftTotal;
+      await prefs.setInt(seenKey, seen);
+    }
+    if (!mounted) return;
+
     setState(() {
       _publishedCount = publishedTotal;
       _draftCount = draftTotal;
+      _seenDraftCount = seen;
       _totalViews = views;
       _totalLikes = likes;
       _loading = false;
     });
+  }
+
+  // 进「作品管理」即把当前草稿数记为"已看"，红点立即消失、并持久化；下次
+  // 只有新增草稿（草稿数超过这个值）才会再亮
+  void _markWorksSeen() {
+    if (_seenDraftCount >= _draftCount) return;
+    setState(() => _seenDraftCount = _draftCount);
+    final userId = ref.read(currentUserProvider)?.id ?? '';
+    final count = _draftCount;
+    SharedPreferences.getInstance().then(
+      (p) => p.setInt('creator_works_seen_$userId', count),
+    );
   }
 
   String _formatCount(int n) {
@@ -451,8 +479,11 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                       iconBg: const Color(0xFFEEF0FF),
                       iconColor: const Color(0xFF6366F1),
                       label: '作品管理',
-                      dot: _draftCount > 0,
-                      onTap: () => context.push('/creator/works'),
+                      dot: _draftCount > _seenDraftCount,
+                      onTap: () {
+                        _markWorksSeen();
+                        context.push('/creator/works');
+                      },
                     ),
                     vDiv(),
                     _toolCell(
