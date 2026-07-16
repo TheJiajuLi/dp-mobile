@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -651,12 +652,22 @@ finally:
         'xml',
         'txt',
       ],
+      // 双保险：让 picker 直接带回 bytes（部分机型/来源不给 path）
+      withData: true,
     );
     if (result == null || !mounted) return;
     final file = result.files.first;
     final ext = file.extension?.toLowerCase() ?? '';
-    final bytes = file.bytes;
-    if (bytes == null) return;
+    // bytes 兜底：withData 没带回时，再按 path 直接读文件
+    var bytes = file.bytes;
+    if (bytes == null && file.path != null) {
+      bytes = await File(file.path!).readAsBytes();
+    }
+    if (!mounted) return;
+    if (bytes == null) {
+      _showSnack('无法读取文件，请重试', ok: false);
+      return;
+    }
 
     if (ext == 'ipynb') {
       final content = utf8.decode(bytes);
