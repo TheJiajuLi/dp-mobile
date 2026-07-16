@@ -165,7 +165,8 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         '1. 第一行是文章标题（不要加 # 号）\n'
         '2. 正文分段，用空行隔开段落\n'
         '3. 数学公式：块级公式（单独成行展示）用 \\[...\\] 包裹，行内公式用 \$...\$ 包裹；'
-        '不要用 \$\$...\$\$ 格式，不要在公式里用 && 符号，多行公式请用 aligned 环境，'
+        '不要用 \$\$...\$\$ 格式，不要把美元符转义成 \\\$（行内公式闭合就用 \$、不是 \\\$），'
+        '不要在公式里用 && 符号，多行公式请用 aligned 环境，'
         '不要生成 \\expression\\ 这类占位写法\n'
         '4. 需要代码时用三个反引号包裹并注明语言（如 ```python）\n'
         '5. 小节标题用 ## 开头\n'
@@ -271,6 +272,10 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
   // 不认 LaTeX，LaTeX 优先）；含 Markdown 语法(** / ## / - / > / 链接 等)→
   // Markdown 块（整段一块，列表/多行才渲染得对）；其余普通段落→文字块
   List<XmengBlock> _parseToBlocks(String content) {
+    // 小梦有时把行内公式定界符 $ 误转义成 \$，多出来的 \ 会被卷进公式体末尾
+    // 导致 KaTeX 解析失败。先全局把 \$ 归一成 $（治源头），配合
+    // preprocessLatex 的结尾反斜杠兜底（治存量），双保险
+    content = content.replaceAll(r'\$', r'$');
     final blocks = <XmengBlock>[];
     final lines = content.split('\n');
     var inCode = false;
