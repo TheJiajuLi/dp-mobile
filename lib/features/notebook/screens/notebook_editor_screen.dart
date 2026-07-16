@@ -120,6 +120,20 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     });
   }
 
+  // 切换代码 cell 的语言（点语言 pill 弹选择器后回调）——只改类型，代码内容
+  // 不动，切完清掉旧输出（换了语言旧结果就不作数了）
+  void _changeCellLanguage(NotebookCell cell, String type) {
+    if (cell.type == type) return;
+    setState(() {
+      cell.type = type;
+      cell.output = null;
+      cell.outputType = null;
+      _outputs[cell.id] = null;
+      _outputTypes[cell.id] = null;
+    });
+    _scheduleSave();
+  }
+
   void _deleteCell(String cellId) {
     if (_nb == null) return;
     _controllers[cellId]?.dispose();
@@ -1353,6 +1367,7 @@ finally:
       },
       onAddBelow: (type) => _addCell(type, at: index + 1),
       onDelete: () => _deleteCell(cell.id),
+      onChangeLanguage: (type) => _changeCellLanguage(cell, type),
     );
   }
 

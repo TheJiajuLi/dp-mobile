@@ -25,6 +25,8 @@ class NotebookCellCard extends StatelessWidget {
   final VoidCallback onRun;
   final void Function(String type) onAddBelow;
   final VoidCallback onDelete;
+  // 点语言 pill 切换代码语言（只对代码类 cell 生效）
+  final void Function(String type)? onChangeLanguage;
 
   const NotebookCellCard({
     super.key,
@@ -42,6 +44,7 @@ class NotebookCellCard extends StatelessWidget {
     required this.onRun,
     required this.onAddBelow,
     required this.onDelete,
+    this.onChangeLanguage,
   });
 
   // 导入数据文件生成的"数据集 cell"——橙色边框 + 暖黄头部 + 数据集徽标
@@ -154,20 +157,45 @@ class NotebookCellCard extends StatelessWidget {
           // 语言 pill 的底色所有 cell 统一用 Python 那种极浅的中性紫（近白）——
           // 不再每种语言各自上色（markdown 的浅绿底会显得发灰），视觉统一；
           // 类型区分只靠文字颜色（Python 紫 / Markdown 绿 / LaTeX violet）
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(
-                0xFF6366F1,
-              ).withValues(alpha: isDark ? 0.22 : 0.12),
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: Text(
-              _label(cell.type),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _langColor(cell.type),
+          GestureDetector(
+            // 代码类 cell 点 pill 可切换语言（弹底部选择器）；markdown/latex/
+            // 图片没有"语言"概念，pill 不可点
+            onTap: (_isExecutable(cell.type) && onChangeLanguage != null)
+                ? () => showLanguagePickerSheet(
+                    context,
+                    current: cell.type,
+                    onSelect: onChangeLanguage!,
+                  )
+                : null,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 4, 8, 4),
+              decoration: BoxDecoration(
+                color: const Color(
+                  0xFF6366F1,
+                ).withValues(alpha: isDark ? 0.22 : 0.12),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _label(cell.type),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _langColor(cell.type),
+                    ),
+                  ),
+                  // 可切换时给个下拉小箭头，暗示"点一下能换语言"
+                  if (_isExecutable(cell.type) && onChangeLanguage != null) ...[
+                    const SizedBox(width: 3),
+                    Icon(
+                      Icons.expand_more,
+                      size: 14,
+                      color: _langColor(cell.type),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -308,6 +336,131 @@ class NotebookCellCard extends StatelessWidget {
 
   bool _isExecutable(String type) =>
       const {'python', 'sql', 'javascript', 'r', 'julia'}.contains(type);
+}
+
+// 语言选择器——点代码 cell 的语言 pill 弹出，跟顶栏「更多」同一套底部弹层语言
+// （抓手 + 图标方框 + 主/副标题 + 当前项打勾）
+void showLanguagePickerSheet(
+  BuildContext context, {
+  required String current,
+  required void Function(String type) onSelect,
+}) {
+  const langs = [
+    ('python', 'Python', '数据分析 · 科学计算', Color(0xFF6366F1)),
+    ('javascript', 'JavaScript', '前端逻辑 · 快速脚本', Color(0xFFD97706)),
+    ('sql', 'SQL', '查询上一格的 df 数据', Color(0xFF0EA5E9)),
+    ('r', 'R', '统计建模 · 可视化', Color(0xFF2563EB)),
+    ('julia', 'Julia', '高性能数值计算', Color(0xFF9333EA)),
+  ];
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final card = isDark ? const Color(0xFF17171F) : Colors.white;
+  final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+  final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => Container(
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+              child: Row(
+                children: [
+                  Text(
+                    '选择语言',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final l in langs)
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (l.$1 != current) onSelect(l.$1);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 9,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: l.$4.withValues(alpha: isDark ? 0.22 : 0.12),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: l.$4,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.$2,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: ink,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              l.$3,
+                              style: TextStyle(fontSize: 12, color: muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (l.$1 == current)
+                        const Icon(
+                          Icons.check,
+                          size: 18,
+                          color: Color(0xFF6366F1),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 // Cell ⋯ 菜单：下方添加各类型 / 删除
