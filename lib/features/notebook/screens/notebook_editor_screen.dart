@@ -10,6 +10,7 @@ import '../../publish/models/block_model.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/services/pyodide_engine.dart';
+import '../../../shared/utils/code_highlight.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../models/notebook_model.dart';
@@ -59,7 +60,7 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
         _nb = nb;
       });
       for (final cell in nb.cells) {
-        _controllers[cell.id] = TextEditingController(text: cell.code);
+        _controllers[cell.id] = _makeController(cell);
         _focusNodes[cell.id] = FocusNode();
         _outputs[cell.id] = cell.output;
         _outputTypes[cell.id] = cell.outputType;
@@ -84,6 +85,17 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     showAppToast(context, msg, ok: ok);
   }
 
+  // markdown/latex/image 走普通渲染，其余（python/sql/js/r…）都当代码看
+  bool _isCodeType(String type) =>
+      type != 'markdown' && type != 'latex' && type != 'image';
+
+  // 代码类 cell 用带语法高亮的 HighlightingCodeController（跟发布页
+  // block_card 一套），markdown/latex/image 用普通 controller
+  TextEditingController _makeController(NotebookCell cell) =>
+      _isCodeType(cell.type)
+      ? HighlightingCodeController(text: cell.code, language: cell.type)
+      : TextEditingController(text: cell.code);
+
   // 统一更新单个 cell 的输出：同步进内存态 map（驱动 UI）和 cell 字段（用于持久化）。
   // 加 mounted 守卫——cell 执行途中用户可能已经退出这个页面
   void _setOutput(NotebookCell cell, String? output, String? outputType) {
@@ -105,7 +117,7 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
       type: type,
       code: '',
     );
-    final ctrl = TextEditingController();
+    final ctrl = _makeController(cell);
     final focus = FocusNode();
     final index = at ?? _nb!.cells.length;
     setState(() {
@@ -134,6 +146,9 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
       cell.outputType = null;
       _outputs[cell.id] = null;
       _outputTypes[cell.id] = null;
+      // 高亮控制器跟着换语言（普通字段赋值、不 notify，靠这次 setState 重绘）
+      final ctrl = _controllers[cell.id];
+      if (ctrl is HighlightingCodeController) ctrl.language = type;
     });
     _scheduleSave();
   }
@@ -666,7 +681,7 @@ finally:
                 setState(() {
                   _nb!.cells.addAll(imported.cells);
                   for (final c in imported.cells) {
-                    _controllers[c.id] = TextEditingController(text: c.code);
+                    _controllers[c.id] = _makeController(c);
                     _outputs[c.id] = c.output;
                     _outputTypes[c.id] = c.outputType;
                     _running[c.id] = false;
@@ -701,7 +716,7 @@ finally:
         type: lang,
         code: content,
       );
-      final ctrl = TextEditingController(text: content);
+      final ctrl = _makeController(cell);
       setState(() {
         _nb!.cells.add(cell);
         _controllers[cell.id] = ctrl;
@@ -735,7 +750,7 @@ finally:
     setState(() {
       for (final cell in cells) {
         _nb!.cells.add(cell);
-        _controllers[cell.id] = TextEditingController(text: cell.code);
+        _controllers[cell.id] = _makeController(cell);
         _focusNodes[cell.id] = FocusNode();
         _outputs[cell.id] = cell.output;
         _outputTypes[cell.id] = cell.outputType;
@@ -1358,7 +1373,7 @@ finally:
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ctrl =
         _controllers[cell.id] ??
-        (_controllers[cell.id] = TextEditingController(text: cell.code));
+        (_controllers[cell.id] = _makeController(cell));
     final focus = _focusNodes[cell.id] ?? (_focusNodes[cell.id] = FocusNode());
     return NotebookCellCard(
       // ReorderableListView 要求每个直接子级都带 key（否则断言崩溃）——
@@ -1513,7 +1528,7 @@ finally:
     );
     setState(() {
       _nb!.cells.add(cell);
-      _controllers[cell.id] = TextEditingController();
+      _controllers[cell.id] = _makeController(cell);
       _focusNodes[cell.id] = FocusNode();
       _outputs[cell.id] = b64;
       _outputTypes[cell.id] = 'image';
