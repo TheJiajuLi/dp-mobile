@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
@@ -574,6 +575,14 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       // jsonEncode(...) 得到的字符串会被后端静默丢弃——创建和读取接口
       // 拿到的都是 blocks: []，连一个最简单的 text block 都不例外
       final blocksJson = _blocks.map((b) => b.toJson()).toList();
+      // 读取创作者设置里的转载/评论/下载偏好，随发布/更新一起落库。
+      // 都默认 true（允许）——跟后端 allow_repost 默认 1、创作设置的
+      // 开关默认态保持一致；编辑已发布文章时同样带上，实现"改了设置后
+      // 重新编辑即可对旧文生效"
+      final prefs = await SharedPreferences.getInstance();
+      final allowRepost = prefs.getBool('creator_allow_repost') ?? true;
+      final allowComments = prefs.getBool('creator_allow_comment') ?? true;
+      final allowDownload = prefs.getBool('creator_allow_download') ?? true;
       final payload = {
         'title': _titleCtrl.text.trim(),
         'summary': _summaryCtrl.text.trim(),
@@ -581,6 +590,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         'tags': _tags,
         'blocks': blocksJson,
         'status': status,
+        'allowRepost': allowRepost,
+        'allowComments': allowComments,
+        'allowDownload': allowDownload,
         // subtitle/series_tag/issue_number 这几个字段后端目前没有
         // 对应列（实测确认 2026-07-05），先按给的方案带上——不确定
         // 后端会不会真的存下来、GET 回来时是否会带回，未经真实回环
@@ -1021,9 +1033,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                                           _uploadedFileIds.add(id),
                                     ),
                                     _InsertDivider(
-                                      key: ValueKey(
-                                        'divider_${_blocks[i].id}',
-                                      ),
+                                      key: ValueKey('divider_${_blocks[i].id}'),
                                       show: _showDividers,
                                       isDark: isDarkMode,
                                       onTap: () => showBlockPickerSheet(

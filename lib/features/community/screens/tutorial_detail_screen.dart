@@ -444,6 +444,18 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     }
   }
 
+  // 作者是否允许转载——后端 allow_repost（int 0/1，默认 1）。关闭时详情页
+  // 隐藏「导出 PDF」和「分享」入口。拿不到数据/字段缺失时默认 true：安全
+  // 降级，宁可照常显示也不误伤正常文章
+  bool get _allowRepost {
+    final v = _tutorial?['allow_repost'];
+    if (v == null) return true;
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    final s = v.toString().toLowerCase();
+    return s != '0' && s != 'false';
+  }
+
   // 顶部/底部两处"分享"图标之前都是占位 toast，现在都指向同一个真实的
   // 分享 Sheet
   void _showShare() {
@@ -901,11 +913,13 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   icon: const Icon(Icons.format_size),
                   onPressed: _showFontSheet,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
-                  tooltip: '导出 PDF',
-                  onPressed: _openExportSheet,
-                ),
+                // 作者关闭转载时隐藏 PDF 导出入口
+                if (_allowRepost)
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    tooltip: '导出 PDF',
+                    onPressed: _openExportSheet,
+                  ),
               ],
               // 阅读进度条——之前 backgroundColor 是实心浅灰，静止时（滚动
               // 位置0）整条都是背景色，跟封面拼出一条很粗的分割线。这次
@@ -1312,51 +1326,53 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 ),
                 const Spacer(),
                 // 分享——品牌紫渐变胶囊，配一道柔和的同色投影做出悬浮感，
-                // 达到 2026 一线品牌的质感（不再是扁平纯色块）
-                GestureDetector(
-                  onTap: _showShare,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 11,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+                // 达到 2026 一线品牌的质感（不再是扁平纯色块）。
+                // 作者关闭转载时整颗胶囊隐藏（Spacer 保留，其余按钮仍靠左）
+                if (_allowRepost)
+                  GestureDetector(
+                    onTap: _showShare,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 11,
                       ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _primary.withValues(alpha: 0.36),
-                          blurRadius: 18,
-                          offset: const Offset(0, 6),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
                         ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.ios_share_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: 7),
-                        Text(
-                          '分享',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            letterSpacing: 0.3,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _primary.withValues(alpha: 0.36),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.ios_share_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 7),
+                          Text(
+                            '分享',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

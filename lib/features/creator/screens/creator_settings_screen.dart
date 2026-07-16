@@ -51,7 +51,9 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
     setState(() {
       _visibility = p.getString('creator_visibility') ?? 'public';
       _allowComment = p.getBool('creator_allow_comment') ?? true;
-      _allowRepost = p.getBool('creator_allow_repost') ?? false;
+      // 默认 true——跟后端 allow_repost 默认 1（允许）、发布 payload 的
+      // 默认一致，避免"设置显示关但文章实际允许转载"的自相矛盾
+      _allowRepost = p.getBool('creator_allow_repost') ?? true;
       _allowDownload = p.getBool('creator_allow_download') ?? true;
       _notifyComment = p.getBool('creator_notify_comment') ?? true;
       _notifyLike = p.getBool('creator_notify_like') ?? true;

@@ -28,6 +28,9 @@ class TutorialModel {
   final int saveCount;
   final int commentCount;
   final int shares;
+  // 是否允许转载——后端字段 allow_repost，默认 1（允许）。关闭时详情页
+  // 隐藏 PDF 导出/分享入口。缺字段时默认 true（安全降级：拿不到就照常显示）
+  final bool allowRepost;
 
   const TutorialModel({
     required this.id,
@@ -47,6 +50,7 @@ class TutorialModel {
     this.saveCount = 0,
     this.commentCount = 0,
     this.shares = 0,
+    this.allowRepost = true,
   });
 
   factory TutorialModel.fromJson(Map<String, dynamic> json) {
@@ -71,6 +75,8 @@ class TutorialModel {
       saveCount: _parseInt(json['save_count']),
       commentCount: _parseInt(json['comment_count']),
       shares: _parseInt(json['shares']),
+      // 后端返回 int 0/1，也兼容 bool；缺字段默认 true（允许）
+      allowRepost: _parseBool(json['allow_repost'], fallback: true),
     );
   }
 
@@ -93,7 +99,18 @@ class TutorialModel {
       saveCount: saveCount,
       commentCount: commentCount,
       shares: shares,
+      allowRepost: allowRepost,
     );
+  }
+
+  static bool _parseBool(dynamic v, {bool fallback = false}) {
+    if (v == null) return fallback;
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    final s = v.toString().toLowerCase();
+    if (s == '0' || s == 'false' || s == '') return false;
+    if (s == '1' || s == 'true') return true;
+    return fallback;
   }
 
   static int _parseInt(dynamic v) {
