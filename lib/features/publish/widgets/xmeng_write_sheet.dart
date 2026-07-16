@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/utils/ai_lang.dart';
 import '../models/block_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -154,9 +155,13 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     });
     _scrollToBottom();
 
+    // 语言跟着「AI 偏好语言」设置走——语言指令拼在最前，base prompt 里不再
+    // 写死"中文"，避免设成英文/中英混合时相互打架
+    final langHint = await aiLangHint();
     final prompt =
+        '$langHint'
         '用户想写：$input\n\n'
-        '请生成一篇结构完整、可直接发布的中文文章。格式要求：\n'
+        '请生成一篇结构完整、可直接发布的文章。格式要求：\n'
         '1. 第一行是文章标题（不要加 # 号）\n'
         '2. 正文分段，用空行隔开段落\n'
         '3. 需要数学公式时用 \$...\$ 包裹；单独成行展示的公式用 \$\$...\$\$\n'

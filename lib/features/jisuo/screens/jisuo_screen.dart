@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/utils/ai_lang.dart';
 import '../../../shared/widgets/ai_content_renderer.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart' show inlineLatexText;
 import '../../messages/utils/message_avatar.dart';
@@ -219,6 +220,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     unawaited(_loadRelated(q));
 
+    // AI 偏好语言：只拼到发给后端的 message 前，界面上展示的仍是原问题 q
+    final langHint = await aiLangHint();
+
     try {
       final response = await ref
           .read(apiClientProvider)
@@ -226,7 +230,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
           .post(
             '/auth/xmeng/chat/stream',
             data: {
-              'message': q,
+              'message': '$langHint$q',
               if (_convId != null) 'conversationId': _convId,
             },
             options: Options(

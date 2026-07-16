@@ -18,6 +18,7 @@ import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/block_text_style.dart';
 import '../../../shared/utils/pro_access.dart';
+import '../../../shared/utils/ai_lang.dart';
 import '../../../shared/utils/code_highlight.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart'
     show inlineLatexText;
@@ -754,18 +755,20 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     final code = widget.block.content;
     if (code.isEmpty) return;
 
+    // AI 偏好语言——解释/注释这类自然语言输出跟着设置走，prompt 里不再写死"中文"
+    final langHint = await aiLangHint();
     final prompts = {
       'explain':
-          '请用简洁的中文解释以下代码的功能和逻辑，分点说明：\n\n'
+          '$langHint请用简洁的语言解释以下代码的功能和逻辑，分点说明：\n\n'
           '```${widget.block.language}\n$code\n```',
       'optimize':
-          '请优化以下代码，提升可读性和性能，直接输出优化后的完整代码：\n\n'
+          '$langHint请优化以下代码，提升可读性和性能，直接输出优化后的完整代码：\n\n'
           '```${widget.block.language}\n$code\n```',
       'comment':
-          '为以下代码每行添加简洁的中文注释，直接输出带注释的完整代码：\n\n'
+          '$langHint为以下代码每行添加简洁的注释，直接输出带注释的完整代码：\n\n'
           '```${widget.block.language}\n$code\n```',
       'bug':
-          '检查以下代码中可能存在的bug或问题，列出问题和修改建议：\n\n'
+          '$langHint检查以下代码中可能存在的bug或问题，列出问题和修改建议：\n\n'
           '```${widget.block.language}\n$code\n```',
     };
 
@@ -1041,6 +1044,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     });
     widget.onChanged();
 
+    final langHint = await aiLangHint();
     try {
       final res = await ref
           .read(apiClientProvider)
@@ -1050,7 +1054,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
               'messages': [
                 {
                   'role': 'user',
-                  'content': '请用通俗语言解释以下LaTeX公式的数学含义：\n\n$formula',
+                  'content':
+                      '$langHint请用通俗语言解释以下LaTeX公式的数学含义：\n\n$formula',
                 },
               ],
             },
