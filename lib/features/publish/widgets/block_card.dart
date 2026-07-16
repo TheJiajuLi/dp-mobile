@@ -121,6 +121,10 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     language: widget.block.language ?? 'python',
   );
 
+  // AI/运行输出区的滚动控制器——超过 maxHeight 可滚动；打字机流式输出时
+  // 每次内容更新后自动滚到底部，跟着最新文字走
+  final ScrollController _aiScrollCtrl = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -168,7 +172,21 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   void dispose() {
     widget.block.focusNode.removeListener(_handleFocusChange);
     _codeCtrl.dispose();
+    _aiScrollCtrl.dispose();
     super.dispose();
+  }
+
+  // 输出内容更新后把滚动区滚到底部——打字机流式输出时跟着最新文字走。
+  // 内容没超过 maxHeight（maxScrollExtent==0）时是无操作，短输出不会乱跳
+  void _autoScrollAiOutput() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_aiScrollCtrl.hasClients) return;
+      _aiScrollCtrl.animateTo(
+        _aiScrollCtrl.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 50),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   // LaTeX 的"用自然语言生成公式"不需要已有内容，其余几种都需要已有内容才
@@ -1014,6 +1032,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           widget.block.outputContent = result;
           widget.block.outputType = 'text';
         });
+        _autoScrollAiOutput();
         widget.onChanged();
       }
     } catch (e) {
@@ -1216,8 +1235,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
               'messages': [
                 {
                   'role': 'user',
-                  'content':
-                      '$langHint请用通俗语言解释以下LaTeX公式的数学含义：\n\n$formula',
+                  'content': '$langHint请用通俗语言解释以下LaTeX公式的数学含义：\n\n$formula',
                 },
               ],
             },
@@ -1231,6 +1249,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
             : null;
         widget.block.outputType = 'text';
       });
+      _autoScrollAiOutput();
       widget.onChanged();
     } catch (e) {
       setState(() {
@@ -1391,8 +1410,11 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
+      // key 只认 block.id（不含 content）——否则打字机流式每变一个字符都会
+      // 换 key 触发整块重建，且过渡期两个滚动区共用同一个 controller 会崩。
+      // 稳定 key 让内部 SingleChildScrollView 在内容更新时原地复用
       child: Container(
-        key: ValueKey('${widget.block.id}-$content'),
+        key: ValueKey('output-${widget.block.id}'),
         width: double.infinity,
         constraints: const BoxConstraints(maxHeight: 300),
         decoration: BoxDecoration(
@@ -1412,6 +1434,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                 child: _renderOutput(content, widget.block.outputType),
               )
             : SingleChildScrollView(
+                controller: _aiScrollCtrl,
                 padding: const EdgeInsets.all(10),
                 child: _renderOutput(content, widget.block.outputType),
               ),
@@ -1778,9 +1801,9 @@ th{background:$thBg;color:$thFg}
         child: MarkdownBody(
           data: widget.block.content,
           selectable: false,
-          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            p: TextStyle(fontSize: 14, height: 1.7, color: textColor),
-          ),
+          styleSheet: MarkdownStyleSheet.fromTheme(
+            Theme.of(context),
+          ).copyWith(p: TextStyle(fontSize: 14, height: 1.7, color: textColor)),
         ),
       );
     }
