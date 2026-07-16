@@ -82,6 +82,15 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
     return buf.toString();
   }
 
+  // 富卡片元数据——聊天里 type:'question_share' 消息靠这个渲染问题分享卡片。
+  // content 仍带上文本+链接（会话列表最后一条预览、旧客户端向后兼容用）
+  Map<String, dynamic> get _shareMetadata => {
+    'questionId': widget.question['id']?.toString() ?? '',
+    'title': _title,
+    'tag': _domain,
+    'answerCount': _answerCount,
+  };
+
   String _firstLetter(Object? name) {
     final s = name?.toString() ?? '';
     return s.isEmpty ? '#' : s.substring(0, 1);
@@ -189,7 +198,13 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
           .read(apiClientProvider)
           .post(
             '/auth/groups/$id/messages',
-            data: {'type': 'text', 'content': content},
+            data: {
+              // 群消息 model 认 'share_question'（私信认 'question_share'），
+              // 各按各自 model 的命名，metadata 里带富卡片数据
+              'type': 'share_question',
+              'content': content,
+              'metadata': _shareMetadata,
+            },
           );
       if (res.success) ok++;
     }
@@ -212,7 +227,12 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
           .read(apiClientProvider)
           .post(
             '/auth/messages',
-            data: {'toUserId': id, 'type': 'text', 'content': content},
+            data: {
+              'toUserId': id,
+              'type': 'question_share',
+              'content': content,
+              'metadata': _shareMetadata,
+            },
           );
       if (res.success) ok++;
     }
@@ -235,7 +255,9 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
         : const Color(0xFFEEEEEE);
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.8,
@@ -463,10 +485,7 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
                   side: BorderSide(color: border, width: 0.5),
                 ),
               ),
-              child: Text(
-                '取消',
-                style: TextStyle(fontSize: 14, color: muted),
-              ),
+              child: Text('取消', style: TextStyle(fontSize: 14, color: muted)),
             ),
           ),
         ],

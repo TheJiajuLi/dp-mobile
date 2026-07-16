@@ -20,6 +20,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/widgets/formula_error.dart';
+import '../../../shared/widgets/question_share_card.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
 import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../auth/auth_service.dart';
@@ -1398,6 +1399,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                       msg,
                       isDark,
                     ),
+                    // 带 metadata 的问题分享 → 富卡片（紫渐变头+双按钮）；
+                    // 旧的无 metadata 分享退回原来的通用 _buildShareCard
+                    GroupMessageType.shareQuestion when msg.metadata != null =>
+                      _buildQuestionShareCard(msg),
                     GroupMessageType.shareTutorial ||
                     GroupMessageType.shareQuestion => _buildShareCard(
                       msg,
@@ -1562,6 +1567,24 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         ),
         children: spans,
       ),
+    );
+  }
+
+  // 问题分享富卡片——跟私信共用 QuestionShareCard
+  Widget _buildQuestionShareCard(GroupMessage msg) {
+    final meta = msg.metadata!;
+    final qid = (meta['questionId'] ?? msg.refId ?? '').toString();
+    final q = {
+      'id': qid,
+      'text': meta['title'],
+      'domain': meta['tag'],
+      'answer_count': meta['answerCount'],
+    };
+    return QuestionShareCard(
+      metadata: meta,
+      onAnswerTap: () =>
+          context.push('/questions/$qid', extra: {...q, 'openAnswer': true}),
+      onDetailTap: () => context.push('/questions/$qid', extra: q),
     );
   }
 

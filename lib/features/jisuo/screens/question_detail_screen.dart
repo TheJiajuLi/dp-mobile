@@ -39,6 +39,14 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
   void initState() {
     super.initState();
     _load();
+    // 从聊天分享卡片「写回答」进来时带 openAnswer:true——加载后自动弹写回答 Sheet
+    if (widget.initialQuestion?['openAnswer'] == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _openWriteAnswer(widget.initialQuestion?['text']?.toString() ?? '');
+        }
+      });
+    }
   }
 
   Future<void> _load() async {

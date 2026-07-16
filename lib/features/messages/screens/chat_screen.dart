@@ -22,6 +22,7 @@ import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/utils/online_status.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/widgets/formula_error.dart';
+import '../../../shared/widgets/question_share_card.dart';
 import '../../auth/auth_service.dart';
 import '../models/conversation_model.dart';
 import '../models/message_model.dart';
@@ -1463,6 +1464,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildBubbleContent(ChatMessage msg, bool isMe) {
     final l10n = AppLocalizations.of(context)!;
+    // 极梦社区问题分享卡片——旧的 type:'text'+链接消息不受影响，仍走文本渲染
+    if (msg.type == 'question_share' && msg.metadata != null) {
+      final meta = msg.metadata!;
+      final qid = meta['questionId']?.toString() ?? '';
+      // 详情页读的是 text/domain/answer_count 字段名，这里把卡片 metadata
+      // 映射过去，详情页头部/写回答引用才有问题原文
+      final q = {
+        'id': qid,
+        'text': meta['title'],
+        'domain': meta['tag'],
+        'answer_count': meta['answerCount'],
+      };
+      return QuestionShareCard(
+        metadata: meta,
+        onAnswerTap: () =>
+            context.push('/questions/$qid', extra: {...q, 'openAnswer': true}),
+        onDetailTap: () => context.push('/questions/$qid', extra: q),
+      );
+    }
     if (msg.type == 'image') {
       return GestureDetector(
         onTap: () => _showImagePreview(context, msg.content),
