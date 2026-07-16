@@ -58,19 +58,31 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
     super.initState();
     // 在 initState 里发起一次，不要放进 build()——放 build() 里 FutureBuilder
     // 每次重建都会拿到一个新 Future，导致列表反复回到 loading 状态
-    _future = ref.read(apiClientProvider).get('/auth/users/${widget.userId}/${widget.type}');
+    _future = ref
+        .read(apiClientProvider)
+        .get('/auth/users/${widget.userId}/${widget.type}');
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final title = widget.type == 'followers' ? l10n.followersCountLabel : l10n.followingCountLabel;
+    final title = widget.type == 'followers'
+        ? l10n.followersCountLabel
+        : l10n.followingCountLabel;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // AppBar 之前固定白底+黑字，跟下面 body（走主题默认背景）不是同一个值，
     // 两者拼在一起会露出一条接缝，深色模式下黑字更是直接看不见——统一改成
     // 跟首页/极索/创作者中心同款的米白 #FAFAF8（深色跟主题），AppBar/body
     // 用同一个值，前景色也跟主题走
-    final bg = isDark ? Theme.of(context).scaffoldBackgroundColor : const Color(0xFFFAFAF8);
+    final bg = isDark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFFAFAF8);
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFEDEDE9);
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF111111);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
@@ -96,27 +108,87 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> {
           }
           final key = widget.type == 'followers' ? 'followers' : 'following';
           final rawList = (res.data[key] as List?) ?? [];
-          final users =
-              rawList.map((j) => UserProfile.fromJson(j as Map<String, dynamic>)).toList();
+          final users = rawList
+              .map((j) => UserProfile.fromJson(j as Map<String, dynamic>))
+              .toList();
 
           if (users.isEmpty) {
             return Center(
               child: Text(
-                widget.type == 'followers' ? l10n.noFollowersYet : l10n.noFollowingYet,
+                widget.type == 'followers'
+                    ? l10n.noFollowersYet
+                    : l10n.noFollowingYet,
                 style: const TextStyle(color: Colors.grey),
               ),
             );
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
             itemCount: users.length,
             itemBuilder: (ctx, i) {
               final u = users[i];
-              return ListTile(
-                leading: _buildAvatar(u.avatar, u.username),
-                title: Text(u.username, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: u.handle != null ? Text('@${u.handle}') : null,
-                onTap: () => context.push('/users/${u.username}'),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: border, width: 0.5),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => context.push('/users/${u.username}'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 46,
+                            height: 46,
+                            child: _buildAvatar(u.avatar, u.username),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  u.username,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: ink,
+                                  ),
+                                ),
+                                if (u.handle != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '@${u.handle}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: muted,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(Icons.chevron_right, size: 20, color: muted),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               );
             },
           );
