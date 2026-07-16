@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -116,24 +117,106 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   String _seriesTag = '';
   String _issueNumber = '';
 
-  // 空白引导区——"今日灵感"随机显示一条，点刷新换下一条（顺序轮换，
-  // 不是真随机，保证点了刷新一定会换到不一样的一条，不会连着点两次
-  // 还是同一句）
+  // 空白引导区——"今日灵感"现在由小梦每 24 小时生成一批（5 条创作话题），
+  // 缓存进 SharedPreferences；点刷新强制重新生成。显示时顺序轮换一条，跟
+  // 老版"点刷新换一条"的视觉体验一致，只是内容从硬编码改成 AI 动态生成
   int _inspirationIndex = 0;
-  static const _inspirations = [
-    '试着用一张图解释一个复杂概念，往往比千字更有力。',
-    '你最近解决了什么有趣的问题？把过程写下来，它比答案更有价值。',
-    '把你今天读到的一篇论文，用5句话讲给普通人听。',
-    '有没有一个大家都误解的事情，你正好知道真相？',
-    '写一段你最喜欢的代码，解释为什么它让你着迷。',
-    '今天发生了什么让你觉得"这很有意思"的事？',
-    '选一个领域，用数据说话，不用观点。',
+  List<String> _inspirations = _defaultInspirations();
+
+  // 复用小梦推荐问题的逻辑：给知识创作社区生成 5 个今日创作灵感话题
+  static const _inspirationPrompt =
+      '为一个数学/编程/数据科学知识创作社区，'
+      '生成5个今日创作灵感话题，适合写成知识文章。\n\n'
+      '要求：\n'
+      '- 每个话题20字以内\n'
+      '- 具体有深度，不要泛泛而谈\n'
+      '- 涵盖不同领域（数学/Python/ML/统计/算法）\n'
+      '- 直接输出5个话题\n'
+      '- 每行一个，不要编号\n'
+      '- 不要任何其他文字';
+
+  // 离线/失败时的兜底，保证卡片永远有内容可显示
+  static List<String> _defaultInspirations() => [
+    '贝叶斯定理在医学检验中的应用',
+    'Python 数据清洗实战技巧',
+    '梯度下降算法直觉理解',
+    '信息熵与机器学习的关系',
+    '图神经网络入门指南',
   ];
 
-  void _nextInspiration() {
-    setState(
-      () => _inspirationIndex = (_inspirationIndex + 1) % _inspirations.length,
-    );
+  // 24 小时缓存：没过期直接用缓存，过期/无缓存才调小梦重新生成、写回缓存；
+  // 生成失败或离线则回落到 _defaultInspirations，不打断用户
+  Future<void> _loadInspirations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final last = prefs.getInt('inspiration_last_refresh') ?? 0;
+    final cached = prefs.getStringList('inspiration_cache');
+    final elapsed = DateTime.now().millisecondsSinceEpoch - last;
+    if (cached != null && cached.isNotEmpty && elapsed <= 24 * 60 * 60 * 1000) {
+      if (mounted) {
+        setState(() {
+          _inspirations = cached;
+          _inspirationIndex = 0;
+        });
+      }
+      return;
+    }
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(
+            '/auth/xmeng/chat',
+            data: {
+              'messages': [
+                {'role': 'user', 'content': _inspirationPrompt},
+              ],
+            },
+            options: Options(receiveTimeout: const Duration(seconds: 60)),
+          );
+      if (res.success) {
+        final text = (res.data as Map?)?['message'] as String? ?? '';
+        // 按行拆、去空、顺手剥掉模型可能自作主张加的编号/项目符号，取前 5 条
+        final lines = text
+            .split('\n')
+            .map(
+              (e) => e.trim().replaceFirst(
+                RegExp(r'^(\d+[.、)]\s*|[-•*]\s*)'),
+                '',
+              ),
+            )
+            .where((e) => e.isNotEmpty)
+            .take(5)
+            .toList();
+        if (lines.isNotEmpty) {
+          await prefs.setStringList('inspiration_cache', lines);
+          await prefs.setInt(
+            'inspiration_last_refresh',
+            DateTime.now().millisecondsSinceEpoch,
+          );
+          if (mounted) {
+            setState(() {
+              _inspirations = lines;
+              _inspirationIndex = 0;
+            });
+          }
+          return;
+        }
+      }
+    } catch (_) {
+      // 网络/解析异常都走兜底
+    }
+    if (mounted) {
+      setState(() {
+        _inspirations = _defaultInspirations();
+        _inspirationIndex = 0;
+      });
+    }
+  }
+
+  // 刷新按钮：清掉时间戳让 24 小时判定必过期，再走一次加载 = 强制重新生成
+  Future<void> _refreshInspirations() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('inspiration_last_refresh');
+    await _loadInspirations();
   }
 
   Future<void> _askXmeng() async {
@@ -314,6 +397,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       _blocks.addAll(widget.initialBlocks!);
     }
     _loadCreatorSettings();
+    _loadInspirations();
   }
 
   // 读取「创作设置」里的三项偏好并落地：
@@ -1394,7 +1478,12 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _inspirations[_inspirationIndex],
+                          _inspirations.isEmpty
+                              ? ''
+                              : _inspirations[_inspirationIndex.clamp(
+                                  0,
+                                  _inspirations.length - 1,
+                                )],
                           style: TextStyle(
                             fontSize: 13,
                             color: isDarkMode
@@ -1407,7 +1496,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: _nextInspiration,
+                    onTap: _refreshInspirations,
                     child: const Icon(
                       Icons.refresh,
                       size: 16,
