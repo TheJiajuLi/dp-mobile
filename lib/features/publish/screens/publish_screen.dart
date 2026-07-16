@@ -123,6 +123,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   // 老版"点刷新换一条"的视觉体验一致，只是内容从硬编码改成 AI 动态生成
   int _inspirationIndex = 0;
   List<String> _inspirations = _defaultInspirations();
+  // 「换一批」进行中——按钮换成小转圈，并挡住连点
+  bool _inspirationLoading = false;
 
   // 复用小梦推荐问题的逻辑：给知识创作社区生成 5 个今日创作灵感话题
   static const _inspirationPrompt =
@@ -211,11 +213,18 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     }
   }
 
-  // 刷新按钮：清掉时间戳让 24 小时判定必过期，再走一次加载 = 强制重新生成
+  // 刷新按钮：清掉时间戳让 24 小时判定必过期，再走一次加载 = 强制重新生成。
+  // 全程 _inspirationLoading 置真——按钮转圈给反馈、并挡住连点重复请求
   Future<void> _refreshInspirations() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('inspiration_last_refresh');
-    await _loadInspirations();
+    if (_inspirationLoading) return;
+    setState(() => _inspirationLoading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('inspiration_last_refresh');
+      await _loadInspirations();
+    } finally {
+      if (mounted) setState(() => _inspirationLoading = false);
+    }
   }
 
   Future<void> _askXmeng() async {
@@ -1518,32 +1527,68 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          _inspirations.isEmpty
-                              ? ''
-                              : _inspirations[_inspirationIndex.clamp(
-                                  0,
-                                  _inspirations.length - 1,
-                                )],
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDarkMode
-                                ? const Color(0xFFD1D1D6)
-                                : const Color(0xFF555555),
-                            height: 1.5,
+                        // 换一批时淡入+轻微上滑切换，过渡更顺、也有视觉反馈。
+                        // key 用当前文案本身，内容变了才触发动画
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          transitionBuilder: (child, anim) => FadeTransition(
+                            opacity: anim,
+                            child: SlideTransition(
+                              position:
+                                  Tween<Offset>(
+                                    begin: const Offset(0, 0.12),
+                                    end: Offset.zero,
+                                  ).animate(anim),
+                              child: child,
+                            ),
+                          ),
+                          child: Text(
+                            _inspirations.isEmpty
+                                ? ''
+                                : _inspirations[_inspirationIndex.clamp(
+                                    0,
+                                    _inspirations.length - 1,
+                                  )],
+                            key: ValueKey(
+                              _inspirations.isEmpty
+                                  ? ''
+                                  : _inspirations[_inspirationIndex.clamp(
+                                      0,
+                                      _inspirations.length - 1,
+                                    )],
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDarkMode
+                                  ? const Color(0xFFD1D1D6)
+                                  : const Color(0xFF555555),
+                              height: 1.5,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: _refreshInspirations,
-                    child: const Icon(
-                      Icons.refresh,
-                      size: 16,
-                      color: Color(0xFFBBBBBB),
-                    ),
-                  ),
+                  // 换一批：加载中转小圈给反馈，否则可点的刷新图标
+                  _inspirationLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.6,
+                            color: Color(0xFFBBBBBB),
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: _refreshInspirations,
+                          child: const Icon(
+                            Icons.refresh,
+                            size: 16,
+                            color: Color(0xFFBBBBBB),
+                          ),
+                        ),
                 ],
               ),
             ),
