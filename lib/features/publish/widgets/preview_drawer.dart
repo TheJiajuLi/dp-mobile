@@ -19,6 +19,8 @@ class PreviewDrawer extends ConsumerWidget {
   final List<String> tags;
   final List<EditorBlock> blocks;
   final String? coverImageUrl;
+  // 非空时底部显示「确认发布」栏（「发布前预览」流程用）——点了先关抽屉再发布
+  final Future<void> Function()? onPublish;
 
   const PreviewDrawer({
     super.key,
@@ -27,6 +29,7 @@ class PreviewDrawer extends ConsumerWidget {
     required this.tags,
     required this.blocks,
     this.coverImageUrl,
+    this.onPublish,
   });
 
   Widget _authorAvatar(String? avatar, String username) {
@@ -296,6 +299,48 @@ class PreviewDrawer extends ConsumerWidget {
                 ),
               ),
             ),
+            // 「发布前预览」流程：底部给一条确认栏——「返回修改」关抽屉回编辑，
+            // 「确认发布」先关抽屉再走真正的发布。纯预览（onPublish 为空）不显示
+            if (onPublish != null)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Scaffold.of(context).closeEndDrawer(),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: Color(0xFFDDDDDD)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(l10n.backToEdit),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            Scaffold.of(context).closeEndDrawer();
+                            onPublish!();
+                          },
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(l10n.confirmPublish),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),

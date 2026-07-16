@@ -3080,6 +3080,18 @@ abstract class AppLocalizations {
   /// **'Publish'**
   String get publish;
 
+  /// No description provided for @backToEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Edit'**
+  String get backToEdit;
+
+  /// No description provided for @confirmPublish.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Publish'**
+  String get confirmPublish;
+
   /// No description provided for @pageUnderDevelopment.
   ///
   /// In en, this message translates to:

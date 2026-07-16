@@ -836,6 +836,8 @@
   },
   "navProfile": "Profile",
   "publish": "Publish",
+  "backToEdit": "Back to Edit",
+  "confirmPublish": "Confirm Publish",
   "pageUnderDevelopment": "{page} page is under development",
   "@pageUnderDevelopment": {
     "placeholders": {

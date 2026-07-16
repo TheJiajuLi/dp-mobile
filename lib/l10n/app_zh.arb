@@ -497,6 +497,8 @@
   "invitesWaiting": "有 {count} 个问题等待你的见解",
   "navProfile": "我的",
   "publish": "发布",
+  "backToEdit": "返回修改",
+  "confirmPublish": "确认发布",
   "pageUnderDevelopment": "{page} 页面开发中",
   "publishTitleHint": "文章标题...",
   "addSummaryHint": "添加摘要...",

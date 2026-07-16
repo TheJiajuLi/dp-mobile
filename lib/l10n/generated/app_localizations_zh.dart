@@ -1606,6 +1606,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get publish => '发布';
 
   @override
+  String get backToEdit => '返回修改';
+
+  @override
+  String get confirmPublish => '确认发布';
+
+  @override
   String pageUnderDevelopment(String page) {
     return '$page 页面开发中';
   }

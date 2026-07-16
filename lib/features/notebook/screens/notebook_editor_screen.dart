@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../publish/models/block_model.dart';
 import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -45,6 +46,9 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   // 内核状态：有 cell 正在跑 = 运行中(橙点)，否则就绪(绿点)。顶栏状态灯用
   bool _kernelBusy = false;
   final TextEditingController _titleCtrl = TextEditingController();
+  // 自动保存间隔——来自创作设置 creator_autosave(10s/30s/60s/off)，打开
+  // 笔记本时读一次。off 用一个超长间隔实际关掉自动保存（返回/手动保存仍在）
+  Duration _autosaveInterval = const Duration(seconds: 30);
 
   @override
   void initState() {
@@ -53,6 +57,10 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   }
 
   Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    _autosaveInterval = _autosaveDuration(
+      prefs.getString('creator_autosave') ?? '30s',
+    );
     final user = ref.read(currentUserProvider);
     _svc = NotebookService(user?.id ?? 'guest');
     final nb = await _svc!.load(widget.nbId);
@@ -71,9 +79,17 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     }
   }
 
+  // 自动保存间隔映射——'off' 用超长间隔实际关闭（只靠返回/手动保存）
+  Duration _autosaveDuration(String v) => switch (v) {
+    '10s' => const Duration(seconds: 10),
+    '60s' => const Duration(seconds: 60),
+    'off' => const Duration(hours: 999),
+    _ => const Duration(seconds: 30),
+  };
+
   void _scheduleSave() {
     _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(seconds: 1), () {
+    _saveTimer = Timer(_autosaveInterval, () {
       if (_nb != null) _svc!.save(_nb!);
     });
   }

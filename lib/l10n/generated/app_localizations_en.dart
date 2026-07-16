@@ -1646,6 +1646,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get publish => 'Publish';
 
   @override
+  String get backToEdit => 'Back to Edit';
+
+  @override
+  String get confirmPublish => 'Confirm Publish';
+
+  @override
   String pageUnderDevelopment(String page) {
     return '$page page is under development';
   }

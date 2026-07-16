@@ -51,6 +51,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   final _titleCtrl = TextEditingController();
   final _summaryCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+  // 「发布前预览」要能从发布按钮里程序化打开右侧预览抽屉，用它拿 Scaffold
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final List<EditorBlock> _blocks = [];
   final List<String> _tags = [];
@@ -612,6 +614,27 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       await _aiGenerateSummary();
       if (!mounted) return;
     }
+    // 创作设置「发布前预览」——开启时先弹读者预览抽屉（带"确认发布"），
+    // 让作者过一眼再发；关闭时直接发布
+    final prefs = await SharedPreferences.getInstance();
+    final showPreview = prefs.getBool('creator_show_preview') ?? true;
+    if (showPreview) {
+      _scaffoldKey.currentState?.openEndDrawer();
+    } else {
+      await _save('published');
+    }
+  }
+
+  // 预览抽屉里点"确认发布"——再校验一次标题（可能是从预览眼睛图标进来的、
+  // 标题还空着）后真正发布
+  Future<void> _doPublish() async {
+    if (_titleCtrl.text.trim().isEmpty) {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.pleaseEnterNoteTitle)));
+      return;
+    }
     await _save('published');
   }
 
@@ -631,6 +654,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       final allowRepost = prefs.getBool('creator_allow_repost') ?? true;
       final allowComments = prefs.getBool('creator_allow_comment') ?? true;
       final allowDownload = prefs.getBool('creator_allow_download') ?? true;
+      // 创作设置里的"文章默认可见性"——public 公开 / private 仅自己可见，
+      // 随发布/更新带上（编辑旧文重新保存即可对旧文生效）
+      final visibility = prefs.getString('creator_visibility') ?? 'public';
       final payload = {
         'title': _titleCtrl.text.trim(),
         'summary': _summaryCtrl.text.trim(),
@@ -638,6 +664,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         'tags': _tags,
         'blocks': blocksJson,
         'status': status,
+        'visibility': visibility,
         'allowRepost': allowRepost,
         'allowComments': allowComments,
         'allowDownload': allowDownload,
@@ -939,6 +966,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         _handleExit();
       },
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: isDarkMode
             ? Theme.of(context).scaffoldBackgroundColor
             : _bg,
@@ -948,6 +976,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
           tags: _tags,
           blocks: _blocks,
           coverImageUrl: _coverImageUrl,
+          onPublish: _saving ? null : _doPublish,
         ),
         body: Stack(
           children: [
