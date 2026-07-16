@@ -620,9 +620,14 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     final hasInlineLatex = _inlineLatexPattern.hasMatch(widget.block.content);
     if (!_focused && hasInlineLatex) {
       return GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           setState(() => _focused = true);
-          widget.block.focusNode.requestFocus();
+          // 同 Markdown：等 TextFormField 挂载后再 requestFocus，避免同步调
+          // 落空导致点了弹回预览
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) widget.block.focusNode.requestFocus();
+          });
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -1918,9 +1923,16 @@ th{background:$thBg;color:$thFg}
 
     if (!_focused && widget.block.content.trim().isNotEmpty) {
       return GestureDetector(
+        // opaque：点击块内空白/行间也能触发，不只是文字实体上
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           setState(() => _focused = true);
-          widget.block.focusNode.requestFocus();
+          // requestFocus 必须等 setState 重建出 TextFormField 挂上 focusNode
+          // 之后再调——同步调会在输入框挂载前落空，焦点监听器随即把 _focused
+          // 复位成 false，导致点了又弹回预览态、进不去编辑
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) widget.block.focusNode.requestFocus();
+          });
         },
         child: MarkdownBody(
           data: widget.block.content,
@@ -1928,52 +1940,47 @@ th{background:$thBg;color:$thFg}
           // fromTheme 派生的标题样式跟正文几乎没差（app 的 TextTheme 里
           // headline/title 偏小），于是 # ## ### 看起来"没渲染成标题"。这里显式
           // 给全 h1-h6/加粗/列表样式，拉开层级；h4-h6 也补上——小梦常用 ####
-          styleSheet:
-              MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                p: TextStyle(fontSize: 14, height: 1.7, color: textColor),
-                h1: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                  color: textColor,
-                ),
-                h2: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                  color: textColor,
-                ),
-                h3: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                  color: textColor,
-                ),
-                h4: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                  color: textColor,
-                ),
-                h5: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                  color: textColor,
-                ),
-                h6: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                  color: textColor,
-                ),
-                strong: const TextStyle(fontWeight: FontWeight.w600),
-                listBullet: TextStyle(
-                  fontSize: 14,
-                  height: 1.7,
-                  color: textColor,
-                ),
-              ),
+          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+            p: TextStyle(fontSize: 14, height: 1.7, color: textColor),
+            h1: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+              color: textColor,
+            ),
+            h2: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+              color: textColor,
+            ),
+            h3: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+              color: textColor,
+            ),
+            h4: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+              color: textColor,
+            ),
+            h5: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+              color: textColor,
+            ),
+            h6: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+              color: textColor,
+            ),
+            strong: const TextStyle(fontWeight: FontWeight.w600),
+            listBullet: TextStyle(fontSize: 14, height: 1.7, color: textColor),
+          ),
         ),
       );
     }
