@@ -803,48 +803,210 @@ class _BlockCardState extends ConsumerState<BlockCard> {
       if (action == 'optimize' || action == 'comment') {
         // 优化/注释这两种是"替换代码"操作，弹确认框而不是直接覆盖，避免
         // 一言不合就把用户已经写好的代码冲掉
+        // 解析小梦返回的 markdown：把代码围栏内的代码抽出来单独用深色高亮
+        // 面板渲染，围栏前的说明文字作为引子；没有围栏就整体当文本展示。
+        // 「应用」落库的也是抽出来的纯代码（跟展示一致，不再把 ``` 一起塞回）
+        final codeMatch = RegExp(
+          r'```(\w*)\n?([\s\S]*?)```',
+        ).firstMatch(result);
+        final fenceLang = codeMatch?.group(1)?.trim() ?? '';
+        final suggestedCode = (codeMatch?.group(2)?.trim() ?? result).trim();
+        final leadText = codeMatch != null
+            ? result.substring(0, codeMatch.start).trim()
+            : '';
+        final hlLang = fenceLang.isNotEmpty
+            ? fenceLang
+            : (widget.block.language ?? 'python');
+
+        void applySuggestion(BuildContext dCtx) {
+          setState(() {
+            widget.block.content = suggestedCode;
+            _codeCtrl.text = suggestedCode;
+          });
+          widget.onChanged();
+          Navigator.pop(dCtx);
+        }
+
         showDialog(
           context: context,
-          builder: (dCtx) => AlertDialog(
-            title: const Text('小梦的建议'),
-            content: SingleChildScrollView(
-              child: Text(
-                result,
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.6,
-                  fontFamily: 'monospace',
+          builder: (dCtx) {
+            final isDark = Theme.of(dCtx).brightness == Brightness.dark;
+            final ink = isDark
+                ? const Color(0xFFF0F2F8)
+                : const Color(0xFF1A1A1A);
+            final muted = isDark
+                ? Colors.white60
+                : const Color(0xFF8A8F99);
+            const codeBase = TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12.5,
+              height: 1.6,
+              color: Color(0xFFE0E2F0),
+            );
+            return Dialog(
+              backgroundColor: isDark ? const Color(0xFF1C1D24) : Colors.white,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 40,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(dCtx).size.height * 0.7,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 头部：品牌紫渐变 sparkle 图标 + 标题
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.auto_awesome,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '小梦的建议',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (leadText.isNotEmpty) ...[
+                              Text(
+                                leadText,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  height: 1.5,
+                                  color: muted,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            // 深色代码面板（VS Code Dark+ 配色，深浅模式都用深底）
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF17181F),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      14,
+                                      10,
+                                      14,
+                                      0,
+                                    ),
+                                    child: Text(
+                                      hlLang.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.8,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ),
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      14,
+                                      8,
+                                      14,
+                                      14,
+                                    ),
+                                    child: Text.rich(
+                                      TextSpan(
+                                        children: highlightCode(
+                                          suggestedCode,
+                                          hlLang,
+                                          codeBase,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // 操作区：关闭（幽灵）+ 应用（品牌紫实心）
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dCtx),
+                            child: Text(
+                              '关闭',
+                              style: TextStyle(color: muted, fontSize: 14),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () => applySuggestion(dCtx),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primary,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 22,
+                                vertical: 11,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              '应用',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dCtx),
-                child: const Text('关闭', style: TextStyle(color: Colors.grey)),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final codeMatch = RegExp(
-                    r'```\w*\n?([\s\S]*?)```',
-                  ).firstMatch(result);
-                  final extracted = codeMatch?.group(1)?.trim() ?? result;
-                  setState(() {
-                    widget.block.content = extracted;
-                    _codeCtrl.text = extracted;
-                  });
-                  widget.onChanged();
-                  Navigator.pop(dCtx);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('应用', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
+            );
+          },
         );
       } else {
         // 解释/查找问题：直接当作一次"运行输出"展示在代码块下方
