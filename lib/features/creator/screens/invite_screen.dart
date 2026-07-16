@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart' show Share;
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../messages/utils/message_avatar.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -81,13 +82,7 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
   void _copyCode() {
     if (_referralCode.isEmpty) return;
     Clipboard.setData(ClipboardData(text: _referralCode));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('邀请码已复制'),
-        duration: Duration(seconds: 1),
-        backgroundColor: Color(0xFF16A34A),
-      ),
-    );
+    showAppToast(context, '邀请码已复制', ok: true);
   }
 
   void _shareCode() {
