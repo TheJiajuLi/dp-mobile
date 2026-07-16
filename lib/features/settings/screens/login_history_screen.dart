@@ -8,6 +8,68 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 import '../widgets/settings_row.dart';
 
+// 登录记录的 location 来自 IP 归属库，偶发返回繁体（如「羅湖區」）——按常见
+// 地名字繁→简做一层轻量映射，界面统一简体。只覆盖地名高频字，够用即可
+String _simplify(String s) {
+  const map = {
+    '羅': '罗',
+    '錄': '录',
+    '記': '记',
+    '時': '时',
+    '區': '区',
+    '網': '网',
+    '絡': '络',
+    '裝': '装',
+    '覽': '览',
+    '瀏': '浏',
+    '愛': '爱',
+    '東': '东',
+    '來': '来',
+    '國': '国',
+    '後': '后',
+    '為': '为',
+    '學': '学',
+    '業': '业',
+    '會': '会',
+    '體': '体',
+    '與': '与',
+    '實': '实',
+    '現': '现',
+    '開': '开',
+    '關': '关',
+    '們': '们',
+    '產': '产',
+    '發': '发',
+    '電': '电',
+    '話': '话',
+    '數': '数',
+    '據': '据',
+    '處': '处',
+    '應': '应',
+    '該': '该',
+    '雲': '云',
+    '務': '务',
+    '龍': '龙',
+    '讓': '让',
+    '還': '还',
+    '這': '这',
+    '輸': '输',
+    '顯': '显',
+    '頁': '页',
+    '邊': '边',
+    '灣': '湾',
+    '臺': '台',
+    '縣': '县',
+    '陽': '阳',
+    '陝': '陕',
+    '寧': '宁',
+    '貴': '贵',
+    '長': '长',
+    '廣': '广',
+  };
+  return s.split('').map((c) => map[c] ?? c).join();
+}
+
 class LoginHistoryScreen extends ConsumerStatefulWidget {
   const LoginHistoryScreen({super.key});
 
@@ -108,7 +170,7 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            record['location'] as String? ?? l10n.unknownLocation,
+            _simplify(record['location'] as String? ?? l10n.unknownLocation),
             style: TextStyle(
               fontSize: 13,
               color: Theme.of(context).textTheme.bodyLarge?.color,
