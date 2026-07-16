@@ -1325,8 +1325,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   onTap: _toggleSave,
                 ),
                 const Spacer(),
-                // 分享——品牌紫渐变胶囊，配一道柔和的同色投影做出悬浮感，
-                // 达到 2026 一线品牌的质感（不再是扁平纯色块）。
+                // 分享——纯品牌紫实心胶囊，一道很淡的同色投影做轻微悬浮感，
+                // 跟全站安静、单一主色的视觉语言一致（不再是偏蓝的渐变 + 重光晕）。
                 // 作者关闭转载时整颗胶囊隐藏（Spacer 保留，其余按钮仍靠左）
                 if (_allowRepost)
                   GestureDetector(
@@ -1337,17 +1337,13 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                         vertical: 11,
                       ),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
-                        ),
+                        color: _primary,
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: _primary.withValues(alpha: 0.36),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
+                            color: _primary.withValues(alpha: 0.20),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
