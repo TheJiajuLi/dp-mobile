@@ -10,6 +10,7 @@ import '../../../core/profile_refresh_signal.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/services/pyodide_engine.dart';
 import '../../../shared/utils/pro_access.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../auth/auth_service.dart';
 import '../models/block_model.dart';
 import '../widgets/block_card.dart';
@@ -294,9 +295,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+        showAppToast(context, '小梦开小差了，请重试');
       }
     }
   }
@@ -376,9 +375,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         );
       _editingTutorialId = id;
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('加载失败：${res.message}')));
+      showAppToast(context, '加载失败：${res.message}');
     }
     setState(() => _loadingExisting = false);
   }
@@ -532,12 +529,10 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     final count = (data['block_count'] as num?)?.toInt() ?? newBlocks.length;
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.importSuccessMessage(count, platformName)),
-        duration: const Duration(seconds: 4),
-        backgroundColor: const Color(0xFF16A34A),
-      ),
+    showAppToast(
+      context,
+      l10n.importSuccessMessage(count, platformName),
+      ok: true,
     );
   }
 
@@ -601,9 +596,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   Future<void> _publish() async {
     if (_titleCtrl.text.trim().isEmpty) {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.pleaseEnterNoteTitle)));
+      showAppToast(context, l10n.pleaseEnterNoteTitle);
       return;
     }
     // 「创作设置」开了自动摘要、且摘要还空着：发布前先让小梦生成一版。
@@ -630,9 +623,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   Future<void> _doPublish() async {
     if (_titleCtrl.text.trim().isEmpty) {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.pleaseEnterNoteTitle)));
+      showAppToast(context, l10n.pleaseEnterNoteTitle);
       return;
     }
     await _save('published');
@@ -711,23 +702,14 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         if (!mounted) return;
         notifyProfileShouldRefresh(ref);
         if (status == 'published') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.publishSuccessMessage),
-              backgroundColor: const Color(0xFF16A34A),
-            ),
-          );
+          showAppToast(context, l10n.publishSuccessMessage, ok: true);
           // 发现页不再是独立Tab，内容合并进了首页，发布成功后跳回首页
           context.go('/home');
         } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(l10n.draftSavedMessage)));
+          showAppToast(context, l10n.draftSavedMessage, ok: true);
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.saveFailedWithReason('${res.message}'))),
-        );
+        showAppToast(context, l10n.saveFailedWithReason('${res.message}'));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1515,9 +1497,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     ].join('\n\n');
 
     if (content.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('先写点内容，小梦才能帮你生成摘要')));
+      showAppToast(context, '先写点内容，小梦才能帮你生成摘要');
       return;
     }
 
@@ -1531,30 +1511,12 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         final summary = (res.data as Map?)?['summary'] as String? ?? '';
         if (summary.isNotEmpty) {
           setState(() => _summaryCtrl.text = summary);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    size: 18,
-                    color: Colors.white,
-                  ),
-                  SizedBox(width: 8),
-                  Text('摘要已生成'),
-                ],
-              ),
-              backgroundColor: Color(0xFF16A34A),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          showAppToast(context, '摘要已生成', ok: true);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('小梦开小差了，请重试')));
+        showAppToast(context, '小梦开小差了，请重试');
       }
     } finally {
       if (mounted) setState(() => _generatingSummary = false);
