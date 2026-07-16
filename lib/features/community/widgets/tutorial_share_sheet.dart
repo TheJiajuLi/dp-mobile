@@ -3,6 +3,8 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart' show Share;
 
+import '../../../shared/widgets/app_toast.dart';
+
 const _primary = Color(0xFF6366F1);
 
 void showTutorialShareSheet(
@@ -23,9 +25,9 @@ String _tutorialLink(Map<String, dynamic> tutorial) =>
 void _copyLink(BuildContext context, Map<String, dynamic> tutorial) {
   Clipboard.setData(ClipboardData(text: _tutorialLink(tutorial)));
   Navigator.pop(context);
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('链接已复制'), duration: Duration(seconds: 2)),
-  );
+  // 全站统一的浮动圆角胶囊提示（绿勾+柔和阴影），替代原来那条铺满全宽的
+  // 深色 SnackBar，跟 app 的卡片视觉语言一致
+  showAppToast(context, '链接已复制', ok: true);
 }
 
 // share_plus 的 Share.share() 只会调起系统通用分享面板，让用户自己在
