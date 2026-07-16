@@ -494,7 +494,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                       iconBg: const Color(0xFFFEF3C7),
                       iconColor: Colors.white,
                       iconGradient: proGradient,
-                      label: '会员中心',
+                      label: '付费管理',
                       onTap: () => context.push('/subscription/manage'),
                     ),
                     vDiv(),
