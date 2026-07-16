@@ -24,3 +24,46 @@ String preprocessLatex(String latex) {
   }
   return cleaned;
 }
+
+// 行内公式切分：把一段文字按 $...$ / \(...\) / \[...\] 定界符切成有序段，
+// 每段要么是纯文字、要么是一条公式。跟 inlineLatexText 用同一套定界符正则。
+// 公式段的 raw 保留定界符原文——PDF 导出两端（收集端渲染 PNG、渲染端查图）
+// 都拿它当 key，保证一致。纯 Dart、不依赖 flutter/pdf，两个世界都能 import
+class InlineLatexSeg {
+  final bool isFormula;
+  final String raw; // 公式段：含定界符原文；文字段：原文
+  const InlineLatexSeg(this.isFormula, this.raw);
+}
+
+final _inlineLatexPattern = RegExp(
+  r'\$([^$\n]+)\$' // $...$
+  r'|\\\((.+?)\\\)' // \(...\)
+  r'|\\\[(.+?)\\\]', // \[...\]
+  dotAll: true,
+);
+
+List<InlineLatexSeg> splitInlineLatex(String content) {
+  final segs = <InlineLatexSeg>[];
+  var last = 0;
+  for (final m in _inlineLatexPattern.allMatches(content)) {
+    if (m.start > last) {
+      segs.add(InlineLatexSeg(false, content.substring(last, m.start)));
+    }
+    segs.add(InlineLatexSeg(true, m.group(0)!));
+    last = m.end;
+  }
+  if (last < content.length) {
+    segs.add(InlineLatexSeg(false, content.substring(last)));
+  }
+  return segs;
+}
+
+// 去掉公式外层定界符，得到送进 TeX 引擎的公式体
+String latexInnerBody(String c) => c
+    .replaceAll(r'$$', '')
+    .replaceAll(r'$', '')
+    .replaceAll(r'\[', '')
+    .replaceAll(r'\]', '')
+    .replaceAll(r'\(', '')
+    .replaceAll(r'\)', '')
+    .trim();

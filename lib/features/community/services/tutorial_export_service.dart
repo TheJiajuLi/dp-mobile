@@ -8,6 +8,9 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart' show Share;
 
+import '../../../shared/utils/latex_utils.dart'
+    show splitInlineLatex, latexInnerBody;
+
 // 真实的 block 结构是 tutorial_block_renderer.dart 里那套扁平结构
 // {type, content, level?, language?, imageUrl?, fileName?, fileSize?,
 // linkTitle?, linkUrl?, variant?, source?}——不是嵌套的 {type, data:{}}，
@@ -29,6 +32,53 @@ List<dynamic> parseTutorialBlocks(dynamic raw) {
 
 String _stripLatexDelimiters(String content) =>
     content.replaceAll(r'$$', '').trim();
+
+// text/heading/callout 块里的行内公式 → 用离屏渲染好的 PNG 内联进文字流
+// （pw.WidgetSpan），文字段走 pw.TextSpan。没有对应 PNG（渲染失败/漏了）就
+// 退回去掉定界符的纯文字，至少不露 $ 源码。整段无公式时直接返回 pw.Text（快
+// 路径，避免 RichText 开销）。key 用 splitInlineLatex 出来的含定界符原文，跟
+// 收集端 latex_image_renderer 完全一致
+pw.Widget _inlineLatexRichText({
+  required String content,
+  required pw.TextStyle style,
+  required Map<String, Uint8List> latexImages,
+}) {
+  final segs = splitInlineLatex(content);
+  if (!segs.any((s) => s.isFormula)) {
+    return pw.Text(content, style: style);
+  }
+  final fontSize = style.fontSize ?? 11;
+  final spans = <pw.InlineSpan>[];
+  for (final seg in segs) {
+    if (!seg.isFormula) {
+      if (seg.raw.isNotEmpty) {
+        spans.add(pw.TextSpan(text: seg.raw, style: style));
+      }
+      continue;
+    }
+    final bytes = latexImages[seg.raw];
+    if (bytes == null) {
+      spans.add(pw.TextSpan(text: latexInnerBody(seg.raw), style: style));
+      continue;
+    }
+    final img = pw.MemoryImage(bytes);
+    final iw = (img.width ?? 1).toDouble();
+    final ih = (img.height ?? 1).toDouble();
+    // PNG 按 pixelRatio 3 截、display 样式 22pt；行内等比缩到 ≈1.35×字号高，
+    // 超正文宽（515pt）再夹
+    final ihLogical = ih / 3.0;
+    final iwLogical = iw / 3.0;
+    var h = fontSize * 1.35;
+    var w = ihLogical > 0 ? iwLogical * (h / ihLogical) : iwLogical;
+    if (w > 515.0) {
+      final s = 515.0 / w;
+      w *= s;
+      h *= s;
+    }
+    spans.add(pw.WidgetSpan(child: pw.Image(img, width: w, height: h)));
+  }
+  return pw.RichText(text: pw.TextSpan(children: spans));
+}
 
 // NotoSansSC 和数学符号 fallback 字体都不覆盖 emoji（🌟 这类），渲染时
 // 一样缺字形——不像上标符号那样能找专门字体兜底，emoji 字形本身就没打算
@@ -215,13 +265,14 @@ Future<Uint8List> buildTutorialPdfBytes({
               widgets.add(
                 pw.Padding(
                   padding: const pw.EdgeInsets.only(top: 12, bottom: 6),
-                  child: pw.Text(
-                    content,
+                  child: _inlineLatexRichText(
+                    content: content,
                     style: pw.TextStyle(
                       font: boldFont,
                       fontSize: level == 2 ? 16 : (level == 3 ? 14 : 12.5),
                       color: textColor,
                     ),
+                    latexImages: latexImages,
                   ),
                 ),
               );
@@ -332,12 +383,14 @@ Future<Uint8List> buildTutorialPdfBytes({
                   pw.Container(
                     margin: const pw.EdgeInsets.symmetric(vertical: 8),
                     width: double.infinity,
-                    // 显式给 width，图片本身的像素宽度（比如一张
-                    // 1920px 宽的封面图）不会比页面内容区还宽，
-                    // fit: contain（默认值）负责按比例缩小
+                    // pdf 包的 pw.Image 不像 Flutter 那样会把 double.infinity 夹到
+                    // 父约束——得给一个有限的宽度，否则宽图按原尺寸溢出页面右边。
+                    // 用正文内容区宽 515pt（A4 595.28 − 两侧 margin 40）+ contain
+                    // 等比缩，跟 latex 块的 maxW=515 口径一致
                     child: pw.Image(
                       pw.MemoryImage(bytes),
-                      width: double.infinity,
+                      fit: pw.BoxFit.contain,
+                      width: 515.0,
                     ),
                   ),
                 );
@@ -446,13 +499,14 @@ Future<Uint8List> buildTutorialPdfBytes({
                       left: pw.BorderSide(color: calloutColor, width: 3),
                     ),
                   ),
-                  child: pw.Text(
-                    content,
+                  child: _inlineLatexRichText(
+                    content: content,
                     style: pw.TextStyle(
                       font: font,
                       fontSize: 10.5,
                       color: calloutColor,
                     ),
+                    latexImages: latexImages,
                   ),
                 ),
               );
@@ -463,14 +517,16 @@ Future<Uint8List> buildTutorialPdfBytes({
                 widgets.add(
                   pw.Padding(
                     padding: const pw.EdgeInsets.only(bottom: 8),
-                    child: pw.Text(
-                      content,
+                    // 行内 $...$ 走 PNG 内联渲染，不再是原始源码
+                    child: _inlineLatexRichText(
+                      content: content,
                       style: pw.TextStyle(
                         font: font,
                         fontSize: 11,
                         color: textColor,
                         lineSpacing: 4,
                       ),
+                      latexImages: latexImages,
                     ),
                   ),
                 );

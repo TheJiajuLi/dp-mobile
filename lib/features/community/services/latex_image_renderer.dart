@@ -13,15 +13,6 @@ import '../../../shared/utils/latex_utils.dart';
 // 撞名。两边放一个文件里会导致这些名字全部歧义，所以拆开——这里只 import
 // flutter，不碰 pdf。
 
-String _latexBody(String c) => c
-    .replaceAll(r'$$', '')
-    .replaceAll(r'$', '')
-    .replaceAll(r'\[', '')
-    .replaceAll(r'\]', '')
-    .replaceAll(r'\(', '')
-    .replaceAll(r'\)', '')
-    .trim();
-
 /// 把每个 latex 公式用 flutter_math_fork 排版成透明底 PNG，供 PDF 以真实公式
 /// 嵌入——pdf 包没有 TeX 引擎，这是唯一能得到真排版的路子。必须在有 Overlay
 /// 的 UI 上下文里调用（导出进度页 initState 时），靠一个屏外
@@ -32,12 +23,23 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
   List<dynamic> blocks, {
   required bool isDark,
 }) async {
-  final formulas = blocks
-      .whereType<Map>()
-      .where((b) => b['type'] == 'latex')
-      .map((b) => b['content'] as String? ?? '')
-      .where((c) => c.trim().isNotEmpty)
-      .toSet();
+  // 收集所有要离屏渲染成 PNG 的公式：
+  //  · latex 块整块就是一条公式（key = 整块 content）
+  //  · text/heading/callout 块里的行内 $...$ / \(...\) / \[...\]（key = 含定界
+  //    符原文，跟渲染端 splitInlineLatex 出来的一致）
+  final formulas = <String>{};
+  for (final b in blocks.whereType<Map>()) {
+    final type = b['type'] as String? ?? 'text';
+    final content = b['content'] as String? ?? '';
+    if (content.trim().isEmpty) continue;
+    if (type == 'latex') {
+      formulas.add(content);
+    } else if (type == 'text' || type == 'heading' || type == 'callout') {
+      for (final seg in splitInlineLatex(content)) {
+        if (seg.isFormula) formulas.add(seg.raw);
+      }
+    }
+  }
   if (formulas.isEmpty) return {};
 
   final overlayState = Overlay.of(context, rootOverlay: true);
@@ -53,7 +55,7 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
   if (!context.mounted) return {};
 
   for (final raw in formulas) {
-    final body = _latexBody(raw);
+    final body = latexInnerBody(raw);
     if (body.isEmpty) continue;
     final boundaryKey = GlobalKey();
     final entry = OverlayEntry(
