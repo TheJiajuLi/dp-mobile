@@ -205,7 +205,7 @@ class _SubscriptionManagementScreenState
         ? const [Color(0xFFB45309), Color(0xFFD97706), Color(0xFFF59E0B)]
         : const [Color(0xFF4F46E5), Color(0xFF6366F1), Color(0xFF818CF8)];
     final perks = isProMax
-        ? ['20GB 存储', 'AI 无限次', '100MB 视频', '优先体验']
+        ? ['20GB 存储', 'AI 工具使用无限制', '100MB 视频', '优先体验']
         : ['5GB 存储', '代码运行', 'AI 20次/天', '音视频'];
     return Container(
       padding: const EdgeInsets.all(20),
@@ -546,7 +546,7 @@ class _SubscriptionManagementScreenState
               name: 'PRO MAX',
               price: priceMax,
               unit: '/ 月',
-              features: const ['20GB 存储', 'AI 无限次', '100MB 视频'],
+              features: const ['20GB 存储', 'AI 工具使用无限制', '100MB 视频'],
               current: isProMax,
               badge: isProMax ? '当前' : null,
               onTap: () => _buy(kProMaxProductMonthly),
