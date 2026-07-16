@@ -11,6 +11,7 @@ import '../../../features/auth/auth_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/services/pyodide_engine.dart';
 import '../../../shared/utils/pro_access.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../models/notebook_model.dart';
 import '../services/notebook_service.dart';
 import '../widgets/notebook_add_divider.dart';
@@ -75,9 +76,12 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     });
   }
 
-  void _showSnack(String msg) {
+  // 全站统一的浮动圆角胶囊提示（绿勾/红叹号 + 柔和阴影），替代原来那条
+  // 铺满全宽的深色 SnackBar——导出 ipynb 成功、保存、导入、内核重置等都走它。
+  // 默认 ok=true（成功/中性），报错/警告场景传 ok:false
+  void _showSnack(String msg, {bool ok = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showAppToast(context, msg, ok: ok);
   }
 
   // 统一更新单个 cell 的输出：同步进内存态 map（驱动 UI）和 cell 字段（用于持久化）。
@@ -1084,9 +1088,7 @@ finally:
     }
 
     if (blocks.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Notebook 是空的，没有可发布的内容')));
+      _showSnack('Notebook 是空的，没有可发布的内容', ok: false);
       return;
     }
     context.push('/publish', extra: {'title': nb.name, 'blocks': blocks});
