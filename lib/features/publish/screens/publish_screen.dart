@@ -400,41 +400,20 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     _loadInspirations();
   }
 
-  // 读取「创作设置」里的三项偏好并落地：
-  //  · creator_default_block → 新建文章预置第一个块的类型（默认 text 时保留
-  //    空状态引导不变，只有显式选了标题/代码/LaTeX 才预置一个空块）
+  // 读取「创作设置」里的两项偏好并落地：
   //  · creator_ai_code_lang  → 新建代码块的默认语言（AI 生成/解释代码时
   //    block_card 的 prompt 也用 block.language，自动跟着走）
   //  · creator_ai_auto_summary → 发布时摘要为空则自动生成（见 _publish）
+  //
+  // 注意：不再读 creator_default_block 在进入页面时预置任何块——一进来就
+  // 自动塞一个空块（尤其是代码块）会盖住「快速开始」欢迎引导（用户反馈）。
+  // 新建文章一律保持空状态，由用户从引导区显式点选类型来加第一个块
   Future<void> _loadCreatorSettings() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     _defaultCodeLang = prefs.getString('creator_ai_code_lang') ?? 'python';
     _autoSummary = prefs.getBool('creator_ai_auto_summary') ?? false;
-
-    final defaultBlock = prefs.getString('creator_default_block') ?? 'text';
-    final isNewArticle =
-        widget.tutorialId == null && widget.initialBlocks == null;
-    if (isNewArticle && _blocks.isEmpty && defaultBlock != 'text') {
-      final type = _blockTypeFromString(defaultBlock);
-      setState(() {
-        _blocks.add(
-          EditorBlock(
-            id: _uid(),
-            type: type,
-            language: type == BlockType.code ? _defaultCodeLang : null,
-          ),
-        );
-      });
-    }
   }
-
-  BlockType _blockTypeFromString(String s) => switch (s) {
-    'heading' => BlockType.heading,
-    'code' => BlockType.code,
-    'latex' => BlockType.latex,
-    _ => BlockType.text,
-  };
 
   Future<void> _loadExisting(String id) async {
     setState(() => _loadingExisting = true);
