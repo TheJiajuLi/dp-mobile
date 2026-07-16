@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../widgets/settings_row.dart';
+import 'changelog_screen.dart' show kLatestVersion;
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -74,7 +75,7 @@ class AboutScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: const Text(
-                    'v1.0.0',
+                    kLatestVersion,
                     style: TextStyle(
                       fontSize: 13,
                       color: Color(0xFF6366F1),
@@ -94,7 +95,7 @@ class AboutScreen extends StatelessWidget {
             ListTile(
               title: Text(l10n.versionNumber),
               trailing: const Text(
-                'v1.0.0',
+                kLatestVersion,
                 style: TextStyle(color: Colors.grey),
               ),
             ),

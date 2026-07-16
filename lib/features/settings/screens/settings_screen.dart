@@ -12,7 +12,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/auth_service.dart';
 import '../providers/storage_provider.dart';
 import '../widgets/settings_row.dart';
-import 'changelog_screen.dart' show changelogUnseenProvider;
+import 'changelog_screen.dart' show changelogUnseenProvider, kLatestVersion;
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -211,7 +211,7 @@ class SettingsScreen extends ConsumerWidget {
                       iconColor: const Color(0xFF2563EB),
                       iconBg: const Color(0xFFE6F1FB),
                       title: l10n.aboutApp,
-                      subtitle: 'v1.0.0',
+                      subtitle: kLatestVersion,
                       onTap: () => context.push('/settings/about'),
                     ),
                     SettingsRow(
