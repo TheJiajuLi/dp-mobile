@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/brand_logo.dart';
+
 const kLegalAccent = Color(0xFF6366F1);
 
 // 法律文档页（用户服务协议/隐私政策）共用的排版组件——跟 PDF 版本的
@@ -26,24 +28,7 @@ class LegalDocHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: kLegalAccent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: const Center(
-                child: Text(
-                  '极梦',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: kLegalAccent,
-                  ),
-                ),
-              ),
-            ),
+            const BrandLogo(width: 48, height: 36),
             const SizedBox(width: 10),
             Text(
               'Dreaming Polar',
