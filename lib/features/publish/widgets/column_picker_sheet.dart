@@ -252,10 +252,17 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
             onPressed: () => setState(() => _step = ColumnSheetStep.create),
             icon: const Icon(Icons.add, size: 16),
             label: Text(l10n.createColumnAction),
+            // 跟上方「我的专栏」卡片同一套容器视觉语言：cardColor 填充 +
+            // #EBEBEB 0.5px 细边 + 圆角 12，不再是跳出来的紫色描边框。只保留
+            // 「+新建专栏」文字/图标的紫色作为唯一的"新建"操作提示
             style: OutlinedButton.styleFrom(
               foregroundColor: _primary,
-              side: const BorderSide(color: _primary, width: 0.5),
-              minimumSize: const Size(double.infinity, 44),
+              backgroundColor: Theme.of(context).cardColor,
+              side: const BorderSide(color: Color(0xFFEBEBEB), width: 0.5),
+              minimumSize: const Size(double.infinity, 56),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ),
