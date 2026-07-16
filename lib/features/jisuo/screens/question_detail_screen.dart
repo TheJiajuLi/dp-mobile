@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -53,6 +54,31 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
             .toList();
       }
     });
+  }
+
+  // 「写回答」——弹出轻量 Sheet 编辑器（问题引用 + 输入区 + 快捷公式/代码 +
+  // 字数计数 + 发布）。发布成功后刷新回答列表并弹绿色 Toast
+  Future<void> _openWriteAnswer(String questionText) async {
+    final posted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _WriteAnswerSheet(
+        questionId: widget.questionId,
+        questionText: questionText,
+      ),
+    );
+    if (posted == true && mounted) {
+      _load();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('回答已发布，提问者将收到通知'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFF16A34A),
+        ),
+      );
+    }
   }
 
   bool _deleting = false;
@@ -219,42 +245,58 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
           const SizedBox(width: 4),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(14),
-          children: [
-            if (q != null) _questionHeader(q, isDark),
-            const SizedBox(height: 12),
-            Text(
-              _loading ? '加载中…' : '回答（${_answers.length}）',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[500],
-              ),
-            ),
-            const SizedBox(height: 6),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 60),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_answers.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 60),
-                child: Center(
-                  child: Text(
-                    '还没有人回答，等等看吧',
-                    style: TextStyle(color: Colors.grey[400]),
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              // 底部留白给悬浮的「写回答」胶囊，不遮住最后一条回答
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 88),
+              children: [
+                if (q != null) _questionHeader(q, isDark),
+                const SizedBox(height: 12),
+                Text(
+                  _loading ? '加载中…' : '回答（${_answers.length}）',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[500],
                   ),
                 ),
-              )
-            else
-              ..._answers.map((a) => _AnswerCard(answer: a)),
-          ],
-        ),
+                const SizedBox(height: 6),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 60),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_answers.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 60),
+                    child: Center(
+                      child: Text(
+                        '还没有人回答，等等看吧',
+                        style: TextStyle(color: Colors.grey[400]),
+                      ),
+                    ),
+                  )
+                else
+                  ..._answers.map((a) => _AnswerCard(answer: a)),
+              ],
+            ),
+          ),
+          // 「写回答」——任何登录用户都能答，唯独提问者本人不显示（后端也有
+          // 400 限制，前端一并隐藏）。冷启动没拿到问题原文/domain 时传空，
+          // 不阻断回答流程
+          if (!isOwnQuestion && ref.watch(currentUserProvider) != null)
+            Positioned(
+              right: 16,
+              bottom: 20,
+              child: _WriteAnswerButton(
+                onTap: () => _openWriteAnswer(q?['text']?.toString() ?? ''),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -572,6 +614,318 @@ class _AnswerCardState extends ConsumerState<_AnswerCard> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// 底部悬浮「写回答」——纯品牌紫胶囊，笔形图标 + 文字，一道很淡的同色投影
+class _WriteAnswerButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _WriteAnswerButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    const primary = Color(0xFF6366F1);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+        decoration: BoxDecoration(
+          color: primary,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: primary.withValues(alpha: 0.28),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.edit_outlined, size: 17, color: Colors.white),
+            SizedBox(width: 7),
+            Text(
+              '写回答',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 「写回答」轻量 Sheet：问题引用（蓝左边框）+ 输入区 + LaTeX/代码快捷 +
+// 字数计数 + 发布。发布走 POST /auth/questions/:id/answers，成功 pop(true)
+class _WriteAnswerSheet extends ConsumerStatefulWidget {
+  final String questionId;
+  final String questionText;
+  const _WriteAnswerSheet({
+    required this.questionId,
+    required this.questionText,
+  });
+
+  @override
+  ConsumerState<_WriteAnswerSheet> createState() => _WriteAnswerSheetState();
+}
+
+class _WriteAnswerSheetState extends ConsumerState<_WriteAnswerSheet> {
+  static const _primary = Color(0xFF6366F1);
+  static const _maxLen = 2000;
+  final _ctrl = TextEditingController();
+  final _focus = FocusNode();
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  bool get _canPost => _ctrl.text.trim().isNotEmpty && !_submitting;
+
+  // 在光标处包裹/插入片段（LaTeX/代码），插入后把光标落在片段中间
+  void _wrap(String left, String right) {
+    final t = _ctrl.text;
+    final sel = _ctrl.selection;
+    final start = sel.isValid ? sel.start : t.length;
+    final end = sel.isValid ? sel.end : t.length;
+    final selected = t.substring(start, end);
+    final inserted = '$left$selected$right';
+    _ctrl.text = t.replaceRange(start, end, inserted);
+    _ctrl.selection = TextSelection.collapsed(
+      offset: start + left.length + selected.length,
+    );
+    _focus.requestFocus();
+  }
+
+  Future<void> _submit() async {
+    if (!_canPost) return;
+    setState(() => _submitting = true);
+    final res = await ref
+        .read(apiClientProvider)
+        .post(
+          '/auth/questions/${widget.questionId}/answers',
+          data: {'content': _ctrl.text.trim()},
+        );
+    if (!mounted) return;
+    if (res.success) {
+      notifyJisuoShouldRefresh(ref);
+      Navigator.pop(context, true);
+    } else {
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res.message ?? '发布失败，请重试')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
+    final fieldBorder = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFE5E5EA);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Text(
+                  '写回答',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: _canPost ? _submit : null,
+                  style: TextButton.styleFrom(
+                    backgroundColor: _canPost
+                        ? _primary
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : const Color(0xFFECECEF)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.6,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          '发布',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: _canPost ? Colors.white : muted,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // 问题引用——蓝色左边框
+            if (widget.questionText.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.04)
+                      : const Color(0xFFF5F5F7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: const Border(
+                    left: BorderSide(color: _primary, width: 3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('回答的问题', style: TextStyle(fontSize: 11, color: muted)),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.questionText,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                        color: ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 12),
+            // 输入区
+            Container(
+              constraints: const BoxConstraints(minHeight: 150, maxHeight: 260),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: fieldBorder),
+              ),
+              child: SingleChildScrollView(
+                child: TextField(
+                  controller: _ctrl,
+                  focusNode: _focus,
+                  maxLines: null,
+                  inputFormatters: [LengthLimitingTextInputFormatter(_maxLen)],
+                  style: TextStyle(fontSize: 15, height: 1.55, color: ink),
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    border: InputBorder.none,
+                    hintText: '写下你的回答，支持 LaTeX 公式和代码…',
+                    hintStyle: TextStyle(
+                      fontSize: 15,
+                      color: muted,
+                      height: 1.55,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // 底部：LaTeX / 代码 快捷 + 字数计数
+            Row(
+              children: [
+                _quickBtn(
+                  Icons.functions,
+                  '公式',
+                  () => _wrap('\$\$ ', ' \$\$'),
+                  muted,
+                ),
+                const SizedBox(width: 6),
+                _quickBtn(
+                  Icons.code,
+                  '代码',
+                  () => _wrap('\n```\n', '\n```\n'),
+                  muted,
+                ),
+                const Spacer(),
+                Text(
+                  '${_ctrl.text.characters.length} / $_maxLen',
+                  style: TextStyle(fontSize: 12, color: muted),
+                ),
+              ],
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom > 0 ? 4 : 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _quickBtn(
+    IconData icon,
+    String tooltip,
+    VoidCallback onTap,
+    Color color,
+  ) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 20, color: color),
+        ),
       ),
     );
   }
