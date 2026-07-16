@@ -542,7 +542,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         Expanded(
                           child: Text(
                             perk,
-                            style: const TextStyle(fontSize: 13, height: 1.4),
+                            // 显式深色——这张卡是硬编码浅紫底，不写颜色的话
+                            // 深色模式下会继承成白字、贴浅底看不见
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: Color(0xFF1A1A1A),
+                            ),
                           ),
                         ),
                       ],
