@@ -1204,6 +1204,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             final hintOffset = _hasStrangerHint ? 1 : 0;
                             return ListView.builder(
                               controller: _scrollCtrl,
+                              // 滚动消息时自动收起键盘（跟点空白处一致）
+                              keyboardDismissBehavior:
+                                  ScrollViewKeyboardDismissBehavior.onDrag,
                               padding: const EdgeInsets.all(12),
                               itemCount: timeline.length + hintOffset,
                               itemBuilder: (ctx, i) {

@@ -1154,6 +1154,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   Widget _buildMessageList(bool isDark) {
     return ListView.builder(
       controller: _scrollCtrl,
+      // 滚动消息时自动收起键盘（跟点空白处一致）
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       itemCount: _messages.length,
       itemBuilder: (ctx, i) {

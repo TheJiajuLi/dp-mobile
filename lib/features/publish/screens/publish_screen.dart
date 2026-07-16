@@ -178,10 +178,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
         final lines = text
             .split('\n')
             .map(
-              (e) => e.trim().replaceFirst(
-                RegExp(r'^(\d+[.、)]\s*|[-•*]\s*)'),
-                '',
-              ),
+              (e) =>
+                  e.trim().replaceFirst(RegExp(r'^(\d+[.、)]\s*|[-•*]\s*)'), ''),
             )
             .where((e) => e.isNotEmpty)
             .take(5)
@@ -1077,6 +1075,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                               },
                               child: ReorderableListView.builder(
                                 scrollController: _scrollCtrl,
+                                // 滚动正文时自动收起键盘（跟点空白处一致）
+                                keyboardDismissBehavior:
+                                    ScrollViewKeyboardDismissBehavior.onDrag,
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
                                   12,

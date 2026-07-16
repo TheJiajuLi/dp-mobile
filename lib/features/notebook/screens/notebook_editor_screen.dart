@@ -1886,6 +1886,9 @@ finally:
                         ? const Center(child: CircularProgressIndicator())
                         : ReorderableListView(
                             scrollController: _scrollCtrl,
+                            // 滚动 Cell 画布时自动收起键盘（跟点空白处一致）
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
                             buildDefaultDragHandles: false,
                             padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
                             // 默认拖拽会把 cell 裹进一层矩形高亮 Material（灰底+
