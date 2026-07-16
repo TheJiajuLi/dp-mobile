@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 
-// 设置页开关统一用黑白配色，不用品牌紫——紫色 activeThumbColor 配 M3
-// Switch 默认的浅紫描边轨道，两个紫叠在一起显得发闷，也跟"开关"这种
-// 纯功能性控件不需要抢视觉重点的定位不符。深色模式下纯黑轨道会跟
-// darkCard背景(#111118)糊在一起，所以轨道颜色反过来跟主题走：浅色黑
-// 轨道+白拨钮，深色白轨道+黑拨钒。trackOutlineColor 设透明去掉 M3
-// 默认的描边圈
+// 设置页开关统一走极梦品牌紫：开启态紫轨道 + 白拨钮，跟创作者设置页
+// 那套一致，整体视感更精神（原来的黑白 mono 配色偏冷、偏功能性）。
+// 拨钮恒用白色——紫轨道在浅色/深色卡片上都够显眼，不用再像旧版那样
+// 按主题给轨道反色；trackOutlineColor 透明去掉 M3 默认的描边圈
 ({Color thumb, Color track, WidgetStateProperty<Color?> outline})
-monoSwitchColors(BuildContext context) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
+brandSwitchColors() {
   return (
-    thumb: isDark ? Colors.black : Colors.white,
-    track: isDark ? Colors.white : const Color(0xFF1A1A1A),
+    thumb: Colors.white,
+    track: const Color(0xFF6366F1),
     outline: const WidgetStatePropertyAll(Colors.transparent),
   );
 }
@@ -139,7 +136,7 @@ class SettingsSwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = monoSwitchColors(context);
+    final colors = brandSwitchColors();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
