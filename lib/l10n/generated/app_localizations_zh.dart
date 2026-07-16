@@ -1277,7 +1277,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deleteAccountWarning =>
-      '注销后所有数据将永久删除，包括教程、Notebook、消息记录。\\n\\n此操作不可撤销。';
+      '注销后所有数据将永久删除，包括教程、Notebook、消息记录。\n\n此操作不可撤销。';
 
   @override
   String get confirmDeletion => '确认注销';

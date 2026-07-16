@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../auth/auth_service.dart';
 import '../widgets/settings_row.dart';
 
@@ -229,69 +230,132 @@ class AccountSecurityScreen extends ConsumerWidget {
 
   void _showDeleteAccount(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    const danger = Color(0xFFDC2626);
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.deleteAccount),
-        content: Text(l10n.deleteAccountWarning),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              l10n.cancel,
-              style: const TextStyle(color: Colors.grey),
-            ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+        final muted = isDark ? Colors.white70 : const Color(0xFF6B7280);
+        return Dialog(
+          backgroundColor: isDark ? const Color(0xFF1C1D24) : Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              // 实测 /auth/account 目前是 404，后端还没做这个接口——真上线后
-              // 这里会自动走真实的删除+登出流程，不用等接口就绪再改代码
-              final res = await ref
-                  .read(apiClientProvider)
-                  .delete('/auth/account');
-              if (res.success) {
-                final userId = ref.read(currentUserProvider)?.id;
-                await ref.read(authServiceProvider).logout();
-                // 只清这个账号自己的本地数据（星座/链接/登录记录/隐私开关/
-                // Notebook 本地文档/社区分页缓存，都是 '${userId}_' 前缀）。
-                // 不能用 prefs.clear()——那会把设备上其它账号的数据、以及
-                // 主题/字体/通知这些全局 App 设置也一起清掉
-                if (userId != null && userId.isNotEmpty) {
-                  final prefs = await SharedPreferences.getInstance();
-                  final keys = prefs.getKeys().where(
-                    (k) => k.startsWith('${userId}_'),
-                  );
-                  for (final key in keys.toList()) {
-                    await prefs.remove(key);
-                  }
-                }
-                if (context.mounted) {
-                  context.go('/login');
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(l10n.accountDeleted)));
-                }
-                return;
-              }
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    res.statusCode == 404
-                        ? l10n.deleteAccountComingSoon
-                        : l10n.deleteFailedRetry,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 危险警示图标——红底柔光方块，一眼看出是不可逆操作
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: danger.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: danger,
+                    size: 24,
                   ),
                 ),
-              );
-            },
-            child: Text(
-              l10n.confirmDeletion,
-              style: const TextStyle(color: Color(0xFFDC2626)),
+                const SizedBox(height: 16),
+                Text(
+                  l10n.deleteAccount,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  l10n.deleteAccountWarning,
+                  style: TextStyle(fontSize: 14, height: 1.55, color: muted),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text(
+                        l10n.cancel,
+                        style: TextStyle(color: muted, fontSize: 15),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        // 实测 /auth/account 目前是 404，后端还没做这个接口——
+                        // 真上线后这里会自动走真实的删除+登出流程，不用等接口
+                        // 就绪再改代码
+                        final res = await ref
+                            .read(apiClientProvider)
+                            .delete('/auth/account');
+                        if (res.success) {
+                          final userId = ref.read(currentUserProvider)?.id;
+                          await ref.read(authServiceProvider).logout();
+                          // 只清这个账号自己的本地数据（星座/链接/登录记录/
+                          // 隐私开关/Notebook 本地文档/社区分页缓存，都是
+                          // '${userId}_' 前缀）。不能用 prefs.clear()——那会把
+                          // 设备上其它账号的数据、以及主题/字体/通知这些全局
+                          // App 设置也一起清掉
+                          if (userId != null && userId.isNotEmpty) {
+                            final prefs = await SharedPreferences.getInstance();
+                            final keys = prefs.getKeys().where(
+                              (k) => k.startsWith('${userId}_'),
+                            );
+                            for (final key in keys.toList()) {
+                              await prefs.remove(key);
+                            }
+                          }
+                          if (context.mounted) {
+                            context.go('/login');
+                            showAppToast(context, l10n.accountDeleted, ok: true);
+                          }
+                          return;
+                        }
+                        if (!context.mounted) return;
+                        showAppToast(
+                          context,
+                          res.statusCode == 404
+                              ? l10n.deleteAccountComingSoon
+                              : l10n.deleteFailedRetry,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: danger,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 11,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        l10n.confirmDeletion,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -398,7 +398,7 @@
   "currentPasswordLabel": "当前密码",
   "newPasswordLabel": "新密码",
   "confirmNewPasswordLabel": "确认新密码",
-  "deleteAccountWarning": "注销后所有数据将永久删除，包括教程、Notebook、消息记录。\\n\\n此操作不可撤销。",
+  "deleteAccountWarning": "注销后所有数据将永久删除，包括教程、Notebook、消息记录。\n\n此操作不可撤销。",
   "confirmDeletion": "确认注销",
   "deleteAccountComingSoon": "注销账号功能即将上线，敬请期待",
   "deleteFailedRetry": "注销失败，请稍后重试",

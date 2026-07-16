@@ -618,7 +618,7 @@
   "currentPasswordLabel": "Current Password",
   "newPasswordLabel": "New Password",
   "confirmNewPasswordLabel": "Confirm New Password",
-  "deleteAccountWarning": "All your data will be permanently deleted, including tutorials, Notebooks, and messages.\\n\\nThis action cannot be undone.",
+  "deleteAccountWarning": "All your data will be permanently deleted, including tutorials, Notebooks, and messages.\n\nThis action cannot be undone.",
   "confirmDeletion": "Confirm Deletion",
   "deleteAccountComingSoon": "Account deletion is coming soon, stay tuned",
   "deleteFailedRetry": "Deletion failed, please try again later",

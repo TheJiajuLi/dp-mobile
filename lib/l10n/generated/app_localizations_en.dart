@@ -1306,7 +1306,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deleteAccountWarning =>
-      'All your data will be permanently deleted, including tutorials, Notebooks, and messages.\\n\\nThis action cannot be undone.';
+      'All your data will be permanently deleted, including tutorials, Notebooks, and messages.\n\nThis action cannot be undone.';
 
   @override
   String get confirmDeletion => 'Confirm Deletion';

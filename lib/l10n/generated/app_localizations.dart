@@ -2489,7 +2489,7 @@ abstract class AppLocalizations {
   /// No description provided for @deleteAccountWarning.
   ///
   /// In en, this message translates to:
-  /// **'All your data will be permanently deleted, including tutorials, Notebooks, and messages.\\n\\nThis action cannot be undone.'**
+  /// **'All your data will be permanently deleted, including tutorials, Notebooks, and messages.\n\nThis action cannot be undone.'**
   String get deleteAccountWarning;
 
   /// No description provided for @confirmDeletion.
