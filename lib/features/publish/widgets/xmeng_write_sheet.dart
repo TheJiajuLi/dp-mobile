@@ -164,7 +164,9 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         '请生成一篇结构完整、可直接发布的文章。格式要求：\n'
         '1. 第一行是文章标题（不要加 # 号）\n'
         '2. 正文分段，用空行隔开段落\n'
-        '3. 需要数学公式时用 \$...\$ 包裹；单独成行展示的公式用 \$\$...\$\$\n'
+        '3. 数学公式：块级公式（单独成行展示）用 \\[...\\] 包裹，行内公式用 \$...\$ 包裹；'
+        '不要用 \$\$...\$\$ 格式，不要在公式里用 && 符号，多行公式请用 aligned 环境，'
+        '不要生成 \\expression\\ 这类占位写法\n'
         '4. 需要代码时用三个反引号包裹并注明语言（如 ```python）\n'
         '5. 小节标题用 ## 开头\n'
         '6. 直接输出文章内容，不要任何额外说明或客套话';
@@ -383,14 +385,35 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     return false;
   }
 
-  // 整行是一条公式才当独立公式块：$$...$$，或整行只有一个 $...$（没有别的
-  // 正文）。返回去掉 $ 的公式体，不是就返回 null
-  String? _standaloneFormula(String line) {
-    final dd = RegExp(r'^\$\$(.+)\$\$$').firstMatch(line);
-    if (dd != null) return dd.group(1)!.trim();
-    final s = RegExp(r'^\$([^$]+)\$$').firstMatch(line);
-    if (s != null) return s.group(1)!.trim();
+  // 整段是一条独立公式才当 LaTeX 块，返回清理后的公式体、不是就返回 null。
+  // 关键：\[...\] 和 $$...$$ 都允许跨行——小梦经常把块级公式拆成
+  //   $$
+  //   a_0 + \cfrac{1}{...}
+  //   $$
+  // 三行成一段，旧的单行正则匹配不到，就漏进了文字块显示成源码。用 [\s\S]
+  // 而不是 . 才能跨行匹配整段
+  String? _standaloneFormula(String para) {
+    final s = para.trim();
+    // \[ ... \]（块级，允许多行）——新 prompt 要求的首选格式
+    final br = RegExp(r'^\\\[([\s\S]+?)\\\]$').firstMatch(s);
+    if (br != null) return _cleanLatex(br.group(1)!);
+    // $$ ... $$（块级，允许多行）——旧草稿/模型没听指令时的兜底
+    final dd = RegExp(r'^\$\$([\s\S]+?)\$\$$').firstMatch(s);
+    if (dd != null) return _cleanLatex(dd.group(1)!);
+    // 整行只有一个 $...$（没有别的正文）
+    final one = RegExp(r'^\$([^$]+)\$$').firstMatch(s);
+    if (one != null) return _cleanLatex(one.group(1)!);
     return null;
+  }
+
+  // 兜底清理小梦偶尔生成的脏格式：残留的 $$ 包裹、用 && 当换行、连写 3+ 个
+  // 反斜杠。正常的 \cfrac \ddots 是单反斜杠、换行 \\ 是双反斜杠，都不受影响
+  String _cleanLatex(String formula) {
+    return formula
+        .replaceAll(r'$$', '')
+        .replaceAll('&&', r'\\')
+        .replaceAll(RegExp(r'\\{3,}'), r'\\')
+        .trim();
   }
 
   @override
