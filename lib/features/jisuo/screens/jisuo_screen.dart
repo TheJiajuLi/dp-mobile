@@ -8,12 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/ai_lang.dart';
 import '../../../shared/widgets/ai_content_renderer.dart';
-import '../../../shared/widgets/tutorial_block_renderer.dart' show inlineLatexText;
+import '../../../shared/widgets/tutorial_block_renderer.dart'
+    show inlineLatexText;
 import '../../messages/utils/message_avatar.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -111,11 +113,43 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   bool _loadingCommunity = false;
   bool _communityLoaded = false;
 
+  // 落地页示例问题的「离线兜底」——AI 生成失败/无缓存时用这三条
   static const _sampleQuestions = [
     '量子纠缠真的可以超光速通信吗？',
     'Python 和 R 哪个更适合数据分析？',
     '为什么黑洞不会把自己吞掉？',
   ];
+
+  // 落地页推荐问题胶囊：每 24 小时用 AI 换一批不同领域的问题，本地缓存，
+  // 生成中显示骨架。跟 _generateSuggestions（挂在每轮回答下方的「追问建议」）
+  // 完全是两回事，别混淆
+  List<String> _starterQuestions = _sampleQuestions;
+  bool _loadingStarters = false;
+
+  // 领域池——每次刷新随机选 3 个不同领域，让 AI 出的问题跨得开
+  static const _starterDomains = [
+    '概率论与统计',
+    '线性代数',
+    '微积分',
+    '数论',
+    'Python数据分析',
+    '机器学习',
+    '算法与数据结构',
+    'SQL查询优化',
+    '贝叶斯推断',
+    '时间序列分析',
+    '深度学习',
+    '图论',
+    '数值计算',
+    'R语言统计',
+    '信号处理',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStarterQuestions();
+  }
 
   @override
   void dispose() {
@@ -367,6 +401,98 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     '这个概念在实际中怎么应用？',
     '有哪些相关的延伸知识？',
   ];
+
+  // 落地页推荐问题：优先用 24h 内的本地缓存，过期/无缓存才调 AI 重新生成
+  Future<void> _loadStarterQuestions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastRefresh = prefs.getInt('jisuo_starter_refresh') ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final shouldRefresh = now - lastRefresh > 24 * 60 * 60 * 1000;
+
+    if (!shouldRefresh) {
+      final cached = prefs.getStringList('jisuo_starter_cache');
+      if (cached != null && cached.isNotEmpty) {
+        if (!mounted) return;
+        setState(() => _starterQuestions = cached);
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _loadingStarters = true);
+    try {
+      await _generateStarterQuestions(prefs);
+    } catch (_) {
+      // 失败（网络/解析异常）回退到离线兜底问题
+      if (!mounted) return;
+      setState(() {
+        _starterQuestions = _sampleQuestions;
+        _loadingStarters = false;
+      });
+    }
+  }
+
+  Future<void> _generateStarterQuestions(SharedPreferences prefs) async {
+    final domains = List<String>.from(_starterDomains)..shuffle();
+    final selected = domains.take(3).toList();
+    final prompt =
+        '为一个数学/编程/数据科学知识社区生成3个吸引人的问题，'
+        '分别涉及这三个领域：${selected.join('、')}。\n\n'
+        '要求：\n'
+        '- 每个问题15字以内\n'
+        '- 具体有趣，不要泛泛而谈\n'
+        '- 直接输出3个问题\n'
+        '- 每行一个，不要编号\n'
+        '- 不要任何其他文字';
+
+    final res = await ref
+        .read(apiClientProvider)
+        .post(
+          '/auth/xmeng/chat',
+          data: {'message': prompt, 'conversationId': null},
+        );
+
+    if (res.success && res.data != null) {
+      final content = (res.data['message'] as String?) ?? '';
+      final lines = content
+          .split('\n')
+          .map((l) => l.trim())
+          // 兜底剥掉 AI 偶尔仍带上的行首编号/符号（1. 、- 、• 等）
+          .map(
+            (l) =>
+                l.replaceFirst(RegExp(r'^\s*(\d+[.、)]|[-•·])\s*'), '').trim(),
+          )
+          .where((l) => l.isNotEmpty)
+          .take(3)
+          .toList();
+
+      if (lines.length >= 2) {
+        final ts = DateTime.now().millisecondsSinceEpoch;
+        await prefs.setStringList('jisuo_starter_cache', lines);
+        await prefs.setInt('jisuo_starter_refresh', ts);
+        if (!mounted) return;
+        setState(() {
+          _starterQuestions = lines;
+          _loadingStarters = false;
+        });
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _starterQuestions = _sampleQuestions;
+      _loadingStarters = false;
+    });
+  }
+
+  // 「换一批」：清掉时间戳+缓存强制重新生成
+  Future<void> _refreshStarterQuestions() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('jisuo_starter_refresh');
+    await prefs.remove('jisuo_starter_cache');
+    await _loadStarterQuestions();
+  }
 
   Future<void> _loadRelated(String q) async {
     final res = await ref
@@ -656,54 +782,100 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                   ),
                 ),
                 const SizedBox(height: 26),
-                ..._sampleQuestions.map(
-                  (q) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: GestureDetector(
-                      onTap: () => _startQuestion(q),
+                // 生成中：三条骨架胶囊占位，避免出现→消失的跳动
+                if (_loadingStarters)
+                  ...List.generate(
+                    3,
+                    (i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 11,
-                        ),
+                        width: 200.0 - i * 24,
+                        height: 44,
                         decoration: BoxDecoration(
                           color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.white,
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : _primary.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(99),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.1)
-                                : _primary.withValues(alpha: 0.1),
-                            width: 0.5,
-                          ),
-                          // 浅色下从"淡紫填色+描边"改成"白底+极淡描边+软阴影"
-                          // ——原来的纯色填充在同样浅米白的页面背景上层次
-                          // 不够，阴影才是真正的深度来源
-                          boxShadow: isDark
-                              ? null
-                              : [
-                                  BoxShadow(
-                                    color: _primary.withValues(alpha: 0.08),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
                         ),
-                        child: Text(
-                          q,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
+                      ),
+                    ),
+                  )
+                else
+                  ..._starterQuestions.map(
+                    (q) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: GestureDetector(
+                        onTap: () => _startQuestion(q),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
                             color: isDark
-                                ? Colors.white.withValues(alpha: 0.75)
-                                : const Color(0xFF1A1A1A),
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : _primary.withValues(alpha: 0.1),
+                              width: 0.5,
+                            ),
+                            // 浅色下从"淡紫填色+描边"改成"白底+极淡描边+软阴影"
+                            // ——原来的纯色填充在同样浅米白的页面背景上层次
+                            // 不够，阴影才是真正的深度来源
+                            boxShadow: isDark
+                                ? null
+                                : [
+                                    BoxShadow(
+                                      color: _primary.withValues(alpha: 0.08),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                          ),
+                          child: Text(
+                            q,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.75)
+                                  : const Color(0xFF1A1A1A),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                // 换一批：清缓存立即用 AI 重新生成一组（生成中隐藏）
+                if (!_loadingStarters)
+                  GestureDetector(
+                    onTap: _refreshStarterQuestions,
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.refresh,
+                            size: 14,
+                            color: isDark ? Colors.white38 : Colors.grey[400],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '换一批',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white38 : Colors.grey[400],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
