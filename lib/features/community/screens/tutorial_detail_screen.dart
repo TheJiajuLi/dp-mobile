@@ -1325,37 +1325,37 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   onTap: _toggleSave,
                 ),
                 const Spacer(),
-                // 分享——纯品牌紫实心扁平胶囊，跟作者卡片「关注」按钮同一套
-                // 视觉语言（实心 #6366F1、无渐变、无光晕投影），全站安静统一。
-                // 作者关闭转载时整颗胶囊隐藏（Spacer 保留，其余按钮仍靠左）
+                // 分享——大小/形状/填色全部对齐顶部「关注」按钮：实心品牌紫
+                // #6366F1、padding h14/v6、圆角 8、字号 12/w600，无渐变无投影，
+                // 只多一个分享图标做身份区分。作者关闭转载时整颗按钮隐藏
+                // （Spacer 保留，其余按钮仍靠左）
                 if (_allowRepost)
                   GestureDetector(
                     onTap: _showShare,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 11,
+                        horizontal: 14,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
                         color: _primary,
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.ios_share_rounded,
-                            size: 16,
+                            size: 14,
                             color: Colors.white,
                           ),
-                          SizedBox(width: 7),
+                          SizedBox(width: 5),
                           Text(
                             '分享',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
-                              letterSpacing: 0.3,
                             ),
                           ),
                         ],
