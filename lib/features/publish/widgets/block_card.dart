@@ -143,7 +143,16 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   }
 
   void _handleFocusChange() {
-    if (widget.block.focusNode.hasFocus) {
+    final hasFocus = widget.block.focusNode.hasFocus;
+    // _focused 跟随真实焦点：获焦→编辑态、失焦→预览态。统一所有块（文字/标题/
+    // 公式/Markdown）的编辑↔预览切换——修 Markdown 输入一个字就丢焦（程序化
+    // 聚焦时 _focused 一直是 false，敲字后内容非空就切回渲染态把输入框拆掉），
+    // 以及 # 标题失焦后不渲染（原来只有 onEditingComplete 才置 false，点别处/
+    // 收键盘都不触发）。mounted 保护 + 只在真的变化时 setState，避免多余重建
+    if (mounted && _focused != hasFocus) {
+      setState(() => _focused = hasFocus);
+    }
+    if (hasFocus) {
       widget.onFocusGained?.call();
     } else {
       widget.onFocusLost?.call();
