@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../../shared/widgets/jimeng_logo.dart';
 import '../auth_service.dart';
 
@@ -71,16 +72,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       context.go('/home');
     } else {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.loginErrorInvalidCredentials)),
-      );
+      showAppToast(context, l10n.loginErrorInvalidCredentials);
     }
   }
 
   void _placeholderSnack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showAppToast(context, message);
   }
 
   @override
