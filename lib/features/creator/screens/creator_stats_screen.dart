@@ -5,16 +5,17 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/models/tutorial_model.dart';
+import '../../../shared/utils/topic_badge.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../auth/auth_service.dart';
-import '../../aurora/models/aurora_progress_model.dart';
 
-// 创作数据分析页——只展示有真实数据源的指标，不编趋势%/代码运行这类无接口
-// 的假数字。数据全部来自：
-//   · GET /auth/tutorials（本人已发布作品）→ 浏览/获赞/收藏、热门排行、
-//     以及按发布时间分组的柱状图
-//   · GET /auth/aurora/progress（仅极光创作者）→ 本月新增粉丝
-// 本周/本月/全部 = 按作品的「发布时间」过滤这批已发布作品，统计的是「这段
-// 时间发布的作品」的累计数据（不是「这段时间产生的浏览」——后者没数据源）。
+// 创作数据详情页——只展示有真实数据源的指标。真实数据来自 GET /auth/tutorials
+// （本人已发布作品）客户端聚合：浏览/获赞/收藏/分享/评论、热门排行、互动分布。
+// 近7天/本月/全部 = 按作品「发布时间」过滤，统计这段时间发布的作品的累计数据。
+//
+// 【待后端】浏览趋势折线（需按天数据）、代码运行统计（需 run-count/成功率）目前
+// 没有数据源，先占位「数据统计中」，等后端 GET /auth/creator/stats 接口就绪后接。
+// 环比% 也等那个接口（需跨周期对比），暂不显示——不编假数据。
 const _primary = Color(0xFF6366F1);
 
 class CreatorStatsScreen extends ConsumerStatefulWidget {
@@ -25,13 +26,11 @@ class CreatorStatsScreen extends ConsumerStatefulWidget {
 }
 
 class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
-  int _period = 0; // 0本周 1本月 2全部
+  int _period = 1; // 0=近7天 1=本月 2=全部
   bool _loading = true;
 
-  // 全量已发布作品（一次拉回，周期切换在客户端按 createdAt 过滤，不再打接口）
+  // 全量已发布作品（一次拉回，周期切换在客户端按 createdAt 过滤）
   List<TutorialModel> _all = [];
-  // 极光当月新增粉丝——非极光创作者为 null（不显示这格）
-  int? _newFans;
 
   @override
   void initState() {
@@ -41,43 +40,31 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
 
   Future<void> _loadStats() async {
     final user = ref.read(currentUserProvider);
-    if (user == null) return;
-    final api = ref.read(apiClientProvider);
-
-    final res = await api.get(
-      '/auth/tutorials',
-      queryParameters: {
-        'author': user.username,
-        'status': 'published',
-        'limit': 200,
-      },
-    );
-
-    // 极光创作者才有「本月新增粉丝」的真实来源，其余用户不请求也不显示
-    int? newFans;
-    if (user.isAuroraCreator) {
-      final ares = await api.get('/auth/aurora/progress');
-      if (ares.success && ares.data is Map) {
-        newFans = AuroraProgress.fromJson(
-          Map<String, dynamic>.from(ares.data as Map),
-        ).currentMonth.newFollowersCount;
-      }
+    if (user == null) {
+      setState(() => _loading = false);
+      return;
     }
-
+    final res = await ref
+        .read(apiClientProvider)
+        .get(
+          '/auth/tutorials',
+          queryParameters: {
+            'author': user.username,
+            'status': 'published',
+            'limit': 200,
+          },
+        );
     if (!mounted) return;
-
     final all = <TutorialModel>[];
     if (res.success && res.data != null) {
-      final list = (res.data['tutorials'] as List? ?? [])
-          .where((j) => (j as Map)['user_id'] == user.id)
-          .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j)))
-          .toList();
-      all.addAll(list);
+      all.addAll(
+        (res.data['tutorials'] as List? ?? [])
+            .where((j) => (j as Map)['user_id'] == user.id)
+            .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j))),
+      );
     }
-
     setState(() {
       _all = all;
-      _newFans = newFans;
       _loading = false;
     });
   }
@@ -86,10 +73,8 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
   List<TutorialModel> get _filtered {
     if (_period == 2) return _all;
     final now = DateTime.now();
-    final DateTime from = _period == 0
-        ? DateTime(now.year, now.month, now.day).subtract(
-            Duration(days: now.weekday - 1),
-          ) // 本周一 00:00
+    final from = _period == 0
+        ? now.subtract(const Duration(days: 7)) // 近7天（滚动）
         : DateTime(now.year, now.month, 1); // 本月 1 号 00:00
     final fromMs = from.millisecondsSinceEpoch;
     return _all.where((t) => t.createdAt >= fromMs).toList();
@@ -98,19 +83,35 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
   int get _views => _filtered.fold(0, (s, t) => s + t.views);
   int get _likes => _filtered.fold(0, (s, t) => s + t.likes);
   int get _saves => _filtered.fold(0, (s, t) => s + t.saveCount);
+  int get _shares => _filtered.fold(0, (s, t) => s + t.shares);
+  int get _comments => _filtered.fold(0, (s, t) => s + t.commentCount);
 
   List<TutorialModel> get _topArticles {
     final list = [..._filtered]..sort((a, b) => b.views.compareTo(a.views));
-    return list.take(5).toList();
+    return list.take(4).toList();
   }
 
   String _formatNum(int n) {
     if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}w';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return n.toString();
+    return n.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+$)'),
+      (m) => '${m[1]},',
+    );
   }
 
-  String get _periodLabel => const ['本周', '本月', '全部'][_period];
+  // 总览卡副标题——诚实版：不显示环比%（无跨周期数据），只标一句周期说明
+  String get _periodSub => const ['近 7 天', '本月发布', '累计数据'][_period];
+
+  String _timeAgo(int ms) {
+    final d = DateTime.now().difference(
+      DateTime.fromMillisecondsSinceEpoch(ms),
+    );
+    if (d.inDays >= 14) return '${d.inDays ~/ 7}周前';
+    if (d.inDays >= 7) return '1周前';
+    if (d.inDays >= 1) return '${d.inDays}天前';
+    if (d.inHours >= 1) return '${d.inHours}小时前';
+    return '刚刚';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,26 +142,70 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
             onPressed: () => context.pop(),
           ),
           title: Text(
-            '数据分析',
+            '数据详情',
             style: TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.w700,
               color: ink,
             ),
           ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.file_download_outlined, size: 20, color: muted),
+              onPressed: () => showAppToast(context, '数据导出即将上线'),
+            ),
+          ],
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator(strokeWidth: 2.4))
+            ? _buildSkeleton(card, border)
             : ListView(
                 padding: const EdgeInsets.only(bottom: 32),
                 children: [
                   _buildSegment(isDark, ink, muted),
                   _buildStatGrid(card, border, ink, muted),
-                  _buildTrendCard(card, border, ink, muted, faint),
+                  _buildTrendPlaceholder(card, border, ink, muted, faint),
                   _buildTopArticles(card, border, ink, muted, faint),
+                  _buildEngagement(card, border, ink, muted),
+                  _buildCodeRunPlaceholder(card, border, ink, muted, faint),
                 ],
               ),
       ),
+    );
+  }
+
+  // —————————————————————————————— 骨架屏
+  Widget _buildSkeleton(Color card, Color border) {
+    Widget box(double h, {double? w, EdgeInsets? m}) => Container(
+      width: w,
+      height: h,
+      margin: m ?? const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: border,
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 32),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        box(42),
+        Row(
+          children: [
+            Expanded(child: box(96)),
+            const SizedBox(width: 10),
+            Expanded(child: box(96)),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(child: box(96)),
+            const SizedBox(width: 10),
+            Expanded(child: box(96)),
+          ],
+        ),
+        box(180),
+        box(200),
+      ],
     );
   }
 
@@ -199,7 +244,7 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
                       : null,
                 ),
                 child: Text(
-                  const ['本周', '本月', '全部'][i],
+                  const ['近7天', '本月', '全部'][i],
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13.5,
@@ -215,14 +260,49 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
     );
   }
 
-  // —————————————————————————————— 总览格（浏览/获赞/收藏 + 极光新增粉丝）
+  // —————————————————————————————— 总览四格
   Widget _buildStatGrid(Color card, Color border, Color ink, Color muted) {
-    final cells = <Widget>[
-      _statCard('浏览量', _formatNum(_views), card, border, ink, muted),
-      _statCard('获赞', _formatNum(_likes), card, border, ink, muted),
-      _statCard('收藏', _formatNum(_saves), card, border, ink, muted),
-      if (_newFans != null)
-        _statCard('本月新增粉丝', '+${_newFans!}', card, border, ink, muted),
+    final cells = [
+      _statCard(
+        '浏览量',
+        _views,
+        Icons.visibility_outlined,
+        _primary,
+        card,
+        border,
+        ink,
+        muted,
+      ),
+      _statCard(
+        '获赞',
+        _likes,
+        Icons.thumb_up_outlined,
+        const Color(0xFF16A34A),
+        card,
+        border,
+        ink,
+        muted,
+      ),
+      _statCard(
+        '收藏',
+        _saves,
+        Icons.bookmark_border,
+        const Color(0xFFD97706),
+        card,
+        border,
+        ink,
+        muted,
+      ),
+      _statCard(
+        '分享',
+        _shares,
+        Icons.share_outlined,
+        _primary,
+        card,
+        border,
+        ink,
+        muted,
+      ),
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
@@ -240,7 +320,9 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
 
   Widget _statCard(
     String label,
-    String value,
+    int value,
+    IconData icon,
+    Color iconColor,
     Color card,
     Color border,
     Color ink,
@@ -252,189 +334,105 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: border, width: 0.5),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: iconColor),
+              const SizedBox(width: 5),
+              Text(label, style: TextStyle(fontSize: 12, color: muted)),
+            ],
+          ),
+          const SizedBox(height: 6),
           Text(
-            value,
+            _formatNum(value),
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
               color: ink,
               height: 1.0,
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 12, color: muted)),
+          const SizedBox(height: 5),
+          Text(
+            _periodSub,
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF16A34A)),
+          ),
         ],
       ),
     );
   }
 
-  // —————————————————————————————— 发布趋势柱状图（按发布时间分组）
-  // 全部：按最近6个月分组；本月：按本月每周分组；本周：按周一~今天每天分组。
-  // 柱高 = 该分组内所有作品的浏览量之和（真实）。
-  Widget _buildTrendCard(
+  // —————————————————————————————— 浏览趋势（占位·待后端）
+  Widget _buildTrendPlaceholder(
     Color card,
     Color border,
     Color ink,
     Color muted,
     Color faint,
   ) {
-    final bars = _computeBars();
-    final maxV = bars.fold<int>(0, (m, b) => b.value > m ? b.value : m);
-    final total = bars.fold<int>(0, (s, b) => s + b.value);
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-      decoration: BoxDecoration(
-        color: card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: border, width: 0.5),
-      ),
+    return _card(
+      card,
+      border,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '发布浏览趋势',
+                '浏览趋势',
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: ink,
                 ),
               ),
-              Text(
-                '$_periodLabel ${_formatNum(total)} 次',
-                style: const TextStyle(fontSize: 12.5, color: _primary),
-              ),
+              const Spacer(),
+              _legendDot(_primary, '浏览', muted),
+              const SizedBox(width: 10),
+              _legendDot(const Color(0xFF16A34A), '获赞', muted),
             ],
           ),
-          const SizedBox(height: 18),
-          if (total == 0)
-            SizedBox(
-              height: 78,
-              child: Center(
-                child: Text(
-                  _period == 2 ? '还没有已发布的作品' : '这段时间还没有发布作品',
-                  style: TextStyle(fontSize: 12.5, color: faint),
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 78,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: List.generate(bars.length, (i) {
-                  final b = bars[i];
-                  final factor = maxV == 0 ? 0.0 : b.value / maxV;
-                  final isLast = i == bars.length - 1;
-                  return Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: FractionallySizedBox(
-                              alignment: Alignment.bottomCenter,
-                              // 有数据的分组至少给一点可见高度，0 的分组不画
-                              heightFactor: b.value == 0
-                                  ? 0.0
-                                  : (0.14 + 0.86 * factor),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isLast
-                                      ? _primary
-                                      : _primary.withValues(alpha: 0.28),
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(4),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            b.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 9.5, color: muted),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 120,
+            child: Center(child: _comingSoon(muted, faint)),
+          ),
         ],
       ),
     );
   }
 
-  // 按当前周期把已过滤的作品分组求浏览量和，返回 (标签, 值) 序列
-  List<_Bar> _computeBars() {
-    final items = _filtered;
-    final now = DateTime.now();
-    if (_period == 0) {
-      // 本周：周一~今天，每天一根
-      const names = ['一', '二', '三', '四', '五', '六', '日'];
-      final monday = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(Duration(days: now.weekday - 1));
-      return List.generate(now.weekday, (i) {
-        final dayStart = monday.add(Duration(days: i)).millisecondsSinceEpoch;
-        final dayEnd = monday.add(Duration(days: i + 1)).millisecondsSinceEpoch;
-        final v = items
-            .where((t) => t.createdAt >= dayStart && t.createdAt < dayEnd)
-            .fold<int>(0, (s, t) => s + t.views);
-        return _Bar(i == now.weekday - 1 ? '今天' : names[i], v);
-      });
-    } else if (_period == 1) {
-      // 本月：按周分组（第1周~当前周）
-      final weeks = ((now.day - 1) ~/ 7) + 1;
-      return List.generate(weeks, (i) {
-        final ds = DateTime(
-          now.year,
-          now.month,
-          i * 7 + 1,
-        ).millisecondsSinceEpoch;
-        final de = DateTime(
-          now.year,
-          now.month,
-          i * 7 + 8,
-        ).millisecondsSinceEpoch;
-        final v = items
-            .where((t) => t.createdAt >= ds && t.createdAt < de)
-            .fold<int>(0, (s, t) => s + t.views);
-        return _Bar('第${i + 1}周', v);
-      });
-    } else {
-      // 全部：最近6个月，每月一根
-      return List.generate(6, (idx) {
-        final i = 5 - idx; // 从6个月前到本月
-        final m = DateTime(now.year, now.month - i, 1);
-        final ds = m.millisecondsSinceEpoch;
-        final de = DateTime(m.year, m.month + 1, 1).millisecondsSinceEpoch;
-        final v = items
-            .where((t) => t.createdAt >= ds && t.createdAt < de)
-            .fold<int>(0, (s, t) => s + t.views);
-        return _Bar('${m.month}月', v);
-      });
-    }
-  }
+  Widget _legendDot(Color c, String label, Color muted) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(fontSize: 11.5, color: muted)),
+    ],
+  );
 
-  // —————————————————————————————— 热门文章排行
+  // 「数据统计中」占位——待后端 /auth/creator/stats 接口
+  Widget _comingSoon(Color muted, Color faint) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.insights_outlined, size: 26, color: faint),
+      const SizedBox(height: 8),
+      Text('数据统计中', style: TextStyle(fontSize: 13, color: muted)),
+      const SizedBox(height: 3),
+      Text('功能即将上线', style: TextStyle(fontSize: 11, color: faint)),
+    ],
+  );
+
+  // —————————————————————————————— 热门文章
   Widget _buildTopArticles(
     Color card,
     Color border,
@@ -448,18 +446,30 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 22, 14, 8),
-          child: Text(
-            '热门文章',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: muted,
-            ),
+          child: Row(
+            children: [
+              Text(
+                '热门文章',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: ink,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => context.push('/creator/works'),
+                child: const Text(
+                  '查看全部',
+                  style: TextStyle(fontSize: 12.5, color: _primary),
+                ),
+              ),
+            ],
           ),
         ),
         if (top.isEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: Center(
               child: Text(
                 '这段时间还没有发布作品',
@@ -468,54 +478,48 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
             ),
           )
         else
-          ...top.asMap().entries.map(
-            (e) => _artItem(e.key + 1, e.value, card, border, ink, muted),
+          _card(
+            card,
+            border,
+            padding: EdgeInsets.zero,
+            margin: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+            child: Column(
+              children: [
+                for (var i = 0; i < top.length; i++) ...[
+                  if (i > 0)
+                    Divider(height: 0.5, thickness: 0.5, color: border),
+                  _artRow(i + 1, top[i], ink, muted),
+                ],
+              ],
+            ),
           ),
       ],
     );
   }
 
-  Widget _artItem(
-    int rank,
-    TutorialModel t,
-    Color card,
-    Color border,
-    Color ink,
-    Color muted,
-  ) {
-    // 金银铜（背景/文字）；4名开始用中性灰
-    const rankColors = [
-      [Color(0xFFFEF3C7), Color(0xFFD97706)], // 金
-      [Color(0xFFF1F1F4), Color(0xFF8A8A8A)], // 银
-      [Color(0xFFFBE9D8), Color(0xFF92400E)], // 铜
-    ];
-    final c = rank <= 3 ? rankColors[rank - 1] : [border, muted];
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border, width: 0.5),
-      ),
+  Widget _artRow(int rank, TutorialModel t, Color ink, Color muted) {
+    final isTop = rank <= 2;
+    final category = t.tags.isNotEmpty
+        ? t.tags.first
+        : (topicCategoryLabelFor(t.tags) ?? '');
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
           Container(
-            width: 22,
-            height: 22,
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: c[0],
-              borderRadius: BorderRadius.circular(7),
+              color: isTop ? _primary : const Color(0x11000000),
+              shape: BoxShape.circle,
             ),
-            child: Center(
-              child: Text(
-                '$rank',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: c[1],
-                ),
+            child: Text(
+              '$rank',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isTop ? Colors.white : muted,
               ),
             ),
           ),
@@ -529,55 +533,156 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: ink,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Icon(Icons.favorite_border, size: 12, color: muted),
-                    const SizedBox(width: 3),
-                    Text(
-                      _formatNum(t.likes),
-                      style: TextStyle(fontSize: 11.5, color: muted),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.bookmark_border, size: 12, color: muted),
-                    const SizedBox(width: 3),
-                    Text(
-                      _formatNum(t.saveCount),
-                      style: TextStyle(fontSize: 11.5, color: muted),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  category.isEmpty
+                      ? _timeAgo(t.createdAt)
+                      : '$category · ${_timeAgo(t.createdAt)}',
+                  style: TextStyle(fontSize: 11.5, color: muted),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _formatNum(t.views),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: ink,
-                ),
-              ),
-              Text('浏览', style: TextStyle(fontSize: 10, color: muted)),
-            ],
+          Text(
+            _formatNum(t.views),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-class _Bar {
-  final String label;
-  final int value;
-  const _Bar(this.label, this.value);
+  // —————————————————————————————— 互动分布
+  Widget _buildEngagement(Color card, Color border, Color ink, Color muted) {
+    final rows = [
+      ('浏览', _views, _primary),
+      ('获赞', _likes, const Color(0xFF16A34A)),
+      ('收藏', _saves, const Color(0xFFD97706)),
+      ('分享', _shares, const Color(0xFF2563EB)),
+      ('评论', _comments, const Color(0xFFEC4899)),
+    ];
+    final maxV = rows.fold<int>(0, (m, r) => r.$2 > m ? r.$2 : m);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 22, 14, 8),
+          child: Text(
+            '互动分布',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
+          ),
+        ),
+        _card(
+          card,
+          border,
+          child: Column(
+            children: [
+              for (final r in rows) ...[
+                if (r != rows.first) const SizedBox(height: 14),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 34,
+                      child: Text(
+                        r.$1,
+                        style: TextStyle(fontSize: 13, color: muted),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: LinearProgressIndicator(
+                          value: maxV == 0 ? 0 : (r.$2 / maxV).clamp(0.0, 1.0),
+                          minHeight: 8,
+                          backgroundColor: const Color(0x14000000),
+                          valueColor: AlwaysStoppedAnimation(r.$3),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 52,
+                      child: Text(
+                        _formatNum(r.$2),
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // —————————————————————————————— 代码运行统计（占位·待后端）
+  Widget _buildCodeRunPlaceholder(
+    Color card,
+    Color border,
+    Color ink,
+    Color muted,
+    Color faint,
+  ) {
+    return _card(
+      card,
+      border,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '代码运行统计',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(height: 92, child: Center(child: _comingSoon(muted, faint))),
+        ],
+      ),
+    );
+  }
+
+  // 通用卡片外壳
+  Widget _card(
+    Color card,
+    Color border, {
+    required Widget child,
+    EdgeInsets? padding,
+    EdgeInsets? margin,
+  }) {
+    return Container(
+      margin: margin ?? const EdgeInsets.fromLTRB(14, 12, 14, 0),
+      padding: padding ?? const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border, width: 0.5),
+      ),
+      child: child,
+    );
+  }
 }
