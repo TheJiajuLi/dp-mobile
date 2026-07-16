@@ -398,6 +398,20 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
     );
   }
 
+  // jisuo（极索）发起的对话，首条起每条用户消息前面都拼了「AI 偏好语言」
+  // 指令（[请用简体中文。] / [Please respond in English.] / [请用中英混合：…]），
+  // 存进了 ai_messages，从历史加载回来就会显示在用户气泡里。这里只剥掉这种
+  // 「[请用…]/[Please respond…] + 换行」的语言前缀，不误伤用户自己打的 [xxx]。
+  // 本屏 _send 发的是原文、没有前缀，剥了也是无变化（幂等）
+  String _stripLangPrefix(String content) {
+    return content
+        .replaceFirst(
+          RegExp(r'^\s*\[(请用|Please respond)[^\]]*\]\s*\n'),
+          '',
+        )
+        .trimLeft();
+  }
+
   Widget _messageRow(AiMessage msg, bool isDark) {
     if (msg.isUser) {
       return Align(
@@ -418,7 +432,7 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
             ),
           ),
           child: Text(
-            msg.content,
+            _stripLangPrefix(msg.content),
             style: const TextStyle(
               fontSize: 14,
               color: Colors.white,
