@@ -1996,6 +1996,13 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
   }
 
   Future<void> _recallMessage(GroupMessage msg) async {
+    // 关掉撤回菜单（modal bottom sheet）时 Flutter 会把焦点还给输入框，
+    // 导致撤回后键盘自动弹出。这里强制收起：立即一次 + 下一帧再一次
+    // （下一帧那次用来盖过 modal 关闭时的焦点恢复），撤回成功重建后再收一次
+    _focusNode.unfocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.unfocus();
+    });
     final res = await ref
         .read(apiClientProvider)
         .post('/auth/groups/${widget.groupId}/messages/${msg.id}/recall');
@@ -2005,6 +2012,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
         final i = _messages.indexWhere((m) => m.id == msg.id);
         if (i >= 0) _messages[i] = _copyRecalled(_messages[i]);
       });
+      _focusNode.unfocus();
     } else {
       ScaffoldMessenger.of(
         context,
