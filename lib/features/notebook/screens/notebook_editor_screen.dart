@@ -138,6 +138,18 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     _scheduleSave();
   }
 
+  // 空白 cell 按 Delete 删除本 cell，并把焦点移到上一个 cell（没有上一个就
+  // 不聚焦）。只剩一个空 cell 时删了就直接空，不补默认 cell——跟发布页一致
+  void _deleteCellFromBackspace(int index) {
+    if (_nb == null || index < 0 || index >= _nb!.cells.length) return;
+    final id = _nb!.cells[index].id;
+    final prevIndex = index - 1;
+    _deleteCell(id);
+    if (prevIndex >= 0 && prevIndex < (_nb?.cells.length ?? 0)) {
+      _activateCell(prevIndex);
+    }
+  }
+
   void _deleteCell(String cellId) {
     if (_nb == null) return;
     _controllers[cellId]?.dispose();
@@ -882,9 +894,7 @@ finally:
   void _clearOutputs() {
     if (_nb == null) return;
     // 有没有真的可清的输出——没有的话也给个反馈，不然点了"没反应"
-    final hadOutput = _nb!.cells.any(
-      (c) => (c.output?.isNotEmpty ?? false),
-    );
+    final hadOutput = _nb!.cells.any((c) => (c.output?.isNotEmpty ?? false));
     setState(() {
       for (final cell in _nb!.cells) {
         cell.output = null;
@@ -1376,6 +1386,7 @@ finally:
       onAddBelow: (type) => _addCell(type, at: index + 1),
       onDelete: () => _deleteCell(cell.id),
       onChangeLanguage: (type) => _changeCellLanguage(cell, type),
+      onEmptyBackspace: () => _deleteCellFromBackspace(index),
     );
   }
 

@@ -27,6 +27,8 @@ class NotebookCellCard extends StatelessWidget {
   final VoidCallback onDelete;
   // 点语言 pill 切换代码语言（只对代码类 cell 生效）
   final void Function(String type)? onChangeLanguage;
+  // 空白 cell 按 Backspace/Delete 删除本 cell
+  final VoidCallback? onEmptyBackspace;
 
   const NotebookCellCard({
     super.key,
@@ -45,6 +47,7 @@ class NotebookCellCard extends StatelessWidget {
     required this.onAddBelow,
     required this.onDelete,
     this.onChangeLanguage,
+    this.onEmptyBackspace,
   });
 
   // 导入数据文件生成的"数据集 cell"——橙色边框 + 暖黄头部 + 数据集徽标
@@ -114,6 +117,7 @@ class NotebookCellCard extends StatelessWidget {
         focusNode: focusNode,
         onActivate: onActivate,
         onChanged: onChanged,
+        onEmptyBackspace: onEmptyBackspace,
       );
     }
 
@@ -124,6 +128,7 @@ class NotebookCellCard extends StatelessWidget {
       focusNode: focusNode,
       onTap: onActivate,
       onChanged: onChanged,
+      onEmptyBackspace: onEmptyBackspace,
     );
   }
 

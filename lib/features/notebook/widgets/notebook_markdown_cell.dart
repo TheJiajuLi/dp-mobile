@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
@@ -16,6 +17,8 @@ class NotebookMarkdownCellBody extends StatelessWidget {
   final FocusNode focusNode;
   final VoidCallback onActivate;
   final ValueChanged<String> onChanged;
+  // 空白 cell 按 Backspace/Delete 时删除本 cell（内容非空时不拦）
+  final VoidCallback? onEmptyBackspace;
 
   const NotebookMarkdownCellBody({
     super.key,
@@ -27,7 +30,23 @@ class NotebookMarkdownCellBody extends StatelessWidget {
     required this.focusNode,
     required this.onActivate,
     required this.onChanged,
+    this.onEmptyBackspace,
   });
+
+  // 包一层 Focus 拦 Backspace/Delete：空内容删本 cell，非空 ignored 交回输入框
+  KeyEventResult _handleBackspace(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final isDeleteKey =
+        event.logicalKey == LogicalKeyboardKey.backspace ||
+        event.logicalKey == LogicalKeyboardKey.delete;
+    if (!isDeleteKey ||
+        controller.text.isNotEmpty ||
+        onEmptyBackspace == null) {
+      return KeyEventResult.ignored;
+    }
+    onEmptyBackspace!();
+    return KeyEventResult.handled;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,30 +101,40 @@ class NotebookMarkdownCellBody extends StatelessWidget {
       );
     }
 
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      maxLines: null,
-      onTap: onActivate,
-      style: TextStyle(
-        fontSize: 14,
-        height: 1.6,
-        color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
-      ),
-      decoration: InputDecoration(
-        // 同 code cell：显式关掉全局 InputDecorationTheme 的 filled 灰底，
-        // 编辑 markdown/latex 时正文区也保持白底一致
-        filled: false,
-        border: InputBorder.none,
-        isDense: true,
-        contentPadding: const EdgeInsets.all(12),
-        hintText: cellType == 'latex' ? '输入 LaTeX 公式…' : '输入 Markdown 内容…',
-        hintStyle: TextStyle(
+    return Focus(
+      onKeyEvent: (node, event) => _handleBackspace(event),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        maxLines: null,
+        onTap: onActivate,
+        // LaTeX 里直引号被替换成弯引号会破坏语法，公式块也关掉智能标点
+        smartQuotesType: cellType == 'latex'
+            ? SmartQuotesType.disabled
+            : SmartQuotesType.enabled,
+        smartDashesType: cellType == 'latex'
+            ? SmartDashesType.disabled
+            : SmartDashesType.enabled,
+        style: TextStyle(
           fontSize: 14,
-          color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
+          height: 1.6,
+          color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
         ),
+        decoration: InputDecoration(
+          // 同 code cell：显式关掉全局 InputDecorationTheme 的 filled 灰底，
+          // 编辑 markdown/latex 时正文区也保持白底一致
+          filled: false,
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.all(12),
+          hintText: cellType == 'latex' ? '输入 LaTeX 公式…' : '输入 Markdown 内容…',
+          hintStyle: TextStyle(
+            fontSize: 14,
+            color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
+          ),
+        ),
+        onChanged: onChanged,
       ),
-      onChanged: onChanged,
     );
   }
 }
