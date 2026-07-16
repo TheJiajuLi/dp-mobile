@@ -123,6 +123,18 @@ conn.close()
 result
 ''';
 
+  // 中文输入法/键盘智能标点常把 ' " - : ; 变成全角/弯版本，直接丢进
+  // Python/JS 会语法错。运行前静默替换回 ASCII 等价物（编辑器里已禁用智能
+  // 标点，这里是二次兜底：粘贴进来的、历史存下来的弯引号也一并救回）
+  String _sanitizeCode(String code) => code
+      .replaceAll('‘', "'") // ‘ 弯单引号
+      .replaceAll('’', "'") // ’
+      .replaceAll('“', '"') // “ 弯双引号
+      .replaceAll('”', '"') // ”
+      .replaceAll('—', '--') // — 破折号
+      .replaceAll('：', ':') // ： 全角冒号
+      .replaceAll('；', ';'); // ； 全角分号
+
   Future<List<Map<String, dynamic>>> run(
     String id,
     String code,
@@ -133,6 +145,9 @@ result
     // 原来这个类的 30 秒，不动其它调用方的既有行为
     Duration timeout = const Duration(seconds: 30),
   }) async {
+    // 运行前清理中文输入法/智能标点带进来的全角标点——弯引号/破折号/全角
+    // 冒号分号会让 Python 直接语法错，静默替换成 ASCII 等价物
+    code = _sanitizeCode(code);
     if (language == 'html' || language == 'markdown') {
       return [
         {'type': 'info', 'content': l10n.unsupportedCellType},
@@ -223,6 +238,7 @@ result
   // JSON.stringify，避免不同平台 evaluateJavascript 对返回对象编组不一致
   Future<List<Map<String, dynamic>>> runJavaScript(String code) async {
     if (_webCtrl == null) return [];
+    code = _sanitizeCode(code); // JS 直接调这里的路径也要清弯引号（幂等）
     try {
       final wrappedCode =
           '''

@@ -1189,6 +1189,11 @@ class _BlockCardState extends ConsumerState<BlockCard> {
           TextFormField(
             controller: _codeCtrl,
             focusNode: widget.block.focusNode,
+            // 代码块关掉智能标点/自动纠错——避免键盘把 ' " - 变成弯引号/破折号
+            smartQuotesType: SmartQuotesType.disabled,
+            smartDashesType: SmartDashesType.disabled,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: const InputDecoration(
               filled: false,
               border: InputBorder.none,

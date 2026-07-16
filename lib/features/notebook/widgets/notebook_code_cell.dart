@@ -38,6 +38,12 @@ class NotebookCodeCellBody extends StatelessWidget {
         focusNode: focusNode,
         maxLines: null,
         onTap: onTap,
+        // 代码区关掉智能标点/自动纠错——键盘别把 ' " - 变成弯引号/破折号，
+        // 不然粘贴或输入后代码直接语法错
+        smartQuotesType: SmartQuotesType.disabled,
+        smartDashesType: SmartDashesType.disabled,
+        autocorrect: false,
+        enableSuggestions: false,
         style: TextStyle(
           fontFamily: 'monospace',
           fontSize: 12,
