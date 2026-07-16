@@ -379,18 +379,34 @@ Future<Uint8List> buildTutorialPdfBytes({
               final imageUrl = block['imageUrl'] as String? ?? '';
               final bytes = images[imageUrl];
               if (bytes != null) {
+                // 图片必须显式限高：只给 width 时 pw.Image 会按原图宽高比
+                // 撑高，竖长图缩放后高度会超过一页可用高度，而 pw.Image 在
+                // MultiPage 里不是 SpanningWidget、单块高于一页就直接抛
+                // PdfException（整批导出全挂）。这里按内容区宽度等比缩放，
+                // 再把高度 clamp 到单页可用高以内，竖长图也能塞进一页
+                const contentW = 515.0;
+                const maxPageH = 740.0;
+                final img = pw.MemoryImage(bytes);
+                final imageW = (img.width ?? 0).toDouble();
+                final imageH = (img.height ?? 0).toDouble();
+                // 拿不到原图尺寸时兜底用满高，靠 BoxFit.contain 保比例不溢出
+                final scaledH = (imageW > 0 && imageH > 0)
+                    ? imageH * (contentW / imageW)
+                    : maxPageH;
+                final finalH = scaledH > maxPageH ? maxPageH : scaledH;
                 widgets.add(
                   pw.Container(
                     margin: const pw.EdgeInsets.symmetric(vertical: 8),
-                    width: double.infinity,
-                    // pdf 包的 pw.Image 不像 Flutter 那样会把 double.infinity 夹到
-                    // 父约束——得给一个有限的宽度，否则宽图按原尺寸溢出页面右边。
-                    // 用正文内容区宽 515pt（A4 595.28 − 两侧 margin 40）+ contain
-                    // 等比缩，跟 latex 块的 maxW=515 口径一致
+                    alignment: pw.Alignment.center,
+                    // pw.Image 不像 Flutter 会把 infinity 夹到父约束——宽高都得
+                    // 给有限值：宽用正文内容区 515pt（A4 595.28 − 两侧 margin 40），
+                    // 高按原图等比缩放并 clamp 到单页可用高内，contain 保比例。
+                    // 否则宽图溢出右边、竖长图超页高直接抛 PdfException
                     child: pw.Image(
-                      pw.MemoryImage(bytes),
+                      img,
+                      width: contentW,
+                      height: finalH,
                       fit: pw.BoxFit.contain,
-                      width: 515.0,
                     ),
                   ),
                 );

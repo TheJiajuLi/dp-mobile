@@ -987,39 +987,70 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         ),
       ),
     );
+    // 进度弹窗只能关一次——成功路径在 Share 前就关了，若之后（Share/汇总）
+    // 再出错走外层 catch，不能再 pop 一次，否则会把作品管理页本身弹掉
+    var progressOpen = true;
+    void closeProgress() {
+      if (mounted && progressOpen) {
+        Navigator.pop(context);
+        progressOpen = false;
+      }
+    }
+
     try {
       final api = ref.read(apiClientProvider);
       final dir = await getTemporaryDirectory();
       final files = <XFile>[];
+      // 单篇失败（某篇含超大图片、接口异常等）只跳过这一篇，不再让整批
+      // 导出全挂。失败原因进 debugPrint，用户侧只给友好汇总
+      var failed = 0;
       for (final t in published) {
-        final full = await api.get('/auth/tutorials/${t.id}');
-        if (!full.success || full.data == null) continue;
-        final data = Map<String, dynamic>.from(full.data as Map);
-        final blocks = (data['blocks'] as List?) ?? [];
-        final Uint8List bytes = await buildTutorialPdfBytes(
-          tutorial: data,
-          blocks: blocks,
-          style: 'clean',
-        );
-        final safe = (t.title.isEmpty ? '未命名' : t.title).replaceAll(
-          RegExp(r'[^\w一-龥]+'),
-          '_',
-        );
-        final path = '${dir.path}/$safe.pdf';
-        await File(path).writeAsBytes(bytes);
-        files.add(XFile(path));
+        try {
+          final full = await api.get('/auth/tutorials/${t.id}');
+          if (!full.success || full.data == null) {
+            failed++;
+            continue;
+          }
+          final data = Map<String, dynamic>.from(full.data as Map);
+          final blocks = (data['blocks'] as List?) ?? [];
+          final Uint8List bytes = await buildTutorialPdfBytes(
+            tutorial: data,
+            blocks: blocks,
+            style: 'clean',
+          );
+          final safe = (t.title.isEmpty ? '未命名' : t.title).replaceAll(
+            RegExp(r'[^\w一-龥]+'),
+            '_',
+          );
+          final path = '${dir.path}/$safe.pdf';
+          await File(path).writeAsBytes(bytes);
+          files.add(XFile(path));
+        } catch (e) {
+          debugPrint('PDF导出失败(${t.id}): $e');
+          failed++;
+          continue;
+        }
       }
       if (!mounted) return;
-      Navigator.pop(context); // 关掉进度弹窗
-      if (files.isEmpty) {
+      closeProgress(); // 关掉进度弹窗
+      final success = files.length;
+      if (success == 0) {
         _toast('导出失败，请重试');
         return;
       }
       await Share.shareXFiles(files, subject: '我的极梦文章合集');
-    } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
-      _toast('导出失败：$e');
+      if (failed == 0) {
+        _toast('已导出 $success 篇文章', ok: true);
+      } else {
+        _toast('已导出 $success 篇，$failed 篇跳过');
+      }
+    } catch (e) {
+      // 兜底：目录/分享等非单篇错误才会到这（单篇已在循环里各自 catch）
+      debugPrint('导出全部PDF失败: $e');
+      if (!mounted) return;
+      closeProgress();
+      _toast('导出失败，请重试');
     }
   }
 }
