@@ -1325,8 +1325,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   onTap: _toggleSave,
                 ),
                 const Spacer(),
-                // 分享——纯品牌紫实心胶囊，一道很淡的同色投影做轻微悬浮感，
-                // 跟全站安静、单一主色的视觉语言一致（不再是偏蓝的渐变 + 重光晕）。
+                // 分享——纯品牌紫实心扁平胶囊，跟作者卡片「关注」按钮同一套
+                // 视觉语言（实心 #6366F1、无渐变、无光晕投影），全站安静统一。
                 // 作者关闭转载时整颗胶囊隐藏（Spacer 保留，其余按钮仍靠左）
                 if (_allowRepost)
                   GestureDetector(
@@ -1339,13 +1339,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                       decoration: BoxDecoration(
                         color: _primary,
                         borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _primary.withValues(alpha: 0.20),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
