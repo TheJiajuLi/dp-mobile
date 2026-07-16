@@ -220,11 +220,14 @@ class AiContentRenderer extends StatelessWidget {
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i];
       var base = _bodyStyle();
-      final heading = RegExp(r'^(#{1,3})\s+').firstMatch(line);
+      // #{1,6}——小梦经常用 #### 当小节标题，只认 1-3 会让 #### 原样露出来
+      // （截图里的"#### 直观理解/例子/关键概念"）。sizes 补满 6 级，避免
+      // level>3 时越界
+      final heading = RegExp(r'^(#{1,6})\s+').firstMatch(line);
       if (heading != null) {
         final level = heading.group(1)!.length;
         line = line.substring(heading.end);
-        const sizes = [20.0, 17.0, 15.0];
+        const sizes = [20.0, 17.0, 15.0, 14.0, 13.5, 13.0];
         base = TextStyle(
           fontSize: sizes[level - 1],
           fontWeight: FontWeight.w600,
@@ -333,6 +336,23 @@ class AiContentRenderer extends StatelessWidget {
     ),
     h3: TextStyle(
       fontSize: 15,
+      fontWeight: FontWeight.w600,
+      color: isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A),
+    ),
+    // h4-h6：不设的话 flutter_markdown 用默认样式（偏小、没加粗），#### 小节
+    // 标题会显得比正文还弱。补上跟行内 lite 路径一致的字号/字重
+    h4: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A),
+    ),
+    h5: TextStyle(
+      fontSize: 13.5,
+      fontWeight: FontWeight.w600,
+      color: isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A),
+    ),
+    h6: TextStyle(
+      fontSize: 13,
       fontWeight: FontWeight.w600,
       color: isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A),
     ),
