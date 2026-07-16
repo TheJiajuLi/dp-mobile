@@ -1255,13 +1255,14 @@ finally:
                           ),
                         ),
                         const SizedBox(width: 4),
-                        // 运行全部：淡紫底
+                        // 运行全部：淡紫底纯图标钮（省顶栏横向空间）
                         _topBarChip(
                           isDark: isDark,
                           label: l10n.runAll,
-                          icon: Icons.play_arrow,
+                          icon: Icons.play_arrow_rounded,
                           onTap: _runAll,
                           accent: true,
+                          iconOnly: true,
                         ),
                         const SizedBox(width: 6),
                         // 保存：同款灰底
@@ -1386,24 +1387,47 @@ finally:
     IconData? icon,
     required VoidCallback onTap,
     bool accent = false,
+    // 纯图标模式：不显示文字，收成方形图标钮（用 label 作 Tooltip 做无障碍）
+    bool iconOnly = false,
   }) {
     final fg = accent
         ? _primary
         : (isDark ? const Color(0xFF7A80A0) : const Color(0xFF555555));
+    final bg = accent
+        ? _primary.withValues(alpha: isDark ? 0.16 : 0.1)
+        : (isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFF0F0F0));
+    final border = accent || isDark
+        ? null
+        : Border.all(color: const Color(0xFFE5E5E5), width: 0.5);
+
+    if (iconOnly && icon != null) {
+      return Tooltip(
+        message: label,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+              border: border,
+            ),
+            child: Icon(icon, size: 19, color: fg),
+          ),
+        ),
+      );
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: accent
-              ? _primary.withValues(alpha: isDark ? 0.16 : 0.1)
-              : (isDark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : const Color(0xFFF0F0F0)),
+          color: bg,
           borderRadius: BorderRadius.circular(12),
-          border: accent || isDark
-              ? null
-              : Border.all(color: const Color(0xFFE5E5E5), width: 0.5),
+          border: border,
         ),
         child: Row(
           children: [
