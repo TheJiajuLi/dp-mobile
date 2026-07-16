@@ -421,11 +421,31 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                                 ),
                               ),
                             ),
+                    // 文字/标题/Markdown/LaTeX 的复制按钮——代码块有自己那个
+                    // （下面跟运行成对），这里只给这四类，避免代码块出现两个
+                    if (widget.block.type == BlockType.text ||
+                        widget.block.type == BlockType.heading ||
+                        widget.block.type == BlockType.markdown ||
+                        widget.block.type == BlockType.latex)
+                      GestureDetector(
+                        onTap: _copyContent,
+                        child: const Tooltip(
+                          message: '复制',
+                          child: Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.copy_outlined,
+                              size: 15,
+                              color: Color(0xFFBBBBBB),
+                            ),
+                          ),
+                        ),
+                      ),
                     // 代码块专属操作——复制、运行，跟 AI(小梦) 一起放在这排
                     // chrome 里（去掉代码块内容区那个独立运行按钮）
                     if (widget.block.type == BlockType.code) ...[
                       GestureDetector(
-                        onTap: _copyCode,
+                        onTap: _copyContent,
                         child: const Tooltip(
                           message: '复制',
                           child: Padding(
@@ -1435,11 +1455,15 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     ),
   );
 
-  void _copyCode() {
+  void _copyContent() {
     Clipboard.setData(ClipboardData(text: widget.block.content));
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已复制代码')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('已复制'),
+        duration: Duration(seconds: 1),
+        backgroundColor: Color(0xFF16A34A),
+      ),
+    );
   }
 
   // 代码块跟文字/公式块一样简化：去掉外框和顶栏。语言选择挪到底部工具栏

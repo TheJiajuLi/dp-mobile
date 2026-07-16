@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/notebook_model.dart';
 import 'notebook_cell_output.dart';
@@ -52,6 +53,9 @@ class NotebookCellCard extends StatelessWidget {
     this.onEmptyBackspace,
     this.onAiAssist,
   });
+
+  // 复制按钮给代码块/Markdown/LaTeX（图片没有可复制的文本）
+  bool get _copyable => cell.type != 'image';
 
   // AI 辅助只给代码块和公式块（markdown/image 不给）
   bool get _aiEligible =>
@@ -285,6 +289,20 @@ class NotebookCellCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
+            // 复制本 cell 的内容（cell.code）
+            if (_copyable) ...[
+              GestureDetector(
+                onTap: () => _copyCell(context),
+                child: Icon(
+                  Icons.copy_outlined,
+                  size: 15,
+                  color: isDark
+                      ? const Color(0xFF666666)
+                      : const Color(0xFFBBBBBB),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
           ],
           // ✨ 小梦 AI 辅助——代码/公式块可用，放在运行按钮左侧
           if (_aiEligible && onAiAssist != null) ...[
@@ -293,6 +311,18 @@ class NotebookCellCard extends StatelessWidget {
           ],
           if (_isExecutable(cell.type)) _runButton(),
         ],
+      ),
+    );
+  }
+
+  // 复制 cell 内容（cell.code）到剪贴板 + 绿色「已复制」提示
+  void _copyCell(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: cell.code));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('已复制'),
+        duration: Duration(seconds: 1),
+        backgroundColor: Color(0xFF16A34A),
       ),
     );
   }
