@@ -4,19 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../shared/models/tutorial_model.dart';
-import '../../../shared/utils/topic_badge.dart';
 import '../../../shared/widgets/app_toast.dart';
-import '../../auth/auth_service.dart';
 
-// 创作数据详情页——只展示有真实数据源的指标。真实数据来自 GET /auth/tutorials
-// （本人已发布作品）客户端聚合：浏览/获赞/收藏/分享/评论、热门排行、互动分布。
-// 近7天/本月/全部 = 按作品「发布时间」过滤，统计这段时间发布的作品的累计数据。
-//
-// 【待后端】浏览趋势折线（需按天数据）、代码运行统计（需 run-count/成功率）目前
-// 没有数据源，先占位「数据统计中」，等后端 GET /auth/creator/stats 接口就绪后接。
-// 环比% 也等那个接口（需跨周期对比），暂不显示——不编假数据。
+// 创作数据详情页——接入 GET /auth/creator/stats?period=week|month|all。
+// 有真实数据的字段正常显示；无数据源的字段明确标注（不编假数据）：
+//   · views / shares → 累计总数（无逐日/无环比），副标题「累计总浏览/分享」
+//   · viewsChange / sharesChange → 不显示环比
+//   · trend[].views → 趋势图只画 likes 单线（没有逐日浏览）
+//   · codeRuns / codeSuccessRate → 显示「暂无统计」
+// 真实：likes/saves/comments、likesChange/savesChange 环比、trend[].likes 逐日
+// 点赞、topArticles Top5、codeArticles 含代码文章数。
 const _primary = Color(0xFF6366F1);
+const _green = Color(0xFF16A34A);
 
 class CreatorStatsScreen extends ConsumerStatefulWidget {
   const CreatorStatsScreen({super.key});
@@ -26,11 +25,11 @@ class CreatorStatsScreen extends ConsumerStatefulWidget {
 }
 
 class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
-  int _period = 1; // 0=近7天 1=本月 2=全部
+  int _period = 1; // 0=week 1=month 2=all
   bool _loading = true;
+  Map<String, dynamic> _data = {};
 
-  // 全量已发布作品（一次拉回，周期切换在客户端按 createdAt 过滤）
-  List<TutorialModel> _all = [];
+  static const _periodParams = ['week', 'month', 'all'];
 
   @override
   void initState() {
@@ -39,57 +38,40 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
   }
 
   Future<void> _loadStats() async {
-    final user = ref.read(currentUserProvider);
-    if (user == null) {
-      setState(() => _loading = false);
-      return;
-    }
+    setState(() => _loading = true);
     final res = await ref
         .read(apiClientProvider)
         .get(
-          '/auth/tutorials',
-          queryParameters: {
-            'author': user.username,
-            'status': 'published',
-            'limit': 200,
-          },
+          '/auth/creator/stats',
+          queryParameters: {'period': _periodParams[_period]},
         );
     if (!mounted) return;
-    final all = <TutorialModel>[];
-    if (res.success && res.data != null) {
-      all.addAll(
-        (res.data['tutorials'] as List? ?? [])
-            .where((j) => (j as Map)['user_id'] == user.id)
-            .map((j) => TutorialModel.fromJson(Map<String, dynamic>.from(j))),
-      );
-    }
     setState(() {
-      _all = all;
+      _data = res.success && res.data is Map
+          ? Map<String, dynamic>.from(res.data as Map)
+          : {};
       _loading = false;
     });
   }
 
-  // 当前周期过滤后的作品（按发布时间）。全部=不过滤
-  List<TutorialModel> get _filtered {
-    if (_period == 2) return _all;
-    final now = DateTime.now();
-    final from = _period == 0
-        ? now.subtract(const Duration(days: 7)) // 近7天（滚动）
-        : DateTime(now.year, now.month, 1); // 本月 1 号 00:00
-    final fromMs = from.millisecondsSinceEpoch;
-    return _all.where((t) => t.createdAt >= fromMs).toList();
+  void _onPeriod(int i) {
+    if (i == _period) return;
+    setState(() => _period = i);
+    _loadStats();
   }
 
-  int get _views => _filtered.fold(0, (s, t) => s + t.views);
-  int get _likes => _filtered.fold(0, (s, t) => s + t.likes);
-  int get _saves => _filtered.fold(0, (s, t) => s + t.saveCount);
-  int get _shares => _filtered.fold(0, (s, t) => s + t.shares);
-  int get _comments => _filtered.fold(0, (s, t) => s + t.commentCount);
+  // —————————————————————————————— 字段读取（都做 null 兜底）
+  int _int(String key) => (_data[key] as num?)?.toInt() ?? 0;
+  num? _num(String key) => _data[key] as num?;
 
-  List<TutorialModel> get _topArticles {
-    final list = [..._filtered]..sort((a, b) => b.views.compareTo(a.views));
-    return list.take(4).toList();
-  }
+  List<Map<String, dynamic>> get _trend => ((_data['trend'] as List?) ?? [])
+      .map((e) => Map<String, dynamic>.from(e as Map))
+      .toList();
+
+  List<Map<String, dynamic>> get _topArticles =>
+      ((_data['topArticles'] as List?) ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
 
   String _formatNum(int n) {
     if (n >= 10000) return '${(n / 10000).toStringAsFixed(1)}w';
@@ -99,10 +81,10 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
     );
   }
 
-  // 总览卡副标题——诚实版：不显示环比%（无跨周期数据），只标一句周期说明
-  String get _periodSub => const ['近 7 天', '本月发布', '累计数据'][_period];
-
-  String _timeAgo(int ms) {
+  String _timeAgo(dynamic createdAt) {
+    var ms = (createdAt as num?)?.toInt() ?? 0;
+    if (ms > 0 && ms < 100000000000) ms *= 1000; // 秒级 → 毫秒
+    if (ms == 0) return '';
     final d = DateTime.now().difference(
       DateTime.fromMillisecondsSinceEpoch(ms),
     );
@@ -157,16 +139,16 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
           ],
         ),
         body: _loading
-            ? _buildSkeleton(card, border)
+            ? _buildSkeleton(border)
             : ListView(
                 padding: const EdgeInsets.only(bottom: 32),
                 children: [
                   _buildSegment(isDark, ink, muted),
-                  _buildStatGrid(card, border, ink, muted),
-                  _buildTrendPlaceholder(card, border, ink, muted, faint),
+                  _buildStatGrid(card, border, ink, muted, faint),
+                  _buildTrendCard(card, border, ink, muted, faint),
                   _buildTopArticles(card, border, ink, muted, faint),
                   _buildEngagement(card, border, ink, muted),
-                  _buildCodeRunPlaceholder(card, border, ink, muted, faint),
+                  _buildCodeRun(card, border, ink, muted, faint),
                 ],
               ),
       ),
@@ -174,11 +156,10 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
   }
 
   // —————————————————————————————— 骨架屏
-  Widget _buildSkeleton(Color card, Color border) {
-    Widget box(double h, {double? w, EdgeInsets? m}) => Container(
-      width: w,
+  Widget _buildSkeleton(Color border) {
+    Widget box(double h) => Container(
       height: h,
-      margin: m ?? const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: border,
         borderRadius: BorderRadius.circular(12),
@@ -209,7 +190,7 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
     );
   }
 
-  // —————————————————————————————— 时间段选择器
+  // —————————————————————————————— 时间段选择器（切换重新请求）
   Widget _buildSegment(bool isDark, Color ink, Color muted) {
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 12, 14, 0),
@@ -223,7 +204,7 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
           final selected = _period == i;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _period = i),
+              onTap: () => _onPeriod(i),
               behavior: HitTestBehavior.opaque,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
@@ -261,47 +242,65 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
   }
 
   // —————————————————————————————— 总览四格
-  Widget _buildStatGrid(Color card, Color border, Color ink, Color muted) {
+  Widget _buildStatGrid(
+    Color card,
+    Color border,
+    Color ink,
+    Color muted,
+    Color faint,
+  ) {
     final cells = [
+      // 浏览：累计总数，无环比、副标题标注「累计总浏览」
       _statCard(
         '浏览量',
-        _views,
+        _int('views'),
         Icons.visibility_outlined,
         _primary,
         card,
         border,
         ink,
         muted,
+        faint,
+        subtitle: '累计总浏览',
       ),
+      // 获赞：真实 + 环比%
       _statCard(
         '获赞',
-        _likes,
+        _int('likes'),
         Icons.thumb_up_outlined,
-        const Color(0xFF16A34A),
+        _green,
         card,
         border,
         ink,
         muted,
+        faint,
+        change: _num('likesChange'),
       ),
+      // 收藏：真实 + 环比%
       _statCard(
         '收藏',
-        _saves,
+        _int('saves'),
         Icons.bookmark_border,
         const Color(0xFFD97706),
         card,
         border,
         ink,
         muted,
+        faint,
+        change: _num('savesChange'),
       ),
+      // 分享：累计总数，无环比、副标题标注「累计总分享」
       _statCard(
         '分享',
-        _shares,
+        _int('shares'),
         Icons.share_outlined,
         _primary,
         card,
         border,
         ink,
         muted,
+        faint,
+        subtitle: '累计总分享',
       ),
     ];
     return Padding(
@@ -327,7 +326,10 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
     Color border,
     Color ink,
     Color muted,
-  ) {
+    Color faint, {
+    num? change,
+    String? subtitle,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: card,
@@ -358,23 +360,54 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
             ),
           ),
           const SizedBox(height: 5),
-          Text(
-            _periodSub,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF16A34A)),
-          ),
+          // 副标题：累计字段显示中性说明；环比字段显示 ↑/↓ %
+          subtitle != null
+              ? Text(subtitle, style: TextStyle(fontSize: 11.5, color: faint))
+              : _changeChip(change, faint),
         ],
       ),
     );
   }
 
-  // —————————————————————————————— 浏览趋势（占位·待后端）
-  Widget _buildTrendPlaceholder(
+  // 环比标签——正绿↑ / 负红↓ / 0持平 / null 无数据
+  Widget _changeChip(num? change, Color faint) {
+    if (change == null) {
+      return Text('暂无环比', style: TextStyle(fontSize: 11.5, color: faint));
+    }
+    if (change == 0) {
+      return Text('持平', style: TextStyle(fontSize: 11.5, color: faint));
+    }
+    final up = change > 0;
+    final c = up ? _green : const Color(0xFFEF4444);
+    return Row(
+      children: [
+        Icon(
+          up ? Icons.arrow_upward : Icons.arrow_downward,
+          size: 11,
+          color: c,
+        ),
+        const SizedBox(width: 2),
+        Text(
+          '${change.abs().toStringAsFixed(0)}% 较上期',
+          style: TextStyle(fontSize: 11.5, color: c),
+        ),
+      ],
+    );
+  }
+
+  // —————————————————————————————— 获赞趋势（真实逐日 likes 单线）
+  Widget _buildTrendCard(
     Color card,
     Color border,
     Color ink,
     Color muted,
     Color faint,
   ) {
+    final trend = _trend;
+    final values = trend
+        .map((e) => (e['likes'] as num?)?.toDouble() ?? 0)
+        .toList();
+    final labels = trend.map((e) => _shortDate(e['date'])).toList();
     return _card(
       card,
       border,
@@ -384,7 +417,7 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
           Row(
             children: [
               Text(
-                '浏览趋势',
+                '获赞趋势',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -392,18 +425,60 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
                 ),
               ),
               const Spacer(),
-              _legendDot(_primary, '浏览', muted),
-              const SizedBox(width: 10),
-              _legendDot(const Color(0xFF16A34A), '获赞', muted),
+              // 图例只有获赞（没有逐日浏览数据，不画浏览线）
+              _legendDot(_green, '获赞', muted),
             ],
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 120,
-            child: Center(child: _comingSoon(muted, faint)),
-          ),
+          const SizedBox(height: 10),
+          if (values.length < 2)
+            SizedBox(
+              height: 120,
+              child: Center(
+                child: Text(
+                  '暂无数据',
+                  style: TextStyle(fontSize: 13, color: faint),
+                ),
+              ),
+            )
+          else ...[
+            SizedBox(
+              height: 120,
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: _TrendLinePainter(values: values, color: _green),
+              ),
+            ),
+            const SizedBox(height: 6),
+            _xAxisLabels(labels, faint),
+          ],
         ],
       ),
+    );
+  }
+
+  String _shortDate(dynamic date) {
+    final s = date?.toString() ?? '';
+    // 支持 '2026-07-10' / '07-10' / ISO
+    final m = RegExp(r'(\d{1,2})-(\d{1,2})(?!\d)').allMatches(s).toList();
+    if (m.isEmpty) return s;
+    final last = m.last;
+    return '${int.parse(last.group(1)!)}/${int.parse(last.group(2)!)}';
+  }
+
+  Widget _xAxisLabels(List<String> labels, Color faint) {
+    if (labels.isEmpty) return const SizedBox.shrink();
+    // 均匀取 4 个标签，避免挤在一起
+    final picks = <String>[];
+    final n = labels.length;
+    for (final idx in [0, (n / 3).floor(), (2 * n / 3).floor(), n - 1]) {
+      final i = idx.clamp(0, n - 1);
+      if (!picks.contains(labels[i])) picks.add(labels[i]);
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: picks
+          .map((l) => Text(l, style: TextStyle(fontSize: 10.5, color: faint)))
+          .toList(),
     );
   }
 
@@ -420,19 +495,7 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
     ],
   );
 
-  // 「数据统计中」占位——待后端 /auth/creator/stats 接口
-  Widget _comingSoon(Color muted, Color faint) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(Icons.insights_outlined, size: 26, color: faint),
-      const SizedBox(height: 8),
-      Text('数据统计中', style: TextStyle(fontSize: 13, color: muted)),
-      const SizedBox(height: 3),
-      Text('功能即将上线', style: TextStyle(fontSize: 11, color: faint)),
-    ],
-  );
-
-  // —————————————————————————————— 热门文章
+  // —————————————————————————————— 热门文章 Top5
   Widget _buildTopArticles(
     Color card,
     Color border,
@@ -472,7 +535,7 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: Center(
               child: Text(
-                '这段时间还没有发布作品',
+                '这段时间还没有热门文章',
                 style: TextStyle(fontSize: 12.5, color: faint),
               ),
             ),
@@ -497,11 +560,16 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
     );
   }
 
-  Widget _artRow(int rank, TutorialModel t, Color ink, Color muted) {
+  Widget _artRow(int rank, Map<String, dynamic> a, Color ink, Color muted) {
     final isTop = rank <= 2;
-    final category = t.tags.isNotEmpty
-        ? t.tags.first
-        : (topicCategoryLabelFor(t.tags) ?? '');
+    final title = a['title']?.toString() ?? '';
+    final views = (a['views'] as num?)?.toInt() ?? 0;
+    final category = a['category']?.toString() ?? '';
+    final ago = _timeAgo(a['createdAt']);
+    final sub = [
+      if (category.isNotEmpty) category,
+      if (ago.isNotEmpty) ago,
+    ].join(' · ');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
@@ -529,7 +597,7 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  t.title,
+                  title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -538,19 +606,16 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
                     color: ink,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  category.isEmpty
-                      ? _timeAgo(t.createdAt)
-                      : '$category · ${_timeAgo(t.createdAt)}',
-                  style: TextStyle(fontSize: 11.5, color: muted),
-                ),
+                if (sub.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(sub, style: TextStyle(fontSize: 11.5, color: muted)),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 10),
           Text(
-            _formatNum(t.views),
+            _formatNum(views),
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
@@ -565,11 +630,11 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
   // —————————————————————————————— 互动分布
   Widget _buildEngagement(Color card, Color border, Color ink, Color muted) {
     final rows = [
-      ('浏览', _views, _primary),
-      ('获赞', _likes, const Color(0xFF16A34A)),
-      ('收藏', _saves, const Color(0xFFD97706)),
-      ('分享', _shares, const Color(0xFF2563EB)),
-      ('评论', _comments, const Color(0xFFEC4899)),
+      ('浏览', _int('views'), _primary),
+      ('获赞', _int('likes'), _green),
+      ('收藏', _int('saves'), const Color(0xFFD97706)),
+      ('分享', _int('shares'), const Color(0xFF2563EB)),
+      ('评论', _int('comments'), const Color(0xFFEC4899)),
     ];
     final maxV = rows.fold<int>(0, (m, r) => r.$2 > m ? r.$2 : m);
     return Column(
@@ -637,14 +702,40 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
     );
   }
 
-  // —————————————————————————————— 代码运行统计（占位·待后端）
-  Widget _buildCodeRunPlaceholder(
+  // —————————————————————————————— 代码运行统计
+  // 总运行次数/成功率暂无数据源 → 「暂无统计」；含代码文章数真实
+  Widget _buildCodeRun(
     Color card,
     Color border,
     Color ink,
     Color muted,
     Color faint,
   ) {
+    Widget cell(String label, String value, {bool real = true}) => Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: card == Colors.white
+              ? const Color(0xFFF7F7F9)
+              : Colors.white.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: real ? 20 : 12.5,
+                fontWeight: real ? FontWeight.w700 : FontWeight.w500,
+                color: real ? _primary : faint,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(fontSize: 11, color: muted)),
+          ],
+        ),
+      ),
+    );
     return _card(
       card,
       border,
@@ -659,14 +750,21 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
               color: ink,
             ),
           ),
-          const SizedBox(height: 8),
-          SizedBox(height: 92, child: Center(child: _comingSoon(muted, faint))),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              cell('总运行次数', '暂无统计', real: false),
+              const SizedBox(width: 10),
+              cell('运行成功率', '暂无统计', real: false),
+              const SizedBox(width: 10),
+              cell('含代码文章', '${_int('codeArticles')}'),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  // 通用卡片外壳
   Widget _card(
     Color card,
     Color border, {
@@ -685,4 +783,73 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
       child: child,
     );
   }
+}
+
+// 单线趋势折线——直线段折线 + 数据点 + 线下渐变填充
+class _TrendLinePainter extends CustomPainter {
+  final List<double> values;
+  final Color color;
+  const _TrendLinePainter({required this.values, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    const padT = 8.0, padB = 6.0;
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final range = (maxV - minV).abs() < 1e-6 ? 1.0 : (maxV - minV);
+    final dx = size.width / (values.length - 1);
+
+    Offset pt(int i) {
+      final x = dx * i;
+      final norm = (values[i] - minV) / range;
+      final y = padT + (1 - norm) * (size.height - padT - padB);
+      return Offset(x, y);
+    }
+
+    final pts = List.generate(values.length, pt);
+
+    // 线下渐变填充
+    final fill = Path()..moveTo(pts.first.dx, size.height);
+    for (final p in pts) {
+      fill.lineTo(p.dx, p.dy);
+    }
+    fill
+      ..lineTo(pts.last.dx, size.height)
+      ..close();
+    canvas.drawPath(
+      fill,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.0)],
+        ).createShader(Offset.zero & size),
+    );
+
+    // 折线
+    final line = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (final p in pts.skip(1)) {
+      line.lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(
+      line,
+      Paint()
+        ..color = color
+        ..strokeWidth = 2.2
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // 数据点
+    for (final p in pts) {
+      canvas.drawCircle(p, 3, Paint()..color = color);
+      canvas.drawCircle(p, 1.4, Paint()..color = Colors.white);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TrendLinePainter old) =>
+      old.values != values || old.color != color;
 }
