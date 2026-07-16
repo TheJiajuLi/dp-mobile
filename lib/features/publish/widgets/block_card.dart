@@ -1892,9 +1892,55 @@ th{background:$thBg;color:$thFg}
         child: MarkdownBody(
           data: widget.block.content,
           selectable: false,
-          styleSheet: MarkdownStyleSheet.fromTheme(
-            Theme.of(context),
-          ).copyWith(p: TextStyle(fontSize: 14, height: 1.7, color: textColor)),
+          // fromTheme 派生的标题样式跟正文几乎没差（app 的 TextTheme 里
+          // headline/title 偏小），于是 # ## ### 看起来"没渲染成标题"。这里显式
+          // 给全 h1-h6/加粗/列表样式，拉开层级；h4-h6 也补上——小梦常用 ####
+          styleSheet:
+              MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                p: TextStyle(fontSize: 14, height: 1.7, color: textColor),
+                h1: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                  color: textColor,
+                ),
+                h2: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  color: textColor,
+                ),
+                h3: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  color: textColor,
+                ),
+                h4: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  color: textColor,
+                ),
+                h5: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  color: textColor,
+                ),
+                h6: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                  color: textColor,
+                ),
+                strong: const TextStyle(fontWeight: FontWeight.w600),
+                listBullet: TextStyle(
+                  fontSize: 14,
+                  height: 1.7,
+                  color: textColor,
+                ),
+              ),
         ),
       );
     }
