@@ -601,17 +601,55 @@ class _TutorialCodeBlockState extends ConsumerState<TutorialCodeBlock> {
   String? _outputContent;
   String? _outputType;
 
+  // 阅读页代码块可编辑（方案②：点「编辑」才进编辑态，默认只读、不误触键盘）。
+  // controller 持有"可能被读者改过"的代码——只读态也读它（改完点完成后仍生效），
+  // 运行/复制都跑这份。编辑不落库，纯读者本地 playground
+  bool _editing = false;
+  late final HighlightingCodeController _codeCtrl;
+  final FocusNode _codeFocus = FocusNode();
+
   bool get _canRun =>
       _runnableLanguages.contains(widget.language.toLowerCase());
+
+  bool get _isModified => _codeCtrl.text != widget.content;
 
   @override
   void initState() {
     super.initState();
     _blockId = UniqueKey().toString();
+    _codeCtrl = HighlightingCodeController(
+      text: widget.content,
+      language: widget.language.toLowerCase(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _codeCtrl.dispose();
+    _codeFocus.dispose();
+    super.dispose();
+  }
+
+  // 编辑/完成切换——编辑不需要 Pro（运行才需要）
+  void _toggleEdit() {
+    setState(() => _editing = !_editing);
+    if (_editing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _codeFocus.requestFocus();
+      });
+    } else {
+      _codeFocus.unfocus();
+    }
+  }
+
+  // 重置回原始代码（轻量操作，直接重置不二次确认）
+  void _reset() {
+    setState(() => _codeCtrl.text = widget.content);
+    showAppToast(context, '已重置为原始代码');
   }
 
   void _copyCode() {
-    Clipboard.setData(ClipboardData(text: widget.content));
+    Clipboard.setData(ClipboardData(text: _codeCtrl.text));
     showAppToast(context, '已复制代码', ok: true);
   }
 
@@ -627,7 +665,8 @@ class _TutorialCodeBlockState extends ConsumerState<TutorialCodeBlock> {
     try {
       outputs = await ref
           .read(pyodideEngineProvider)
-          .run(_blockId, widget.content, widget.language.toLowerCase(), l10n);
+          // 跑当前 controller 的内容——读者改过就跑改过的版本
+          .run(_blockId, _codeCtrl.text, widget.language.toLowerCase(), l10n);
     } finally {
       if (mounted) setState(() => _running = false);
     }
@@ -719,6 +758,31 @@ td,th{border:1px solid #334155;padding:4px 8px;}
     }
   }
 
+  // 头部小图标钮（复制/重置/编辑/完成）——描边方钮；active（完成态）用紫色底+紫描边
+  Widget _headerIconBtn({
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color border,
+    required Color iconColor,
+    bool active = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: active ? _primary.withValues(alpha: 0.10) : null,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active ? _primary.withValues(alpha: 0.35) : border,
+            width: active ? 0.8 : 0.5,
+          ),
+        ),
+        child: Icon(icon, size: 15, color: active ? _primary : iconColor),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -747,8 +811,38 @@ td,th{border:1px solid #334155;padding:4px 8px;}
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
             child: Row(
               children: [
+                // 「已修改」标识——读者改过原始代码时显示（改完点完成后仍在）
+                if (_isModified)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 2),
+                    child: Text(
+                      '已修改',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: _primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 const Spacer(),
+                // 只读态：复制；编辑态：重置
+                _headerIconBtn(
+                  icon: _editing ? Icons.restart_alt : Icons.copy_outlined,
+                  onTap: _editing ? _reset : _copyCode,
+                  border: border,
+                  iconColor: iconColor,
+                ),
+                const SizedBox(width: 6),
+                // 编辑 ↔ 完成
+                _headerIconBtn(
+                  icon: _editing ? Icons.check_rounded : Icons.edit_outlined,
+                  onTap: _toggleEdit,
+                  active: _editing,
+                  border: border,
+                  iconColor: iconColor,
+                ),
                 if (_canRun) ...[
+                  const SizedBox(width: 6),
                   GestureDetector(
                     onTap: _running ? null : _run,
                     child: Container(
@@ -795,45 +889,57 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
                 ],
-                GestureDetector(
-                  onTap: _copyCode,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: border, width: 0.5),
-                    ),
-                    child: Icon(
-                      Icons.copy_outlined,
-                      size: 15,
-                      color: iconColor,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Text.rich(
-                TextSpan(
-                  children: highlightCode(
-                    widget.content,
-                    widget.language.toLowerCase(),
-                    TextStyle(
+            child: _editing
+                // 编辑态：受控 TextField，HighlightingCodeController 自带实时
+                // 语法高亮；关掉智能标点/纠错，避免直引号被替换破坏代码
+                ? TextField(
+                    controller: _codeCtrl,
+                    focusNode: _codeFocus,
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    smartDashesType: SmartDashesType.disabled,
+                    smartQuotesType: SmartQuotesType.disabled,
+                    // 刷新头部「已修改」标识
+                    onChanged: (_) => setState(() {}),
+                    style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 13,
                       color: codeTextColor,
                       height: 1.6,
                     ),
+                    decoration: const InputDecoration(
+                      filled: false,
+                      isDense: true,
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  )
+                // 只读态：语法高亮的横向可滚文本（读 controller，改完点完成仍生效）
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Text.rich(
+                      TextSpan(
+                        children: highlightCode(
+                          _codeCtrl.text,
+                          widget.language.toLowerCase(),
+                          TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            color: codeTextColor,
+                            height: 1.6,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
           ),
           if (_outputContent != null)
             Container(
