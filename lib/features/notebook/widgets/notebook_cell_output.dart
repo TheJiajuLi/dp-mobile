@@ -21,14 +21,18 @@ Widget buildNotebookCellOutput(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.memory(
-              base64Decode(output),
-              fit: BoxFit.contain,
-              errorBuilder: (c, e, s) => Text(
-                '图片解码失败',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          // 限高 300：高图等比缩进上限内看全貌（contain），不撑高整个 Cell
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.memory(
+                base64Decode(output),
+                fit: BoxFit.contain,
+                errorBuilder: (c, e, s) => Text(
+                  '图片解码失败',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                ),
               ),
             ),
           ),
@@ -110,12 +114,18 @@ Widget buildNotebookCellOutput(
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            output,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.55,
-              color: isDark ? const Color(0xFFC7CBDC) : const Color(0xFF444444),
+          // 限高 200 + 内部滚动：长 AI 输出在框内滚，不撑高整个 Cell
+          _BoundedScroll(
+            maxHeight: 200,
+            child: Text(
+              output,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.55,
+                color: isDark
+                    ? const Color(0xFFC7CBDC)
+                    : const Color(0xFF444444),
+              ),
             ),
           ),
         ],
@@ -145,16 +155,56 @@ Widget buildNotebookCellOutput(
           ),
         ),
         const SizedBox(height: 3),
-        Text(
-          output,
-          style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 11,
-            height: 1.5,
-            color: isDark ? const Color(0xFFB0B0C0) : const Color(0xFF555555),
+        // 限高 200 + 内部滚动：长文本/报错栈在框内滚，不撑高整个 Cell
+        _BoundedScroll(
+          maxHeight: 200,
+          child: Text(
+            output,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              height: 1.5,
+              color: isDark ? const Color(0xFFB0B0C0) : const Color(0xFF555555),
+            ),
           ),
         ),
       ],
     ),
   );
+}
+
+// 限高 + Scrollbar + SingleChildScrollView 的通用容器。放成 StatefulWidget 是
+// 为了持有并释放自己的 ScrollController（Scrollbar 和 SingleChildScrollView 共用
+// 同一个 controller，避免抓到页面的 PrimaryScrollController 冲突）
+class _BoundedScroll extends StatefulWidget {
+  final double maxHeight;
+  final Widget child;
+  const _BoundedScroll({required this.maxHeight, required this.child});
+
+  @override
+  State<_BoundedScroll> createState() => _BoundedScrollState();
+}
+
+class _BoundedScrollState extends State<_BoundedScroll> {
+  final _ctrl = ScrollController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: widget.maxHeight),
+      child: Scrollbar(
+        controller: _ctrl,
+        child: SingleChildScrollView(
+          controller: _ctrl,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
 }

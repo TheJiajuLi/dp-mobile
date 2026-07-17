@@ -55,10 +55,13 @@ class NotebookCodeCellBody extends StatelessWidget {
       color: Colors.transparent,
       child: Focus(
         onKeyEvent: (node, event) => _handleBackspace(event),
-        child: TextField(
-          controller: controller,
-          focusNode: focusNode,
-          maxLines: null,
+        // 限高 240：超出后代码框内部自滚，不再无限撑高整个 Cell
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 240),
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            maxLines: null,
           onTap: onTap,
           // 代码框关掉 iOS 智能标点/自动纠错——否则直引号会被替换成弯引号
           // （' " → ‘ ’ “ ”）、连字符变破折号，粘进 Python/SQL 直接语法报错
@@ -88,6 +91,7 @@ class NotebookCodeCellBody extends StatelessWidget {
             ),
           ),
           onChanged: onChanged,
+          ),
         ),
       ),
     );

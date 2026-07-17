@@ -103,10 +103,13 @@ class NotebookMarkdownCellBody extends StatelessWidget {
 
     return Focus(
       onKeyEvent: (node, event) => _handleBackspace(event),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        maxLines: null,
+      // 限高 200：超出后编辑框内部自滚，不再无限撑高整个 Cell
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 200),
+        child: TextField(
+          controller: controller,
+          focusNode: focusNode,
+          maxLines: null,
         onTap: onActivate,
         // LaTeX 里直引号被替换成弯引号会破坏语法，公式块也关掉智能标点
         smartQuotesType: cellType == 'latex'
@@ -133,7 +136,8 @@ class NotebookMarkdownCellBody extends StatelessWidget {
             color: isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC),
           ),
         ),
-        onChanged: onChanged,
+          onChanged: onChanged,
+        ),
       ),
     );
   }
