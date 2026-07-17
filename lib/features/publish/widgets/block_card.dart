@@ -123,6 +123,23 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     language: widget.block.language ?? 'python',
   );
 
+  // Markdown 块专用受控 controller——不再走 initialValue+换key 那套。listener
+  // 把输入同步进 block.content 并 onChanged；外部改内容（小梦/帮我写）由
+  // didUpdateWidget 反向同步进 controller。_mdSyncing 防外部同步时又触发一次
+  // onChanged（在 didUpdateWidget 里 setState 会炸）
+  TextEditingController? _mdController;
+  bool _mdSyncing = false;
+
+  void _initMdController() {
+    if (widget.block.type != BlockType.markdown) return;
+    _mdController = TextEditingController(text: widget.block.content);
+    _mdController!.addListener(() {
+      if (_mdSyncing) return;
+      widget.block.content = _mdController!.text;
+      widget.onChanged();
+    });
+  }
+
   // AI/运行输出区的滚动控制器——超过 maxHeight 可滚动；打字机流式输出时
   // 每次内容更新后自动滚到底部，跟着最新文字走
   final ScrollController _aiScrollCtrl = ScrollController();
@@ -140,6 +157,24 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     // 手势的 onTap，底部格式工具栏得靠这个监听器才能知道新 block 也
     // "获得了焦点"
     widget.block.focusNode.addListener(_handleFocusChange);
+    _initMdController();
+  }
+
+  @override
+  void didUpdateWidget(covariant BlockCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 外部改了 Markdown 内容（小梦帮我写填入等）→ 反向同步进 controller，
+    // 光标落到末尾。_mdSyncing 期间 listener 不回写、不 onChanged
+    if (widget.block.type == BlockType.markdown &&
+        _mdController != null &&
+        _mdController!.text != widget.block.content) {
+      _mdSyncing = true;
+      _mdController!.value = TextEditingValue(
+        text: widget.block.content,
+        selection: TextSelection.collapsed(offset: widget.block.content.length),
+      );
+      _mdSyncing = false;
+    }
   }
 
   void _handleFocusChange() {
@@ -188,6 +223,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   void dispose() {
     widget.block.focusNode.removeListener(_handleFocusChange);
     _codeCtrl.dispose();
+    _mdController?.dispose();
     _aiScrollCtrl.dispose();
     _aiTypeTimer?.cancel();
     super.dispose();
@@ -1914,103 +1950,117 @@ th{background:$thBg;color:$thFg}
     ),
   );
 
-  // Markdown 块：未聚焦且有内容时用 MarkdownBody 渲染（加粗/列表/小节标题
-  // 等），点一下切回原始 Markdown 源码编辑，收起键盘再切回渲染——跟文字块
-  // 的行内公式一个套路。小梦生成里含 Markdown 语法的段落走这个块
+  // Markdown 块（完整重写）：受控 controller（_mdController）+ 焦点驱动的
+  // 编辑↔预览双态。预览态未聚焦且有内容时用 MarkdownBody 渲染（普通字体、
+  // 拉开标题层级 + 引用/行内代码样式）；点一下进编辑态，收键盘/点别处失焦
+  // 自动切回预览。_focused 完全由 _handleFocusChange 里的 focusNode.hasFocus
+  // 驱动，不再用 initialValue+换key、不再在 onTap/onEditingComplete 里手改
   Widget _buildMarkdownBlock(AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = Theme.of(context).textTheme.bodyLarge?.color;
+    final ink = isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
 
+    // 预览态
     if (!_focused && widget.block.content.trim().isNotEmpty) {
       return GestureDetector(
-        // opaque：点击块内空白/行间也能触发，不只是文字实体上
         behavior: HitTestBehavior.opaque,
         onTap: () {
+          // 预览态下 TextField 没挂载，直接 requestFocus 会落空 → 先 setState
+          // 切成编辑态把输入框挂上，再 postFrame 请求焦点（否则点了弹回预览）
           setState(() => _focused = true);
-          // requestFocus 必须等 setState 重建出 TextFormField 挂上 focusNode
-          // 之后再调——同步调会在输入框挂载前落空，焦点监听器随即把 _focused
-          // 复位成 false，导致点了又弹回预览态、进不去编辑
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) widget.block.focusNode.requestFocus();
+            if (!mounted) return;
+            widget.block.focusNode.requestFocus();
+            _mdController?.selection = TextSelection.collapsed(
+              offset: _mdController!.text.length,
+            );
           });
         },
-        child: MarkdownBody(
-          data: widget.block.content,
-          selectable: false,
-          // fromTheme 派生的标题样式跟正文几乎没差（app 的 TextTheme 里
-          // headline/title 偏小），于是 # ## ### 看起来"没渲染成标题"。这里显式
-          // 给全 h1-h6/加粗/列表样式，拉开层级；h4-h6 也补上——小梦常用 ####
-          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            p: TextStyle(fontSize: 14, height: 1.7, color: textColor),
-            h1: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-              color: textColor,
-            ),
-            h2: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-              color: textColor,
-            ),
-            h3: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-              color: textColor,
-            ),
-            h4: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-              color: textColor,
-            ),
-            h5: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-              color: textColor,
-            ),
-            h6: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-              color: textColor,
-            ),
-            strong: const TextStyle(fontWeight: FontWeight.w600),
-            listBullet: TextStyle(fontSize: 14, height: 1.7, color: textColor),
+        child: SizedBox(
+          width: double.infinity,
+          child: MarkdownBody(
+            data: widget.block.content,
+            selectable: false,
+            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                .copyWith(
+                  h1: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    height: 1.4,
+                    color: ink,
+                  ),
+                  h2: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                    color: ink,
+                  ),
+                  h3: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                    color: ink,
+                  ),
+                  h4: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: ink,
+                  ),
+                  h5: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: ink,
+                  ),
+                  h6: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: muted,
+                  ),
+                  p: TextStyle(fontSize: 14, height: 1.7, color: ink),
+                  strong: TextStyle(fontWeight: FontWeight.w600, color: ink),
+                  em: TextStyle(fontStyle: FontStyle.italic, color: ink),
+                  listBullet: TextStyle(fontSize: 14, color: muted),
+                  blockquote: TextStyle(
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    color: muted,
+                  ),
+                  code: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: Color(0xFF6366F1),
+                    backgroundColor: Color(0xFFEEF0FF),
+                  ),
+                ),
           ),
         ),
       );
     }
 
+    // 编辑态——受控 controller，普通字体（非等宽）显示原始 Markdown 源码
     return _withEmptyBackspace(
-      TextFormField(
-        key: ValueKey('md_${widget.block.id}_$_textRevision'),
+      TextField(
+        controller: _mdController,
         focusNode: widget.block.focusNode,
-        initialValue: widget.block.content.isNotEmpty
-            ? widget.block.content
-            : null,
-        decoration: const InputDecoration(
-          filled: false,
-          border: InputBorder.none,
+        maxLines: null,
+        // 关掉智能标点——Markdown 语法里的 ' " - 别被键盘替换成弯引号/破折号
+        autocorrect: false,
+        enableSuggestions: false,
+        smartQuotesType: SmartQuotesType.disabled,
+        smartDashesType: SmartDashesType.disabled,
+        style: TextStyle(fontSize: 14, height: 1.7, color: ink),
+        decoration: InputDecoration(
           isDense: true,
           contentPadding: EdgeInsets.zero,
+          filled: false,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          hintText: widget.block.content.isEmpty
+              ? '支持 Markdown 语法\n# 标题  **粗体**  - 列表'
+              : null,
+          hintStyle: TextStyle(fontSize: 14, height: 1.7, color: muted),
         ),
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 13,
-          height: 1.6,
-          color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1E293B),
-        ),
-        maxLines: null,
-        onChanged: (v) {
-          widget.block.content = v;
-          widget.onChanged();
-        },
-        onTap: () => setState(() => _focused = true),
-        onEditingComplete: () => setState(() => _focused = false),
       ),
     );
   }
