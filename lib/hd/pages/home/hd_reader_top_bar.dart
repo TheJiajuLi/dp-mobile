@@ -15,11 +15,14 @@ class HdReaderTopBar extends ConsumerWidget {
   final String tutorialId;
   final ArticleBodyController controller;
   final bool showTocButton;
+  // 窄屏单栏模式下显示返回按钮（回到列表）；宽/中屏为 null 不显示
+  final VoidCallback? onBack;
   const HdReaderTopBar({
     super.key,
     required this.tutorialId,
     required this.controller,
     this.showTocButton = false,
+    this.onBack,
   });
 
   @override
@@ -54,6 +57,10 @@ class HdReaderTopBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          if (onBack != null) ...[
+            _iconBtn(Icons.arrow_back_ios, iconc, '返回', onBack),
+            const SizedBox(width: 2),
+          ],
           if (showTocButton) ...[
             _iconBtn(Icons.list, iconc, '目录', () => _showTocSheet(context)),
             const SizedBox(width: 4),

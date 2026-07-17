@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../features/home/providers/home_feed_provider.dart';
-import 'hd_article_card.dart';
+import '../../../features/community/community_provider.dart';
+import '../home/hd_article_card.dart';
 
 const _primary = Color(0xFF6366F1);
 
-// HD 左侧内容列表面板：搜索框 + 推荐/关注/最新 Tab + 文章卡片。复用现成
-// homeFeedProvider（GET /auth/tutorials?status=published）。推荐=后端默认序
-// （created_at DESC）；最新=同列表客户端按时间再排；关注=手机端是 fan-out 拉
-// 关注作者作品合成（深绑 State，抽取是后续任务），先占位。点卡片 → 写
-// selectedProvider（由 HdReaderWorkspace 传入，首页/发现各一个），中间/右侧
-// 面板随之更新。宽度由外层工作区控制（多栏 280 / 窄屏全宽），这里不写死
-class HdArticleListPanel extends ConsumerStatefulWidget {
+// 发现列表面板的标签——跟手机社区页同一组固定分类（community_screen._tags）
+const _discoverTags = [
+  '全部',
+  'Python',
+  '数据分析',
+  '机器学习',
+  '可视化',
+  'LaTeX',
+  '统计学',
+  '数学建模',
+];
+
+// HD 发现列表面板：搜索框 + 标签筛选 chip + 文章卡片。复用 communityProvider
+// （GET /auth/tutorials，按 tag 过滤）。点标签 → setTag；点卡片 → 写
+// selectedProvider（发现工作区自己的选中态）。宽度由外层工作区控制
+class HdDiscoverListPanel extends ConsumerStatefulWidget {
   final StateProvider<String?> selectedProvider;
-  const HdArticleListPanel({super.key, required this.selectedProvider});
+  const HdDiscoverListPanel({super.key, required this.selectedProvider});
 
   @override
-  ConsumerState<HdArticleListPanel> createState() => _HdArticleListPanelState();
+  ConsumerState<HdDiscoverListPanel> createState() =>
+      _HdDiscoverListPanelState();
 }
 
-class _HdArticleListPanelState extends ConsumerState<HdArticleListPanel> {
-  int _tab = 0; // 0 推荐 / 1 关注 / 2 最新
+class _HdDiscoverListPanelState extends ConsumerState<HdDiscoverListPanel> {
   String _search = '';
 
   @override
@@ -34,7 +43,7 @@ class _HdArticleListPanelState extends ConsumerState<HdArticleListPanel> {
         ? Colors.white.withValues(alpha: 0.08)
         : const Color(0xFFE5E5EA);
 
-    final feed = ref.watch(homeFeedProvider);
+    final community = ref.watch(communityProvider);
     final selectedId = ref.watch(widget.selectedProvider);
 
     return Container(
@@ -44,9 +53,9 @@ class _HdArticleListPanelState extends ConsumerState<HdArticleListPanel> {
         children: [
           const SizedBox(height: 10),
           _searchBox(isDark),
-          _tabBar(isDark),
+          _tagChips(community.selectedTag, isDark),
           Divider(height: 0.5, thickness: 0.5, color: divider),
-          Expanded(child: _list(feed, selectedId, isDark)),
+          Expanded(child: _list(community, selectedId, isDark)),
         ],
       ),
     );
@@ -96,60 +105,65 @@ class _HdArticleListPanelState extends ConsumerState<HdArticleListPanel> {
     );
   }
 
-  Widget _tabBar(bool isDark) {
-    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
-    final muted = isDark ? const Color(0xFF888C9E) : const Color(0xFF999999);
-    Widget tab(int i, String label) {
-      final active = _tab == i;
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _tab = i),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-              color: active ? ink : muted,
+  Widget _tagChips(String selectedTag, bool isDark) {
+    final muted = isDark ? const Color(0xFFB8BCCB) : const Color(0xFF666666);
+    return SizedBox(
+      height: 34,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        itemCount: _discoverTags.length,
+        itemBuilder: (context, i) {
+          final tag = _discoverTags[i];
+          final active = selectedTag == tag;
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => ref.read(communityProvider.notifier).setTag(tag),
+              child: Container(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: active
+                      ? _primary.withValues(alpha: isDark ? 0.20 : 0.10)
+                      : (isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.white),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(
+                    color: active
+                        ? _primary.withValues(alpha: 0.4)
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : const Color(0xFFE5E5EA)),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  tag,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                    color: active ? _primary : muted,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Row(children: [tab(0, '推荐'), tab(1, '关注'), tab(2, '最新')]),
+          );
+        },
+      ),
     );
   }
 
-  Widget _list(HomeFeedState feed, String? selectedId, bool isDark) {
+  Widget _list(CommunityState community, String? selectedId, bool isDark) {
     final muted = isDark ? const Color(0xFF888C9E) : const Color(0xFF999999);
 
-    // 关注 tab——手机端 fan-out 合成流深绑 State，阶段2 先占位
-    if (_tab == 1) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            '关注流即将上线',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: muted),
-          ),
-        ),
-      );
-    }
-
-    if (feed.isLoading && feed.filtered.isEmpty) {
+    if (community.isLoading && community.filtered.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    var items = feed.filtered;
-    if (_tab == 2) {
-      // 最新：同一份真实数据客户端按 createdAt 再排一遍
-      items = [...items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    }
+    var items = community.filtered; // 已按 selectedTag 过滤
     if (_search.isNotEmpty) {
       final q = _search.toLowerCase();
       items = items.where((t) => t.title.toLowerCase().contains(q)).toList();

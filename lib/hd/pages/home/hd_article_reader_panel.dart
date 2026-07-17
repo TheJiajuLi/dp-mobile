@@ -13,12 +13,15 @@ class HdArticleReaderPanel extends StatelessWidget {
   final ScrollController scrollController;
   final ArticleBodyController bodyController;
   final bool showTocButton;
+  // 窄屏单栏模式的返回（回列表）——传给顶栏
+  final VoidCallback? onBack;
   const HdArticleReaderPanel({
     super.key,
     required this.tutorialId,
     required this.scrollController,
     required this.bodyController,
     this.showTocButton = false,
+    this.onBack,
   });
 
   @override
@@ -35,6 +38,7 @@ class HdArticleReaderPanel extends StatelessWidget {
             tutorialId: tutorialId,
             controller: bodyController,
             showTocButton: showTocButton,
+            onBack: onBack,
           ),
           Expanded(
             child: ArticleBodyView(
