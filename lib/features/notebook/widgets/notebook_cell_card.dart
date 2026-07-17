@@ -32,6 +32,10 @@ class NotebookCellCard extends StatelessWidget {
   final VoidCallback? onEmptyBackspace;
   // 点 ✨ 小梦按钮：代码/公式块 AI 辅助（Pro 门禁在编辑器侧校验）
   final VoidCallback? onAiAssist;
+  // 小梦输出区折叠态 + 折叠/展开切换。三态：无输出→onAiAssist 开菜单；有输出且
+  // 展开→onAiToggle 折叠；折叠→onAiToggle 展开
+  final bool aiCollapsed;
+  final VoidCallback? onAiToggle;
   // 保存图表——image 输出下方「保存图表」按钮
   final VoidCallback? onSaveChart;
   // SQL cell 头部下方的「可用表」提示——编辑器扫描已运行的 DataFrame 算出
@@ -56,6 +60,8 @@ class NotebookCellCard extends StatelessWidget {
     this.onChangeLanguage,
     this.onEmptyBackspace,
     this.onAiAssist,
+    this.aiCollapsed = false,
+    this.onAiToggle,
     this.onSaveChart,
     this.tableHint,
   });
@@ -128,12 +134,21 @@ class NotebookCellCard extends StatelessWidget {
           _buildHeader(context),
           if (cell.type == 'sql' && tableHint != null) _buildSqlTableHint(),
           _buildBody(),
-          if (output != null && output!.isNotEmpty)
-            buildNotebookCellOutput(
-              output!,
-              outputType,
-              isDark,
-              onSaveChart: outputType == 'image' ? onSaveChart : null,
+          // 折叠态（aiCollapsed）隐藏输出区，只留顶部 ✨（变灰）供展开
+          if (output != null && output!.isNotEmpty && !aiCollapsed)
+            Stack(
+              children: [
+                buildNotebookCellOutput(
+                  output!,
+                  outputType,
+                  isDark,
+                  onSaveChart: outputType == 'image' ? onSaveChart : null,
+                ),
+                // 输出区右上角小 ✨——展开态下继续用 AI 功能（打开菜单）。
+                // 不复用顶部那个 ✨（顶部此时管折叠）
+                if (_aiEligible && onAiAssist != null)
+                  Positioned(top: 6, right: 8, child: _outputRegenBtn()),
+              ],
             ),
         ],
       ),
@@ -412,20 +427,54 @@ class NotebookCellCard extends StatelessWidget {
     );
   }
 
-  // ✨ 小梦按钮——浅紫方钮，跟运行按钮同一套 chrome
+  // ✨ 小梦按钮——严格三态：
+  //   无输出       → onAiAssist 开 AI 菜单（紫色）
+  //   有输出且展开 → onAiToggle 折叠（点完变灰）
+  //   折叠         → onAiToggle 展开（点完变紫）
+  // 颜色只跟折叠态走：折叠=灰、否则=紫
   Widget _aiButton() {
     const accent = Color(0xFF6366F1);
+    const grey = Color(0xFF9AA0AE);
+    final hasOutput = output != null && output!.isNotEmpty;
+    final color = aiCollapsed ? grey : accent;
     return GestureDetector(
-      onTap: onAiAssist,
+      onTap: () {
+        if (!hasOutput) {
+          onAiAssist?.call();
+        } else {
+          onAiToggle?.call();
+        }
+      },
       child: Container(
         width: 34,
         height: 28,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: isDark ? 0.22 : 0.10),
+          color: color.withValues(alpha: isDark ? 0.22 : 0.10),
           borderRadius: BorderRadius.circular(9),
         ),
-        child: const Icon(Icons.auto_awesome_outlined, size: 16, color: accent),
+        child: Icon(Icons.auto_awesome_outlined, size: 16, color: color),
+      ),
+    );
+  }
+
+  // 输出区右上角的小 ✨——展开态下点它继续用 AI（打开菜单）
+  Widget _outputRegenBtn() {
+    const accent = Color(0xFF6366F1);
+    return GestureDetector(
+      onTap: onAiAssist,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: const Icon(
+          Icons.auto_awesome_outlined,
+          size: 13,
+          color: accent,
+        ),
       ),
     );
   }

@@ -43,6 +43,8 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   final Map<String, String?> _outputs = {};
   final Map<String, String?> _outputTypes = {};
   final Map<String, bool> _running = {};
+  // 小梦输出区折叠态（按 cell.id）：true=折叠隐藏。新输出生成时会重置为展开
+  final Map<String, bool> _aiCollapsed = {};
   final ScrollController _scrollCtrl = ScrollController();
   // 原地编辑：每个 cell 一个 FocusNode（按 cell.id），_activeIndex 记当前
   // 选中的 cell 下标（-1=无）。标题也可直接改，单独一个 controller
@@ -127,7 +129,14 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
       _outputTypes[cell.id] = outputType;
       cell.output = output;
       cell.outputType = outputType;
+      // 有新输出就恢复展开（首次生成/重新生成都要能看到）
+      _aiCollapsed[cell.id] = false;
     });
+  }
+
+  // ✨ 三态里的"折叠/展开"切换（有输出时点顶部 ✨ 触发）
+  void _toggleAiCollapse(NotebookCell cell) {
+    setState(() => _aiCollapsed[cell.id] = !(_aiCollapsed[cell.id] ?? false));
   }
 
   // at 为 null=追加到末尾；否则插到该下标。新建后自动选中并聚焦，直接原地
@@ -2812,6 +2821,8 @@ finally:
       focusNode: focus,
       output: _outputs[cell.id],
       outputType: _outputTypes[cell.id],
+      aiCollapsed: _aiCollapsed[cell.id] ?? false,
+      onAiToggle: () => _toggleAiCollapse(cell),
       onActivate: () => _activateCell(index),
       onChanged: (v) {
         cell.code = v;
