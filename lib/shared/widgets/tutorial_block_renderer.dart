@@ -70,6 +70,12 @@ Widget buildTutorialBlockWidget(
       );
 
     case 'code':
+      // 数据集块（Notebook 导入数据发布而来）不展示那一大段 base64 代码，
+      // 折叠成一张小卡片——阅读页进页时已静默注入内核（见
+      // tutorial_detail_screen._preloadDatasets）
+      if (block['isDataset'] == true) {
+        return _buildDatasetCard(context, content);
+      }
       return TutorialCodeBlock(
         content: content,
         language: block['language'] as String? ?? 'python',
@@ -427,6 +433,99 @@ Widget inlineLatexText(
     TextSpan(style: baseStyle, children: spans),
     maxLines: maxLines,
     overflow: overflow,
+  );
+}
+
+// 从数据集块代码里抽出文件名 + 行数用于卡片展示。数据集 cell 的代码头固定
+// 是「# <文件名> · 自动注入 · <N> 行」（xlsx/json 无行数），从注释抽最稳；
+// 抽不到再退回 pd.* 赋值的变量名
+(String name, String? rows) _extractDatasetInfo(String content) {
+  final head = RegExp(r'^#\s*(.+?)\s*·\s*自动注入').firstMatch(content);
+  final name = head?.group(1)?.trim();
+  final rowM = RegExp(r'·\s*(\d+)\s*行').firstMatch(content);
+  final rows = rowM != null ? '${rowM.group(1)} 行' : null;
+  if (name != null && name.isNotEmpty) return (name, rows);
+  final varM = RegExp(
+    r'^(\w+)\s*=\s*pd\.',
+    multiLine: true,
+  ).firstMatch(content);
+  return (varM?.group(1) ?? '数据集', rows);
+}
+
+// 数据集块折叠卡片——琥珀色（跟 Notebook 里数据集 cell 的橙色主题一致），
+// 右侧绿色「自动注入」标：说明这块数据在阅读时会自动加载进内核。用"自动
+// 注入"而非"已注入内核"是因为这个 renderer 也被发布页预览抽屉复用，那里
+// 并不会真的注入，描述机制比断言运行态更诚实
+Widget _buildDatasetCard(BuildContext context, String content) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final (name, rows) = _extractDatasetInfo(content);
+  const amber = Color(0xFFD97706);
+  const green = Color(0xFF16A34A);
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? amber.withValues(alpha: 0.10) : const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: amber.withValues(alpha: isDark ? 0.5 : 1),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.dataset_outlined, size: 16, color: amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('数据集', style: TextStyle(fontSize: 10, color: amber)),
+                const SizedBox(height: 1),
+                Text(
+                  rows == null ? name : '$name · $rows',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? const Color(0xFFFCD9A6)
+                        : const Color(0xFF92400E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? green.withValues(alpha: 0.16)
+                  : const Color(0xFFF0FFF5),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_outline, size: 9, color: green),
+                SizedBox(width: 3),
+                Text(
+                  '自动注入',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 }
 
@@ -820,4 +919,3 @@ Widget _tappableCard(
     ),
   );
 }
-
