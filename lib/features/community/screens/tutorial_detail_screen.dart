@@ -10,6 +10,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/services/pyodide_engine.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../../shared/widgets/pro_badge.dart';
@@ -111,6 +112,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   bool _loading = true;
   bool _liked = false;
   bool _saved = false;
+  // 数据集静默注入中——顶部显示一条蓝色细提示条，注入完成后消失
+  bool _datasetLoading = false;
   // null = 还没查/不适用（比如在看自己的教程），不显示关注按钮
   bool? _isFollowing;
 
@@ -390,6 +393,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       _loading = false;
     });
 
+    // blocks 到手后立刻静默注入数据集（不 await，不阻塞关注状态等后续请求）
+    _preloadDatasets();
+
     final authorId = t['user_id'] as String?;
     final currentUserId = ref.read(currentUserProvider)?.id;
     if (authorId != null && authorId.isNotEmpty && authorId != currentUserId) {
@@ -401,6 +407,40 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         );
       }
     }
+  }
+
+  // 进页静默注入：把所有 isDataset 代码块按顺序在共享内核里跑一遍，还原出
+  // df 等变量，读者随后运行下方代码块时 df 已存在。直接调 engine.run（不走
+  // TutorialCodeBlock._run），天然绕过 Pro 门禁——数据注入是"看文章"的一部
+  // 分，不是读者主动运行代码，不该拦
+  Future<void> _preloadDatasets() async {
+    final datasets = _blocks
+        .whereType<Map>()
+        .where((b) => b['type'] == 'code' && b['isDataset'] == true)
+        .toList();
+    if (datasets.isEmpty) return;
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    setState(() => _datasetLoading = true);
+    final engine = ref.read(pyodideEngineProvider);
+    for (final b in datasets) {
+      final id = b['id']?.toString() ?? 'dataset_${datasets.indexOf(b)}';
+      final code = b['content']?.toString() ?? '';
+      if (code.trim().isEmpty) continue;
+      try {
+        await engine.run(
+          id,
+          code,
+          'python',
+          l10n,
+          timeout: const Duration(seconds: 90),
+        );
+      } catch (_) {
+        // 单个数据集注入失败不影响其它，也不打扰读者——用户真去运行下方
+        // 代码块时才会看到 df 不存在的报错
+      }
+    }
+    if (mounted) setState(() => _datasetLoading = false);
   }
 
   Future<void> _toggleFollow() async {
@@ -939,6 +979,42 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ),
             ),
           ),
+          // 数据集加载提示条——静默注入内核期间显示，完成后消失
+          if (_datasetLoading)
+            SliverToBoxAdapter(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                color: isDark
+                    ? const Color(0xFF0EA5E9).withValues(alpha: 0.10)
+                    : const Color(0xFFF0F9FF),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.6,
+                        valueColor: AlwaysStoppedAnimation(Color(0xFF0EA5E9)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '本文包含数据集，正在加载…',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? const Color(0xFF7DD3FC)
+                            : const Color(0xFF0369A1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           // 封面区：16:9 封面图 + 底部渐变遮罩 + 标签浮层
           SliverToBoxAdapter(
             child: ExcludeSemantics(

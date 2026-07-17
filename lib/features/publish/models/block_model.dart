@@ -39,6 +39,10 @@ class EditorBlock {
   String? linkUrl;
   String? variant; // callout: tip/warning/info
   bool isExecutable;
+  // 数据集代码块——由 Notebook 导入数据的 cell 发布而来，content 里内嵌了
+  // base64 数据 + pd.read_* 还原代码。阅读页进页时会静默执行这类 block 把
+  // df 注入内核，读者不用手动先跑数据集就能运行下方用到 df 的代码
+  bool isDataset;
   String? outputContent;
   String? outputType; // text/image/error
   // 文字格式——只在 text/heading block 上有意义。这里没有做到"选中一段
@@ -76,6 +80,7 @@ class EditorBlock {
     this.linkUrl,
     this.variant = 'info',
     this.isExecutable = false,
+    this.isDataset = false,
     this.outputContent,
     this.outputType,
     this.isBold = false,
@@ -97,6 +102,7 @@ class EditorBlock {
     'content': content,
     if (type == BlockType.code) 'language': language,
     if (type == BlockType.code) 'executable': isExecutable,
+    if (type == BlockType.code && isDataset) 'isDataset': true,
     if (type == BlockType.heading) 'level': headingLevel,
     if (type == BlockType.image) 'imageUrl': imageUrl,
     if (type == BlockType.image) 'caption': caption,
@@ -132,10 +138,14 @@ class EditorBlock {
       orElse: () => BlockType.text,
     );
     return EditorBlock(
-      id: j['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          j['id']?.toString() ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       type: type,
       content: j['content']?.toString() ?? '',
-      language: j['language']?.toString() ?? (type == BlockType.code ? 'python' : null),
+      language:
+          j['language']?.toString() ??
+          (type == BlockType.code ? 'python' : null),
       headingLevel: (j['level'] as num?)?.toInt() ?? 2,
       imageUrl: j['imageUrl']?.toString(),
       caption: j['caption']?.toString(),
@@ -146,6 +156,8 @@ class EditorBlock {
       linkUrl: j['linkUrl']?.toString(),
       variant: j['variant']?.toString() ?? 'info',
       isExecutable: j['executable'] as bool? ?? false,
+      // 老文章没有这个字段 → 默认 false，不影响现有内容
+      isDataset: j['isDataset'] == true,
       isBold: j['bold'] == true,
       isItalic: j['italic'] == true,
       isUnderline: j['underline'] == true,

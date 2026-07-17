@@ -2494,6 +2494,9 @@ finally:
             content: code,
             language: cell.type,
             isExecutable: runnable,
+            // 数据集 cell（导入数据生成、含 base64 注入代码）带上标记，阅读页
+            // 进页时会静默执行它把 df 注入内核
+            isDataset: cell.metadata?['isDataset'] == true,
             outputContent: hasTextOut ? cell.output : null,
             outputType: hasTextOut ? cell.outputType : null,
           ),
