@@ -64,6 +64,7 @@ import '../../features/settings/screens/changelog_screen.dart';
 import '../../features/settings/screens/faq_list_screen.dart';
 import '../../features/settings/screens/help_feedback_screen.dart';
 import '../../features/settings/screens/account_security_screen.dart';
+import '../../features/settings/screens/agreement_screen.dart';
 import '../../features/settings/screens/login_history_screen.dart';
 import '../../features/settings/screens/payment_screen.dart';
 import '../../features/settings/screens/privacy_policy_screen.dart';
@@ -235,6 +236,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/security',
       builder: (context, state) => const AccountSecurityScreen(),
+    ),
+    GoRoute(
+      path: '/settings/agreement',
+      builder: (context, state) => const AgreementScreen(),
     ),
     GoRoute(
       path: '/settings/security/history',

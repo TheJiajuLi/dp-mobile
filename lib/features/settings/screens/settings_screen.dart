@@ -103,6 +103,14 @@ class SettingsScreen extends ConsumerWidget {
                       subtitle: l10n.accountSecuritySubtitle,
                       onTap: () => context.push('/settings/security'),
                     ),
+                    SettingsRow(
+                      icon: Icons.verified_outlined,
+                      iconColor: const Color(0xFF6366F1),
+                      iconBg: const Color(0xFFEEF0FF),
+                      title: '用户协议',
+                      subtitle: '原创声明与著作权存证',
+                      onTap: () => context.push('/settings/agreement'),
+                    ),
                     // 会员中心入口收敛到创作者中心那颗（更深化的视觉语言），
                     // 这里不再重复放一个，避免多入口冗余
                     SettingsRow(
