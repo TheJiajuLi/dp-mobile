@@ -15,6 +15,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/utils/avatar_upload.dart';
 import '../../../shared/utils/gender_label.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../../shared/widgets/interest_tag.dart';
 import '../../../shared/widgets/zodiac_icon.dart';
 import '../../auth/auth_service.dart';
@@ -346,9 +347,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             final t = tag.trim();
             if (t.isEmpty || selected.contains(t)) return;
             if (selected.length >= 3) {
-              ScaffoldMessenger.of(
-                ctx,
-              ).showSnackBar(const SnackBar(content: Text('最多添加3个兴趣标签')));
+              showAppToast(ctx, '最多添加3个兴趣标签');
               return;
             }
             setSheetState(() => selected.add(t));
@@ -418,9 +417,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           GestureDetector(
                             onTap: () {
                               if (atLimit) {
-                                ScaffoldMessenger.of(ctx).showSnackBar(
-                                  const SnackBar(content: Text('最多添加3个兴趣标签')),
-                                );
+                                showAppToast(ctx, '最多添加3个兴趣标签');
                                 return;
                               }
                               FocusScope.of(ctx).requestFocus(customFocusNode);

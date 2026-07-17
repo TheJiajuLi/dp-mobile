@@ -20,6 +20,7 @@ import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/block_text_style.dart';
 import '../../../shared/utils/pro_access.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../../shared/utils/ai_lang.dart';
 import '../../../shared/utils/code_highlight.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart'
@@ -1517,13 +1518,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
 
   void _copyContent() {
     Clipboard.setData(ClipboardData(text: widget.block.content));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('已复制'),
-        duration: Duration(seconds: 1),
-        backgroundColor: Color(0xFF16A34A),
-      ),
-    );
+    showAppToast(context, '已复制', ok: true);
   }
 
   // 代码块跟文字/公式块一样简化：去掉外框和顶栏。语言选择挪到底部工具栏

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/app_toast.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -96,24 +97,16 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
     return s.isEmpty ? '#' : s.substring(0, 1);
   }
 
-  // 成功：先抓 messenger 再 pop（sheet 的 context pop 后失效，messenger 在
-  // 上层不受影响），绿色浮动 SnackBar
+  // 成功：先弹标准 toast（走上层 ScaffoldMessenger，pop sheet 后仍在），再关 sheet
   void _showSuccess(String msg) {
-    final messenger = ScaffoldMessenger.of(context);
+    if (!mounted) return;
+    showAppToast(context, msg, ok: true);
     Navigator.pop(context);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showAppToast(context, msg);
   }
 
   // ---------- 加载目标列表 ----------
