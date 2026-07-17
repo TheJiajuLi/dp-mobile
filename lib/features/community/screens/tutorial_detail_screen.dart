@@ -166,6 +166,46 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   GlobalKey _headingKeyFor(int blockIndex) =>
       _headingKeys.putIfAbsent(blockIndex, () => GlobalKey());
 
+  // 渲染正文 blocks——先一遍算好每个 latex 块的公式编号（顺序、只对
+  // autoNumber=true 的块；旧数据无此字段默认 true），再逐块渲染。heading 块挂
+  // GlobalKey 供目录跳转定位
+  List<Widget> _buildBlockWidgets(AppLocalizations l10n, Map<String, dynamic> t) {
+    final eqNums = <int?>[];
+    var n = 0;
+    for (final b in _blocks) {
+      if (b is Map &&
+          b['type'] == 'latex' &&
+          (b['autoNumber'] as bool? ?? true)) {
+        eqNums.add(++n);
+      } else {
+        eqNums.add(null);
+      }
+    }
+    // 作者本人看自己的文章不拦截运行；读者（非作者）阅读他人文章运行代码是
+    // Pro 权益
+    final isSelf =
+        (t['user_id'] as String?) != null &&
+        t['user_id'] == ref.read(currentUserProvider)?.id;
+    final widgets = <Widget>[];
+    for (var i = 0; i < _blocks.length; i++) {
+      final b = _blocks[i] as Map;
+      final w = buildTutorialBlockWidget(
+        context,
+        l10n,
+        Map<String, dynamic>.from(b),
+        readingMode: true,
+        isSelfPreview: isSelf,
+        equationNumber: eqNums[i],
+      );
+      widgets.add(
+        b['type'] == 'heading'
+            ? KeyedSubtree(key: _headingKeyFor(i), child: w)
+            : w,
+      );
+    }
+    return widgets;
+  }
+
   // 从 blocks 抽出所有 heading 块 → 目录项 {index(块下标), level(1/2/3), text}。
   // 只有 heading 进目录；正文/代码/公式/图片/音视频/数据集等都不进
   List<Map<String, dynamic>> get _toc {
@@ -1505,25 +1545,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ..._blocks.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final b = entry.value;
-                  final w = buildTutorialBlockWidget(
-                    context,
-                    l10n,
-                    Map<String, dynamic>.from(b as Map),
-                    readingMode: true,
-                    // 作者本人看自己的文章不拦截运行；读者（非作者）阅读他人
-                    // 文章时运行代码才是 Pro 权益
-                    isSelfPreview:
-                        (t['user_id'] as String?) != null &&
-                        t['user_id'] == ref.read(currentUserProvider)?.id,
-                  );
-                  // heading 块挂 GlobalKey，供目录 ensureVisible 跳转定位
-                  return b['type'] == 'heading'
-                      ? KeyedSubtree(key: _headingKeyFor(i), child: w)
-                      : w;
-                }),
+                ..._buildBlockWidgets(l10n, t),
                 if (columnId != null && columnId.isNotEmpty)
                   _buildColumnCard(l10n, columnId),
                 if (tags.isNotEmpty)

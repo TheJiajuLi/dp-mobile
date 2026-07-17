@@ -43,6 +43,9 @@ class EditorBlock {
   // base64 数据 + pd.read_* 还原代码。阅读页进页时会静默执行这类 block 把
   // df 注入内核，读者不用手动先跑数据集就能运行下方用到 df 的代码
   bool isDataset;
+  // latex block 公式自动编号——true（默认）时参与"文档内第 n 个公式"顺序编号、
+  // 右侧显示 (n)；作者可逐条关闭。只对 BlockType.latex 有意义
+  bool autoNumber;
   String? outputContent;
   String? outputType; // text/image/error
   // 文字格式——只在 text/heading block 上有意义。这里没有做到"选中一段
@@ -81,6 +84,7 @@ class EditorBlock {
     this.variant = 'info',
     this.isExecutable = false,
     this.isDataset = false,
+    this.autoNumber = true,
     this.outputContent,
     this.outputType,
     this.isBold = false,
@@ -100,6 +104,8 @@ class EditorBlock {
     'id': id,
     'type': type.name,
     'content': content,
+    // 只在关闭时才写（默认 true，省字段；旧数据无此字段 fromJson 也默认 true）
+    if (type == BlockType.latex && !autoNumber) 'autoNumber': false,
     if (type == BlockType.code) 'language': language,
     if (type == BlockType.code) 'executable': isExecutable,
     if (type == BlockType.code && isDataset) 'isDataset': true,
@@ -158,6 +164,8 @@ class EditorBlock {
       isExecutable: j['executable'] as bool? ?? false,
       // 老文章没有这个字段 → 默认 false，不影响现有内容
       isDataset: j['isDataset'] == true,
+      // 旧数据无 autoNumber → 默认 true（向后兼容，老公式一样自动编号）
+      autoNumber: j['autoNumber'] as bool? ?? true,
       isBold: j['bold'] == true,
       isItalic: j['italic'] == true,
       isUnderline: j['underline'] == true,

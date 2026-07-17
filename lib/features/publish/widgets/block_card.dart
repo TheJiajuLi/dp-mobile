@@ -82,6 +82,9 @@ class BlockCard extends ConsumerStatefulWidget {
   // 每次上传文件成功（图片/视频/音频/文件）把后端返回的 file id 报给
   // PublishScreen 收集，退出未保存时用来清理 COS 里这些孤儿文件
   final void Function(String fileId)? onFileUploaded;
+  // latex 块的公式编号（文档内第 n 个 autoNumber 公式）——由 PublishScreen 按
+  // 位置算好传进来，null=该块 autoNumber 关 或 非 latex
+  final int? equationNumber;
 
   const BlockCard({
     super.key,
@@ -100,6 +103,7 @@ class BlockCard extends ConsumerStatefulWidget {
     this.onNonTextTap,
     this.focusedBlockId,
     this.onFileUploaded,
+    this.equationNumber,
   });
 
   @override
@@ -1776,26 +1780,88 @@ th{background:$thBg;color:$thFg}
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         children: [
-          widget.block.content.isNotEmpty
-              // Math.tex 不会自动换行/收缩——公式比卡片宽（长积分式/多项
-              // 连乘这类）会顶穿右边界，冒出调试态才看得到的"溢出2.4像素"
-              // 黄黑警示条。套一层横向 SingleChildScrollView，宽公式改成
-              // 左右滑动，不是硬挤爆
-              ? SizedBox(
-                  width: double.infinity,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Math.tex(
-                      preprocessLatex(
-                        widget.block.content.replaceAll(r'$$', '').trim(),
-                      ),
-                      textStyle: TextStyle(fontSize: 16, color: mathColor),
-                      onErrorFallback: (err) => Text(
-                        widget.block.content,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
+          // 右上角「#编号」开关——toggle autoNumber。开=参与文档公式顺序编号、
+          // 右侧显示 (n)；关=不编号。改完 onChanged 让父级重算所有公式编号
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(
+                  () => widget.block.autoNumber = !widget.block.autoNumber,
+                );
+                widget.onChanged();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: widget.block.autoNumber
+                      ? _primary.withValues(alpha: isDark ? 0.16 : 0.08)
+                      : null,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: widget.block.autoNumber
+                        ? _primary.withValues(alpha: 0.3)
+                        : border,
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.tag,
+                      size: 13,
+                      color: widget.block.autoNumber ? _primary : hintColor,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      '编号',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: widget.block.autoNumber ? _primary : hintColor,
                       ),
                     ),
-                  ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          widget.block.content.isNotEmpty
+              // Math.tex 不会自动换行/收缩——套横向滚动，宽公式左右滑动。传统
+              // 论文样式：公式居中、右侧 (n) 编号（autoNumber 开且父级派了号才显示）
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Math.tex(
+                            preprocessLatex(
+                              widget.block.content.replaceAll(r'$$', '').trim(),
+                            ),
+                            textStyle: TextStyle(fontSize: 16, color: mathColor),
+                            onErrorFallback: (err) => Text(
+                              widget.block.content,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (widget.equationNumber != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '(${widget.equationNumber})',
+                        style: TextStyle(fontSize: 14, color: mathColor),
+                      ),
+                    ],
+                  ],
                 )
               : const SizedBox.shrink(),
           const SizedBox(height: 8),

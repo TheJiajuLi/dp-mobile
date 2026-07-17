@@ -662,6 +662,18 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     });
   }
 
+  // 第 i 个 block 的公式编号：只有 latex + autoNumber 的块才计数，返回它在文档
+  // 里第几个这样的公式（1 起）；否则 null。跟阅读页同一套顺序编号语义
+  int? _equationNumberFor(int i) {
+    final b = _blocks[i];
+    if (b.type != BlockType.latex || !b.autoNumber) return null;
+    var n = 0;
+    for (var k = 0; k <= i; k++) {
+      if (_blocks[k].type == BlockType.latex && _blocks[k].autoNumber) n++;
+    }
+    return n;
+  }
+
   Future<void> _saveDraft() async => _save('draft');
 
   Future<void> _publish() async {
@@ -1193,6 +1205,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                                       block: _blocks[i],
                                       index: i,
                                       total: _blocks.length,
+                                      equationNumber: _equationNumberFor(i),
                                       membership: membership,
                                       onRunCode: _runBlockCode,
                                       onDelete: () =>

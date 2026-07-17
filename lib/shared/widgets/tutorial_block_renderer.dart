@@ -37,6 +37,9 @@ Widget buildTutorialBlockWidget(
   // 代码块运行门禁：自己的内容（作者预览草稿/看自己已发布文章）传 true 不
   // 拦截；读者阅读他人文章传 false（默认），非 Pro 运行时弹会员 Sheet
   bool isSelfPreview = false,
+  // latex 块的公式编号（文档内第 n 个参与编号的公式）——调用处按位置算好传进
+  // 来；null=不编号（autoNumber 关 或 非 latex）
+  int? equationNumber,
 }) {
   final type = block['type'] as String? ?? 'text';
   final content = block['content'] as String? ?? '';
@@ -114,13 +117,10 @@ Widget buildTutorialBlockWidget(
           : codeWidget;
 
     case 'latex':
-      // Math.tex 不会自动换行/收缩——公式比屏幕宽（长积分式/多项连乘）
-      // 会顶穿右边界溢出。套一层横向滚动，宽公式改成左右滑动
-      return Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: readingMode ? 20 : 16,
-          vertical: 8,
-        ),
+      // Math.tex 不会自动换行/收缩——公式比屏幕宽（长积分式/多项连乘）会顶穿
+      // 右边界溢出。套一层横向滚动，宽公式改成左右滑动。传统论文样式：公式
+      // 居中、右侧 (n) 编号垂直居中；不编号时保持左对齐
+      final formula = Center(
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Math.tex(
@@ -132,6 +132,29 @@ Widget buildTutorialBlockWidget(
             ),
           ),
         ),
+      );
+      return Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: readingMode ? 20 : 16,
+          vertical: 8,
+        ),
+        child: equationNumber == null
+            // 未编号的独立公式也居中（传统论文样式），只是不带 (n)
+            ? formula
+            : Row(
+                children: [
+                  Expanded(child: formula),
+                  const SizedBox(width: 8),
+                  Text(
+                    '($equationNumber)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).textTheme.bodyMedium?.color
+                          ?.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
       );
 
     case 'image':
