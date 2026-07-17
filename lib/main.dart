@@ -1,126 +1,20 @@
 import 'dart:async';
-import 'dart:ui' show PlatformDispatcher;
 
 import 'package:app_links/app_links.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
-import 'core/font_size_provider.dart';
-import 'core/locale_provider.dart';
-import 'core/network/api_client.dart';
+import 'core/app_bootstrap.dart';
+import 'core/app_material.dart';
+import 'core/app_session_host.dart';
 import 'core/router/app_router.dart';
-import 'core/theme/app_theme.dart';
-import 'core/theme_provider.dart';
 import 'features/auth/auth_service.dart';
-import 'features/subscription/purchase_service.dart';
-import 'l10n/generated/app_localizations.dart';
-import 'shared/services/pyodide_engine.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // 临时诊断用：捕获完整 FlutterError（含 stack），排查
-  // semantics.parentDataDirty 断言崩溃时定位真正的调用链。排查完记得删掉
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    debugPrint('═══ FLUTTER ERROR ═══');
-    debugPrint(details.toString());
-    debugPrint(details.stack.toString());
-    debugPrint('═══════════════════');
-  };
-
-  // 崩溃监控接入。成功初始化后接管 Flutter/异步未捕获错误上报到
-  // Crashlytics；缺 Firebase 配置时整段 catch 掉，保留上面的诊断 handler，
-  // App 照常启动
-  await _initCrashlytics();
-
-  // /auth/refresh 认的是登录时后端下发的 dp_refresh HttpOnly cookie，必须
-  // 落盘（PersistCookieJar）才能在 App 被系统整个杀掉重启后依然有效——
-  // 只是"划走切到后台但进程没被杀"的话，内存态的 cookie 本来就不会丢。
-  // getApplicationDocumentsDirectory() 是个平台 channel 调用，冷启动时
-  // await 它会直接卡住 runApp()、拖慢启动页出现的时间——用
-  // _DeferredCookieJar 包一层同步喂给 Dio，真正的 PersistCookieJar 在
-  // 后台异步建好后再生效，不阻塞首帧
-  final cookieJar = _DeferredCookieJar(_buildPersistentCookieJar());
-
-  // Runner 这个 target 只跑 iPhone 版——iPad 版是完全独立的 RunnerHD
-  // target（入口是 lib/hd/main_hd.dart），两边互不相关，main.dart 不需要
-  // 做任何设备检测/分支
-  runApp(
-    ProviderScope(
-      overrides: [
-        apiClientProvider.overrideWith(
-          (ref) => ApiClient(ref, cookieJar: cookieJar),
-        ),
-      ],
-      child: const MyApp(),
-    ),
-  );
-}
-
-// Firebase Crashlytics 初始化。这是可选增强：只有当项目里补齐了 Firebase
-// 配置文件（iOS 的 GoogleService-Info.plist / Android 的 google-services.json，
-// 或用 `flutterfire configure` 生成的 firebase_options.dart 传给
-// initializeApp(options:)）时，initializeApp() 才会成功、崩溃上报才真正启用。
-// 没配置时 initializeApp() 抛异常，这里 catch 掉——不设 Crashlytics 的错误
-// handler，也不影响 App 启动。配置补齐后本函数无需改动即自动生效。
-Future<void> _initCrashlytics() async {
-  try {
-    await Firebase.initializeApp();
-    final crashlytics = FirebaseCrashlytics.instance;
-
-    // Flutter 框架层未捕获错误（build/layout/paint 等）
-    FlutterError.onError = (FlutterErrorDetails details) {
-      FlutterError.presentError(details);
-      crashlytics.recordFlutterFatalError(details);
-    };
-
-    // 框架之外的异步未捕获错误（isolate 顶层）
-    PlatformDispatcher.instance.onError = (error, stack) {
-      crashlytics.recordError(error, stack, fatal: true);
-      return true;
-    };
-  } catch (_) {
-    // Firebase 未配置——崩溃上报暂不启用，保留上面的诊断 handler，静默跳过
-  }
-}
-
-Future<PersistCookieJar> _buildPersistentCookieJar() async {
-  final docsDir = await getApplicationDocumentsDirectory();
-  return PersistCookieJar(
-    ignoreExpires: false,
-    storage: FileStorage('${docsDir.path}/.cookies/'),
-  );
-}
-
-class _DeferredCookieJar implements CookieJar {
-  _DeferredCookieJar(this._ready);
-
-  final Future<CookieJar> _ready;
-
-  @override
-  bool get ignoreExpires => false;
-
-  @override
-  Future<void> saveFromResponse(Uri uri, List<Cookie> cookies) async =>
-      (await _ready).saveFromResponse(uri, cookies);
-
-  @override
-  Future<List<Cookie>> loadForRequest(Uri uri) async =>
-      (await _ready).loadForRequest(uri);
-
-  @override
-  Future<void> deleteAll() async => (await _ready).deleteAll();
-
-  @override
-  Future<void> delete(Uri uri, [bool withDomainSharedCookie = false]) async =>
-      (await _ready).delete(uri, withDomainSharedCookie);
-}
+// Runner 这个 target 只跑 iPhone 版——iPad 版是完全独立的 RunnerHD target
+// （入口 lib/hd/main_hd.dart），两边互不相关。启动编排、MaterialApp 装配、
+// 会话侧都抽到了 core/app_bootstrap|app_material|app_session_host 两端共用，
+// 这里只留手机端专属的部分：深链（OAuth 回调/重置密码）
+Future<void> main() => bootstrapAndRun(() => const MyApp());
 
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
@@ -129,34 +23,29 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends ConsumerState<MyApp> {
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _linkSub = _appLinks.uriLinkStream.listen(_handleDeepLink);
-    // 尽早初始化内购：监听 purchaseStream 才能接住上次被中断/挂起的交易，
-    // 并预加载商品信息。幂等，失败不影响 App 启动
-    unawaited(ref.read(purchaseServiceProvider).init());
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _linkSub?.cancel();
     super.dispose();
   }
 
-  // 后端 Google/GitHub OAuth 回调统一走 jimeng://auth/callback 这个
-  // scheme（见 dreamingpolar_user_auth_backend 的 oauth.ts），成功带
-  // accessToken，失败带 error——跟密码登录一样，userId/username 不直接
-  // 信回调参数，交给 AuthService.completeOAuthLogin 重新拉一次 /auth/me
+  // 后端 Google/GitHub OAuth 回调统一走 jimeng://auth/callback（见
+  // dreamingpolar_user_auth_backend 的 oauth.ts），成功带 accessToken，失败带
+  // error——跟密码登录一样，userId/username 不直接信回调参数，交给
+  // AuthService.completeOAuthLogin 重新拉一次 /auth/me。
   //
-  // 忘记密码邮件里的重置链接走 jimeng://reset-password?token=xxx——跟
-  // OAuth 回调是同一个自定义 scheme 下的不同 host，各自独立处理
+  // 忘记密码邮件里的重置链接走 jimeng://reset-password?token=xxx——同一个
+  // 自定义 scheme 下的不同 host，各自独立处理
   void _handleDeepLink(Uri uri) {
     if (uri.scheme != 'jimeng') return;
 
@@ -192,72 +81,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // App 从后台回来时顺手静默换新 token。真正兜底的其实是 ApiClient
-    // 拦截器里 403 自动刷新重试那套——即使这里没跑或跑失败，下一次真实
-    // 请求撞到过期 token 时也会自动补救，这里只是提前续一下，减少那次
-    // "刚好赶上过期"的请求被迫多绕一次刷新+重试
-    if (state == AppLifecycleState.resumed &&
-        ref.read(currentUserProvider) != null) {
-      unawaited(ref.read(authServiceProvider).silentRefresh());
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final themePref = ref.watch(themeProvider);
-    final fontSize = ref.watch(fontSizeProvider);
-    final localePref = ref.watch(localeProvider);
-
-    return MaterialApp.router(
-      title: '',
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      // MaterialApp 默认会把主题切换做成 200ms 的渐变过渡（哪怕没有显式
-      // 用 AnimatedTheme，这个动画也是内置的）。问题是代码块、聊天气泡
-      // 这些地方大量用的是写死的深色（不跟主题走，任何时候都是深色），
-      // 这些区域不参与这段渐变、瞬间就是最终颜色；而真正跟主题走的区域
-      // （比如底部导航栏读 scaffoldBackgroundColor）却要用 200ms 慢慢
-      // 过渡过去——这两类区域在动画过程中颜色对不上，就是用户看到的
-      // "底部tab跟上方不一致的闪烁延迟"。改成 Duration.zero 让切换瞬间
-      // 完成，不再有过渡窗口，从根上消除这类不同步问题，而不是继续在
-      // 每一处写死深色的地方逐个找补
-      themeAnimationDuration: Duration.zero,
-      themeMode: switch (themePref) {
-        ThemePreference.light => ThemeMode.light,
-        ThemePreference.dark => ThemeMode.dark,
-        ThemePreference.system => ThemeMode.system,
-      },
-      locale: localeFor(localePref),
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.supportedLocales,
-      routerConfig: appRouter,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(fontSize)),
-        child: Stack(
-          children: [
-            child!,
-            // 全局共享的隐藏 Pyodide WebView——App 启动就开始预热
-            // compiler.js/Pyodide，Notebook/发布页/教程详情页运行代码块
-            // 时不用再各自等一遍冷启动。挂在 builder 里而不是某个具体
-            // 页面，跟路由切换无关，整个 App 生命周期只建一次
-            Positioned(
-              left: -9999,
-              top: -9999,
-              width: 1,
-              height: 1,
-              child: ref.read(pyodideEngineProvider).buildHiddenWebView(),
-            ),
-          ],
-        ),
-      ),
+    return AppSessionHost(
+      child: buildDreamingApp(ref: ref, routerConfig: appRouter),
     );
   }
 }
