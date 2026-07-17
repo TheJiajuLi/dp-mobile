@@ -233,8 +233,7 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
       setState(() => _streaming = false);
       if (_generated.trim().isEmpty) {
         final msg = e.response?.data is Map
-            ? ((e.response!.data as Map)['message']?.toString() ??
-                  '小梦开小差了，请重试')
+            ? ((e.response!.data as Map)['message']?.toString() ?? '小梦开小差了，请重试')
             : '小梦开小差了，请重试';
         _fail(msg);
       }
@@ -343,6 +342,23 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
         );
         continue;
       }
+      // 正文里的 Markdown 小节标题（# ~ ######）单独成 heading 块，而不是被
+      // _hasMarkdown 吞进整段 markdown——否则阅读页目录抓不到、层级也丢了。
+      // 级别映射：#/## → 2，### → 3，####+ → 4（本 App heading 只支持 2/3/4）
+      final headingMatch = RegExp(r'^(#{1,6})\s+(.+)$').firstMatch(trimmed);
+      if (headingMatch != null) {
+        flushPara();
+        final hashes = headingMatch.group(1)!.length;
+        final level = hashes <= 2 ? 2 : (hashes == 3 ? 3 : 4);
+        blocks.add(
+          XmengBlock(
+            type: BlockType.heading,
+            content: headingMatch.group(2)!.trim(),
+            headingLevel: level,
+          ),
+        );
+        continue;
+      }
       para.add(raw);
     }
 
@@ -386,7 +402,8 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
       if (RegExp(r'^#{1,6}\s').hasMatch(l)) return true; // 小节标题
     }
     if (RegExp(r'\[[^\]]+\]\([^)]+\)').hasMatch(text)) return true; // 链接
-    if (RegExp(r'(?<!\*)\*[^*\s][^*\n]*\*(?!\*)').hasMatch(text)) return true; // *斜体*
+    if (RegExp(r'(?<!\*)\*[^*\s][^*\n]*\*(?!\*)').hasMatch(text))
+      return true; // *斜体*
     return false;
   }
 
@@ -553,7 +570,12 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     );
   }
 
-  Widget _aiBubble(String text, Color bubbleBg, Color border, {Widget? trailing}) {
+  Widget _aiBubble(
+    String text,
+    Color bubbleBg,
+    Color border, {
+    Widget? trailing,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -662,7 +684,10 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
                   onSubmitted: (_) => _generate(),
                   decoration: const InputDecoration(
                     hintText: '比如：写一篇贝叶斯定理的入门文章',
-                    hintStyle: TextStyle(color: Color(0xFF9AA0AB), fontSize: 14),
+                    hintStyle: TextStyle(
+                      color: Color(0xFF9AA0AB),
+                      fontSize: 14,
+                    ),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(vertical: 12),
