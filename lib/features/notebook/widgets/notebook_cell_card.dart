@@ -32,6 +32,8 @@ class NotebookCellCard extends StatelessWidget {
   final VoidCallback? onEmptyBackspace;
   // 点 ✨ 小梦按钮：代码/公式块 AI 辅助（Pro 门禁在编辑器侧校验）
   final VoidCallback? onAiAssist;
+  // 保存图表——image 输出下方「保存图表」按钮
+  final VoidCallback? onSaveChart;
 
   const NotebookCellCard({
     super.key,
@@ -52,6 +54,7 @@ class NotebookCellCard extends StatelessWidget {
     this.onChangeLanguage,
     this.onEmptyBackspace,
     this.onAiAssist,
+    this.onSaveChart,
   });
 
   // 复制按钮给代码块/Markdown/LaTeX（图片没有可复制的文本）
@@ -71,6 +74,10 @@ class NotebookCellCard extends StatelessWidget {
 
   // 导入数据文件生成的"数据集 cell"——橙色边框 + 暖黄头部 + 数据集徽标
   bool get _isDataset => cell.metadata?['isDataset'] == true;
+
+  // 可视化 cell（python + isVisualization 标记）——绿色边框 + 浅绿头部 +
+  // 绿色「可视化」pill（区别于代码块的紫）
+  bool get _isViz => cell.metadata?['isVisualization'] == true;
 
   @override
   Widget build(BuildContext context) {
@@ -93,10 +100,12 @@ class NotebookCellCard extends StatelessWidget {
         color: isDark ? const Color(0xFF1A1A2A) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: _isDataset
+          color: _isViz
+              ? const Color(0xFF16A34A)
+              : _isDataset
               ? const Color(0xFFD97706)
               : (isActive ? activeBorder : idleBorder),
-          width: (_isDataset || isActive) ? 1 : 0.5,
+          width: (_isViz || _isDataset || isActive) ? 1 : 0.5,
         ),
         // 浅色下加一层很淡的浮起阴影——跟底部工具栏同一套（alpha 0.06/
         // blur 12），卡片从背景的紫光晕上"浮"起来，不是纯靠描边贴在背景上
@@ -116,7 +125,12 @@ class NotebookCellCard extends StatelessWidget {
           _buildHeader(context),
           _buildBody(),
           if (output != null && output!.isNotEmpty)
-            buildNotebookCellOutput(output!, outputType, isDark),
+            buildNotebookCellOutput(
+              output!,
+              outputType,
+              isDark,
+              onSaveChart: outputType == 'image' ? onSaveChart : null,
+            ),
         ],
       ),
     );
@@ -155,7 +169,11 @@ class NotebookCellCard extends StatelessWidget {
   // 选中时额外露出拖拽手柄/菜单。跟设计稿一致——语言用带色 pill 直接表意，
   // 运行是独立的图标钮而非文字标签
   Widget _buildHeader(BuildContext context) {
-    final headerBg = _isDataset
+    final headerBg = _isViz
+        ? (isDark
+              ? const Color(0xFF16A34A).withValues(alpha: 0.10)
+              : const Color(0xFFF0FFF5))
+        : _isDataset
         ? (isDark
               ? const Color(0xFFD97706).withValues(alpha: 0.10)
               : const Color(0xFFFFFBEB))
@@ -181,48 +199,80 @@ class NotebookCellCard extends StatelessWidget {
           // 语言 pill 的底色所有 cell 统一用 Python 那种极浅的中性紫（近白）——
           // 不再每种语言各自上色（markdown 的浅绿底会显得发灰），视觉统一；
           // 类型区分只靠文字颜色（Python 紫 / Markdown 绿 / LaTeX violet）
-          GestureDetector(
-            // 代码类 cell 点 pill 可切换语言（弹底部选择器）；markdown/latex/
-            // 图片没有"语言"概念，pill 不可点
-            onTap: (_isExecutable(cell.type) && onChangeLanguage != null)
-                ? () => showLanguagePickerSheet(
-                    context,
-                    current: cell.type,
-                    onSelect: onChangeLanguage!,
-                  )
-                : null,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(10, 4, 8, 4),
+          // 可视化 cell：绿色「可视化」pill（不可切语言）；其余：语言 pill
+          if (_isViz)
+            Container(
+              padding: const EdgeInsets.fromLTRB(9, 4, 9, 4),
               decoration: BoxDecoration(
                 color: const Color(
-                  0xFF6366F1,
+                  0xFF16A34A,
                 ).withValues(alpha: isDark ? 0.22 : 0.12),
                 borderRadius: BorderRadius.circular(7),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Icon(
+                    Icons.bar_chart_outlined,
+                    size: 12,
+                    color: Color(0xFF16A34A),
+                  ),
+                  SizedBox(width: 4),
                   Text(
-                    _label(cell.type),
+                    '可视化',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: _langColor(cell.type),
+                      color: Color(0xFF16A34A),
                     ),
                   ),
-                  // 可切换时给个下拉小箭头，暗示"点一下能换语言"
-                  if (_isExecutable(cell.type) && onChangeLanguage != null) ...[
-                    const SizedBox(width: 3),
-                    Icon(
-                      Icons.expand_more,
-                      size: 14,
-                      color: _langColor(cell.type),
-                    ),
-                  ],
                 ],
               ),
+            )
+          else
+            GestureDetector(
+              // 代码类 cell 点 pill 可切换语言（弹底部选择器）；markdown/latex/
+              // 图片没有"语言"概念，pill 不可点
+              onTap: (_isExecutable(cell.type) && onChangeLanguage != null)
+                  ? () => showLanguagePickerSheet(
+                      context,
+                      current: cell.type,
+                      onSelect: onChangeLanguage!,
+                    )
+                  : null,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(10, 4, 8, 4),
+                decoration: BoxDecoration(
+                  color: const Color(
+                    0xFF6366F1,
+                  ).withValues(alpha: isDark ? 0.22 : 0.12),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _label(cell.type),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _langColor(cell.type),
+                      ),
+                    ),
+                    // 可切换时给个下拉小箭头，暗示"点一下能换语言"
+                    if (_isExecutable(cell.type) &&
+                        onChangeLanguage != null) ...[
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.expand_more,
+                        size: 14,
+                        color: _langColor(cell.type),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ),
           if (_isDataset) ...[
             const SizedBox(width: 8),
             Flexible(

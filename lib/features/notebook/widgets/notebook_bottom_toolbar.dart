@@ -10,6 +10,7 @@ const _toolbarItems = [
   (Icons.code, '代码', 'python'),
   (Icons.functions, '公式', 'latex'),
   (Icons.image_outlined, '图片', 'image'),
+  (Icons.bar_chart_outlined, '可视化', 'visualization'),
   (Icons.storage_outlined, 'SQL', 'sql'),
   (Icons.more_horiz, '更多', 'more'),
 ];
@@ -63,34 +64,34 @@ class NotebookBottomToolbar extends StatelessWidget {
         children: [
           ..._toolbarItems.map((item) {
             final isActive = activeType == item.$3;
-          final fg = isActive
-              ? (isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A))
-              : (isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC));
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onTap(item.$3),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? (isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF5F5F5))
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(item.$1, size: 19, color: fg),
-                    const SizedBox(height: 2),
-                    Text(item.$2, style: TextStyle(fontSize: 9, color: fg)),
-                  ],
+            final fg = isActive
+                ? (isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A))
+                : (isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC));
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onTap(item.$3),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? (isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : const Color(0xFFF5F5F5))
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(item.$1, size: 19, color: fg),
+                      const SizedBox(height: 2),
+                      Text(item.$2, style: TextStyle(fontSize: 9, color: fg)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
+            );
           }),
           if (onImport != null) ...[
             const SizedBox(width: 4),

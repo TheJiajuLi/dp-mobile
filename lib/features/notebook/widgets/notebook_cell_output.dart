@@ -4,7 +4,12 @@ import 'package:flutter/material.dart';
 
 // 输出区：文字=绿左线浅绿底 / 图片=浅紫底 / 错误=红左线。从
 // notebook_editor_screen.dart 抽出来，纯展示，不持有状态
-Widget buildNotebookCellOutput(String output, String? type, bool isDark) {
+Widget buildNotebookCellOutput(
+  String output,
+  String? type,
+  bool isDark, {
+  VoidCallback? onSaveChart,
+}) {
   if (type == 'image') {
     return Container(
       width: double.infinity,
@@ -13,16 +18,63 @@ Widget buildNotebookCellOutput(String output, String? type, bool isDark) {
         color: isDark ? const Color(0xFF13131F) : const Color(0xFFEEF0FF),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.memory(
-          base64Decode(output),
-          fit: BoxFit.contain,
-          errorBuilder: (c, e, s) => Text(
-            '图片解码失败',
-            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              base64Decode(output),
+              fit: BoxFit.contain,
+              errorBuilder: (c, e, s) => Text(
+                '图片解码失败',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              ),
+            ),
           ),
-        ),
+          // 保存图表——存/分享 PNG（matplotlib 图或图片块都可用）
+          if (onSaveChart != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: onSaveChart,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF16A34A).withValues(alpha: 0.18)
+                        : const Color(0xFFE8F8F0),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.download_outlined,
+                        size: 13,
+                        color: Color(0xFF16A34A),
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        '保存图表',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF16A34A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

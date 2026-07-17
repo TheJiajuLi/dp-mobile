@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
 import '../../publish/models/block_model.dart';
@@ -156,6 +158,63 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     });
   }
 
+  // 可视化 cell——本质是带 matplotlib 起始模板的 python cell + isVisualization
+  // 标记（镜像数据集 cell 的 metadata 模式），绿色主题、运行/AI/复制全复用
+  void _addVizCell({int? at}) {
+    if (_nb == null) return;
+    const template =
+        'import matplotlib\n'
+        "matplotlib.use('Agg')  # 极梦内核：离屏渲染\n"
+        'import matplotlib.pyplot as plt\n\n'
+        '# 在这里绘图（可用上文的 df 等变量）\n'
+        "plt.figure(figsize=(8, 4))\n"
+        "plt.plot([1, 2, 3, 4], [10, 20, 15, 25], color='#6366F1')\n"
+        "plt.title('图表标题')\n"
+        'plt.tight_layout()\n'
+        'plt.show()  # 极梦自动捕获并渲染\n';
+    final cell = NotebookCell(
+      id: 'cell_${DateTime.now().millisecondsSinceEpoch}',
+      type: 'python',
+      code: template,
+      metadata: {'isVisualization': true},
+    );
+    final ctrl = _makeController(cell);
+    final focus = FocusNode();
+    final index = at ?? _nb!.cells.length;
+    setState(() {
+      _nb!.cells.insert(index, cell);
+      _controllers[cell.id] = ctrl;
+      _focusNodes[cell.id] = focus;
+      _outputs[cell.id] = null;
+      _outputTypes[cell.id] = null;
+      _running[cell.id] = false;
+      _activeIndex = index;
+    });
+    _scheduleSave();
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (mounted) focus.requestFocus();
+    });
+  }
+
+  // 保存图表——把 image 输出的 base64 PNG 写临时文件后调系统分享（存相册/
+  // 转发都走这个）
+  Future<void> _saveChart(String output) async {
+    try {
+      final b64 = output.contains(',') ? output.split(',').last : output;
+      final bytes = base64Decode(b64);
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/chart_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([
+        XFile(file.path, mimeType: 'image/png'),
+      ], text: '极梦 Notebook 图表');
+    } catch (e) {
+      _showSnack('保存失败，请重试', ok: false);
+    }
+  }
+
   // 切换代码 cell 的语言（点语言 pill 弹选择器后回调）——只改类型，代码内容
   // 不动，切完清掉旧输出（换了语言旧结果就不作数了）
   void _changeCellLanguage(NotebookCell cell, String type) {
@@ -177,10 +236,123 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   // 点 ✨ 按钮的入口——AI 辅助是 Pro 权益，点了才校验，非 Pro 弹升级 Sheet
   void _showCellAiMenu(NotebookCell cell, TextEditingController controller) {
     if (!requirePro(context, ref, feature: 'AI代码辅助')) return;
-    if (cell.type == 'latex') {
+    if (cell.metadata?['isVisualization'] == true) {
+      _showVizAiMenu(cell, controller);
+    } else if (cell.type == 'latex') {
       _showLatexAiMenu(cell, controller);
     } else {
       _showCodeAiMenu(cell, controller);
+    }
+  }
+
+  // 可视化 AI 助手：生成图表代码 / 解释此图表 / 优化图表配色
+  void _showVizAiMenu(NotebookCell cell, TextEditingController controller) {
+    const actions = [
+      ('generate', Icons.auto_awesome_outlined, '生成图表代码', '描述你想要的图表'),
+      ('explain', Icons.insights_outlined, '解释此图表', 'AI 分析图表数据含义'),
+      ('style', Icons.palette_outlined, '优化图表配色', '让图表更美观'),
+    ];
+    _showAiActionSheet('小梦可视化助手', actions, (action) {
+      switch (action) {
+        case 'generate':
+          _showVizGenSheet(cell, controller);
+          break;
+        case 'explain':
+          _explainViz(cell, controller);
+          break;
+        case 'style':
+          _optimizeVizStyle(cell, controller);
+          break;
+      }
+    });
+  }
+
+  // 生成图表代码：描述 → 小梦写 matplotlib 代码 → 替换 cell.code
+  Future<void> _generateVizCode(
+    NotebookCell cell,
+    TextEditingController controller,
+    String desc,
+  ) async {
+    _setOutput(cell, '小梦生成中…', 'ai');
+    try {
+      final code = await _xmengChat(
+        '请用 Python + matplotlib 画出下面描述的图表，只输出可直接运行的完整代码，'
+        "不要解释、不要 markdown 代码块。开头务必包含 import matplotlib; "
+        "matplotlib.use('Agg')；结尾用 plt.show()。描述：\n\n$desc",
+      );
+      if (!mounted) return;
+      _setOutput(cell, null, null);
+      if (code != null && code.trim().isNotEmpty) {
+        final cleaned = code
+            .replaceAll(RegExp(r'^```\w*\n?'), '')
+            .replaceAll(RegExp(r'\n?```$'), '')
+            .trim();
+        setState(() {
+          cell.code = cleaned;
+          controller.text = cleaned;
+        });
+        _scheduleSave();
+      }
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('生成失败，请重试', ok: false);
+      }
+    }
+  }
+
+  Future<void> _explainViz(
+    NotebookCell cell,
+    TextEditingController controller,
+  ) async {
+    final code = controller.text.trim();
+    if (code.isEmpty) {
+      _showSnack('先写点绘图代码，小梦才能解释', ok: false);
+      return;
+    }
+    final langHint = await aiLangHint();
+    _setOutput(cell, '小梦分析中…', 'ai');
+    try {
+      final result = await _xmengChat(
+        '$langHint这是一段用 matplotlib 绘图的代码，请解释它画的是什么图、'
+        '展示了什么数据含义，分点说明：\n\n```python\n$code\n```',
+      );
+      if (!mounted) return;
+      final ok = result != null && result.isNotEmpty;
+      _setOutput(cell, ok ? result : null, ok ? 'ai' : null);
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('小梦开小差了，请重试', ok: false);
+      }
+    }
+  }
+
+  Future<void> _optimizeVizStyle(
+    NotebookCell cell,
+    TextEditingController controller,
+  ) async {
+    final code = controller.text.trim();
+    if (code.isEmpty) {
+      _showSnack('先写点绘图代码', ok: false);
+      return;
+    }
+    final langHint = await aiLangHint();
+    _setOutput(cell, '小梦美化中…', 'ai');
+    try {
+      final result = await _xmengChat(
+        '$langHint请优化以下 matplotlib 绘图代码的配色和样式（协调美观的配色、'
+        '合适的字号/网格/留白），直接输出优化后的完整代码：\n\n```python\n$code\n```',
+      );
+      if (!mounted) return;
+      _setOutput(cell, null, null);
+      if (result == null || result.isEmpty) return;
+      _confirmReplaceCode(cell, controller, result);
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('小梦开小差了，请重试', ok: false);
+      }
     }
   }
 
@@ -547,6 +719,143 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primary,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '生成',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 图表「生成」输入弹层——描述框 + 预设词 + 生成按钮（绿色系）
+  void _showVizGenSheet(NotebookCell cell, TextEditingController controller) {
+    final promptCtrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+    const green = Color(0xFF16A34A);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: BoxDecoration(
+            color: card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.bar_chart_outlined, size: 17, color: green),
+                  const SizedBox(width: 8),
+                  Text(
+                    '生成图表代码',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: promptCtrl,
+                autofocus: true,
+                maxLines: 2,
+                style: TextStyle(fontSize: 14, color: ink),
+                decoration: InputDecoration(
+                  hintText: '如：各科成绩的柱状图，按学生分组',
+                  hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                  filled: true,
+                  fillColor: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFF6F6F4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: green),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: ['柱状图', '折线图', '散点图', '饼图', '直方图'].map((t) {
+                  return GestureDetector(
+                    onTap: () => promptCtrl.text = t,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF5F5F2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        t,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark
+                              ? const Color(0xFFB0B4C8)
+                              : const Color(0xFF555555),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final desc = promptCtrl.text.trim();
+                    if (desc.isEmpty) return;
+                    Navigator.pop(ctx);
+                    _generateVizCode(cell, controller, desc);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: green,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
@@ -1965,6 +2274,7 @@ finally:
       onChangeLanguage: (type) => _changeCellLanguage(cell, type),
       onEmptyBackspace: () => _deleteCellFromBackspace(index),
       onAiAssist: () => _showCellAiMenu(cell, ctrl),
+      onSaveChart: () => _saveChart(cell.output ?? ''),
     );
   }
 
@@ -2059,6 +2369,9 @@ finally:
     switch (type) {
       case 'image':
         _addImageCell();
+        break;
+      case 'visualization':
+        _addVizCell();
         break;
       case 'more':
         showMoreLanguagesSheet(
