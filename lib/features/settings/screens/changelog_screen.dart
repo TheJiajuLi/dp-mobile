@@ -7,7 +7,7 @@ import '../../../l10n/generated/app_localizations.dart';
 
 // 最新版本号——每次发布前手动更新。设置页「更新日志」的"新动态"角标、
 // 本页"当前版本"、以及已读判断都用它当唯一真相
-const String kLatestVersion = 'v1.2.0';
+const String kLatestVersion = 'v1.3.0';
 
 const String _kLastSeenKey = 'about_last_seen_version';
 
@@ -69,6 +69,39 @@ class ChangelogScreen extends ConsumerStatefulWidget {
   // 节奏严格对齐，手工维护比接口/多语言词条更可靠）。changes 是扁平列表，
   // 卡片里按 type 分组渲染，只显示最近 10 个版本
   static const List<_Version> _versions = [
+    _Version(
+      version: 'v1.3.0',
+      date: '2026.07.17',
+      changes: [
+        _Change('Notebook可视化Cell——绿色主题/matplotlib图表/保存图表', ChangeType.feature),
+        _Change('Notebook描述生成代码——自然语言转Python/快捷示例/自动插入', ChangeType.feature),
+        _Change('Notebook SQL内核多表——所有DataFrame自动注册为SQLite表', ChangeType.feature),
+        _Change('Notebook SQL动态可用表提示+AI感知表结构', ChangeType.feature),
+        _Change('文章阅读页目录——Bottom Sheet/跳转定位/scroll-spy高亮', ChangeType.feature),
+        _Change('文章阅读页数据集自动注入内核——进页静默执行', ChangeType.feature),
+        _Change('阅读页数据集块折叠为琥珀色小卡片', ChangeType.feature),
+        _Change('聊天消息删除——仅对自己不可见/云端同步', ChangeType.feature),
+        _Change('问题分享聊天卡片——紫色渐变/写回答/查看详情', ChangeType.feature),
+        _Change('注册邀请码统一入口——invite/founder/promo三表依次匹配', ChangeType.feature),
+        _Change('元老邀请码DREAMINGPOLAR上线（限10名）', ChangeType.feature),
+        _Change('创作者数据详情页接入真实接口——获赞趋势/互动分布/热门文章', ChangeType.feature),
+        _Change('本月数据查看详情打通CreatorStatsScreen', ChangeType.feature),
+        _Change('GitHub Actions自动部署——push main自动触发', ChangeType.feature),
+        _Change('SMTP迁移企业邮箱support@dreamingpolar.com', ChangeType.improve),
+        _Change('邮件Logo换成极梦彩虹弧形/消除「极极梦」预览文字', ChangeType.improve),
+        _Change('极索推荐问题缓存优化——进页秒开/后台静默刷新', ChangeType.improve),
+        _Change('Markdown块完整重写——受控controller/焦点驱动/标题渲染', ChangeType.fix),
+        _Change('空白块Delete删除——trim口径对齐修复', ChangeType.fix),
+        _Change('极索推荐问题请求体格式修复——AI真实生成', ChangeType.fix),
+        _Change('文章详情页+发现页摘要LaTeX渲染统一', ChangeType.fix),
+        _Change('PDF导出图片限宽515pt/单篇失败不中断整批', ChangeType.fix),
+        _Change('聊天撤回消息后不自动弹键盘', ChangeType.fix),
+        _Change('帮助与反馈页删除多余账号安全和会员支付入口', ChangeType.fix),
+        _Change('注册页邀请码权益深色模式下文字可见', ChangeType.fix),
+        _Change('私信问题分享豁免陌生人首条纯文字限制', ChangeType.fix),
+        _Change('登录记录地名繁体字符级转换简体', ChangeType.fix),
+      ],
+    ),
     _Version(
       version: 'v1.2.0',
       date: '2026.07.16',
