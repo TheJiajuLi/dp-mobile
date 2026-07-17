@@ -2335,18 +2335,32 @@ finally:
 
   void _clearOutputs() {
     if (_nb == null) return;
-    // 有没有真的可清的输出——没有的话也给个反馈，不然点了"没反应"
-    final hadOutput = _nb!.cells.any((c) => (c.output?.isNotEmpty ?? false));
+    // 「清空输出」只清代码/SQL 的运行结果，不动那些把内容本身存在 output
+    // 里的 cell：
+    //  · 图片内容块（outputType=='image' 且不是可视化图表）——图是内容不是输出
+    //  · 数据集块（metadata.isDataset==true）——导入的数据不是运行结果
+    // 可视化图表（isVisualization）虽然也是 image，但确实是"运行产出"，要清
+    bool isClearable(NotebookCell c) {
+      if ((c.output?.isEmpty ?? true)) return false;
+      if (c.outputType == 'image' &&
+          c.metadata?['isVisualization'] != true) {
+        return false; // 图片内容块，跳过
+      }
+      if (c.metadata?['isDataset'] == true) return false; // 数据集块，跳过
+      return true;
+    }
+
+    final targets = _nb!.cells.where(isClearable).toList();
     setState(() {
-      for (final cell in _nb!.cells) {
+      for (final cell in targets) {
         cell.output = null;
         cell.outputType = null;
         _outputs[cell.id] = null;
         _outputTypes[cell.id] = null;
       }
     });
-    _scheduleSave();
-    _showSnack(hadOutput ? '已清空所有输出' : '没有可清空的输出');
+    if (targets.isNotEmpty) _scheduleSave();
+    _showSnack(targets.isNotEmpty ? '已清空运行输出' : '暂无运行输出可清空');
   }
 
   // 顶栏 ⋯ 更多菜单——从系统默认的白色 PopupMenu 换成全站统一的底部弹层
