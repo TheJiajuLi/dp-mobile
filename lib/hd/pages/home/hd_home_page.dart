@@ -132,7 +132,7 @@ class _TocEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = isDark
         ? Theme.of(context).scaffoldBackgroundColor
-        : const Color(0xFFF5F5F7);
+        : const Color(0xFFFAFAF8);
     return Container(width: 180, color: bg);
   }
 }

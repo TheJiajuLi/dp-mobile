@@ -17,7 +17,7 @@ class HdShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark
           ? Theme.of(context).scaffoldBackgroundColor
-          : const Color(0xFFF5F5F7),
+          : const Color(0xFFFAFAF8),
       body: SafeArea(
         child: Row(
           children: [

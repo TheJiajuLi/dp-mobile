@@ -28,7 +28,7 @@ class _HdArticleListPanelState extends ConsumerState<HdArticleListPanel> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final panelBg = isDark
         ? Theme.of(context).cardColor
-        : const Color(0xFFF7F7F7);
+        : const Color(0xFFFAFAF8);
     final divider = isDark
         ? Colors.white.withValues(alpha: 0.08)
         : const Color(0xFFE5E5EA);

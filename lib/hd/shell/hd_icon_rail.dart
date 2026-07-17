@@ -23,7 +23,7 @@ class HdIconRail extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final railBg = isDark
         ? Theme.of(context).cardColor
-        : const Color(0xFFF7F7F7);
+        : const Color(0xFFFAFAF8);
     final user = ref.watch(currentUserProvider);
     final current = navigationShell.currentIndex;
 

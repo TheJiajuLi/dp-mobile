@@ -112,7 +112,7 @@ class HdTocPanel extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final panelBg = isDark
         ? Theme.of(context).scaffoldBackgroundColor
-        : const Color(0xFFF5F5F7);
+        : const Color(0xFFFAFAF8);
     final ink = isDark ? const Color(0xFFE6E6E6) : const Color(0xFF1A1A1A);
     final muted = isDark ? const Color(0xFF888C9E) : const Color(0xFF999999);
     final divider = isDark

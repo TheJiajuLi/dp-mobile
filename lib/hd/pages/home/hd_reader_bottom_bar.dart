@@ -19,7 +19,7 @@ class HdReaderBottomBar extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark
         ? Theme.of(context).scaffoldBackgroundColor
-        : const Color(0xFFF5F5F7);
+        : const Color(0xFFFAFAF8);
     final iconc = isDark ? const Color(0xFFB8BCCB) : const Color(0xFF888888);
     final divider = isDark
         ? Colors.white.withValues(alpha: 0.08)
