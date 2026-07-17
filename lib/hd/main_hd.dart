@@ -1,12 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../core/app_bootstrap.dart';
 import 'hd_app.dart';
 
-void mainHd() {
-  runApp(const ProviderScope(child: HdApp()));
-}
-
-// 临时入口——只是为了能单独跑这个沙盒验证 Rail 出得来，不接入
-// lib/main.dart，不影响真实 App 的启动路径
-void main() => mainHd();
+// RunnerHD（iPad）的 Dart 入口。跟 lib/main.dart 走同一套 bootstrapAndRun
+// 地基（cookie/crashlytics/apiClient override/ProviderScope），只是 root 换成
+// HdApp。iPhone 的 Runner 入口是 lib/main.dart，两个 target 各跑各的
+void main() => bootstrapAndRun(() => const HdApp());

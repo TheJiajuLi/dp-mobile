@@ -1,69 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-import '../pages/discover/hd_discover_page.dart';
-import '../pages/messages/hd_messages_page.dart';
-import '../pages/profile/hd_profile_page.dart';
-import '../pages/settings/hd_settings_page.dart';
-import 'hd_rail.dart';
-import 'hd_top_bar.dart';
+import 'hd_icon_rail.dart';
 
-enum HdPage { discover, messages, profile, settings }
-
-class HdShell extends StatefulWidget {
-  const HdShell({super.key});
-
-  @override
-  State<HdShell> createState() => _HdShellState();
-}
-
-class _HdShellState extends State<HdShell> {
-  HdPage _currentPage = HdPage.discover;
-
-  void _onNavTap(HdPage page) {
-    setState(() => _currentPage = page);
-  }
-
-  Widget _buildCurrentPage() {
-    switch (_currentPage) {
-      case HdPage.discover:
-        return const HdDiscoverPage();
-      case HdPage.messages:
-        return const HdMessagesPage();
-      case HdPage.profile:
-        return const HdProfilePage();
-      case HdPage.settings:
-        return const HdSettingsPage();
-    }
-  }
+// HD 外壳：左侧 64px 图标栏（全局常驻）+ 分割线 + 当前分支内容区。分支切换、
+// 状态保活由 go_router 的 StatefulShellRoute.indexedStack 负责（见 hd_router），
+// 这里只负责摆布局。每个分支自己的内部布局（首页的 list+reader+toc、小梦的
+// 对话整块等）由各分支页决定，不在这里管
+class HdShell extends StatelessWidget {
+  final StatefulNavigationShell navigationShell;
+  const HdShell({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
+      backgroundColor: isDark
+          ? Theme.of(context).scaffoldBackgroundColor
+          : const Color(0xFFF5F5F7),
       body: SafeArea(
         child: Row(
           children: [
-            // 左侧Rail（固定，永远在）
-            HdRail(currentPage: _currentPage, onNavTap: _onNavTap),
-
-            // 分割线
-            const VerticalDivider(
+            HdIconRail(navigationShell: navigationShell),
+            VerticalDivider(
               width: 0.5,
               thickness: 0.5,
-              color: Color(0xFFE5E5EA),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFFE5E5EA),
             ),
-
-            // 右侧内容区
-            Expanded(
-              child: Column(
-                children: [
-                  // 顶部工具栏
-                  HdTopBar(currentPage: _currentPage),
-                  // 内容
-                  Expanded(child: _buildCurrentPage()),
-                ],
-              ),
-            ),
+            Expanded(child: navigationShell),
           ],
         ),
       ),
