@@ -966,7 +966,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
               child: Text(
                 '不保存，直接退出',
                 style: TextStyle(
-                  color: Colors.grey[500],
+                  // 深色模式下 grey[500] 在深底按钮上太暗看不清，提亮到白 70%
+                  color: isDark ? Colors.white70 : Colors.grey[600],
                   fontWeight: FontWeight.w500,
                 ),
               ),

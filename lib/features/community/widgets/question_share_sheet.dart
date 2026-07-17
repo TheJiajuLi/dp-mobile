@@ -579,6 +579,10 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
                 onPressed: (actionEnabled && !_sending) ? onAction : null,
                 style: FilledButton.styleFrom(
                   backgroundColor: ctaBg,
+                  // 显式给白字——深色模式 ctaBg 是紫、浅色是近黑，不给的话
+                  // FilledButton 默认前景色在深色下会算成暗色，白底紫按钮上
+                  // 「发送到群组」几乎看不清
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -593,7 +597,13 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
                           color: Colors.white,
                         ),
                       )
-                    : Text(actionLabel),
+                    : Text(
+                        actionLabel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ],

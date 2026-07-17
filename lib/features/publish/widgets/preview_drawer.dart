@@ -10,7 +10,6 @@ import '../../auth/auth_service.dart';
 import '../models/block_model.dart';
 
 const _primary = Color(0xFF6366F1);
-const _ink = Color(0xFF1A1A1A);
 const _bg = Color(0xFFFAFAF8);
 
 class PreviewDrawer extends ConsumerWidget {
@@ -222,10 +221,14 @@ class PreviewDrawer extends ConsumerWidget {
                               const SizedBox(width: 8),
                               Text(
                                 user?.username ?? '',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: _ink,
+                                  // 跟随主题——原来写死 _ink 近黑，深色模式下
+                                  // 作者名跟深色背景糊在一起看不见
+                                  color: Theme.of(
+                                    context,
+                                  ).textTheme.bodyLarge?.color,
                                 ),
                               ),
                               const SizedBox(width: 6),
