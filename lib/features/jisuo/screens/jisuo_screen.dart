@@ -126,25 +126,6 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   List<String> _starterQuestions = _sampleQuestions;
   bool _loadingStarters = false;
 
-  // 领域池——每次刷新随机选 3 个不同领域，让 AI 出的问题跨得开
-  static const _starterDomains = [
-    '概率论与统计',
-    '线性代数',
-    '微积分',
-    '数论',
-    'Python数据分析',
-    '机器学习',
-    '算法与数据结构',
-    'SQL查询优化',
-    '贝叶斯推断',
-    '时间序列分析',
-    '深度学习',
-    '图论',
-    '数值计算',
-    'R语言统计',
-    '信号处理',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -458,48 +439,27 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   // 纯生成：调 AI 拿一批问题，只返回结果、不碰 state/缓存——上面三处复用。
   // 解析失败/异常返回空列表，由调用方决定怎么兜底
   Future<List<String>> _fetchStarterQuestions() async {
-    final domains = List<String>.from(_starterDomains)..shuffle();
-    final selected = domains.take(3).toList();
-    final prompt =
-        '为一个数学/编程/数据科学知识社区生成3个吸引人的问题，'
-        '分别涉及这三个领域：${selected.join('、')}。\n\n'
-        '要求：\n'
-        '- 每个问题15字以内\n'
-        '- 具体有趣，不要泛泛而谈\n'
-        '- 直接输出3个问题\n'
-        '- 每行一个，不要编号\n'
-        '- 不要任何其他文字';
-
+    // 改为请求服务端题库（Redis 缓存，<100ms）——不用现场等 AI 生成，第一次
+    // 进也秒开。拿到整个题池后本地 shuffle 取 5 条。解析失败/异常返回空列表，
+    // 由调用方决定兜底（保持原有 stale-while-revalidate 缓存逻辑不变）
     try {
-      final res = await ref
-          .read(apiClientProvider)
-          .post(
-            // 后端 /auth/xmeng/chat（非流式）读的是 {messages:[...]} 数组，不是
-            // 单数 message。响应是 res.data['message']
-            '/auth/xmeng/chat',
-            data: {
-              'messages': [
-                {'role': 'user', 'content': prompt},
-              ],
-            },
-          );
+      final res = await ref.read(apiClientProvider).get('/auth/jisuo/starters');
       if (res.success && res.data != null) {
-        final content = (res.data['message'] as String?) ?? '';
-        final lines = content
-            .split('\n')
-            .map((l) => l.trim())
-            // 兜底剥掉 AI 偶尔仍带上的行首编号/符号（1. 、- 、• 等）
-            .map(
-              (l) =>
-                  l.replaceFirst(RegExp(r'^\s*(\d+[.、)]|[-•·])\s*'), '').trim(),
-            )
-            .where((l) => l.isNotEmpty)
-            .take(3)
-            .toList();
-        if (lines.length >= 2) return lines;
+        final raw = res.data['questions'];
+        if (raw is List) {
+          final questions = raw
+              // 兼容 [{text: '...'}] 和纯字符串数组两种形状
+              .map((q) => (q is Map ? q['text'] : q)?.toString().trim() ?? '')
+              .where((t) => t.isNotEmpty)
+              .toList();
+          if (questions.isNotEmpty) {
+            questions.shuffle();
+            return questions.take(5).toList();
+          }
+        }
       }
-    } catch (_) {
-      // 网络/解析异常都当"没拿到"，返回空
+    } catch (e) {
+      debugPrint('starters fetch failed: $e');
     }
     return const [];
   }
