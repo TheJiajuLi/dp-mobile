@@ -1639,7 +1639,8 @@ result
     final usesKernel =
         cell.type == 'python' ||
         cell.type == 'sql' ||
-        cell.type == 'javascript';
+        cell.type == 'javascript' ||
+        cell.type == 'r';
     if (usesKernel && mounted) setState(() => _kernelBusy = true);
     try {
       switch (cell.type) {
@@ -1657,12 +1658,12 @@ result
           _setOutput(cell, cell.code, 'markdown');
           break;
         case 'r':
+          await _runWithR(cell);
+          break;
         case 'julia':
           _setOutput(
             cell,
-            AppLocalizations.of(
-              context,
-            )!.langSupportComingSoon(cell.type.toUpperCase()),
+            AppLocalizations.of(context)!.langSupportComingSoon('JULIA'),
             'info',
           );
           break;
@@ -1905,6 +1906,47 @@ finally:
       );
     } catch (e) {
       _setOutput(cell, e.toString(), 'error');
+    } finally {
+      if (mounted) setState(() => _running[cell.id] = false);
+      _scheduleSave();
+    }
+  }
+
+  // R（webR）——仿 _runWithPyodide：未就绪先提示「R 内核加载中」，跑完取第一条
+  // 有效输出（图表是 base64 PNG → type:image，输出区自带 Image.memory 渲染）
+  Future<void> _runWithR(NotebookCell cell) async {
+    final l10n = AppLocalizations.of(context)!;
+    final engine = ref.read(pyodideEngineProvider);
+    if (!engine.webRReady && !engine.webRFailed) {
+      _setOutput(cell, 'R 内核加载中，首次需要下载 R 运行时…', 'info');
+    }
+    if (!mounted) return;
+    setState(() => _running[cell.id] = true);
+    try {
+      final outputs = await engine.runR(
+        cell.id,
+        cell.code,
+        l10n,
+        timeout: const Duration(seconds: 60),
+      );
+      if (!mounted) return;
+      String? foundOutput;
+      String? foundType;
+      for (final out in outputs) {
+        final type = out['type'] as String? ?? 'text';
+        final content = out['content'] as String? ?? '';
+        if (type == 'text' && content.trim().isEmpty) continue;
+        foundOutput = content;
+        foundType = type;
+        break;
+      }
+      _setOutput(
+        cell,
+        foundOutput ?? l10n.runCompleteNoOutputChecked,
+        foundType ?? 'text',
+      );
+    } catch (e) {
+      _setOutput(cell, l10n.runErrorWithReason('$e'), 'error');
     } finally {
       if (mounted) setState(() => _running[cell.id] = false);
       _scheduleSave();

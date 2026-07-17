@@ -28,6 +28,11 @@ import '../../l10n/generated/app_localizations.dart';
 class PyodideEngine {
   InAppWebViewController? _webCtrl;
   bool webReady = false;
+  // R 内核（webR/WASM）——跟 Pyodide 在同一个隐藏 WebView 里并行预热。
+  // webRReady=已就绪可跑；webRFailed=初始化失败（比如这个 WebView 环境不支持
+  // webR 的 channel），此时 R 走 fail-open 回落到 comingSoon 提示，不硬报错
+  bool webRReady = false;
+  bool webRFailed = false;
   final Map<String, Completer<String>> _pendingRuns = {};
   final VoidCallback? onReady;
 
@@ -62,6 +67,66 @@ setTimeout(() => {
     window.flutter_inappwebview.callHandler('compilerReady');
   }
 }, 1000);
+
+// ── R 内核（webR / WASM）——跟 Pyodide 并行预热，仿 window.runCode 的模式 ──
+// 这个 initialData 页面拿不到 COOP/COEP 头（没有 crossOriginIsolated），
+// SharedArrayBuffer 不可用，所以用 PostMessage channel（webR 唯一不依赖 SAB /
+// service worker 的通道）。init 失败就 callHandler('rFailed') 让 Flutter 侧
+// fail-open 回落 comingSoon
+let webR = null, webRReadyFlag = false;
+(async () => {
+  try {
+    const mod = await import('https://webr.r-wasm.org/latest/webr.mjs');
+    const chan = (mod.ChannelType && mod.ChannelType.PostMessage != null)
+      ? mod.ChannelType.PostMessage : 3;
+    webR = new mod.WebR({ channelType: chan });
+    await webR.init();
+    webRReadyFlag = true;
+    if (window.flutter_inappwebview) {
+      window.flutter_inappwebview.callHandler('rReady');
+    }
+  } catch(e) {
+    if (window.flutter_inappwebview) {
+      window.flutter_inappwebview.callHandler('rFailed', String(e));
+    }
+  }
+})();
+
+// 跑一段 R 代码：captureR 收 stdout/stderr + 图形（grDevices canvas 设备），
+// 图形 ImageBitmap 画进 canvas 转 base64 PNG。统一返回 [{type,content}]
+window.runR = async (code) => {
+  if (!webR || !webRReadyFlag) {
+    return JSON.stringify([{type:'error', content:'R kernel not ready'}]);
+  }
+  const shelter = await new webR.Shelter();
+  try {
+    const cap = await shelter.captureR(code, {
+      withAutoprint: true,
+      captureStreams: true,
+      captureConditions: false,
+      captureGraphics: { width: 504, height: 504 }
+    });
+    const outputs = [];
+    const text = (cap.output || [])
+      .filter(o => o.type === 'stdout' || o.type === 'stderr')
+      .map(o => o.data).join('\\n');
+    if (text.trim()) outputs.push({type:'text', content: text});
+    for (const img of (cap.images || [])) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        c.getContext('2d').drawImage(img, 0, 0);
+        outputs.push({type:'image', content: c.toDataURL('image/png').split(',')[1]});
+      } catch(_) {}
+    }
+    if (outputs.length === 0) outputs.push({type:'text', content:''});
+    return JSON.stringify(outputs);
+  } catch(e) {
+    return JSON.stringify([{type:'error', content: String(e)}]);
+  } finally {
+    try { shelter.purge(); } catch(_) {}
+  }
+};
 </script>
 </body>
 </html>
@@ -97,6 +162,14 @@ setTimeout(() => {
               final result = args.length > 1 ? args[1].toString() : '[]';
               _pendingRuns[id]?.complete(result);
             },
+          );
+          ctrl.addJavaScriptHandler(
+            handlerName: 'rReady',
+            callback: (args) => webRReady = true,
+          );
+          ctrl.addJavaScriptHandler(
+            handlerName: 'rFailed',
+            callback: (args) => webRFailed = true,
           );
         },
         initialSettings: InAppWebViewSettings(
@@ -216,6 +289,89 @@ result
         ]),
       );
 
+      dynamic parsed;
+      try {
+        parsed = jsonDecode(raw);
+      } catch (_) {
+        return [
+          {'type': 'text', 'content': raw},
+        ];
+      }
+      final outputs = parsed is List ? parsed : [parsed];
+      return outputs
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
+    } finally {
+      _pendingRuns.remove(id);
+    }
+  }
+
+  // 跑 R（webR）——跟 run() 同一套异步范式：evaluateJavascript 调 window.runR，
+  // 结果经 onRunResult handler + Completer 按 id 回来。webR 未就绪就等（首次要拉
+  // R WASM+包，给足 90 秒）；初始化失败 fail-open 回落 comingSoon 提示
+  Future<List<Map<String, dynamic>>> runR(
+    String id,
+    String code,
+    AppLocalizations l10n, {
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    code = _sanitizeCode(code);
+    if (_webCtrl == null || webRFailed) {
+      return [
+        {'type': 'info', 'content': l10n.langSupportComingSoon('R')},
+      ];
+    }
+    if (!webRReady) {
+      for (var i = 0; i < 90; i++) {
+        await Future.delayed(const Duration(seconds: 1));
+        if (webRReady || webRFailed) break;
+      }
+      if (webRFailed) {
+        return [
+          {'type': 'info', 'content': l10n.langSupportComingSoon('R')},
+        ];
+      }
+      if (!webRReady) {
+        return [
+          {'type': 'error', 'content': l10n.loadTimeoutRestart},
+        ];
+      }
+    }
+    try {
+      final completer = Completer<String>();
+      _pendingRuns[id] = completer;
+      await _webCtrl!.evaluateJavascript(
+        source:
+            '''
+(async () => {
+  try {
+    if (typeof window.runR !== 'function') {
+      window.flutter_inappwebview.callHandler(
+        'onRunResult', ${jsonEncode(id)},
+        JSON.stringify([{type:'error', content:'R kernel not ready'}])
+      );
+      return;
+    }
+    const outputs = await window.runR(${jsonEncode(code)});
+    window.flutter_inappwebview.callHandler(
+      'onRunResult', ${jsonEncode(id)}, outputs
+    );
+  } catch(e) {
+    window.flutter_inappwebview.callHandler(
+      'onRunResult', ${jsonEncode(id)},
+      JSON.stringify([{type:'error', content: String(e)}])
+    );
+  }
+})();
+''',
+      );
+      final raw = await completer.future.timeout(
+        timeout,
+        onTimeout: () => jsonEncode([
+          {'type': 'error', 'content': l10n.execTimeout},
+        ]),
+      );
       dynamic parsed;
       try {
         parsed = jsonDecode(raw);
