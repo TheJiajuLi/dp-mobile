@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -119,9 +120,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     '为什么黑洞不会把自己吞掉？',
   ];
 
-  // 落地页推荐问题胶囊：每 24 小时用 AI 换一批不同领域的问题，本地缓存，
-  // 生成中显示骨架。跟 _generateSuggestions（挂在每轮回答下方的「追问建议」）
-  // 完全是两回事，别混淆
+  // 落地页推荐问题胶囊：进页面秒开上次缓存、后台静默换新（见
+  // _loadStarterQuestions）。跟 _generateSuggestions（挂在每轮回答下方的
+  // 「追问建议」）完全是两回事，别混淆
   List<String> _starterQuestions = _sampleQuestions;
   bool _loadingStarters = false;
 
@@ -401,25 +402,62 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     '有哪些相关的延伸知识？',
   ];
 
-  // 落地页推荐问题：每次进入页面（冷启动/退出重进都会触发 initState）都调 AI
-  // 重新生成一组，不再做本地缓存/24h 判断——始终是新鲜的一批。下拉刷新也走
-  // 这个方法
+  static const _starterCacheKey = 'starter_questions_cache';
+
+  // 落地页推荐问题（stale-while-revalidate）：进页面立即显示上次缓存的一批
+  // （零延迟、不转圈），同时后台静默生成下一批写回缓存并刷新 UI。只有第一次
+  // 完全没缓存时才显示骨架等 AI，之后每次进来都是秒开。避免了"每次进页面都
+  // 干等 AI 几秒"的老问题
   Future<void> _loadStarterQuestions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getStringList(_starterCacheKey);
+    if (cached != null && cached.isNotEmpty) {
+      if (mounted) setState(() => _starterQuestions = cached); // 零延迟
+      _refreshStartersInBackground(); // 后台静默更新下一批
+      return;
+    }
+    // 第一次无缓存：显示骨架、等 AI 生成、写缓存
+    if (mounted) setState(() => _loadingStarters = true);
+    final fresh = await _fetchStarterQuestions();
+    if (fresh.isNotEmpty) await prefs.setStringList(_starterCacheKey, fresh);
     if (!mounted) return;
-    setState(() => _loadingStarters = true);
+    setState(() {
+      _starterQuestions = fresh.isNotEmpty ? fresh : _sampleQuestions;
+      _loadingStarters = false;
+    });
+  }
+
+  // 后台静默更新：不显示 loading、不打断用户，成功才更新缓存 + UI，失败静默
+  Future<void> _refreshStartersInBackground() async {
     try {
-      await _generateStarterQuestions();
+      final fresh = await _fetchStarterQuestions();
+      if (fresh.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_starterCacheKey, fresh);
+      if (mounted) setState(() => _starterQuestions = fresh);
     } catch (_) {
-      // 失败（网络/解析异常）回退到离线兜底问题
-      if (!mounted) return;
-      setState(() {
-        _starterQuestions = _sampleQuestions;
-        _loadingStarters = false;
-      });
+      // 后台失败不影响用户，下次进来还有上一批缓存兜着
     }
   }
 
-  Future<void> _generateStarterQuestions() async {
+  // 下拉刷新：强制等新内容（转圈 → 新一批），跟后台刷新不同，这里要 await
+  Future<void> _onRefreshStarters() async {
+    if (mounted) setState(() => _loadingStarters = true);
+    final fresh = await _fetchStarterQuestions();
+    if (fresh.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_starterCacheKey, fresh);
+    }
+    if (!mounted) return;
+    setState(() {
+      if (fresh.isNotEmpty) _starterQuestions = fresh;
+      _loadingStarters = false;
+    });
+  }
+
+  // 纯生成：调 AI 拿一批问题，只返回结果、不碰 state/缓存——上面三处复用。
+  // 解析失败/异常返回空列表，由调用方决定怎么兜底
+  Future<List<String>> _fetchStarterQuestions() async {
     final domains = List<String>.from(_starterDomains)..shuffle();
     final selected = domains.take(3).toList();
     final prompt =
@@ -432,49 +470,38 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         '- 每行一个，不要编号\n'
         '- 不要任何其他文字';
 
-    final res = await ref
-        .read(apiClientProvider)
-        .post(
-          // 后端 /auth/xmeng/chat（非流式）读的是 {messages:[...]} 数组，不是
-          // 单数 message——之前传错形状每次都 400，推荐问题一直悄悄回落到固定
-          // _sampleQuestions（从没真正用过 AI）。响应仍是 res.data['message']
-          '/auth/xmeng/chat',
-          data: {
-            'messages': [
-              {'role': 'user', 'content': prompt},
-            ],
-          },
-        );
-
-    if (res.success && res.data != null) {
-      final content = (res.data['message'] as String?) ?? '';
-      final lines = content
-          .split('\n')
-          .map((l) => l.trim())
-          // 兜底剥掉 AI 偶尔仍带上的行首编号/符号（1. 、- 、• 等）
-          .map(
-            (l) =>
-                l.replaceFirst(RegExp(r'^\s*(\d+[.、)]|[-•·])\s*'), '').trim(),
-          )
-          .where((l) => l.isNotEmpty)
-          .take(3)
-          .toList();
-
-      if (lines.length >= 2) {
-        if (!mounted) return;
-        setState(() {
-          _starterQuestions = lines;
-          _loadingStarters = false;
-        });
-        return;
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(
+            // 后端 /auth/xmeng/chat（非流式）读的是 {messages:[...]} 数组，不是
+            // 单数 message。响应是 res.data['message']
+            '/auth/xmeng/chat',
+            data: {
+              'messages': [
+                {'role': 'user', 'content': prompt},
+              ],
+            },
+          );
+      if (res.success && res.data != null) {
+        final content = (res.data['message'] as String?) ?? '';
+        final lines = content
+            .split('\n')
+            .map((l) => l.trim())
+            // 兜底剥掉 AI 偶尔仍带上的行首编号/符号（1. 、- 、• 等）
+            .map(
+              (l) =>
+                  l.replaceFirst(RegExp(r'^\s*(\d+[.、)]|[-•·])\s*'), '').trim(),
+            )
+            .where((l) => l.isNotEmpty)
+            .take(3)
+            .toList();
+        if (lines.length >= 2) return lines;
       }
+    } catch (_) {
+      // 网络/解析异常都当"没拿到"，返回空
     }
-
-    if (!mounted) return;
-    setState(() {
-      _starterQuestions = _sampleQuestions;
-      _loadingStarters = false;
-    });
+    return const [];
   }
 
   Future<void> _loadRelated(String q) async {
@@ -712,11 +739,12 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   Widget _buildIdleView(bool isDark) {
     // 下拉刷新推荐问题。这个落地页没有会话列表（历史对话是独立页面），可刷新
-    // 的内容就是这组推荐问题，所以 onRefresh 只重跑 _loadStarterQuestions。
+    // 的内容就是这组推荐问题——下拉走 _onRefreshStarters（强制等新一批），跟
+    // 进页面时的"秒开缓存 + 后台刷新"是两条路径。
     // AlwaysScrollableScrollPhysics 保证内容不满一屏时也能下拉触发
     return RefreshIndicator(
       color: _primary,
-      onRefresh: _loadStarterQuestions,
+      onRefresh: _onRefreshStarters,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
