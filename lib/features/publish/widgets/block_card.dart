@@ -2061,9 +2061,8 @@ th{background:$thBg;color:$thFg}
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
-          hintText: widget.block.content.isEmpty
-              ? '支持 Markdown 语法\n# 标题  **粗体**  - 列表'
-              : null,
+          // 去掉 Markdown 块的占位提示（ghost text），空块保持完全干净
+          hintText: null,
           hintStyle: TextStyle(fontSize: 14, height: 1.7, color: muted),
         ),
       ),
