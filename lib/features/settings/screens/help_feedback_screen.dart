@@ -107,68 +107,6 @@ class _HelpFeedbackScreenState extends State<HelpFeedbackScreen> {
     );
   }
 
-  void _showRefundSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(ctx).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const Text(
-              '退款与取消订阅',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '极梦会员通过 Apple App Store 内购处理，取消订阅或申请退款'
-              '都需要在 Apple 的订阅管理页面完成，极梦无法直接代为操作。',
-              style: TextStyle(fontSize: 13.5, height: 1.7, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _open('https://apps.apple.com/account/subscriptions');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  '前往 Apple 订阅管理',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -250,45 +188,8 @@ class _HelpFeedbackScreenState extends State<HelpFeedbackScreen> {
             ),
           ]),
 
-          SettingsSectionTitle('账号与安全'),
-          SettingsGroup([
-            SettingsRow(
-              icon: Icons.lock_outline,
-              iconColor: Colors.grey,
-              iconBg: Theme.of(context).dividerColor,
-              title: '忘记密码',
-              subtitle: '重置账号密码',
-              onTap: () => context.push('/settings/security'),
-            ),
-            SettingsRow(
-              icon: Icons.person_remove_outlined,
-              iconColor: Colors.grey,
-              iconBg: Theme.of(context).dividerColor,
-              title: '注销账号',
-              subtitle: '永久删除账号与数据',
-              onTap: () => context.push('/settings/security'),
-            ),
-          ]),
-
-          SettingsSectionTitle('会员与支付'),
-          SettingsGroup([
-            SettingsRow(
-              icon: Icons.credit_card,
-              iconColor: const Color(0xFFDC2626),
-              iconBg: const Color(0xFFFEE2E2),
-              title: '会员权益说明',
-              subtitle: 'Pro/Pro Max功能对比',
-              onTap: () => context.push('/settings/subscription'),
-            ),
-            SettingsRow(
-              icon: Icons.replay_circle_filled_outlined,
-              iconColor: const Color(0xFFDC2626),
-              iconBg: const Color(0xFFFEE2E2),
-              title: '退款与取消订阅',
-              subtitle: '如何申请退款',
-              onTap: _showRefundSheet,
-            ),
-          ]),
+          // 「账号与安全」「会员与支付」两组入口已移除——这些在设置主页各自
+          // 有专属入口，帮助与反馈页只保留快速帮助
           const SizedBox(height: 24),
         ],
       ),
