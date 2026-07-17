@@ -454,22 +454,39 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     });
   }
 
+  // iPad 上系统分享是 popover，必须给一个锚点 Rect，否则 share_plus 直接抛
+  // 异常。这里用当前页面的 RenderBox 当锚点（iPhone/Android 会忽略这个值）
+  Rect? _shareOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    return null;
+  }
+
   // 保存图表——把 image 输出的 base64 PNG 写临时文件后调系统分享（存相册/
-  // 转发都走这个）
+  // 转发都走这个）。用 SharePlus.instance.share（新 API），带 iPad 锚点
   Future<void> _saveChart(String output) async {
+    final b64 = output.contains(',') ? output.split(',').last : output;
+    if (b64.trim().isEmpty) {
+      _showSnack('没有可保存的图表', ok: false);
+      return;
+    }
     try {
-      final b64 = output.contains(',') ? output.split(',').last : output;
       final bytes = base64Decode(b64);
       final dir = await getTemporaryDirectory();
       final file = File(
         '${dir.path}/chart_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([
-        XFile(file.path, mimeType: 'image/png'),
-      ], text: '极梦 Notebook 图表');
-    } catch (e) {
-      _showSnack('保存失败，请重试', ok: false);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'image/png')],
+        text: '极梦 Notebook 图表',
+        sharePositionOrigin: _shareOrigin(),
+      );
+    } catch (e, st) {
+      debugPrint('[Notebook] 保存图表失败: $e\n$st');
+      if (mounted) _showSnack('保存失败：$e', ok: false);
     }
   }
 

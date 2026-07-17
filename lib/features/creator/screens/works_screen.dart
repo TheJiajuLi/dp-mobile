@@ -953,6 +953,16 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
     );
   }
 
+  // iPad 上系统分享是 popover，必须给锚点 Rect，否则 share_plus 抛异常。
+  // 用当前页面 RenderBox 当锚点（iPhone/Android 忽略此值）
+  Rect? _shareOrigin() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    return null;
+  }
+
   // 逐篇生成 PDF 再一次性分享——没有多篇合并能力，公式走纯文本兜底
   // （批量导出不做离屏公式渲染，太重）。Pro 功能
   Future<void> _exportAllPdf() async {
@@ -1038,19 +1048,23 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         _toast('导出失败，请重试');
         return;
       }
-      await Share.shareXFiles(files, subject: '我的极梦文章合集');
+      await Share.shareXFiles(
+        files,
+        subject: '我的极梦文章合集',
+        sharePositionOrigin: _shareOrigin(),
+      );
       if (!mounted) return;
       if (failed == 0) {
         _toast('已导出 $success 篇文章', ok: true);
       } else {
         _toast('已导出 $success 篇，$failed 篇跳过');
       }
-    } catch (e) {
+    } catch (e, st) {
       // 兜底：目录/分享等非单篇错误才会到这（单篇已在循环里各自 catch）
-      debugPrint('导出全部PDF失败: $e');
+      debugPrint('导出全部PDF失败: $e\n$st');
       if (!mounted) return;
       closeProgress();
-      _toast('导出失败，请重试');
+      _toast('导出失败：$e');
     }
   }
 }
