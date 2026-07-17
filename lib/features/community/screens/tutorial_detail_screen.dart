@@ -1653,8 +1653,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             decoration: BoxDecoration(
-              color: (isDark ? const Color(0xFF0E1015) : Colors.white)
-                  .withValues(alpha: 0.85),
+              // 底栏跟页面背景对齐：浅色用米白 #FAFAF8（原来是纯白，跟米白页面
+              // 之间有一条明显的色差缝），深色用 #0E1015，都取自同一个 bg
+              color: bg.withValues(alpha: 0.85),
               border: Border(
                 top: BorderSide(
                   color: isDark
