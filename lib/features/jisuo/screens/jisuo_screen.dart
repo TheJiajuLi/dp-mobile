@@ -717,11 +717,17 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   Widget _buildHero(bool isDark) {
     // 星云/光晕装饰层挪到 Scaffold body 的 Stack 底层了（build()
-    // 里，SafeArea 外面），这里只剩文字内容本身。高度进一步收紧到0.3——
-    // 用户是来提问的，不是来看 slogan 的，标题不需要撑满半屏，把视觉
-    // 重心让给下面的示例问题（真正可点的入口）
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.3,
+    // 里，SafeArea 外面），这里只剩文字内容本身。高度收紧到0.3——用户是来
+    // 提问的，不是来看 slogan 的，标题不需要撑满半屏，把视觉重心让给下面的
+    // 示例问题（真正可点的入口）。
+    // 用 minHeight 而不是写死 height：内容（标题+N条示例问题）矮于 30% 屏高
+    // 时盒子撑到 30%、Column center 垂直居中（视觉不变）；内容更高时（长问题/
+    // 矮屏/iPad 横屏）盒子随内容长高、外层 ListView 自然滚动，不再 RenderFlex
+    // 溢出（HD 横屏撞过 BOTTOM OVERFLOWED BY 53px 就是写死 height 撑不下）
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: MediaQuery.of(context).size.height * 0.3,
+      ),
       child: Stack(
         children: [
           Padding(
