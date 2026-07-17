@@ -149,6 +149,12 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   // 由 _onScroll 按滚动量算，驱动大标题渐隐/小标题渐显/图标白↔主题色插值
   final ValueNotifier<double> _headerT = ValueNotifier(1);
 
+  // 阅读停留时长上报（为推荐算法准备数据）：进页记时刻，离开(dispose)算秒数、
+  // 超过 5 秒才上报（过滤误触/秒退）。api client 在 initState 捕获，dispose 里
+  // 不再 ref.read（那时 ref 可能已失效）
+  final DateTime _enterTime = DateTime.now();
+  late final ApiClient _apiClient;
+
   // 塌缩后的 slim 条高度（不含底部 2px 进度条）
   static const double _collapsedHeaderH = 48;
 
@@ -162,6 +168,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _apiClient = ref.read(apiClientProvider);
     _scrollCtrl.addListener(_onScroll);
     // 文章数据由 articleProvider 自动加载（首帧 watch 触发），不再 _load()
     _loadComments().then((_) {
@@ -189,6 +196,17 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
 
   @override
   void dispose() {
+    // 停留时长上报——超过 5 秒才发（过滤误触）。fire-and-forget：不 await、
+    // 吞掉任何错误（后端 /view 端点若还没上线，404 也不影响退出）
+    final duration = DateTime.now().difference(_enterTime).inSeconds;
+    if (duration > 5) {
+      _apiClient
+          .post(
+            '/auth/tutorials/${widget.tutorialId}/view',
+            data: {'duration': duration},
+          )
+          .then((_) {}, onError: (_) {});
+    }
     _scrollCtrl.dispose();
     _progress.dispose();
     _headerT.dispose();
