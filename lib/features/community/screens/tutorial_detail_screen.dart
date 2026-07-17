@@ -1166,16 +1166,8 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
 
     return Scaffold(
       backgroundColor: bg,
-      // 右下角浮动目录入口——跟顶栏图标同一个 Sheet；无标题块时不显示
-      floatingActionButton: _toc.isEmpty
-          ? null
-          : FloatingActionButton.small(
-              onPressed: _showTocSheet,
-              backgroundColor: _primary,
-              foregroundColor: Colors.white,
-              tooltip: '目录',
-              child: const Icon(Icons.list),
-            ),
+      // 右下角浮动目录入口已删除——顶栏已有目录图标（同一个 Sheet），
+      // 底部再浮一个是冗余，还会挡住正文/分享按钮
       body: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
