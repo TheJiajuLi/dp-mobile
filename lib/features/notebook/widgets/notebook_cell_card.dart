@@ -34,6 +34,8 @@ class NotebookCellCard extends StatelessWidget {
   final VoidCallback? onAiAssist;
   // 保存图表——image 输出下方「保存图表」按钮
   final VoidCallback? onSaveChart;
+  // SQL cell 头部下方的「可用表」提示——编辑器扫描已运行的 DataFrame 算出
+  final String? tableHint;
 
   const NotebookCellCard({
     super.key,
@@ -55,6 +57,7 @@ class NotebookCellCard extends StatelessWidget {
     this.onEmptyBackspace,
     this.onAiAssist,
     this.onSaveChart,
+    this.tableHint,
   });
 
   // 复制按钮给代码块/Markdown/LaTeX（图片没有可复制的文本）
@@ -123,6 +126,7 @@ class NotebookCellCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(context),
+          if (cell.type == 'sql' && tableHint != null) _buildSqlTableHint(),
           _buildBody(),
           if (output != null && output!.isNotEmpty)
             buildNotebookCellOutput(
@@ -162,6 +166,37 @@ class NotebookCellCard extends StatelessWidget {
       onTap: onActivate,
       onChanged: onChanged,
       onEmptyBackspace: onEmptyBackspace,
+    );
+  }
+
+  // SQL cell 专属：头部下方一条细提示，动态显示当前可查询的表（=已运行的
+  // DataFrame），让用户不用回翻就知道能 SELECT 哪些表
+  Widget _buildSqlTableHint() {
+    const sqlColor = Color(0xFF0EA5E9);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: isDark
+          ? sqlColor.withValues(alpha: 0.06)
+          : const Color(0xFFF0F9FF),
+      child: Row(
+        children: [
+          const Icon(Icons.table_chart_outlined, size: 12, color: sqlColor),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              tableHint!,
+              style: const TextStyle(
+                fontSize: 11,
+                color: sqlColor,
+                height: 1.3,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -471,7 +506,7 @@ void showLanguagePickerSheet(
   const langs = [
     ('python', 'Python', '数据分析 · 科学计算', Color(0xFF6366F1)),
     ('javascript', 'JavaScript', '前端逻辑 · 快速脚本', Color(0xFFD97706)),
-    ('sql', 'SQL', '查询上一格的 df 数据', Color(0xFF0EA5E9)),
+    ('sql', 'SQL', '跨表查询已定义的 DataFrame', Color(0xFF0EA5E9)),
     ('r', 'R', '统计建模 · 可视化', Color(0xFF2563EB)),
     ('julia', 'Julia', '高性能数值计算', Color(0xFF9333EA)),
   ];

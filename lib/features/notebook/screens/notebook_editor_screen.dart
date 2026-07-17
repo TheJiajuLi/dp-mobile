@@ -498,8 +498,91 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
       _showVizAiMenu(cell, controller);
     } else if (cell.type == 'latex') {
       _showLatexAiMenu(cell, controller);
+    } else if (cell.type == 'sql') {
+      _showSqlAiMenu(cell, controller);
     } else {
       _showCodeAiMenu(cell, controller);
+    }
+  }
+
+  // SQL AI 助手：生成查询（把可用表结构喂给小梦）/ 解释此查询
+  void _showSqlAiMenu(NotebookCell cell, TextEditingController controller) {
+    const actions = [
+      (
+        'generate',
+        Icons.auto_awesome_outlined,
+        '生成 SQL 查询',
+        '描述需求，小梦按可用表写 SQL',
+      ),
+      ('explain', Icons.menu_book_outlined, '解释此查询', '说明这段 SQL 在做什么'),
+    ];
+    _showAiActionSheet('小梦 SQL 助手', actions, (action) {
+      if (action == 'generate') {
+        _showSqlGenSheet(cell, controller);
+      } else {
+        _explainSql(cell);
+      }
+    });
+  }
+
+  // 生成 SQL：把当前可用表清单写进 prompt，让小梦按真实表结构写查询 → 替换 cell.code
+  Future<void> _generateSql(
+    NotebookCell cell,
+    TextEditingController controller,
+    String desc,
+  ) async {
+    final dfVars = _findDataFrameVars();
+    final tableList = dfVars.isEmpty
+        ? '（当前没有已定义的数据表）'
+        : dfVars.map((v) => '- $v').join('\n');
+    _setOutput(cell, '小梦生成中…', 'ai');
+    try {
+      final sql = await _xmengChat(
+        '你是 SQL 专家，当前 SQLite 数据库有以下表：\n$tableList\n\n'
+        '请为以下需求写一条 SQL 查询：\n$desc\n\n'
+        '只输出 SQL，不要解释、不要 markdown 代码块。',
+      );
+      if (!mounted) return;
+      _setOutput(cell, null, null);
+      if (sql != null && sql.trim().isNotEmpty) {
+        final cleaned = sql
+            .replaceAll(RegExp(r'^```\w*\n?'), '')
+            .replaceAll(RegExp(r'\n?```$'), '')
+            .trim();
+        setState(() {
+          cell.code = cleaned;
+          controller.text = cleaned;
+        });
+        _scheduleSave();
+      }
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('生成失败，请重试', ok: false);
+      }
+    }
+  }
+
+  Future<void> _explainSql(NotebookCell cell) async {
+    final sql = cell.code.trim();
+    if (sql.isEmpty) {
+      _showSnack('先写点 SQL，小梦才能解释', ok: false);
+      return;
+    }
+    final langHint = await aiLangHint();
+    _setOutput(cell, '小梦解释中…', 'ai');
+    try {
+      final result = await _xmengChat(
+        '$langHint请用简洁的语言解释以下 SQL 查询在做什么，分点说明：\n\n```sql\n$sql\n```',
+      );
+      if (!mounted) return;
+      final ok = result != null && result.isNotEmpty;
+      _setOutput(cell, ok ? result : null, ok ? 'ai' : null);
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('小梦开小差了，请重试', ok: false);
+      }
     }
   }
 
@@ -1137,6 +1220,158 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     );
   }
 
+  // 生成 SQL 查询的输入弹层——蓝色主题（SQL 色），顶部列出当前可用表，
+  // 表名 chip 可点着往描述里塞，减少手打表名出错
+  void _showSqlGenSheet(NotebookCell cell, TextEditingController controller) {
+    final promptCtrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF17171F) : Colors.white;
+    final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
+    const sqlColor = Color(0xFF0EA5E9);
+    final dfVars = _findDataFrameVars();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: BoxDecoration(
+            color: card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.storage_outlined, size: 17, color: sqlColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    '生成 SQL 查询',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                dfVars.isEmpty
+                    ? '当前没有可用数据表，先运行数据集 Cell'
+                    : '可用表：${dfVars.join('、')}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: dfVars.isEmpty ? Colors.grey : sqlColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: promptCtrl,
+                autofocus: true,
+                maxLines: 2,
+                style: TextStyle(fontSize: 14, color: ink),
+                decoration: InputDecoration(
+                  hintText: '如：按班级统计平均分，从高到低排序',
+                  hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                  filled: true,
+                  fillColor: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFF6F6F4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: sqlColor),
+                  ),
+                ),
+              ),
+              if (dfVars.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: dfVars.map((t) {
+                    return GestureDetector(
+                      onTap: () {
+                        final base = promptCtrl.text;
+                        promptCtrl.text = base.isEmpty ? t : '$base $t';
+                        promptCtrl.selection = TextSelection.collapsed(
+                          offset: promptCtrl.text.length,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? sqlColor.withValues(alpha: 0.14)
+                              : const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          t,
+                          style: const TextStyle(fontSize: 12, color: sqlColor),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final desc = promptCtrl.text.trim();
+                    if (desc.isEmpty) return;
+                    Navigator.pop(ctx);
+                    _generateSql(cell, controller, desc);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: sqlColor,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    '生成',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // 优化/注释：弹层展示小梦给的完整代码，确认「应用」才覆盖，避免冲掉已写内容
   void _confirmReplaceCode(
     NotebookCell cell,
@@ -1321,18 +1556,56 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
 
   // SQL cell 自动包装成 Python，通过 sqlite3 执行；如果前面的 cell 已经产出了
   // 一个叫 df 的 DataFrame，顺手建成临时表，方便直接写 SQL 查询它
-  String _wrapSql(String sql) =>
-      '''
-import sqlite3, pandas as pd, io
-conn = sqlite3.connect(':memory:')
+  // 扫描已运行过（有输出=变量已进内核）的 python cell，找出赋值给 pd.* 的
+  // 变量名——大概率是 DataFrame，运行 SQL 时全部注册成同名 SQLite 表。运行时
+  // 还会用 hasattr(x,'to_sql') 再确认一次，Series/标量不会被注册
+  List<String> _findDataFrameVars() {
+    if (_nb == null) return const [];
+    final vars = <String>{};
+    final re = RegExp(r'^(\w+)\s*=\s*pd\.', multiLine: true);
+    for (final cell in _nb!.cells) {
+      if (cell.type != 'python') continue;
+      final out = _outputs[cell.id];
+      if (out == null || out.isEmpty) continue; // 只认已运行的 cell
+      for (final m in re.allMatches(cell.code)) {
+        final v = m.group(1)!;
+        if (!v.startsWith('_') && v != 'pd') vars.add(v);
+      }
+    }
+    return vars.toList();
+  }
+
+  // SQL cell 头部提示：动态列出当前可查询的表（= 已运行的 DataFrame）
+  String _sqlTableHint() {
+    final vars = _findDataFrameVars();
+    return vars.isEmpty ? '暂无可用数据表，先运行数据集 Cell' : '可用表：${vars.join(', ')}';
+  }
+
+  // 多表版：把 Notebook 里所有已定义的 DataFrame 都注册成同名 SQLite 表，
+  // 支持跨表 JOIN。dfVars 为空时退化成空库查询（会报 no such table，属于
+  // 合理的用户可见错误）。注意：发布页/阅读页的独立 SQL 代码块走引擎侧单
+  // df 版 _wrapSql，那里没有 Notebook 上下文，不共用这套
+  String _wrapSqlMultiTable(String sql, List<String> dfVars) {
+    final register = dfVars
+        .map(
+          (v) =>
+              '''
 try:
-    df.to_sql('df', conn, if_exists='replace', index=False)
-except Exception:
-    pass
+    if '$v' in dir() and hasattr($v, 'to_sql'):
+        $v.to_sql('$v', conn, if_exists='replace', index=False)
+except Exception as e:
+    print(f"表 $v 注册失败：{e}")''',
+        )
+        .join('\n');
+    return '''
+import sqlite3, pandas as pd
+conn = sqlite3.connect(':memory:')
+$register
 result = pd.read_sql_query("""$sql""", conn)
 conn.close()
 result
 ''';
+  }
 
   Future<void> _runCell(NotebookCell cell) async {
     // 只有真正下内核跑的（python/sql/js）才点亮"运行中"状态灯；latex/
@@ -1412,7 +1685,9 @@ result
     setState(() => _running[cell.id] = true);
 
     final isSql = cell.type == 'sql';
-    var effectiveCode = isSql ? _wrapSql(cell.code) : cell.code;
+    var effectiveCode = isSql
+        ? _wrapSqlMultiTable(cell.code, _findDataFrameVars())
+        : cell.code;
 
     if (userInputs.isNotEmpty) {
       // 把 input() 换成从预收集队列里取值的 mock；用完立刻还原，
@@ -2533,6 +2808,7 @@ finally:
       onEmptyBackspace: () => _deleteCellFromBackspace(index),
       onAiAssist: () => _showCellAiMenu(cell, ctrl),
       onSaveChart: () => _saveChart(cell.output ?? ''),
+      tableHint: cell.type == 'sql' ? _sqlTableHint() : null,
     );
   }
 
