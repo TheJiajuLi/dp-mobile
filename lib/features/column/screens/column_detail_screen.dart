@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/app_toast.dart';
@@ -38,6 +39,17 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
   // 用响应里的真实 subscribed 字段纠正，重进页面前这个假定可能是错的
   bool _subscribed = false;
   bool _deleting = false;
+
+  // 主题自适应色板——整页原来通篇写死浅色（Colors.white / #F5F5F7 / #1C1C1E），
+  // 深色模式下不跟随主题、文字还白底白字看不见。统一走这几个 getter
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _bg => _isDark ? AppColors.darkBg : const Color(0xFFF5F5F7);
+  Color get _card => _isDark ? AppColors.darkCard : Colors.white;
+  Color get _ink => _isDark ? const Color(0xFFE6E6E6) : const Color(0xFF1C1C1E);
+  Color get _sub => _isDark ? const Color(0xFFA1A1A1) : const Color(0xFF3C3C3C);
+  Color get _border => _isDark
+      ? Colors.white.withValues(alpha: 0.08)
+      : Colors.black.withValues(alpha: 0.08);
 
   @override
   void initState() {
@@ -276,11 +288,13 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
     final isOwner = currentUserId != null && currentUserId == _column?.userId;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
+      backgroundColor: _bg,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _column == null
-          ? Center(child: Text(l10n.tutorialNotFound))
+          ? Center(
+              child: Text(l10n.tutorialNotFound, style: TextStyle(color: _ink)),
+            )
           : CustomScrollView(
               slivers: [
                 SliverAppBar(
@@ -377,7 +391,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                   child: Column(
                     children: [
                       Container(
-                        color: Colors.white,
+                        color: _card,
                         padding: const EdgeInsets.all(14),
                         child: Row(
                           children: [
@@ -402,9 +416,10 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                                     children: [
                                       Text(
                                         _column!.username ?? '',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
+                                          color: _ink,
                                         ),
                                       ),
                                       if (_column!.isFoundingCreator)
@@ -427,10 +442,14 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                                 onPressed: _toggleSubscribe,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _subscribed
-                                      ? Colors.grey[200]
+                                      ? (_isDark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.10,
+                                              )
+                                            : Colors.grey[200])
                                       : _primary,
                                   foregroundColor: _subscribed
-                                      ? Colors.black87
+                                      ? _ink
                                       : Colors.white,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
@@ -455,7 +474,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                         ),
                       ),
                       Container(
-                        color: const Color(0xFFFAFAFA),
+                        color: _card,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         child: Row(
                           children: [
@@ -483,7 +502,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                       ),
                       if (_column!.description?.isNotEmpty == true)
                         Container(
-                          color: Colors.white,
+                          color: _card,
                           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                           margin: const EdgeInsets.only(top: 8),
                           child: Column(
@@ -500,10 +519,10 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                               const SizedBox(height: 8),
                               Text(
                                 _column!.description!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   height: 1.65,
-                                  color: Color(0xFF3C3C3C),
+                                  color: _sub,
                                 ),
                               ),
                             ],
@@ -516,7 +535,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                       if (_articles.isNotEmpty)
                         Container(
                           margin: const EdgeInsets.only(top: 8),
-                          color: Colors.white,
+                          color: _card,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -531,10 +550,10 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                                   l10n.columnContentCountLabel(
                                     _articles.length,
                                   ),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1C1C1E),
+                                    color: _ink,
                                   ),
                                 ),
                               ),
@@ -552,11 +571,9 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                                       16,
                                       12,
                                     ),
-                                    decoration: const BoxDecoration(
+                                    decoration: BoxDecoration(
                                       border: Border(
-                                        bottom: BorderSide(
-                                          color: Color(0xFFF5F5F5),
-                                        ),
+                                        bottom: BorderSide(color: _border),
                                       ),
                                     ),
                                     child: Row(
@@ -567,7 +584,13 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                                           decoration: BoxDecoration(
                                             color: i < 3
                                                 ? _primary
-                                                : const Color(0xFFEEF0FF),
+                                                : (_isDark
+                                                      ? _primary.withValues(
+                                                          alpha: 0.18,
+                                                        )
+                                                      : const Color(
+                                                          0xFFEEF0FF,
+                                                        )),
                                             shape: BoxShape.circle,
                                           ),
                                           child: Center(
@@ -591,10 +614,10 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                                             children: [
                                               Text(
                                                 a['title'] as String? ?? '',
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w500,
-                                                  color: Color(0xFF1C1C1E),
+                                                  color: _ink,
                                                 ),
                                                 maxLines: 2,
                                                 overflow: TextOverflow.ellipsis,
@@ -669,9 +692,9 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
             ),
       bottomNavigationBar: isOwner
           ? Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFF0F0F0))),
+              decoration: BoxDecoration(
+                color: _card,
+                border: Border(top: BorderSide(color: _border)),
               ),
               child: SafeArea(
                 top: false,
@@ -687,12 +710,12 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            side: const BorderSide(color: Color(0xFFE5E5EA)),
+                            side: BorderSide(color: _border),
                           ),
                           child: Text(
                             l10n.editColumnAction,
-                            style: const TextStyle(
-                              color: Color(0xFF1C1C1E),
+                            style: TextStyle(
+                              color: _ink,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -741,9 +764,9 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
           child: Column(
@@ -754,9 +777,10 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                 children: [
                   Text(
                     l10n.editColumnAction,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
+                      color: _ink,
                     ),
                   ),
                   const Spacer(),
@@ -800,7 +824,9 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                 decoration: InputDecoration(
                   labelText: l10n.columnNameLabel,
                   filled: true,
-                  fillColor: Colors.grey[50],
+                  fillColor: _isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.grey[50],
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none,
@@ -818,7 +844,9 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
                 decoration: InputDecoration(
                   labelText: l10n.columnDescOptionalLabel,
                   filled: true,
-                  fillColor: Colors.grey[50],
+                  fillColor: _isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.grey[50],
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none,
@@ -860,10 +888,10 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
       children: [
         Text(
           val,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1C1C1E),
+            color: _ink,
           ),
         ),
         const SizedBox(height: 2),
@@ -872,14 +900,15 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
     ),
   );
 
-  Widget _vDivider() =>
-      Container(width: 0.5, height: 32, color: Colors.grey.shade200);
+  Widget _vDivider() => Container(width: 0.5, height: 32, color: _border);
 
   Widget _artThumb() => Container(
     width: 60,
     height: 50,
     decoration: BoxDecoration(
-      color: const Color(0xFFEEF0FF),
+      color: _isDark
+          ? _primary.withValues(alpha: 0.16)
+          : const Color(0xFFEEF0FF),
       borderRadius: BorderRadius.circular(8),
     ),
     child: const Icon(
@@ -958,11 +987,13 @@ class _AddArticleSheetState extends ConsumerState<_AddArticleSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? const Color(0xFFE6E6E6) : const Color(0xFF1C1C1E);
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
@@ -971,13 +1002,17 @@ class _AddArticleSheetState extends ConsumerState<_AddArticleSheet> {
             height: 4,
             margin: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: Colors.grey[isDark ? 700 : 300],
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           Text(
             l10n.selectArticlesToCollectTitle,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -997,9 +1032,10 @@ class _AddArticleSheetState extends ConsumerState<_AddArticleSheet> {
                       return ListTile(
                         title: Text(
                           t['title'] as String? ?? '',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
+                            color: ink,
                           ),
                         ),
                         trailing: ElevatedButton(
