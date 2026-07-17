@@ -145,6 +145,33 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   final ValueNotifier<double> _progress = ValueNotifier(0);
   final ValueNotifier<bool> _barSolid = ValueNotifier(false);
 
+  // 目录：给每个 heading 块挂 GlobalKey（供点击跳转 ensureVisible），滚动时
+  // 高亮当前所在标题（scroll-spy，值是 _toc 里的下标，-1 表示还没滚到任何标题）
+  final Map<int, GlobalKey> _headingKeys = {};
+  final ValueNotifier<int> _activeHeading = ValueNotifier(-1);
+
+  GlobalKey _headingKeyFor(int blockIndex) =>
+      _headingKeys.putIfAbsent(blockIndex, () => GlobalKey());
+
+  // 从 blocks 抽出所有 heading 块 → 目录项 {index(块下标), level(1/2/3), text}。
+  // 只有 heading 进目录；正文/代码/公式/图片/音视频/数据集等都不进
+  List<Map<String, dynamic>> get _toc {
+    final items = <Map<String, dynamic>>[];
+    for (var i = 0; i < _blocks.length; i++) {
+      final b = _blocks[i];
+      if (b is Map && b['type'] == 'heading') {
+        final text = (b['content']?.toString() ?? '').trim();
+        if (text.isEmpty) continue;
+        items.add({
+          'index': i,
+          'level': (b['level'] as num?)?.toInt() ?? 2,
+          'text': text,
+        });
+      }
+    }
+    return items;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -164,6 +191,28 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     }
     final solid = _scrollCtrl.offset >= 100;
     if (solid != _barSolid.value) _barSolid.value = solid;
+    _updateActiveHeading();
+  }
+
+  // scroll-spy：当前所在标题 = 最后一个"顶边已滚过顶栏阈值"的 heading。用每个
+  // heading 块 GlobalKey 的全局 Y 判断（滚下去时 dy 变小），比 offset 换算稳
+  void _updateActiveHeading() {
+    final toc = _toc;
+    if (toc.isEmpty) return;
+    const topThreshold = 140.0; // 约等于顶栏高度以下一点
+    var active = -1;
+    for (var k = 0; k < toc.length; k++) {
+      final ctx = _headingKeys[toc[k]['index'] as int]?.currentContext;
+      final ro = ctx?.findRenderObject();
+      if (ro is! RenderBox || !ro.hasSize) continue;
+      final dy = ro.localToGlobal(Offset.zero).dy;
+      if (dy <= topThreshold) {
+        active = k;
+      } else {
+        break;
+      }
+    }
+    if (active != _activeHeading.value) _activeHeading.value = active;
   }
 
   @override
@@ -171,9 +220,157 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     _scrollCtrl.dispose();
     _progress.dispose();
     _barSolid.dispose();
+    _activeHeading.dispose();
     _commentCtrl.dispose();
     _commentFocusNode.dispose();
     super.dispose();
+  }
+
+  // 点目录项跳转——复用 _scrollToComment 同一套 GlobalKey + ensureVisible
+  void _jumpToHeading(int blockIndex) {
+    final ctx = _headingKeys[blockIndex]?.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      // 标题落在顶栏下方一点，不被 SliverAppBar 压住
+      alignment: 0.08,
+    );
+  }
+
+  // 目录 Bottom Sheet：从底部滑出，H1 顶格 / H2 缩进一层 / H3 缩进两层（按
+  // level-1），当前所在标题高亮紫色，点击跳转并自动关闭
+  void _showTocSheet() {
+    final toc = _toc;
+    if (toc.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
+        final muted = isDark ? Colors.white54 : const Color(0xFF999999);
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.7,
+          ),
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          padding: const EdgeInsets.only(top: 10, bottom: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      '目录',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(ctx),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(Icons.close, size: 20, color: muted),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _activeHeading,
+                  builder: (context, active, _) => ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    itemCount: toc.length,
+                    itemBuilder: (context, k) =>
+                        _tocRow(ctx, toc[k], k == active, ink, muted),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _tocRow(
+    BuildContext sheetCtx,
+    Map<String, dynamic> item,
+    bool isActive,
+    Color ink,
+    Color muted,
+  ) {
+    final level = (item['level'] as num).toInt();
+    final indent = ((level - 1).clamp(0, 3)) * 16.0;
+    return InkWell(
+      onTap: () {
+        Navigator.pop(sheetCtx);
+        _jumpToHeading(item['index'] as int);
+      },
+      child: Container(
+        color: isActive ? _primary.withValues(alpha: 0.10) : Colors.transparent,
+        padding: EdgeInsets.fromLTRB(20 + indent, 13, 16, 13),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive
+                    ? _primary
+                    : (level <= 2
+                          ? const Color(0xFF9AA0AE)
+                          : const Color(0xFFCBD0DA)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                item['text'] as String,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: level <= 2 ? 15 : 14,
+                  fontWeight: isActive
+                      ? FontWeight.w600
+                      : (level <= 2 ? FontWeight.w500 : FontWeight.w400),
+                  color: isActive ? _primary : ink,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'H$level',
+              style: TextStyle(fontSize: 11, color: muted),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // 顶栏「A」字体大小调节——直接调全局 fontSizeProvider（main.dart 的
@@ -913,6 +1110,16 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
 
     return Scaffold(
       backgroundColor: bg,
+      // 右下角浮动目录入口——跟顶栏图标同一个 Sheet；无标题块时不显示
+      floatingActionButton: _toc.isEmpty
+          ? null
+          : FloatingActionButton.small(
+              onPressed: _showTocSheet,
+              backgroundColor: _primary,
+              foregroundColor: Colors.white,
+              tooltip: '目录',
+              child: const Icon(Icons.list),
+            ),
       body: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
@@ -949,6 +1156,13 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 ),
               ),
               actions: [
+                // 目录入口（常驻）——有标题块才显示
+                if (_toc.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.list),
+                    tooltip: '目录',
+                    onPressed: _showTocSheet,
+                  ),
                 IconButton(
                   icon: const Icon(Icons.format_size),
                   onPressed: _showFontSheet,
@@ -1258,8 +1472,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ..._blocks.map(
-                  (b) => buildTutorialBlockWidget(
+                ..._blocks.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final b = entry.value;
+                  final w = buildTutorialBlockWidget(
                     context,
                     l10n,
                     Map<String, dynamic>.from(b as Map),
@@ -1269,8 +1485,12 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     isSelfPreview:
                         (t['user_id'] as String?) != null &&
                         t['user_id'] == ref.read(currentUserProvider)?.id,
-                  ),
-                ),
+                  );
+                  // heading 块挂 GlobalKey，供目录 ensureVisible 跳转定位
+                  return b['type'] == 'heading'
+                      ? KeyedSubtree(key: _headingKeyFor(i), child: w)
+                      : w;
+                }),
                 if (columnId != null && columnId.isNotEmpty)
                   _buildColumnCard(l10n, columnId),
                 if (tags.isNotEmpty)
