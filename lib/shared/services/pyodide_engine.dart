@@ -33,6 +33,9 @@ class PyodideEngine {
   // webR 的 channel），此时 R 走 fail-open 回落到 comingSoon 提示，不硬报错
   bool webRReady = false;
   bool webRFailed = false;
+  // R 内核状态（供 UI 小指示用）：0=加载中 / 1=就绪 / 2=不可用。跟上面两个 bool
+  // 同步更新，但这个是可监听的，R Cell 头部能实时反映
+  final ValueNotifier<int> rStatus = ValueNotifier(0);
   final Map<String, Completer<String>> _pendingRuns = {};
   final VoidCallback? onReady;
 
@@ -165,11 +168,17 @@ window.runR = async (code) => {
           );
           ctrl.addJavaScriptHandler(
             handlerName: 'rReady',
-            callback: (args) => webRReady = true,
+            callback: (args) {
+              webRReady = true;
+              rStatus.value = 1;
+            },
           );
           ctrl.addJavaScriptHandler(
             handlerName: 'rFailed',
-            callback: (args) => webRFailed = true,
+            callback: (args) {
+              webRFailed = true;
+              rStatus.value = 2;
+            },
           );
         },
         initialSettings: InAppWebViewSettings(

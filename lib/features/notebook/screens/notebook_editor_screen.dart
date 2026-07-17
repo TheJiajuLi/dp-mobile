@@ -1912,6 +1912,41 @@ finally:
     }
   }
 
+  // R 内核状态小指示（R Cell 头部）：加载中橙 / 就绪绿 / 不可用灰，实时反映
+  // engine.rStatus
+  Widget _rStatusChip() {
+    final engine = ref.read(pyodideEngineProvider);
+    return ValueListenableBuilder<int>(
+      valueListenable: engine.rStatus,
+      builder: (context, s, _) {
+        final (Color color, String label) = switch (s) {
+          1 => (const Color(0xFF16A34A), 'R 就绪'),
+          2 => (const Color(0xFF9AA0AE), 'R 暂不可用'),
+          _ => (const Color(0xFFD97706), 'R 内核加载中'),
+        };
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // R（webR）——仿 _runWithPyodide：未就绪先提示「R 内核加载中」，跑完取第一条
   // 有效输出（图表是 base64 PNG → type:image，输出区自带 Image.memory 渲染）
   Future<void> _runWithR(NotebookCell cell) async {
@@ -2879,6 +2914,7 @@ finally:
       outputType: _outputTypes[cell.id],
       aiCollapsed: _aiCollapsed[cell.id] ?? false,
       onAiToggle: () => _toggleAiCollapse(cell),
+      kernelStatus: cell.type == 'r' ? _rStatusChip() : null,
       onActivate: () => _activateCell(index),
       onChanged: (v) {
         cell.code = v;

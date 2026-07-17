@@ -36,6 +36,9 @@ class NotebookCellCard extends StatelessWidget {
   // 展开→onAiToggle 折叠；折叠→onAiToggle 展开
   final bool aiCollapsed;
   final VoidCallback? onAiToggle;
+  // R Cell 头部的内核状态小指示（加载中/就绪/不可用），由编辑器按 engine.rStatus
+  // 构建传入；非 R cell 为 null 不显示
+  final Widget? kernelStatus;
   // 保存图表——image 输出下方「保存图表」按钮
   final VoidCallback? onSaveChart;
   // SQL cell 头部下方的「可用表」提示——编辑器扫描已运行的 DataFrame 算出
@@ -62,6 +65,7 @@ class NotebookCellCard extends StatelessWidget {
     this.onAiAssist,
     this.aiCollapsed = false,
     this.onAiToggle,
+    this.kernelStatus,
     this.onSaveChart,
     this.tableHint,
   });
@@ -359,6 +363,10 @@ class NotebookCellCard extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+          if (kernelStatus != null) ...[
+            const SizedBox(width: 8),
+            kernelStatus!,
           ],
           const Spacer(),
           // 选中时露出拖拽手柄 + 菜单（放在运行按钮左侧，运行按钮保持最右）
