@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -1063,9 +1064,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // 浅色统一首页米白 #FAFAF8（不再偏冷 #F7F7FB）；顶栏/正文/底部操作栏
     // 都用它，一整块连贯。深色不变
-    final bg = isDark
-        ? Theme.of(context).scaffoldBackgroundColor
-        : const Color(0xFFFAFAF8);
+    // 阅读页深色底单独用更沉的 #0E1015（数字出版物观感），比全局 #0A0A0F 略提
+    // 一点、跟毛玻璃底栏呼应；只这一页覆写，其余页仍是全局深色底
+    final bg = isDark ? const Color(0xFF0E1015) : const Color(0xFFFAFAF8);
     final t = _tutorial!;
     final title = t['title'] as String? ?? '';
     final username = t['username'] as String? ?? '';
@@ -1356,9 +1357,13 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     // 公式才能渲染，不再显示原始源码
                     inlineLatexText(
                       summary,
-                      const TextStyle(
+                      TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF888888),
+                        // 次级文字：深色页用 #A1A1A1（比 #888 更亮、在 #0E1015 上
+                        // 更清晰），浅色沿用 #888888
+                        color: isDark
+                            ? const Color(0xFFA1A1A1)
+                            : const Color(0xFF888888),
                         height: 1.65,
                       ),
                     ),
@@ -1591,18 +1596,31 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       // Container 包 SafeArea，不是反过来——SafeArea 包 Container 只是把
       // padding 加在 Container 外面，白色背景到不了 home indicator 那圈
       // 安全区，露出 Scaffold 背景，跟之前设置页/Notebook页同一个坑
-      bottomNavigationBar: Container(
-        // 底栏跟正文用同一个背景色，本身就无缝——之前顶上那条细描边
-        // 反而在这块干净的米白上显得突兀（截图反馈），去掉，靠背景一致
-        // 自然融为一体
-        decoration: BoxDecoration(color: bg),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                _bottomAction(
+      bottomNavigationBar: ClipRect(
+        // 毛玻璃底栏：半透明底色 + 20px 高斯模糊，正文从底栏后隐约透出，
+        // 数字出版物观感（原来是实心背景）
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: (isDark ? const Color(0xFF0E1015) : Colors.white)
+                  .withValues(alpha: 0.85),
+              border: Border(
+                top: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.06),
+                  width: 0.5,
+                ),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Row(
+                  children: [
+                    _bottomAction(
                   icon: _liked ? Icons.favorite : Icons.favorite_border,
                   color: _liked ? const Color(0xFFEF4444) : Colors.grey[400]!,
                   label: '$likes',
@@ -1660,7 +1678,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                       ),
                     ),
                   ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),

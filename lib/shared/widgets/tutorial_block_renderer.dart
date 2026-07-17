@@ -44,16 +44,38 @@ Widget buildTutorialBlockWidget(
   switch (type) {
     case 'heading':
       final level = block['level'] as int? ?? 2;
+      // 阅读页把标题层级拉开（数字杂志感）：H1 28 / H2 22 / H3 19，负字距 +
+      // 收紧行高；编辑器/预览保持原来紧凑的 20/17/15
       final headingStyle = applyBlockTextFormat(
-        TextStyle(
-          fontSize: level == 2
-              ? 20
-              : level == 3
-              ? 17
-              : 15,
-          fontWeight: FontWeight.w700,
-          color: Theme.of(context).textTheme.bodyLarge?.color,
-        ),
+        readingMode
+            ? TextStyle(
+                fontSize: level == 1
+                    ? 28
+                    : level == 2
+                    ? 22
+                    : 19,
+                fontWeight: level == 3 ? FontWeight.w600 : FontWeight.w700,
+                height: level == 1
+                    ? 1.3
+                    : level == 2
+                    ? 1.35
+                    : 1.4,
+                letterSpacing: level == 1
+                    ? -0.3
+                    : level == 2
+                    ? -0.2
+                    : -0.1,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              )
+            : TextStyle(
+                fontSize: level == 2
+                    ? 20
+                    : level == 3
+                    ? 17
+                    : 15,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
         isBold: block['bold'] == true,
         isItalic: block['italic'] == true,
         isUnderline: block['underline'] == true,
@@ -65,7 +87,9 @@ Widget buildTutorialBlockWidget(
         lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
       );
       return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        padding: readingMode
+            ? const EdgeInsets.fromLTRB(20, 20, 20, 8)
+            : const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: inlineLatexText(content, headingStyle),
       );
 
@@ -76,17 +100,27 @@ Widget buildTutorialBlockWidget(
       if (block['isDataset'] == true) {
         return _buildDatasetCard(context, content);
       }
-      return TutorialCodeBlock(
+      final codeWidget = TutorialCodeBlock(
         content: content,
         language: block['language'] as String? ?? 'python',
         isSelfPreview: isSelfPreview,
       );
+      // 阅读页给代码块上下 20 留白，跟正文拉开呼吸感
+      return readingMode
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: codeWidget,
+            )
+          : codeWidget;
 
     case 'latex':
       // Math.tex 不会自动换行/收缩——公式比屏幕宽（长积分式/多项连乘）
       // 会顶穿右边界溢出。套一层横向滚动，宽公式改成左右滑动
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: readingMode ? 20 : 16,
+          vertical: 8,
+        ),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Math.tex(
@@ -104,7 +138,8 @@ Widget buildTutorialBlockWidget(
       final imageUrl = block['imageUrl'] as String? ?? '';
       if (imageUrl.isEmpty) return const SizedBox.shrink();
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        // 阅读页图片上下留白 36（全出血、无水平 padding），杂志式呼吸感
+        padding: EdgeInsets.symmetric(vertical: readingMode ? 36 : 8),
         child: CachedNetworkImage(
           imageUrl: imageUrl,
           fit: BoxFit.cover,
@@ -342,15 +377,15 @@ Widget buildTutorialBlockWidget(
     default: // text
       final textStyle = applyBlockTextFormat(
         TextStyle(
-          // 阅读页对标 Apple Books 的舒适度：16px、行高 1.85、正文用比
-          // 纯黑/纯白更柔和的颜色
-          fontSize: readingMode ? 16 : 15,
-          height: readingMode ? 1.85 : 1.7,
-          letterSpacing: readingMode ? 0.01 : null,
+          // 数字杂志阅读体验：18px、行高 1.72、轻微负字距，正文用比纯白/纯黑
+          // 更柔和的颜色（深色 #E6E6E6 / 浅色 #1A1A1A）
+          fontSize: readingMode ? 18 : 15,
+          height: readingMode ? 1.72 : 1.7,
+          letterSpacing: readingMode ? -0.1 : null,
           color: readingMode
               ? (Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFFC8CAD8)
-                    : const Color(0xFF2A2A2A))
+                    ? const Color(0xFFE6E6E6)
+                    : const Color(0xFF1A1A1A))
               : Theme.of(context).textTheme.bodyLarge?.color,
         ),
         isBold: block['bold'] == true,
@@ -364,7 +399,10 @@ Widget buildTutorialBlockWidget(
         lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
       );
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        // 阅读页水平 20、段落底部 16；编辑器保持 h16/v6
+        padding: readingMode
+            ? const EdgeInsets.fromLTRB(20, 0, 20, 16)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: inlineLatexText(content, textStyle),
       );
   }
