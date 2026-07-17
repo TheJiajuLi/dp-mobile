@@ -135,11 +135,12 @@ class NotebookBottomToolbar extends StatelessWidget {
   }
 }
 
-// "更多"点开的语言选择sheet——JavaScript/R/Julia/HTML + 文件导入入口
+// "更多"点开的语言选择sheet——描述生成代码 + JavaScript/R/Julia/HTML + 文件导入
 void showMoreLanguagesSheet(
   BuildContext context, {
   required void Function(String type) onPick,
   required VoidCallback onImport,
+  VoidCallback? onDescribe,
 }) {
   showModalBottomSheet(
     context: context,
@@ -154,6 +155,33 @@ void showMoreLanguagesSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 描述生成代码——自然语言 → Python，置顶突出（紫色 ✨）
+            if (onDescribe != null) ...[
+              ListTile(
+                tileColor: Colors.transparent,
+                leading: const Icon(
+                  Icons.auto_awesome,
+                  size: 20,
+                  color: Color(0xFF6366F1),
+                ),
+                title: const Text(
+                  '描述生成代码',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6366F1),
+                  ),
+                ),
+                subtitle: const Text(
+                  '用一句话描述，小梦帮你写 Python',
+                  style: TextStyle(fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onDescribe();
+                },
+              ),
+              const Divider(height: 0.5),
+            ],
             for (final t in const [
               ('javascript', 'JavaScript', Icons.javascript),
               ('r', 'R', Icons.bar_chart),

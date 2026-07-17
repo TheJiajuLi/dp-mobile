@@ -196,6 +196,264 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     });
   }
 
+  // 描述生成代码：用一句话描述分析意图 → 小梦生成 Python → 自动插入新代码
+  // cell，用户直接点运行。跟数据集/可视化一样只造 python cell，走 AI 门禁
+  void _showDescribeGenSheet() {
+    if (!requirePro(context, ref, feature: 'AI代码生成')) return;
+    final descCtrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface2 = isDark ? const Color(0xFF17171F) : const Color(0xFFF7F7F5);
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFFEBEBEB);
+    final muted = isDark ? const Color(0xFF888888) : const Color(0xFF999999);
+    bool generating = false;
+
+    Widget quickChip(String text, void Function(void Function()) setSheet) {
+      return GestureDetector(
+        onTap: () {
+          descCtrl.text = text;
+          setSheet(() {});
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF6366F1).withValues(alpha: 0.16)
+                : const Color(0xFFEEF0FF),
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF6366F1)),
+          ),
+        ),
+      );
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheet) {
+          Future<void> generate() async {
+            final desc = descCtrl.text.trim();
+            if (desc.isEmpty) {
+              _showSnack('先描述一下你想做的分析', ok: false);
+              return;
+            }
+            setSheet(() => generating = true);
+            final code = await _generateCodeFromDesc(desc);
+            if (!mounted) return;
+            if (code == null || code.isEmpty) {
+              setSheet(() => generating = false);
+              _showSnack('生成失败，请重试', ok: false);
+              return;
+            }
+            Navigator.pop(sheetCtx);
+            _insertGeneratedCell(code, desc);
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(sheetCtx).viewInsets.bottom,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(sheetCtx).cardColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.auto_awesome,
+                        size: 16,
+                        color: Color(0xFF6366F1),
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        '描述生成代码',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    maxLines: 3,
+                    autofocus: true,
+                    style: const TextStyle(fontSize: 13, height: 1.5),
+                    decoration: InputDecoration(
+                      hintText: '描述你想做的分析...\n例如：画一个各科成绩的雷达图',
+                      hintStyle: TextStyle(fontSize: 13, color: muted),
+                      filled: true,
+                      fillColor: surface2,
+                      contentPadding: const EdgeInsets.all(12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFF6366F1)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      quickChip('画折线图', setSheet),
+                      quickChip('统计描述', setSheet),
+                      quickChip('相关性分析', setSheet),
+                      quickChip('数据清洗', setSheet),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: generating ? null : generate,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        disabledBackgroundColor: const Color(
+                          0xFF6366F1,
+                        ).withValues(alpha: 0.55),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: generating
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  '生成中...',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            )
+                          : const Text(
+                              '生成代码',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // 扫描已运行过（有 output）的 python cell，抽出顶层赋值变量名喂给 AI 当上
+  // 下文——让生成的代码能直接复用内核里已存在的 df 等变量，而不是凭空造
+  String _availableVariables() {
+    if (_nb == null) return '（暂无已定义变量）';
+    final vars = <String>{};
+    final re = RegExp(r'^(\w+)\s*=(?!=)', multiLine: true);
+    for (final cell in _nb!.cells) {
+      if (cell.type != 'python') continue;
+      final out = _outputs[cell.id];
+      if (out == null || out.isEmpty) continue; // 只认已运行的 cell
+      for (final m in re.allMatches(cell.code)) {
+        final v = m.group(1)!;
+        if (!v.startsWith('_')) vars.add(v);
+      }
+    }
+    return vars.isEmpty ? '（暂无已定义变量）' : vars.join(', ');
+  }
+
+  // 组装 prompt → 调小梦 → 从 ```python ...``` 里抠出代码
+  Future<String?> _generateCodeFromDesc(String desc) async {
+    final langHint = await aiLangHint();
+    final prompt =
+        '$langHint你是一个 Python 数据分析专家。'
+        '用户在极梦 Notebook 编辑器里工作，'
+        '内核是 Pyodide（浏览器端 Python）。\n\n'
+        '用户描述：$desc\n\n'
+        '当前内核里已有的变量：\n'
+        '${_availableVariables()}\n\n'
+        '请生成完整可运行的 Python 代码。\n'
+        '要求：\n'
+        '- 只输出代码，不要解释\n'
+        '- 用 matplotlib 画图（不用 plotly），开头加 '
+        "import matplotlib; matplotlib.use('Agg')\n"
+        '- 用 plt.show() 输出图表\n'
+        '- 代码要能直接在 Pyodide 中运行\n'
+        '- 如果需要用到 df，假设它已经存在\n'
+        '- 用中文注释';
+    final content = await _xmengChat(prompt);
+    if (content == null || content.trim().isEmpty) return null;
+    final match = RegExp(r'```(?:python)?\n?([\s\S]*?)```').firstMatch(content);
+    return (match?.group(1) ?? content).trim();
+  }
+
+  // 把生成的代码插成新 python cell（标 generatedByAI），选中并滚到末尾
+  void _insertGeneratedCell(String code, String desc) {
+    if (_nb == null) return;
+    final cell = NotebookCell(
+      id: 'cell_${DateTime.now().millisecondsSinceEpoch}',
+      type: 'python',
+      code: code,
+      metadata: {'generatedByAI': true, 'prompt': desc},
+    );
+    final ctrl = _makeController(cell);
+    final focus = FocusNode();
+    setState(() {
+      _nb!.cells.add(cell);
+      _controllers[cell.id] = ctrl;
+      _focusNodes[cell.id] = focus;
+      _outputs[cell.id] = null;
+      _outputTypes[cell.id] = null;
+      _running[cell.id] = false;
+      _activeIndex = _nb!.cells.length - 1;
+    });
+    _scheduleSave();
+    _showSnack('已生成代码，点运行试试', ok: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.animateTo(
+          _scrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   // 保存图表——把 image 输出的 base64 PNG 写临时文件后调系统分享（存相册/
   // 转发都走这个）
   Future<void> _saveChart(String output) async {
@@ -2378,6 +2636,7 @@ finally:
           context,
           onPick: _addCell,
           onImport: _openFileImport,
+          onDescribe: _showDescribeGenSheet,
         );
         break;
       default:
