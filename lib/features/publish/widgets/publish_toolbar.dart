@@ -163,6 +163,7 @@ const _toolbarTypes = [
   BlockType.video,
   BlockType.audio,
   BlockType.link,
+  BlockType.reference,
 ];
 
 class PublishBottomToolbar extends StatelessWidget {

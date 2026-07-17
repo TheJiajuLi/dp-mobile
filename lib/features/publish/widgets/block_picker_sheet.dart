@@ -15,6 +15,7 @@ IconData blockTypeIcon(BlockType type) => switch (type) {
   BlockType.link => Icons.link,
   BlockType.callout => Icons.format_quote_outlined,
   BlockType.markdown => Icons.notes,
+  BlockType.reference => Icons.menu_book_outlined,
 };
 
 String blockTypeLabel(AppLocalizations l10n, BlockType type) => switch (type) {
@@ -29,4 +30,5 @@ String blockTypeLabel(AppLocalizations l10n, BlockType type) => switch (type) {
   BlockType.link => l10n.blockTypeLink,
   BlockType.callout => l10n.blockTypeCallout,
   BlockType.markdown => 'Markdown',
+  BlockType.reference => '参考文献',
 };

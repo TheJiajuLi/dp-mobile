@@ -9,6 +9,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../utils/latex_utils.dart';
+import '../utils/reference_format.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/generated/app_localizations.dart';
@@ -396,6 +397,9 @@ Widget buildTutorialBlockWidget(
           ),
         ),
       );
+
+    case 'reference':
+      return _buildReferenceList(context, content, readingMode);
 
     default: // text
       final textStyle = applyBlockTextFormat(
@@ -999,6 +1003,96 @@ Future<void> _openExternally(String url) async {
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
+}
+
+// 参考文献列表（阅读端）：文末「参考文献」小标题 + GB/T 样式编号列表，
+// doi/url 显示为紫色可点链接
+Widget _buildReferenceList(
+  BuildContext context,
+  String content,
+  bool readingMode,
+) {
+  final refs = parseReferences(content);
+  if (refs.isEmpty) return const SizedBox.shrink();
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final ink = isDark ? const Color(0xFFE6E6E6) : const Color(0xFF1A1A1A);
+  final muted = isDark ? Colors.white54 : const Color(0xFF666666);
+  final hPad = readingMode ? 20.0 : 16.0;
+  return Padding(
+    padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '参考文献',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: ink,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(width: 28, height: 2, color: _primary.withValues(alpha: 0.5)),
+        const SizedBox(height: 12),
+        for (var i = 0; i < refs.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _referenceItem(i + 1, refs[i], ink, muted),
+          ),
+      ],
+    ),
+  );
+}
+
+Widget _referenceItem(int n, Map<String, String> r, Color ink, Color muted) {
+  final text = formatReference(r);
+  final doi = (r['doi'] ?? '').trim();
+  final url = (r['url'] ?? '').trim();
+  // doi 优先——拼成 https://doi.org/{doi} 可点链接；没 doi 就用 url
+  final link = doi.isNotEmpty
+      ? (doi.startsWith('http') ? doi : 'https://doi.org/$doi')
+      : url;
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 30,
+        child: Text(
+          '[$n]',
+          style: TextStyle(fontSize: 13.5, height: 1.6, color: muted),
+        ),
+      ),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (text.isNotEmpty)
+              Text(
+                text,
+                style: TextStyle(fontSize: 13.5, height: 1.6, color: ink),
+              ),
+            if (link.isNotEmpty)
+              GestureDetector(
+                onTap: () => _openExternally(link),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    link,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      height: 1.5,
+                      color: _primary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: _primary,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 String _formatBytes(int bytes) {

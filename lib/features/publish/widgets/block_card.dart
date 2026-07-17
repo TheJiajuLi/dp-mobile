@@ -13,6 +13,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
 import '../../../shared/utils/latex_utils.dart';
+import '../../../shared/utils/reference_format.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -121,6 +122,20 @@ class _BlockCardState extends ConsumerState<BlockCard> {
   // initialValue；只在"应用优化结果"时才 +1，正常打字不碰它，
   // 不会打断输入焦点/光标位置
   int _textRevision = 0;
+
+  // 参考文献块：懒解析 content(JSON) 成条目列表；_refRev 参与字段 key，DOI 抓取
+  // 回填后 ++ 强制重建输入框刷新 initialValue；_fetchingDoi 记哪几条正在抓
+  List<Map<String, String>>? _refs;
+  int _refRev = 0;
+  final Set<int> _fetchingDoi = {};
+
+  List<Map<String, String>> get _references =>
+      _refs ??= parseReferences(widget.block.content);
+
+  void _persistRefs() {
+    widget.block.content = encodeReferences(_references);
+    widget.onChanged();
+  }
   // 代码块专用——用能实时按 token 上色的 controller 替代默认的
   // TextFormField(initialValue: ...)，编辑态才能跟阅读态一样有语法高亮
   late final HighlightingCodeController _codeCtrl = HighlightingCodeController(
@@ -623,6 +638,8 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         return _buildLatexBlock(l10n);
       case BlockType.markdown:
         return _buildMarkdownBlock(l10n);
+      case BlockType.reference:
+        return _buildReferenceBlock(l10n);
       case BlockType.image:
         return _buildImageBlock(l10n);
       case BlockType.file:
@@ -2133,6 +2150,263 @@ th{background:$thBg;color:$thFg}
         ),
       ),
     );
+  }
+
+  // 参考文献块编辑器：标题 +（可增删改的）条目卡片列表 + 添加按钮
+  Widget _buildReferenceBlock(AppLocalizations l10n) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final border = Theme.of(context).dividerColor;
+    final ink = Theme.of(context).textTheme.bodyLarge?.color;
+    final muted = isDark ? Colors.white54 : const Color(0xFF999999);
+    final refs = _references;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '参考文献',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ink),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: 28,
+            height: 2,
+            color: _primary.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 10),
+          if (refs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                '还没有文献，点下方添加',
+                style: TextStyle(fontSize: 12, color: muted),
+              ),
+            ),
+          for (var i = 0; i < refs.length; i++)
+            _referenceEntryCard(i, refs[i], border, ink, muted, isDark),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() {
+                refs.add(emptyReference());
+                _refRev++;
+              });
+              _persistRefs();
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _primary.withValues(alpha: 0.4),
+                  width: 0.8,
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add, size: 16, color: _primary),
+                  SizedBox(width: 4),
+                  Text(
+                    '添加文献',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _referenceEntryCard(
+    int i,
+    Map<String, String> r,
+    Color border,
+    Color? ink,
+    Color muted,
+    bool isDark,
+  ) {
+    Widget field(String key, String hint, {TextInputType? kb}) {
+      return TextFormField(
+        key: ValueKey('ref_${widget.block.id}_${i}_${key}_$_refRev'),
+        initialValue: r[key] ?? '',
+        keyboardType: kb,
+        style: TextStyle(fontSize: 13, color: ink),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: false,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          border: InputBorder.none,
+          hintText: hint,
+          hintStyle: TextStyle(fontSize: 13, color: muted),
+        ),
+        onChanged: (v) {
+          r[key] = v;
+          _persistRefs();
+        },
+      );
+    }
+
+    final fetching = _fetchingDoi.contains(i);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border, width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '[${i + 1}]',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _primary,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _references.removeAt(i);
+                    _refRev++;
+                  });
+                  _persistRefs();
+                },
+                child: Icon(Icons.delete_outline, size: 16, color: muted),
+              ),
+            ],
+          ),
+          field('author', '作者，如 Marsden & Tromba'),
+          Divider(height: 1, color: border),
+          field('title', '标题'),
+          Divider(height: 1, color: border),
+          field('journal', '期刊 / 出版社'),
+          Divider(height: 1, color: border),
+          field('year', '年份', kb: TextInputType.number),
+          Divider(height: 1, color: border),
+          Row(
+            children: [
+              Expanded(child: field('doi', 'DOI（可自动获取元数据）')),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: fetching ? null : () => _fetchDoi(i),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: isDark ? 0.16 : 0.08),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: _primary.withValues(alpha: 0.22),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: fetching
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _primary,
+                          ),
+                        )
+                      : const Text(
+                          '获取',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+          Divider(height: 1, color: border),
+          field('url', 'URL（选填）'),
+        ],
+      ),
+    );
+  }
+
+  // DOI → CrossRef 抓元数据自动回填 author/title/journal/year。不走本项目
+  // apiClient（那是自家后端）；用独立 Dio 打 CrossRef 公共 API
+  Future<void> _fetchDoi(int i) async {
+    final doi = (_references[i]['doi'] ?? '').trim();
+    if (doi.isEmpty) {
+      showAppToast(context, '请先填 DOI');
+      return;
+    }
+    setState(() => _fetchingDoi.add(i));
+    try {
+      final clean = doi.replaceFirst(
+        RegExp(r'^https?://(dx\.)?doi\.org/'),
+        '',
+      );
+      final res = await Dio().get(
+        'https://api.crossref.org/works/${Uri.encodeComponent(clean)}',
+        options: Options(receiveTimeout: const Duration(seconds: 15)),
+      );
+      final msg = (res.data as Map?)?['message'] as Map?;
+      if (msg == null) throw Exception('no data');
+      final r = _references[i];
+      final authors =
+          (msg['author'] as List?)
+              ?.map((a) {
+                final fam = (a as Map)['family']?.toString() ?? '';
+                final giv = a['given']?.toString() ?? '';
+                return [giv, fam].where((s) => s.isNotEmpty).join(' ');
+              })
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [];
+      if (authors.isNotEmpty) {
+        r['author'] = authors.length > 3
+            ? '${authors.take(3).join(', ')} et al.'
+            : authors.join(', ');
+      }
+      final titleList = msg['title'] as List?;
+      if (titleList != null && titleList.isNotEmpty) {
+        r['title'] = titleList.first.toString();
+      }
+      final journalList = msg['container-title'] as List?;
+      final journal = (journalList != null && journalList.isNotEmpty)
+          ? journalList.first.toString()
+          : (msg['publisher']?.toString() ?? '');
+      if (journal.isNotEmpty) r['journal'] = journal;
+      final dateParts = (msg['issued'] as Map?)?['date-parts'] as List?;
+      if (dateParts != null && dateParts.isNotEmpty) {
+        final first = dateParts.first;
+        if (first is List && first.isNotEmpty) {
+          r['year'] = first.first?.toString() ?? '';
+        }
+      }
+      if (!mounted) return;
+      setState(() => _refRev++); // 重建字段刷新 initialValue
+      _persistRefs();
+      showAppToast(context, '已获取文献信息', ok: true);
+    } catch (_) {
+      if (mounted) showAppToast(context, '获取失败，请检查 DOI 或手动填写');
+    } finally {
+      if (mounted) setState(() => _fetchingDoi.remove(i));
+    }
   }
 
   Widget _buildImageBlock(AppLocalizations l10n) {

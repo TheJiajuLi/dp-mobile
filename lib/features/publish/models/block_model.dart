@@ -15,6 +15,10 @@ enum BlockType {
   // 同样用 flutter_markdown 渲染——文字块只认行内公式、不认 Markdown 语法，
   // 小梦生成的含 ** / ## / - 这类内容要走这个块，不然会显示成生的 ** 符号
   markdown,
+  // 参考文献块——content 存一个 JSON 数组（每条 {author,title,journal,year,
+  // url,doi}），整块=一篇文章的完整参考文献列表。阅读端文末按 GB/T 样式
+  // 编号展示、doi/url 可点。见 shared/utils/reference_format.dart
+  reference,
 }
 
 // 实测确认（2026-07-05）：POST /auth/tutorials 的 blocks 字段要传原始数组，
@@ -204,6 +208,8 @@ class EditorBlock {
       case BlockType.audio:
       case BlockType.video:
       case BlockType.link:
+      // 参考文献块 content 是 JSON，不当正文字数算，按"要花时间看"的重块 +0.5min
+      case BlockType.reference:
         heavyBlocks++;
         break;
     }
