@@ -141,10 +141,22 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   GlobalKey _keyFor(String commentId) =>
       _commentKeys.putIfAbsent(commentId, () => GlobalKey());
 
-  // 阅读进度 + 顶栏"滚过封面后显示标题/实底"的状态
+  // 阅读进度 + 沉浸式 Header 折叠进度
   final ScrollController _scrollCtrl = ScrollController();
   final ValueNotifier<double> _progress = ValueNotifier(0);
-  final ValueNotifier<bool> _barSolid = ValueNotifier(false);
+  // 折叠进度 t：1=完全展开（封面+大标题铺满）、0=完全塌缩（48 slim 条+小标题）。
+  // 由 _onScroll 按滚动量算，驱动大标题渐隐/小标题渐显/图标白↔主题色插值
+  final ValueNotifier<double> _headerT = ValueNotifier(1);
+
+  // 塌缩后的 slim 条高度（不含底部 2px 进度条）
+  static const double _collapsedHeaderH = 48;
+
+  // 沉浸式 Header 展开高度：有封面更高（放视差封面+标题），无封面矮一点（话题
+  // 渐变+标题）。_onScroll 和 build 都要读它，抽成 getter
+  double get _headerExpandedH {
+    final cover = _tutorial?['cover_image'] as String?;
+    return (cover != null && cover.isNotEmpty) ? 240 : 150;
+  }
 
   // 目录：给每个 heading 块挂 GlobalKey（供点击跳转 ensureVisible），滚动时
   // 高亮当前所在标题（scroll-spy，值是 _toc 里的下标，-1 表示还没滚到任何标题）
@@ -190,8 +202,14 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     if (max > 0) {
       _progress.value = (_scrollCtrl.offset / max).clamp(0.0, 1.0);
     }
-    final solid = _scrollCtrl.offset >= 100;
-    if (solid != _barSolid.value) _barSolid.value = solid;
+    // 折叠进度：顶栏从展开塌到 slim 条要消耗 (expanded - collapsed) 像素滚动，
+    // 按已滚过的比例算 t（1→0）
+    final range = _headerExpandedH - _collapsedHeaderH;
+    final collapse = range > 0
+        ? (_scrollCtrl.offset / range).clamp(0.0, 1.0)
+        : 1.0;
+    final tVal = 1.0 - collapse;
+    if ((tVal - _headerT.value).abs() > 0.001) _headerT.value = tVal;
     _updateActiveHeading();
   }
 
@@ -220,7 +238,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   void dispose() {
     _scrollCtrl.dispose();
     _progress.dispose();
-    _barSolid.dispose();
+    _headerT.dispose();
     _activeHeading.dispose();
     _commentCtrl.dispose();
     _commentFocusNode.dispose();
@@ -364,10 +382,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              'H$level',
-              style: TextStyle(fontSize: 11, color: muted),
-            ),
+            Text('H$level', style: TextStyle(fontSize: 11, color: muted)),
           ],
         ),
       ),
@@ -1124,75 +1139,136 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       body: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
-          // 顶栏（slim，常驻）：返回 + 滚过封面后浮现的标题 + 字体 + 更多。
-          // 底边原来有一条阅读进度条，静止时是一整条灰色track，跟下面
-          // 封面之间显得像一条很粗的分割线，视觉噪音大于它的功能价值，去掉
-          ValueListenableBuilder<bool>(
-            valueListenable: _barSolid,
-            builder: (context, solid, _) => SliverAppBar(
-              toolbarHeight: 48,
-              pinned: true,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              backgroundColor: bg,
-              surfaceTintColor: Colors.transparent,
-              foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-              titleSpacing: 0,
-              centerTitle: false,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back_ios, size: 18),
-                onPressed: () => context.pop(),
-              ),
-              title: AnimatedOpacity(
-                opacity: solid ? 1 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+          // 沉浸式 Header：展开态铺满视差封面（无封面走话题渐变）+ 下半 60%
+          // 黑色遮罩 + 大标题白字；往上滚 t:1→0，大标题渐隐、封面渐隐塌成 48
+          // slim 条、slim 小标题渐显接管，返回/操作图标白↔主题色插值。折叠进度
+          // t 由 _onScroll 按滚动量算，同一个 t 同时驱动 flexibleSpace 和图标色
+          ValueListenableBuilder<double>(
+            valueListenable: _headerT,
+            builder: (context, t, _) {
+              final hasCover = coverImage != null && coverImage.isNotEmpty;
+              final barInk = Theme.of(context).textTheme.bodyLarge?.color;
+              // 展开时叠在封面上要白、塌缩后在页面背景上要主题文字色
+              final iconColor = Color.lerp(barInk, Colors.white, t)!;
+              return SliverAppBar(
+                expandedHeight: _headerExpandedH,
+                collapsedHeight: _collapsedHeaderH,
+                toolbarHeight: _collapsedHeaderH,
+                pinned: true,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                backgroundColor: bg,
+                surfaceTintColor: Colors.transparent,
+                foregroundColor: iconColor,
+                titleSpacing: 0,
+                centerTitle: false,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back_ios, size: 18, color: iconColor),
+                  onPressed: () => context.pop(),
+                ),
+                // 塌缩时（1-t→1）淡入接管标题
+                title: Opacity(
+                  opacity: (1 - t).clamp(0.0, 1.0),
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: barInk,
+                    ),
                   ),
                 ),
-              ),
-              actions: [
-                // 目录入口（常驻）——有标题块才显示
-                if (_toc.isNotEmpty)
+                actions: [
+                  if (_toc.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.list, color: iconColor),
+                      tooltip: '目录',
+                      onPressed: _showTocSheet,
+                    ),
                   IconButton(
-                    icon: const Icon(Icons.list),
-                    tooltip: '目录',
-                    onPressed: _showTocSheet,
+                    icon: Icon(Icons.format_size, color: iconColor),
+                    onPressed: _showFontSheet,
                   ),
-                IconButton(
-                  icon: const Icon(Icons.format_size),
-                  onPressed: _showFontSheet,
+                  if (_allowRepost)
+                    IconButton(
+                      icon: Icon(
+                        Icons.picture_as_pdf_outlined,
+                        color: iconColor,
+                      ),
+                      tooltip: '导出 PDF',
+                      onPressed: _openExportSheet,
+                    ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  collapseMode: CollapseMode.parallax,
+                  background: Opacity(
+                    // 整个封面区随折叠渐隐，塌到 0 时露出 slim 条的纯 bg
+                    opacity: t.clamp(0.0, 1.0),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // 封面纯装饰排除出语义树——避免图片异步加载 relayout 跟
+                        // 转场抢语义树更新炸 !semantics.parentDataDirty 断言
+                        ExcludeSemantics(
+                          child: hasCover
+                              ? CachedNetworkImage(
+                                  imageUrl: coverImage,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (context, url, error) =>
+                                      _CoverGradient(rule: topicRule),
+                                )
+                              : _CoverGradient(rule: topicRule),
+                        ),
+                        // 下半 60% 渐变到 black87——保证白标题在浅色封面（白底
+                        // 数学图）上也读得清，代价是浅色封面下半会被压暗一截
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment(0, -0.2),
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Color(0xDD000000)],
+                            ),
+                          ),
+                        ),
+                        // 大标题（白），左下
+                        Positioned(
+                          left: 16,
+                          right: 16,
+                          bottom: 16,
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              height: 1.3,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                // 作者关闭转载时隐藏 PDF 导出入口
-                if (_allowRepost)
-                  IconButton(
-                    icon: const Icon(Icons.picture_as_pdf_outlined),
-                    tooltip: '导出 PDF',
-                    onPressed: _openExportSheet,
-                  ),
-              ],
-              // 阅读进度条——之前 backgroundColor 是实心浅灰，静止时（滚动
-              // 位置0）整条都是背景色，跟封面拼出一条很粗的分割线。这次
-              // track 改透明，静止时完全不可见，只有真的往下滚了才会看到
-              // 紫色进度往右长，功能保留但不再有"分割线"的观感
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(2),
-                child: ValueListenableBuilder<double>(
-                  valueListenable: _progress,
-                  builder: (context, v, _) => LinearProgressIndicator(
-                    value: v,
-                    minHeight: 2,
-                    backgroundColor: Colors.transparent,
-                    valueColor: const AlwaysStoppedAnimation(_primary),
+                // 阅读进度条：透明 track，只有往下滚才见紫色进度
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(2),
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _progress,
+                    builder: (context, v, _) => LinearProgressIndicator(
+                      value: v,
+                      minHeight: 2,
+                      backgroundColor: Colors.transparent,
+                      valueColor: const AlwaysStoppedAnimation(_primary),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
           // 数据集加载提示条——静默注入内核期间显示，完成后消失
           if (_datasetLoading)
@@ -1231,106 +1307,70 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ),
             ),
           // 封面区：16:9 封面图 + 底部渐变遮罩 + 标签浮层
-          SliverToBoxAdapter(
-            child: ExcludeSemantics(
-              // 封面图纯装饰、不承载信息，排除出语义树——不然图片异步加载完成
-              // 触发的 relayout 会跟点头像 context.push 的转场抢语义树更新，
-              // 炸出 `!semantics.parentDataDirty` 断言
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (coverImage?.isNotEmpty == true)
-                      CachedNetworkImage(
-                        imageUrl: coverImage!,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) =>
-                            _CoverGradient(rule: topicRule),
-                      )
-                    else
-                      _CoverGradient(rule: topicRule),
-                    // 底部渐变遮罩，让浮在封面上的标签更清晰
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        height: 80,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Color(0x99000000)],
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (tags.isNotEmpty)
-                      Positioned(
-                        left: 12,
-                        bottom: 10,
-                        child: Row(
-                          children: tags
-                              .take(2)
-                              .map(
-                                (tg) => Container(
-                                  margin: const EdgeInsets.only(right: 6),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 9,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(99),
-                                  ),
-                                  child: Text(
-                                    tg,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                    if (seriesTag != null && seriesTag.isNotEmpty)
-                      Positioned(
-                        right: 12,
-                        bottom: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _primary,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            seriesTag,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          // 封面/大标题已上移进沉浸式 Header（flexibleSpace），这里不再重复渲染
+          // 独立封面块；正文首行改为承载从封面迁下来的 tags/series，标题不重复
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // tags/series 从封面迁到正文首行——正文底色上不用白字，改用
+                  // 品牌紫 series pill + 浅紫 tag chip
+                  if ((seriesTag != null && seriesTag.isNotEmpty) ||
+                      tags.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          if (seriesTag != null && seriesTag.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _primary,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                seriesTag,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ...tags
+                              .take(2)
+                              .map(
+                                (tg) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? _primary.withValues(alpha: 0.16)
+                                        : const Color(0xFFEEF0FF),
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                  child: Text(
+                                    tg,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: _primary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        ],
+                      ),
+                    ),
                   if (subtitle != null && subtitle.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
@@ -1339,18 +1379,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                         style: const TextStyle(fontSize: 12, color: _primary),
                       ),
                     ),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? const Color(0xFFF0F2F8)
-                          : const Color(0xFF1A1A1A),
-                      letterSpacing: -0.2,
-                      height: 1.4,
-                    ),
-                  ),
                   if (summary != null && summary.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     // 摘要跟卡片/预览抽屉一样走 inlineLatexText，$...$ 行内
@@ -1621,63 +1649,65 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 child: Row(
                   children: [
                     _bottomAction(
-                  icon: _liked ? Icons.favorite : Icons.favorite_border,
-                  color: _liked ? const Color(0xFFEF4444) : Colors.grey[400]!,
-                  label: '$likes',
-                  onTap: _toggleLike,
-                ),
-                const SizedBox(width: 22),
-                _bottomAction(
-                  icon: Icons.chat_bubble_outline,
-                  color: Colors.grey[400]!,
-                  label: '${_comments.length}',
-                  onTap: _openCommentSheet,
-                ),
-                const SizedBox(width: 22),
-                _bottomAction(
-                  icon: _saved ? Icons.bookmark : Icons.bookmark_border,
-                  color: _saved ? _primary : Colors.grey[400]!,
-                  label: '$saveCount',
-                  onTap: _toggleSave,
-                ),
-                const Spacer(),
-                // 分享——大小/形状/填色全部对齐顶部「关注」按钮：实心品牌紫
-                // #6366F1、padding h14/v6、圆角 8、字号 12/w600，无渐变无投影，
-                // 只多一个分享图标做身份区分。作者关闭转载时整颗按钮隐藏
-                // （Spacer 保留，其余按钮仍靠左）
-                if (_allowRepost)
-                  GestureDetector(
-                    onTap: _showShare,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.ios_share_rounded,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          SizedBox(width: 5),
-                          Text(
-                            '分享',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
+                      icon: _liked ? Icons.favorite : Icons.favorite_border,
+                      color: _liked
+                          ? const Color(0xFFEF4444)
+                          : Colors.grey[400]!,
+                      label: '$likes',
+                      onTap: _toggleLike,
                     ),
-                  ),
+                    const SizedBox(width: 22),
+                    _bottomAction(
+                      icon: Icons.chat_bubble_outline,
+                      color: Colors.grey[400]!,
+                      label: '${_comments.length}',
+                      onTap: _openCommentSheet,
+                    ),
+                    const SizedBox(width: 22),
+                    _bottomAction(
+                      icon: _saved ? Icons.bookmark : Icons.bookmark_border,
+                      color: _saved ? _primary : Colors.grey[400]!,
+                      label: '$saveCount',
+                      onTap: _toggleSave,
+                    ),
+                    const Spacer(),
+                    // 分享——大小/形状/填色全部对齐顶部「关注」按钮：实心品牌紫
+                    // #6366F1、padding h14/v6、圆角 8、字号 12/w600，无渐变无投影，
+                    // 只多一个分享图标做身份区分。作者关闭转载时整颗按钮隐藏
+                    // （Spacer 保留，其余按钮仍靠左）
+                    if (_allowRepost)
+                      GestureDetector(
+                        onTap: _showShare,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.ios_share_rounded,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                '分享',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
