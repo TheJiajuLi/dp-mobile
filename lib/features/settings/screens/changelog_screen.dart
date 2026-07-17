@@ -7,7 +7,7 @@ import '../../../l10n/generated/app_localizations.dart';
 
 // 最新版本号——每次发布前手动更新。设置页「更新日志」的"新动态"角标、
 // 本页"当前版本"、以及已读判断都用它当唯一真相
-const String kLatestVersion = 'v1.3.0';
+const String kLatestVersion = 'v1.4.0';
 
 const String _kLastSeenKey = 'about_last_seen_version';
 
@@ -70,12 +70,47 @@ class ChangelogScreen extends ConsumerStatefulWidget {
   // 卡片里按 type 分组渲染，只显示最近 10 个版本
   static const List<_Version> _versions = [
     _Version(
+      version: 'v1.4.0',
+      date: '2026.07.18',
+      changes: [
+        _Change('极梦HD iPad版上线——侧边导航/三栏阅读/自适应断点', ChangeType.feature),
+        _Change('HD首页/发现三栏布局——列表+阅读+目录联动', ChangeType.feature),
+        _Change('HD极索/小梦/Notebook/设置/通知全部接通', ChangeType.feature),
+        _Change('HD自适应断点——1024三栏/768双栏/窄屏单栏', ChangeType.feature),
+        _Change('ArticleBodyView抽取——手机/HD共用一套正文渲染', ChangeType.feature),
+        _Change('R语言内核接入——webR/WebAssembly/图表捕获', ChangeType.feature),
+        _Change('R内核状态指示——加载中/就绪/不可用实时显示', ChangeType.feature),
+        _Change('文章阅读页沉浸式Header——封面视差/标题渐隐渐显', ChangeType.feature),
+        _Change('文章阅读页目录——BottomSheet/跳转定位/scroll-spy高亮', ChangeType.feature),
+        _Change('公式自动编号——居中/右侧(n)/autoNumber开关', ChangeType.feature),
+        _Change('参考文献Block——结构化条目/DOI自动抓取/GB/T样式', ChangeType.feature),
+        _Change('用户协议页——原创声明/著作权存证/签署/撤回', ChangeType.feature),
+        _Change('APNs推送通知基础设施配置', ChangeType.feature),
+        _Change('极索推荐问题接入服务端题库——秒开/社区热点', ChangeType.improve),
+        _Change('阅读页排版升级——字号/行高/标题层级/毛玻璃底栏', ChangeType.improve),
+        _Change('专栏详情页深色主题适配', ChangeType.improve),
+        _Change('Notebook描述生成代码——自然语言转Python', ChangeType.improve),
+        _Change('SQL内核多表升级——所有DataFrame自动注册', ChangeType.improve),
+        _Change('MySQL数据库从5.7升级至8.0', ChangeType.improve),
+        _Change('Redis正式安装并配置开机自启', ChangeType.improve),
+        _Change('文章阅读页代码块支持直接编辑——编辑/完成/重置', ChangeType.fix),
+        _Change('小梦帮我写标题解析为heading块——目录可正确定位', ChangeType.fix),
+        _Change('PDF导出行内LaTeX跳过代码内联/渲染失败回退', ChangeType.fix),
+        _Change('PDF行内公式按字号比例缩放——统一字形大小', ChangeType.fix),
+        _Change('Markdown块完整重写——受控controller/焦点驱动', ChangeType.fix),
+        _Change('空白块Delete删除trim口径对齐修复', ChangeType.fix),
+      ],
+    ),
+    _Version(
       version: 'v1.3.0',
       date: '2026.07.17',
       changes: [
         _Change('Notebook可视化Cell——绿色主题/matplotlib图表/保存图表', ChangeType.feature),
         _Change('Notebook描述生成代码——自然语言转Python/快捷示例/自动插入', ChangeType.feature),
-        _Change('Notebook SQL内核多表——所有DataFrame自动注册为SQLite表', ChangeType.feature),
+        _Change(
+          'Notebook SQL内核多表——所有DataFrame自动注册为SQLite表',
+          ChangeType.feature,
+        ),
         _Change('Notebook SQL动态可用表提示+AI感知表结构', ChangeType.feature),
         _Change('文章阅读页目录——Bottom Sheet/跳转定位/scroll-spy高亮', ChangeType.feature),
         _Change('文章阅读页数据集自动注入内核——进页静默执行', ChangeType.feature),
