@@ -57,9 +57,12 @@ class NotebookBottomToolbar extends StatelessWidget {
         children: [
           ..._toolbarItems.map((item) {
             final isActive = activeType == item.$3;
+            // 未选中态原来是 #CCCCCC/#444444，太淡到几乎看不见；提到跟顶栏
+            // 「保存」按钮文字同一亮度（#555555 / #7A80A0），选中态仍更深一档
+            // （#1A1A1A / #E0E2F0）以区分当前项
             final fg = isActive
                 ? (isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A))
-                : (isDark ? const Color(0xFF444444) : const Color(0xFFCCCCCC));
+                : (isDark ? const Color(0xFF7A80A0) : const Color(0xFF555555));
             return Expanded(
               child: GestureDetector(
                 onTap: () => onTap(item.$3),
