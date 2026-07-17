@@ -11,8 +11,6 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widgets/aurora_badge.dart';
 import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/services/pyodide_engine.dart';
-import '../../../shared/utils/pro_access.dart';
 import '../../../shared/utils/topic_badge.dart';
 import '../../../shared/widgets/pro_badge.dart';
 import '../../../shared/widgets/mention_input/mention_popup.dart';
@@ -20,8 +18,9 @@ import '../../../shared/widgets/mention_input/mention_query.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart' show messageTimeAgo;
-import '../widgets/tutorial_export_sheet.dart';
-import '../widgets/tutorial_share_sheet.dart';
+import '../providers/article_provider.dart';
+import '../widgets/article_actions.dart';
+import '../widgets/article_body_view.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -108,13 +107,15 @@ class TutorialDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
-  Map<String, dynamic>? _tutorial;
-  List<dynamic> _blocks = [];
-  bool _loading = true;
-  bool _liked = false;
-  bool _saved = false;
-  // 数据集静默注入中——顶部显示一条蓝色细提示条，注入完成后消失
-  bool _datasetLoading = false;
+  // 文章数据统一走 articleProvider（跟 HD 中间面板共用同一份，见 2a-1）。这里
+  // 只留几个便捷 getter 供 chrome（沉浸头/作者卡/评论/关注/阅读时长）读；加载、
+  // 目录、点赞/收藏、数据集注入全在 provider / ArticleBodyView 里，screen 不再重复
+  Map<String, dynamic>? get _tutorial =>
+      ref.read(articleProvider(widget.tutorialId)).tutorial;
+  List<dynamic> get _blocks =>
+      ref.read(articleProvider(widget.tutorialId)).blocks;
+  // 正文体控制器——scroll-spy 的 activeHeading + jumpToHeading + 数据集注入态
+  final _bodyController = ArticleBodyController();
   // null = 还没查/不适用（比如在看自己的教程），不显示关注按钮
   bool? _isFollowing;
 
@@ -158,78 +159,11 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     return (cover != null && cover.isNotEmpty) ? 240 : 150;
   }
 
-  // 目录：给每个 heading 块挂 GlobalKey（供点击跳转 ensureVisible），滚动时
-  // 高亮当前所在标题（scroll-spy，值是 _toc 里的下标，-1 表示还没滚到任何标题）
-  final Map<int, GlobalKey> _headingKeys = {};
-  final ValueNotifier<int> _activeHeading = ValueNotifier(-1);
-
-  GlobalKey _headingKeyFor(int blockIndex) =>
-      _headingKeys.putIfAbsent(blockIndex, () => GlobalKey());
-
-  // 渲染正文 blocks——先一遍算好每个 latex 块的公式编号（顺序、只对
-  // autoNumber=true 的块；旧数据无此字段默认 true），再逐块渲染。heading 块挂
-  // GlobalKey 供目录跳转定位
-  List<Widget> _buildBlockWidgets(AppLocalizations l10n, Map<String, dynamic> t) {
-    final eqNums = <int?>[];
-    var n = 0;
-    for (final b in _blocks) {
-      if (b is Map &&
-          b['type'] == 'latex' &&
-          (b['autoNumber'] as bool? ?? true)) {
-        eqNums.add(++n);
-      } else {
-        eqNums.add(null);
-      }
-    }
-    // 作者本人看自己的文章不拦截运行；读者（非作者）阅读他人文章运行代码是
-    // Pro 权益
-    final isSelf =
-        (t['user_id'] as String?) != null &&
-        t['user_id'] == ref.read(currentUserProvider)?.id;
-    final widgets = <Widget>[];
-    for (var i = 0; i < _blocks.length; i++) {
-      final b = _blocks[i] as Map;
-      final w = buildTutorialBlockWidget(
-        context,
-        l10n,
-        Map<String, dynamic>.from(b),
-        readingMode: true,
-        isSelfPreview: isSelf,
-        equationNumber: eqNums[i],
-      );
-      widgets.add(
-        b['type'] == 'heading'
-            ? KeyedSubtree(key: _headingKeyFor(i), child: w)
-            : w,
-      );
-    }
-    return widgets;
-  }
-
-  // 从 blocks 抽出所有 heading 块 → 目录项 {index(块下标), level(1/2/3), text}。
-  // 只有 heading 进目录；正文/代码/公式/图片/音视频/数据集等都不进
-  List<Map<String, dynamic>> get _toc {
-    final items = <Map<String, dynamic>>[];
-    for (var i = 0; i < _blocks.length; i++) {
-      final b = _blocks[i];
-      if (b is Map && b['type'] == 'heading') {
-        final text = (b['content']?.toString() ?? '').trim();
-        if (text.isEmpty) continue;
-        items.add({
-          'index': i,
-          'level': (b['level'] as num?)?.toInt() ?? 2,
-          'text': text,
-        });
-      }
-    }
-    return items;
-  }
-
   @override
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
-    _load();
+    // 文章数据由 articleProvider 自动加载（首帧 watch 触发），不再 _load()
     _loadComments().then((_) {
       if (widget.scrollToCommentId != null) {
         _openCommentSheetAndScrollTo(widget.scrollToCommentId!);
@@ -250,28 +184,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         : 1.0;
     final tVal = 1.0 - collapse;
     if ((tVal - _headerT.value).abs() > 0.001) _headerT.value = tVal;
-    _updateActiveHeading();
-  }
-
-  // scroll-spy：当前所在标题 = 最后一个"顶边已滚过顶栏阈值"的 heading。用每个
-  // heading 块 GlobalKey 的全局 Y 判断（滚下去时 dy 变小），比 offset 换算稳
-  void _updateActiveHeading() {
-    final toc = _toc;
-    if (toc.isEmpty) return;
-    const topThreshold = 140.0; // 约等于顶栏高度以下一点
-    var active = -1;
-    for (var k = 0; k < toc.length; k++) {
-      final ctx = _headingKeys[toc[k]['index'] as int]?.currentContext;
-      final ro = ctx?.findRenderObject();
-      if (ro is! RenderBox || !ro.hasSize) continue;
-      final dy = ro.localToGlobal(Offset.zero).dy;
-      if (dy <= topThreshold) {
-        active = k;
-      } else {
-        break;
-      }
-    }
-    if (active != _activeHeading.value) _activeHeading.value = active;
+    // scroll-spy（heading 高亮）现在由 ArticleBodyView 内部按同一个 scrollCtrl 算
   }
 
   @override
@@ -279,29 +192,16 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     _scrollCtrl.dispose();
     _progress.dispose();
     _headerT.dispose();
-    _activeHeading.dispose();
+    _bodyController.dispose();
     _commentCtrl.dispose();
     _commentFocusNode.dispose();
     super.dispose();
   }
 
-  // 点目录项跳转——复用 _scrollToComment 同一套 GlobalKey + ensureVisible
-  void _jumpToHeading(int blockIndex) {
-    final ctx = _headingKeys[blockIndex]?.currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      // 标题落在顶栏下方一点，不被 SliverAppBar 压住
-      alignment: 0.08,
-    );
-  }
-
   // 目录 Bottom Sheet：从底部滑出，H1 顶格 / H2 缩进一层 / H3 缩进两层（按
   // level-1），当前所在标题高亮紫色，点击跳转并自动关闭
   void _showTocSheet() {
-    final toc = _toc;
+    final toc = ref.read(articleProvider(widget.tutorialId)).toc;
     if (toc.isEmpty) return;
     showModalBottomSheet(
       context: context,
@@ -359,12 +259,12 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ),
               Flexible(
                 child: ValueListenableBuilder<int>(
-                  valueListenable: _activeHeading,
+                  valueListenable: _bodyController.activeHeadingIndex,
                   builder: (context, active, _) => ListView.builder(
                     padding: const EdgeInsets.only(bottom: 8),
                     itemCount: toc.length,
                     itemBuilder: (context, k) =>
-                        _tocRow(ctx, toc[k], k == active, ink, muted),
+                        _tocRow(ctx, toc[k], k, k == active, ink, muted),
                   ),
                 ),
               ),
@@ -378,6 +278,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   Widget _tocRow(
     BuildContext sheetCtx,
     Map<String, dynamic> item,
+    int tocIndex,
     bool isActive,
     Color ink,
     Color muted,
@@ -387,7 +288,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     return InkWell(
       onTap: () {
         Navigator.pop(sheetCtx);
-        _jumpToHeading(item['index'] as int);
+        _bodyController.jumpToHeading(tocIndex);
       },
       child: Container(
         color: isActive ? _primary.withValues(alpha: 0.10) : Colors.transparent,
@@ -613,46 +514,16 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     }
   }
 
-  Future<void> _load() async {
-    final api = ref.read(apiClientProvider);
-    final res = await api.get('/auth/tutorials/${widget.tutorialId}');
-    if (!res.success || res.data == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-    final t = res.data as Map<String, dynamic>;
-
-    // 解析 blocks
-    var blocks = <dynamic>[];
-    final rawBlocks = t['blocks'];
-    if (rawBlocks is String && rawBlocks.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rawBlocks);
-        if (decoded is List) blocks = decoded;
-      } catch (_) {}
-    } else if (rawBlocks is List) {
-      blocks = rawBlocks;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _tutorial = t;
-      _blocks = blocks;
-      // 后端字段名未确认，兼容 is_liked / liked 两种可能，同时兼容 0/1 和 bool
-      _liked =
-          t['is_liked'] == 1 || t['is_liked'] == true || t['liked'] == true;
-      _saved =
-          t['is_saved'] == 1 || t['is_saved'] == true || t['saved'] == true;
-      _loading = false;
-    });
-
-    // blocks 到手后立刻静默注入数据集（不 await，不阻塞关注状态等后续请求）
-    _preloadDatasets();
-
+  // 关注状态——原来在 _load 尾部拉；现在文章数据由 articleProvider 加载，
+  // build 里 ref.listen 在 tutorial 首次到手时调这个单独拉一次。数据集静默注入
+  // 已迁进 ArticleBodyView，这里不再管
+  Future<void> _maybeLoadFollowStatus(Map<String, dynamic> t) async {
     final authorId = t['user_id'] as String?;
     final currentUserId = ref.read(currentUserProvider)?.id;
     if (authorId != null && authorId.isNotEmpty && authorId != currentUserId) {
-      final followRes = await api.get('/auth/users/$authorId/follow-status');
+      final followRes = await ref
+          .read(apiClientProvider)
+          .get('/auth/users/$authorId/follow-status');
       if (!mounted) return;
       if (followRes.success && followRes.data != null) {
         setState(
@@ -660,40 +531,6 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         );
       }
     }
-  }
-
-  // 进页静默注入：把所有 isDataset 代码块按顺序在共享内核里跑一遍，还原出
-  // df 等变量，读者随后运行下方代码块时 df 已存在。直接调 engine.run（不走
-  // TutorialCodeBlock._run），天然绕过 Pro 门禁——数据注入是"看文章"的一部
-  // 分，不是读者主动运行代码，不该拦
-  Future<void> _preloadDatasets() async {
-    final datasets = _blocks
-        .whereType<Map>()
-        .where((b) => b['type'] == 'code' && b['isDataset'] == true)
-        .toList();
-    if (datasets.isEmpty) return;
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context)!;
-    setState(() => _datasetLoading = true);
-    final engine = ref.read(pyodideEngineProvider);
-    for (final b in datasets) {
-      final id = b['id']?.toString() ?? 'dataset_${datasets.indexOf(b)}';
-      final code = b['content']?.toString() ?? '';
-      if (code.trim().isEmpty) continue;
-      try {
-        await engine.run(
-          id,
-          code,
-          'python',
-          l10n,
-          timeout: const Duration(seconds: 90),
-        );
-      } catch (_) {
-        // 单个数据集注入失败不影响其它，也不打扰读者——用户真去运行下方
-        // 代码块时才会看到 df 不存在的报错
-      }
-    }
-    if (mounted) setState(() => _datasetLoading = false);
   }
 
   Future<void> _toggleFollow() async {
@@ -715,24 +552,15 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   }
 
   Future<void> _toggleSave() async {
-    final api = ref.read(apiClientProvider);
-    final res = _saved
-        ? await api.delete('/auth/tutorials/${widget.tutorialId}/save')
-        : await api.post('/auth/tutorials/${widget.tutorialId}/save');
-    if (!mounted) return;
-    if (res.success) {
-      setState(() {
-        _saved = !_saved;
-        // 收藏数本地乐观更新——跟点赞一样即时反映，不等重新拉详情
-        final count = (_tutorial!['save_count'] as num?)?.toInt() ?? 0;
-        _tutorial!['save_count'] = _saved
-            ? count + 1
-            : (count > 0 ? count - 1 : 0);
-      });
-    } else {
+    // 点赞/收藏状态与乐观更新都在 articleProvider.notifier 里（跟 HD 共用一套）；
+    // 失败返回 false，这里保持原来的错误提示
+    final ok = await ref
+        .read(articleProvider(widget.tutorialId).notifier)
+        .toggleSave();
+    if (!ok && mounted) {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.actionFailedWithReason('${res.message}'))),
+        SnackBar(content: Text(l10n.actionFailedWithReason('收藏失败'))),
       );
     }
   }
@@ -754,7 +582,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   void _showShare() {
     final tutorial = _tutorial;
     if (tutorial == null) return;
-    showTutorialShareSheet(context, tutorial);
+    showArticleShareSheet(context, tutorial);
   }
 
   // "···"之前是纯占位 toast——顶部这一排本来就已经有收藏（真实）/分享
@@ -766,9 +594,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
   void _openExportSheet() {
     final tutorial = _tutorial;
     if (tutorial == null) return;
-    // 一键导出 PDF 是 Pro 权益——点了才校验，非 Pro 弹会员 Sheet 引导升级
-    if (!requirePro(context, ref, feature: '一键导出 PDF')) return;
-    showTutorialExportSheet(context, tutorial: tutorial, blocks: _blocks);
+    openArticleExportSheet(context, ref, tutorial, _blocks);
   }
 
   void _toggleCommentLike(String commentId, StateSetter? sheetSetState) {
@@ -798,29 +624,18 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       c.likes + (_locallyLikedCommentIds.contains(c.id) ? 1 : 0);
 
   Future<void> _toggleLike() async {
-    final api = ref.read(apiClientProvider);
-    final res = _liked
-        ? await api.delete('/auth/tutorials/${widget.tutorialId}/like')
-        : await api.post('/auth/tutorials/${widget.tutorialId}/like');
-
-    if (!res.success) {
-      if (!mounted) return;
+    final ok = await ref
+        .read(articleProvider(widget.tutorialId).notifier)
+        .toggleLike();
+    if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppLocalizations.of(
-              context,
-            )!.actionFailedWithReason('${res.message}'),
+            AppLocalizations.of(context)!.actionFailedWithReason('点赞失败'),
           ),
         ),
       );
-      return;
     }
-    setState(() {
-      _liked = !_liked;
-      final likes = (_tutorial!['likes'] as num?)?.toInt() ?? 0;
-      _tutorial!['likes'] = _liked ? likes + 1 : (likes > 0 ? likes - 1 : 0);
-    });
   }
 
   Widget _buildAuthorAvatar(
@@ -1096,7 +911,15 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
+    final state = ref.watch(articleProvider(widget.tutorialId));
+    // 文章首次到手时拉一次关注状态（原来在 _load 尾部）
+    ref.listen<ArticleState>(articleProvider(widget.tutorialId), (prev, next) {
+      if ((prev == null || prev.tutorial == null) && next.tutorial != null) {
+        _maybeLoadFollowStatus(next.tutorial!);
+      }
+    });
+
+    if (state.loading) {
       final isDark = Theme.of(context).brightness == Brightness.dark;
       return Scaffold(
         // 加载态背景也统一成首页米白 #FAFAF8（浅色），不再是默认的偏冷灰白
@@ -1107,7 +930,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
       );
     }
 
-    if (_tutorial == null) {
+    if (state.tutorial == null) {
       final l10n = AppLocalizations.of(context)!;
       return Scaffold(
         appBar: AppBar(title: Text(l10n.tutorial)),
@@ -1122,7 +945,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
     // 阅读页深色底单独用更沉的 #0E1015（数字出版物观感），比全局 #0A0A0F 略提
     // 一点、跟毛玻璃底栏呼应；只这一页覆写，其余页仍是全局深色底
     final bg = isDark ? const Color(0xFF0E1015) : const Color(0xFFFAFAF8);
-    final t = _tutorial!;
+    final t = state.tutorial!;
     final title = t['title'] as String? ?? '';
     final username = t['username'] as String? ?? '';
     final avatar = t['avatar'] as String?;
@@ -1130,8 +953,9 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
         t['is_founding_creator'] == true || t['is_founding_creator'] == 1;
     final authorIsAuroraCreator =
         t['is_aurora_creator'] == true || t['is_aurora_creator'] == 1;
-    final likes = (t['likes'] as num?)?.toInt() ?? 0;
-    final saveCount = (t['save_count'] as num?)?.toInt() ?? 0;
+    // 点赞/收藏数走 provider 的实时字段（toggle 后即时反映），不读 map 里的旧值
+    final likes = state.likes;
+    final saveCount = state.saveCount;
     final coverImage = t['cover_image'] as String?;
     final createdAt = (t['created_at'] as num?)?.toInt() ?? 0;
     final summary = t['summary'] as String?;
@@ -1163,14 +987,22 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
 
     final topicRule = matchedTopicRuleFor(tags);
     final previewComments = _comments.take(2).toList();
+    final toc = state.toc;
 
     return Scaffold(
       backgroundColor: bg,
       // 右下角浮动目录入口已删除——顶栏已有目录图标（同一个 Sheet），
       // 底部再浮一个是冗余，还会挡住正文/分享按钮
-      body: CustomScrollView(
-        controller: _scrollCtrl,
-        slivers: [
+      // 正文体统一走 ArticleBodyView（跟 HD 中间面板共用）：它负责渲染 blocks +
+      // 公式编号 + heading keys + scroll-spy + 数据集注入，并用我们传进去的
+      // _scrollCtrl（沉浸头/进度条也挂它）+ _bodyController（目录联动）。
+      // 沉浸式 Header/封面/标题/作者行作 leadingSlivers，专栏卡/标签/作者卡/
+      // 评论预览作 trailingSlivers，正文块由 ArticleBodyView 夹在中间注入
+      body: ArticleBodyView(
+        tutorialId: widget.tutorialId,
+        scrollController: _scrollCtrl,
+        controller: _bodyController,
+        leadingSlivers: [
           // 沉浸式 Header：展开态铺满视差封面（无封面走话题渐变）+ 下半 60%
           // 黑色遮罩 + 大标题白字；往上滚 t:1→0，大标题渐隐、封面渐隐塌成 48
           // slim 条、slim 小标题渐显接管，返回/操作图标白↔主题色插值。折叠进度
@@ -1213,7 +1045,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                   ),
                 ),
                 actions: [
-                  if (_toc.isNotEmpty)
+                  if (toc.isNotEmpty)
                     IconButton(
                       icon: Icon(Icons.list, color: iconColor),
                       tooltip: '目录',
@@ -1302,42 +1134,49 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               );
             },
           ),
-          // 数据集加载提示条——静默注入内核期间显示，完成后消失
-          if (_datasetLoading)
-            SliverToBoxAdapter(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                color: isDark
-                    ? const Color(0xFF0EA5E9).withValues(alpha: 0.10)
-                    : const Color(0xFFF0F9FF),
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.6,
-                        valueColor: AlwaysStoppedAnimation(Color(0xFF0EA5E9)),
+          // 数据集加载提示条——静默注入内核期间显示，完成后消失。注入态现在由
+          // ArticleBodyView 写进 _bodyController.datasetLoading
+          SliverToBoxAdapter(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _bodyController.datasetLoading,
+              builder: (context, datasetLoading, _) => datasetLoading
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '本文包含数据集，正在加载…',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? const Color(0xFF7DD3FC)
-                            : const Color(0xFF0369A1),
+                      color: isDark
+                          ? const Color(0xFF0EA5E9).withValues(alpha: 0.10)
+                          : const Color(0xFFF0F9FF),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.6,
+                              valueColor: AlwaysStoppedAnimation(
+                                Color(0xFF0EA5E9),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '本文包含数据集，正在加载…',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? const Color(0xFF7DD3FC)
+                                  : const Color(0xFF0369A1),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                    )
+                  : const SizedBox.shrink(),
             ),
+          ),
           // 封面区：16:9 封面图 + 底部渐变遮罩 + 标签浮层
           // 封面/大标题已上移进沉浸式 Header（flexibleSpace），这里不再重复渲染
           // 独立封面块；正文首行改为承载从封面迁下来的 tags/series，标题不重复
@@ -1533,11 +1372,13 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               ),
             ),
           ),
+          // ── leadingSlivers 到此结束；正文 blocks 由 ArticleBodyView 注入 ──
+        ],
+        trailingSlivers: [
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ..._buildBlockWidgets(l10n, t),
                 if (columnId != null && columnId.isNotEmpty)
                   _buildColumnCard(l10n, columnId),
                 if (tags.isNotEmpty)
@@ -1664,8 +1505,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                 child: Row(
                   children: [
                     _bottomAction(
-                      icon: _liked ? Icons.favorite : Icons.favorite_border,
-                      color: _liked
+                      icon: state.liked
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: state.liked
                           ? const Color(0xFFEF4444)
                           : Colors.grey[400]!,
                       label: '$likes',
@@ -1680,8 +1523,10 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                     ),
                     const SizedBox(width: 22),
                     _bottomAction(
-                      icon: _saved ? Icons.bookmark : Icons.bookmark_border,
-                      color: _saved ? _primary : Colors.grey[400]!,
+                      icon: state.saved
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
+                      color: state.saved ? _primary : Colors.grey[400]!,
                       label: '$saveCount',
                       onTap: _toggleSave,
                     ),
