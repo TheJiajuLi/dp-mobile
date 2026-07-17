@@ -205,13 +205,23 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     final isDeleteKey =
         event.logicalKey == LogicalKeyboardKey.backspace ||
         event.logicalKey == LogicalKeyboardKey.delete;
-    if (!isDeleteKey ||
-        widget.block.content.isNotEmpty ||
-        widget.onEmptyBackspace == null) {
+    if (!isDeleteKey || widget.onEmptyBackspace == null) {
       return KeyEventResult.ignored;
     }
-    widget.onEmptyBackspace!();
-    return KeyEventResult.handled;
+    // 辅助诊断：确认 backspace/delete 真的触达了这里，以及此刻 content 到底是
+    // 什么——区分"只含空白/换行的块"和"事件根本没到"两种情况
+    debugPrint(
+      '[EmptyBackspace] content: "${widget.block.content}" '
+      'trim: "${widget.block.content.trim()}"',
+    );
+    // 空判定用 trim 对齐"看起来空"的渲染口径（预览态判空也是 content.trim()）——
+    // 只含空格/换行的块看着是空框、以前因为 content.isNotEmpty 为真删不掉，现在
+    // 也能删
+    if (widget.block.content.trim().isEmpty) {
+      widget.onEmptyBackspace?.call();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   Widget _withEmptyBackspace(Widget child) => Focus(
