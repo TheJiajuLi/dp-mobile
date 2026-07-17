@@ -977,21 +977,39 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
       barrierDismissible: false,
       builder: (_) => Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
           decoration: BoxDecoration(
             color: _card,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _border, width: 0.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _isDark ? 0.4 : 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(_primary),
+                ),
               ),
-              SizedBox(width: 14),
-              Text('正在生成 PDF...'),
+              const SizedBox(width: 14),
+              Text(
+                '正在生成 PDF…',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: _ink,
+                ),
+              ),
             ],
           ),
         ),
