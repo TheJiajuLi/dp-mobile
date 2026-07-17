@@ -41,23 +41,16 @@ class NotebookBottomToolbar extends StatelessWidget {
       // 上方的 Cell 画布，同时保留 SafeArea 对 home 指示条的避让
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF17171F) : Colors.white,
+        // 浅色下去掉白色 pill 底/描边/投影，完全融进米色页面背景、不制造额外
+        // 视觉噪音；深色下保留深色卡片底+淡描边，让工具栏在深色画布上仍浮起
+        color: isDark ? const Color(0xFF17171F) : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0xFFEBEBEB),
-          width: 0.5,
-        ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+        border: isDark
+            ? Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 0.5,
+              )
+            : null,
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
@@ -104,7 +97,10 @@ class NotebookBottomToolbar extends StatelessWidget {
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1),
+                  // 跟顶栏「发布」同款淡紫底+紫字（accent），不再是深紫实心
+                  color: const Color(
+                    0xFF6366F1,
+                  ).withValues(alpha: isDark ? 0.16 : 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(
@@ -113,7 +109,7 @@ class NotebookBottomToolbar extends StatelessWidget {
                     Icon(
                       Icons.upload_file_outlined,
                       size: 14,
-                      color: Colors.white,
+                      color: Color(0xFF6366F1),
                     ),
                     SizedBox(width: 4),
                     Text(
@@ -121,7 +117,7 @@ class NotebookBottomToolbar extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: Colors.white,
+                        color: Color(0xFF6366F1),
                       ),
                     ),
                   ],
