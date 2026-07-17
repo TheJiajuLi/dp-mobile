@@ -47,20 +47,55 @@ final _inlineLatexPattern = RegExp(
   dotAll: true,
 );
 
+// 反引号代码内联 `...`——里面的 $ / $$ 是字面示例（LaTeX 语法教程会写
+// `$...$` 来讲"美元符号怎么用"），不能当公式，否则会被误渲成黑块
+final _codeSpanPattern = RegExp(r'`[^`\n]*`');
+
 List<InlineLatexSeg> splitInlineLatex(String content) {
   final segs = <InlineLatexSeg>[];
   var last = 0;
-  for (final m in _inlineLatexPattern.allMatches(content)) {
+  // 先把代码内联切出来当"字面文字段"，其余部分再找公式
+  for (final cm in _codeSpanPattern.allMatches(content)) {
+    if (cm.start > last) {
+      _splitFormulas(segs, content.substring(last, cm.start));
+    }
+    segs.add(InlineLatexSeg(false, cm.group(0)!));
+    last = cm.end;
+  }
+  if (last < content.length) {
+    _splitFormulas(segs, content.substring(last));
+  }
+  return segs;
+}
+
+void _splitFormulas(List<InlineLatexSeg> segs, String text) {
+  var last = 0;
+  for (final m in _inlineLatexPattern.allMatches(text)) {
     if (m.start > last) {
-      segs.add(InlineLatexSeg(false, content.substring(last, m.start)));
+      segs.add(InlineLatexSeg(false, text.substring(last, m.start)));
     }
     segs.add(InlineLatexSeg(true, m.group(0)!));
     last = m.end;
   }
-  if (last < content.length) {
-    segs.add(InlineLatexSeg(false, content.substring(last)));
+  if (last < text.length) {
+    segs.add(InlineLatexSeg(false, text.substring(last)));
   }
-  return segs;
+}
+
+// 公式体能不能真的用 Math.tex 排出来：空、或"裸数学里含 CJK"（把中文当公式，
+// Math.tex 排不出、会渲成黑豆腐块）都算不可渲染。\text{中文}/\mathrm{...} 里的
+// CJK 能正常渲染，所以先剥掉它们的内容再判
+bool isRenderableLatexBody(String body) {
+  final b = body.trim();
+  if (b.isEmpty) return false;
+  final stripped = b.replaceAll(
+    RegExp(r'\\(text|mathrm|mbox|textbf|textit|textrm)\s*\{[^}]*\}'),
+    '',
+  );
+  if (RegExp(r'[㐀-䶿一-鿿豈-﫿]').hasMatch(stripped)) {
+    return false;
+  }
+  return true;
 }
 
 // 去掉公式外层定界符，得到送进 TeX 引擎的公式体

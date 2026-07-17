@@ -9,7 +9,11 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart' show Share;
 
 import '../../../shared/utils/latex_utils.dart'
-    show splitInlineLatex, latexInnerBody, kLatexInlineRenderSize;
+    show
+        splitInlineLatex,
+        latexInnerBody,
+        kLatexInlineRenderSize,
+        isRenderableLatexBody;
 
 // 真实的 block 结构是 tutorial_block_renderer.dart 里那套扁平结构
 // {type, content, level?, language?, imageUrl?, fileName?, fileSize?,
@@ -58,7 +62,15 @@ pw.Widget _inlineLatexRichText({
     }
     final bytes = latexImages[seg.raw];
     if (bytes == null) {
-      spans.add(pw.TextSpan(text: latexInnerBody(seg.raw), style: style));
+      // 没图（未收集/不可渲染）：可渲染的公式显示去掉定界符的公式体；不可渲染
+      // 的（空/裸 CJK/字面 $）原样保留定界符当字面文字，避免出现黑块
+      final body = latexInnerBody(seg.raw);
+      spans.add(
+        pw.TextSpan(
+          text: isRenderableLatexBody(body) ? body : seg.raw,
+          style: style,
+        ),
+      );
       continue;
     }
     final img = pw.MemoryImage(bytes);

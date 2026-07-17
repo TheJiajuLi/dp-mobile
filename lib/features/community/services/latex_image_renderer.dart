@@ -63,7 +63,9 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
 
   for (final raw in allFormulas) {
     final body = latexInnerBody(raw);
-    if (body.isEmpty) continue;
+    // 空 / 裸 CJK 等不可渲染的直接跳过——不生成黑豆腐块 PNG，PDF 侧查不到图
+    // 会回退成字面文字
+    if (!isRenderableLatexBody(body)) continue;
     // 块级公式用 display+较大字号；行内公式用 text 模式+较小字号，跟正文一个
     // 量级，避免 \mathbf 等粗体字比周围文字大一圈
     final isBlock = blockFormulas.contains(raw);
