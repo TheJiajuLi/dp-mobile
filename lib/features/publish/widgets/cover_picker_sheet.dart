@@ -9,6 +9,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/services/xmeng_image_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/pro_access.dart';
+import '../../../shared/widgets/app_toast.dart';
 
 const _primary = Color(0xFF6366F1);
 
@@ -44,9 +45,7 @@ Future<void> pickCoverImage(
   } catch (e) {
     if (context.mounted) {
       final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.saveFailedWithReason('$e'))));
+      showAppToast(context, l10n.saveFailedWithReason('$e'));
     }
   }
 }
@@ -137,9 +136,7 @@ Future<void> aiGenerateCover(
   // AI 封面生成是 Pro 权益——非 Pro 弹会员 Sheet
   if (!requirePro(context, ref, feature: 'AI 生成封面')) return;
   if (title.trim().isEmpty) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('请先填写标题，小梦才能生成封面')));
+    showAppToast(context, '请先填写标题，小梦才能生成封面');
     return;
   }
 
@@ -168,9 +165,7 @@ Future<void> aiGenerateCover(
     if (!context.mounted) return;
 
     if (urls.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('生成失败，请重试')));
+      showAppToast(context, '生成失败，请重试');
       return;
     }
 
@@ -194,9 +189,7 @@ Future<void> aiGenerateCover(
       Navigator.of(context, rootNavigator: true).pop();
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('生成失败，请稍后重试')));
+      showAppToast(context, '生成失败，请稍后重试');
     }
   }
 }
@@ -266,26 +259,16 @@ void showCoverPickerSheet(
             }
             if (permanentUrl == null || permanentUrl.isEmpty) {
               setSheetState(() => confirmingIndex = null);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(res.message ?? '保存失败，请重试')),
-              );
+              showAppToast(context, res.message ?? '保存失败，请重试');
               return;
             }
             onSelect(permanentUrl, fileId);
             Navigator.pop(ctx);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('封面已应用'),
-                backgroundColor: Color(0xFF16A34A),
-                duration: Duration(seconds: 2),
-              ),
-            );
+            showAppToast(context, '封面已应用', ok: true);
           } catch (e) {
             if (!context.mounted) return;
             setSheetState(() => confirmingIndex = null);
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+            showAppToast(context, '保存失败，请重试');
           }
         }
 
