@@ -5,6 +5,11 @@
 // 解析失败，整段 fall back 成红色原文。用户经常不知道这条规则、直接写
 // 多行公式（`a \\ b`），所以这里在渲染前做个兜底：内容含 `\\` 又没有任何
 // `\begin{...}` 环境时，自动包一层 `aligned`，让换行生效。
+// 行内公式离屏渲染的字号——latex_image_renderer 按这个尺寸渲染 PNG，PDF
+// 导出（tutorial_export_service._inlineLatexRichText）按它做字号比例缩放。
+// 两端必须一致，抽成共享常量，别再各自硬编码 15 跑偏
+const double kLatexInlineRenderSize = 15.0;
+
 String preprocessLatex(String latex) {
   final trimmed = latex.trim();
   if (trimmed.isEmpty) return latex;

@@ -82,7 +82,7 @@ Future<Map<String, Uint8List>> renderTutorialLatexImages(
               preprocessLatex(body),
               mathStyle: isBlock ? MathStyle.display : MathStyle.text,
               textStyle: TextStyle(
-                fontSize: isBlock ? 20 : 15,
+                fontSize: isBlock ? 20 : kLatexInlineRenderSize,
                 color: glyphColor,
               ),
               onErrorFallback: (_) =>

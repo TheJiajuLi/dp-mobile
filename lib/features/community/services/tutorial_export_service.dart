@@ -9,7 +9,7 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart' show Share;
 
 import '../../../shared/utils/latex_utils.dart'
-    show splitInlineLatex, latexInnerBody;
+    show splitInlineLatex, latexInnerBody, kLatexInlineRenderSize;
 
 // 真实的 block 结构是 tutorial_block_renderer.dart 里那套扁平结构
 // {type, content, level?, language?, imageUrl?, fileName?, fileSize?,
@@ -64,18 +64,26 @@ pw.Widget _inlineLatexRichText({
     final img = pw.MemoryImage(bytes);
     final iw = (img.width ?? 1).toDouble();
     final ih = (img.height ?? 1).toDouble();
-    // PNG 按 pixelRatio 3 截、display 样式 22pt；行内等比缩到 ≈1.35×字号高，
-    // 超正文宽（515pt）再夹
+    // PNG 按 pixelRatio 3 截、行内公式按 kLatexInlineRenderSize 渲染。
+    // 按「字号比例」等比缩放（不再把总高钉死成 字号×1.35）——后者对竖向延展
+    // 小的公式（无上下标，如 F·dr）缩放系数更大、字形被放大，跟带上下标的
+    // 公式大小对不上。按比例缩后每个公式字形都跟周围文字一个量级、彼此统一。
+    // 超正文宽（515pt）再等比夹
     final ihLogical = ih / 3.0;
     final iwLogical = iw / 3.0;
-    var h = fontSize * 1.35;
-    var w = ihLogical > 0 ? iwLogical * (h / ihLogical) : iwLogical;
+    final scale = fontSize / kLatexInlineRenderSize;
+    var w = iwLogical * scale;
+    var h = ihLogical * scale;
     if (w > 515.0) {
       final s = 515.0 / w;
       w *= s;
       h *= s;
     }
-    spans.add(pw.WidgetSpan(child: pw.Image(img, width: w, height: h)));
+    spans.add(
+      pw.WidgetSpan(
+        child: pw.Image(img, width: w, height: h),
+      ),
+    );
   }
   return pw.RichText(text: pw.TextSpan(children: spans));
 }
