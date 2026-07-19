@@ -813,12 +813,18 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
             (res.data as Map?)?['id'] as String? ?? _editingTutorialId;
         if (savedId != null) _editingTutorialId = savedId;
         if (_selectedColumnId != null && savedId != null) {
-          await ref
-              .read(apiClientProvider)
-              .post(
-                '/auth/columns/$_selectedColumnId/articles',
-                data: {'tutorialId': savedId},
-              );
+          // 专栏关联失败不影响「文章已发布成功」这个事实——单独兜底，只记日志，
+          // 不让它把下面的成功 toast/跳转连累掉（文章此刻已在服务端创建成功）
+          try {
+            await ref
+                .read(apiClientProvider)
+                .post(
+                  '/auth/columns/$_selectedColumnId/articles',
+                  data: {'tutorialId': savedId},
+                );
+          } catch (e) {
+            debugPrint('专栏关联失败: $e');
+          }
         }
         if (!mounted) return;
         notifyProfileShouldRefresh(ref);
@@ -832,6 +838,10 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       } else {
         showAppToast(context, l10n.saveFailedWithReason('${res.message}'));
       }
+    } catch (e) {
+      // 非 Dio 的意外抛错兜底——之前只有 finally 重置 _saving，异常会静默
+      // 冒泡、用户看不到任何提示，现在统一给个失败 toast
+      if (mounted) showAppToast(context, l10n.saveFailedWithReason('$e'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
