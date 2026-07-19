@@ -11,6 +11,13 @@ const _ink = Color(0xFF1A1A1A);
 
 const _seriesTagOptions = ['连载', '独立', '翻译', '深度', '快讯'];
 
+// AI 推荐标签项——标签名 + 置信度（0-100）
+class TagSuggestion {
+  final String name;
+  final int confidence;
+  const TagSuggestion({required this.name, required this.confidence});
+}
+
 // 封面 + 摘要 + 标签，固定在 Block 列表上方（不跟着一起滚动）——发布
 // 前一眼就知道这篇要发的是什么，不用滚到最上面确认
 class PublishMetaSection extends StatefulWidget {
@@ -19,6 +26,10 @@ class PublishMetaSection extends StatefulWidget {
   final List<String> tags;
   final VoidCallback onAddTag;
   final void Function(String tag) onRemoveTag;
+  // AI 自动推荐的标签（内容够长后台分析得到）、是否正在分析、点击加入回调
+  final List<TagSuggestion> suggestedTags;
+  final bool isAnalyzingTags;
+  final void Function(String name) onAddSuggestedTag;
   final String? coverImageUrl;
   final VoidCallback onCoverTap;
   final TextEditingController summaryController;
@@ -40,6 +51,9 @@ class PublishMetaSection extends StatefulWidget {
     required this.tags,
     required this.onAddTag,
     required this.onRemoveTag,
+    required this.suggestedTags,
+    required this.isAnalyzingTags,
+    required this.onAddSuggestedTag,
     required this.coverImageUrl,
     required this.onCoverTap,
     required this.summaryController,
@@ -77,6 +91,18 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
     r'|\\\[.+?\\\]',
     dotAll: true,
   );
+
+  @override
+  void didUpdateWidget(PublishMetaSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 首次拿到 AI 推荐标签时自动展开设置区——不然推荐藏在「更多设置」
+    // 折叠里根本看不见，自动推荐就白推了
+    if (oldWidget.suggestedTags.isEmpty &&
+        widget.suggestedTags.isNotEmpty &&
+        !_expanded) {
+      _expanded = true;
+    }
+  }
 
   @override
   void dispose() {
@@ -341,6 +367,7 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
                     ],
                   ),
                 ),
+                _buildAiTagSuggestions(isDarkMode),
                 _rowDivider(context, isDarkMode),
                 _metaEntryRow(
                   context,
@@ -471,6 +498,88 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  // AI 推荐标签区——只在有推荐（且还没被加进已选）时显示；分析中时标题
+  // 旁边挂一个小 spinner。点某个胶囊即把它加进标签，回调在父级去重/限流
+  Widget _buildAiTagSuggestions(bool isDarkMode) {
+    final items = widget.suggestedTags
+        .where((t) => !widget.tags.contains(t.name))
+        .toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 12, color: _primary),
+              const SizedBox(width: 4),
+              const Text(
+                'AI 推荐',
+                style: TextStyle(fontSize: 11, color: _primary),
+              ),
+              if (widget.isAnalyzingTags) ...[
+                const SizedBox(width: 6),
+                const SizedBox(
+                  width: 10,
+                  height: 10,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: _primary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: items
+                .map(
+                  (t) => GestureDetector(
+                    onTap: () => widget.onAddSuggestedTag(t.name),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF5F3FF),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(
+                          color: _primary.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            '+',
+                            style: TextStyle(fontSize: 12, color: _primary),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            t.name,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
       ),
     );
   }

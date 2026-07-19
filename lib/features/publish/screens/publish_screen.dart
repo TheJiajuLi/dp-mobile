@@ -59,6 +59,13 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
 
   final List<EditorBlock> _blocks = [];
   final List<String> _tags = [];
+  // AI 自动推荐标签——标题+正文≥100字、停顿 800ms 后自动触发分析，无需按钮。
+  // 去抖用 _tagDebounce；_lastAnalyzedLength 记上次分析时的字数，内容没明显
+  // 增减就不重复请求
+  final List<TagSuggestion> _suggestedTags = [];
+  bool _isAnalyzingTags = false;
+  Timer? _tagDebounce;
+  int _lastAnalyzedLength = 0;
   // 本次编辑会话里新上传到 COS 的文件 id（封面/正文图片/视频/音频/文件）。
   // 退出时如果没保存草稿/发布，就把这些还没跟文章绑定的孤儿文件删掉；
   // 保存/发布成功后清空（文件已绑定文章，不该再删）。只追踪本次新上传的，
@@ -406,6 +413,8 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     }
     _loadCreatorSettings();
     _loadInspirations();
+    // 标题变化也计入 AI 标签分析的触发（正文变化走 block 的 onChanged）
+    _titleCtrl.addListener(_onContentChanged);
   }
 
   // 读取「创作设置」里的两项偏好并落地：
@@ -1009,6 +1018,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       tags: _tags,
       onAddTag: _addTag,
       onRemoveTag: (tag) => setState(() => _tags.remove(tag)),
+      suggestedTags: _suggestedTags,
+      isAnalyzingTags: _isAnalyzingTags,
+      onAddSuggestedTag: _addSuggestedTag,
       coverImageUrl: _coverImageUrl,
       onCoverTap: () => showCoverOptions(
         context,
@@ -1208,7 +1220,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                                       onMoveDown: i < _blocks.length - 1
                                           ? () => _swapBlocks(i, i + 1)
                                           : null,
-                                      onChanged: () => setState(() {}),
+                                      onChanged: _onBlockContentChanged,
                                       focusedBlockId: _focusedBlockId,
                                       onFocusGained: () => setState(
                                         () => _focusedBlockId = _blocks[i].id,
@@ -1615,6 +1627,111 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
     });
   }
 
+  // 正文块内容变化：照旧 setState 刷新，同时喂给 AI 标签的去抖触发
+  void _onBlockContentChanged() {
+    setState(() {});
+    _onContentChanged();
+  }
+
+  // 标题/正文变化时的去抖触发：够 100 字、停顿 800ms 才让 AI 分析标签
+  void _onContentChanged() {
+    final total = _titleCtrl.text.trim().length + _contentPlainLength();
+    if (total < 100) return;
+    // 相比上次分析内容没有明显增减（<30字），不重复请求，省 AI 调用
+    if (_suggestedTags.isNotEmpty && (total - _lastAnalyzedLength).abs() < 30) {
+      return;
+    }
+    _tagDebounce?.cancel();
+    _tagDebounce = Timer(
+      const Duration(milliseconds: 800),
+      _fetchTagSuggestions,
+    );
+  }
+
+  // 正文纯文字长度估算——只算 text/heading/markdown/callout 这几种带正文的块
+  int _contentPlainLength() {
+    var n = 0;
+    for (final b in _blocks) {
+      if (b.type == BlockType.text ||
+          b.type == BlockType.heading ||
+          b.type == BlockType.markdown ||
+          b.type == BlockType.callout) {
+        n += b.content.trim().length;
+      }
+    }
+    return n;
+  }
+
+  // 调后端 AI 接口分析标题+正文前500字，拿回推荐标签。静默失败不打扰发布
+  Future<void> _fetchTagSuggestions() async {
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) return;
+
+    // 拼正文取前 500 字（同样只取带正文的块）
+    final buf = StringBuffer();
+    for (final b in _blocks) {
+      if (b.type != BlockType.text &&
+          b.type != BlockType.heading &&
+          b.type != BlockType.markdown &&
+          b.type != BlockType.callout) {
+        continue;
+      }
+      final c = b.content.trim();
+      if (c.isEmpty) continue;
+      if (buf.isNotEmpty) buf.write(' ');
+      buf.write(c);
+      if (buf.length >= 500) break;
+    }
+    var content = buf.toString();
+    if (content.length > 500) content = content.substring(0, 500);
+
+    final analyzedLen = title.length + _contentPlainLength();
+    setState(() => _isAnalyzingTags = true);
+    try {
+      final res = await ref
+          .read(apiClientProvider)
+          .post(
+            '/auth/ai/suggest-tags',
+            data: {'title': title, 'content': content},
+          );
+      if (!mounted) return;
+      final data = res.data;
+      if (res.success && data is Map && data['tags'] is List) {
+        final list = <TagSuggestion>[];
+        for (final t in (data['tags'] as List)) {
+          if (t is! Map) continue;
+          final name = t['name']?.toString().trim() ?? '';
+          if (name.isEmpty || _tags.contains(name)) continue;
+          list.add(
+            TagSuggestion(
+              name: name,
+              confidence: (t['confidence'] as num?)?.toInt() ?? 80,
+            ),
+          );
+        }
+        setState(() {
+          _suggestedTags
+            ..clear()
+            ..addAll(list);
+          _lastAnalyzedLength = analyzedLen;
+        });
+      }
+    } catch (_) {
+      // 静默失败，不影响发布
+    } finally {
+      if (mounted) setState(() => _isAnalyzingTags = false);
+    }
+  }
+
+  // 点 AI 推荐标签直接加入（与手动加同一上限 8），并从推荐里移除
+  void _addSuggestedTag(String name) {
+    if (_tags.contains(name) || _tags.length >= 8) return;
+    setState(() {
+      _tags.add(name);
+      _suggestedTags.removeWhere((t) => t.name == name);
+    });
+  }
+
   void _addTag() {
     final l10n = AppLocalizations.of(context)!;
     final ctrl = TextEditingController();
@@ -1702,6 +1819,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
   @override
   void dispose() {
     _hideDividersTimer?.cancel();
+    _tagDebounce?.cancel();
     _titleCtrl.dispose();
     _summaryCtrl.dispose();
     _scrollCtrl.dispose();
