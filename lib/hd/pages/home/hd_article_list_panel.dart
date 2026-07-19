@@ -21,7 +21,9 @@ class HdArticleListPanel extends ConsumerStatefulWidget {
 }
 
 class _HdArticleListPanelState extends ConsumerState<HdArticleListPanel> {
-  int _tab = 0; // 0 推荐 / 1 关注 / 2 最新
+  // 0 推荐 / 1 最新。关注流（fan-out 合成，深绑 State）还没做好，先不显示
+  // 这个 tab，等做好再加回来——不占一个「即将上线」的空位
+  int _tab = 0;
   String _search = '';
 
   @override
@@ -120,33 +122,19 @@ class _HdArticleListPanelState extends ConsumerState<HdArticleListPanel> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Row(children: [tab(0, '推荐'), tab(1, '关注'), tab(2, '最新')]),
+      child: Row(children: [tab(0, '推荐'), tab(1, '最新')]),
     );
   }
 
   Widget _list(HomeFeedState feed, String? selectedId, bool isDark) {
     final muted = isDark ? const Color(0xFF888C9E) : const Color(0xFF999999);
 
-    // 关注 tab——手机端 fan-out 合成流深绑 State，阶段2 先占位
-    if (_tab == 1) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            '关注流即将上线',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: muted),
-          ),
-        ),
-      );
-    }
-
     if (feed.isLoading && feed.filtered.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
     var items = feed.filtered;
-    if (_tab == 2) {
+    if (_tab == 1) {
       // 最新：同一份真实数据客户端按 createdAt 再排一遍
       items = [...items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
