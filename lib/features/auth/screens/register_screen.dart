@@ -16,7 +16,9 @@ const _ink = Color(0xFF1A1A1A);
 const _bg = Color(0xFFFAFAF8);
 
 final _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-final _usernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
+// 用户名允许任意语言的字母（中文/日文/韩文/西里尔等，\p{L}）+ 数字（\p{N}）
+// + 下划线，只挡空格/标点/emoji。unicode:true 才能让 \p 类生效
+final _usernameRegex = RegExp(r'^[\p{L}\p{N}_]+$', unicode: true);
 
 // 三步注册（邮箱 → 邀请码 → 账号信息）+ 成功页，用 PageView 而不是分开的
 // GoRoute，是因为这几步共享一次注册流程的状态（邀请码校验结果要带到
@@ -79,7 +81,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   bool get _usernameValid {
     final u = _usernameCtrl.text.trim();
-    return u.length >= 3 && u.length <= 20 && _usernameRegex.hasMatch(u);
+    // 按字符数（grapheme）算长度——一个汉字算 1，不用 u.length（UTF-16 码元）
+    final len = u.characters.length;
+    return len >= 3 && len <= 20 && _usernameRegex.hasMatch(u);
   }
 
   bool get _passwordValid {
@@ -786,7 +790,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             style: const TextStyle(fontSize: 16, color: Color(0xFF1A1A1A)),
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              hintText: '字母、数字、下划线',
+              hintText: '中文 / 字母 / 数字，3–20 位',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
