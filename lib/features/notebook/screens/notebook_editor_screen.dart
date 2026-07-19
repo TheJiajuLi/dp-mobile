@@ -47,6 +47,11 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   final Map<String, String?> _outputs = {};
   final Map<String, String?> _outputTypes = {};
   final Map<String, bool> _running = {};
+  // B 阶段·对齐 IDE：上次运行耗时(ms) + 执行序号（In [N]，只对可执行 cell 递增，
+  // 跟 Jupyter 一致）。_execSeq 是全局自增计数器
+  final Map<String, int> _durationsMs = {};
+  final Map<String, int> _execCount = {};
+  int _execSeq = 0;
   // 小梦输出区折叠态（按 cell.id）：true=折叠隐藏。新输出生成时会重置为展开
   final Map<String, bool> _aiCollapsed = {};
   final ScrollController _scrollCtrl = ScrollController();
@@ -1660,7 +1665,11 @@ result if result is not None else print("✓ 执行完成")
         cell.type == 'sql' ||
         cell.type == 'javascript' ||
         cell.type == 'r';
+    // In [N] / 耗时 只统计可执行 cell（markdown/latex 只是本地渲染，不计入）
+    const execTypes = {'python', 'sql', 'javascript', 'r', 'julia'};
+    final isExec = execTypes.contains(cell.type);
     if (usesKernel && mounted) setState(() => _kernelBusy = true);
+    final sw = Stopwatch()..start();
     try {
       switch (cell.type) {
         case 'python':
@@ -1694,6 +1703,13 @@ result if result is not None else print("✓ 执行完成")
           );
       }
     } finally {
+      sw.stop();
+      if (isExec && mounted) {
+        setState(() {
+          _durationsMs[cell.id] = sw.elapsedMilliseconds;
+          _execCount[cell.id] = ++_execSeq;
+        });
+      }
       if (usesKernel && mounted) setState(() => _kernelBusy = false);
     }
     _scheduleSave();
@@ -2918,6 +2934,8 @@ finally:
       focusNode: focus,
       output: _outputs[cell.id],
       outputType: _outputTypes[cell.id],
+      execCount: _execCount[cell.id],
+      durationMs: _durationsMs[cell.id],
       aiCollapsed: _aiCollapsed[cell.id] ?? false,
       onAiToggle: () => _toggleAiCollapse(cell),
       kernelStatus: cell.type == 'r' ? _rStatusChip() : null,

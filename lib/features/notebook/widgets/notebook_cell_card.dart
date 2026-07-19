@@ -43,6 +43,10 @@ class NotebookCellCard extends StatelessWidget {
   final VoidCallback? onSaveChart;
   // SQL cell 头部下方的「可用表」提示——编辑器扫描已运行的 DataFrame 算出
   final String? tableHint;
+  // B 阶段·对齐 IDE：执行序号（In [N]，Jupyter 式全局自增）+ 上次运行耗时(ms)。
+  // 均为 null 表示还没运行过，头部不显示执行徽标
+  final int? execCount;
+  final int? durationMs;
 
   const NotebookCellCard({
     super.key,
@@ -68,6 +72,8 @@ class NotebookCellCard extends StatelessWidget {
     this.kernelStatus,
     this.onSaveChart,
     this.tableHint,
+    this.execCount,
+    this.durationMs,
   });
 
   // 复制按钮给代码块/Markdown/LaTeX（图片没有可复制的文本）
@@ -368,6 +374,11 @@ class NotebookCellCard extends StatelessWidget {
             const SizedBox(width: 8),
             kernelStatus!,
           ],
+          // In [N] + 状态（运行中/成功/报错）+ 耗时——只对可执行 cell 显示
+          if (_isExecutable(cell.type) && (isRunning || execCount != null)) ...[
+            const SizedBox(width: 8),
+            Flexible(child: _execBadge()),
+          ],
           const Spacer(),
           // 选中时露出拖拽手柄 + 菜单（放在运行按钮左侧，运行按钮保持最右）
           if (isActive) ...[
@@ -478,13 +489,81 @@ class NotebookCellCard extends StatelessWidget {
           color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(7),
         ),
-        child: const Icon(
-          Icons.auto_awesome_outlined,
-          size: 13,
-          color: accent,
-        ),
+        child: const Icon(Icons.auto_awesome_outlined, size: 13, color: accent),
       ),
     );
+  }
+
+  // 执行徽标（B·对齐 IDE）：运行中→橙点转圈；跑完→In [N] + ✓/✗ + 耗时。
+  // monospace 字体、克制的中性色，贴近 Jupyter 的 In [ ] 语义
+  Widget _execBadge() {
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF9AA0AE);
+    if (isRunning) {
+      return const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 11,
+            height: 11,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.6,
+              color: Color(0xFFD97706),
+            ),
+          ),
+          SizedBox(width: 5),
+          Text(
+            '运行中',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              color: Color(0xFFD97706),
+            ),
+          ),
+        ],
+      );
+    }
+    final isError = outputType == 'error';
+    final statusColor = isError
+        ? const Color(0xFFDC2626)
+        : const Color(0xFF16A34A);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'In [$execCount]',
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: muted,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Icon(
+          isError ? Icons.close_rounded : Icons.check_rounded,
+          size: 13,
+          color: statusColor,
+        ),
+        if (durationMs != null) ...[
+          const SizedBox(width: 3),
+          Text(
+            _fmtDuration(durationMs!),
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              color: muted,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // 耗时格式：<1s 显示 ms，否则秒（<10s 带一位小数，更大取整）
+  String _fmtDuration(int ms) {
+    if (ms < 1000) return '${ms}ms';
+    final s = ms / 1000;
+    return '${s.toStringAsFixed(s < 10 ? 1 : 0)}s';
   }
 
   // 运行按钮——跟顶栏「全部运行」同款淡紫底紫字胶囊：播放图标 + "运行"，
