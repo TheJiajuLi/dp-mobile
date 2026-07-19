@@ -289,7 +289,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SvgPicture.asset('assets/images/app_icon.svg', width: 72, height: 72),
+          // 极梦品牌 logo（四色弧线，透明底，保持 4:3 宽高比不拉伸）
+          SvgPicture.asset('assets/images/jimeng_logo.svg', width: 96),
           const SizedBox(height: 16),
           Text(
             _slogan ?? l10n.appSlogan,
