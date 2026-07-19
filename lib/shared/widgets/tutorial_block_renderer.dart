@@ -17,6 +17,7 @@ import '../services/pyodide_engine.dart';
 import '../utils/block_text_style.dart';
 import '../utils/code_highlight.dart';
 import '../utils/pro_access.dart';
+import 'ai_content_renderer.dart';
 import 'app_toast.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -150,8 +151,9 @@ Widget buildTutorialBlockWidget(
                     '($equationNumber)',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).textTheme.bodyMedium?.color
-                          ?.withValues(alpha: 0.7),
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -425,14 +427,45 @@ Widget buildTutorialBlockWidget(
         fontSizeStep: (block['fontSizeStep'] as num?)?.toInt() ?? 1,
         lineHeightStep: (block['lineHeightStep'] as num?)?.toInt() ?? 1,
       );
+      // 含 markdown 的正文段（帮我写常见：一段里既有 $公式$ 又有 **粗体**/
+      // 列表）走 AiContentRenderer 组合渲染；否则走 inlineLatexText 保留块级
+      // 格式/阅读排版。跟编辑器 text 块预览用同一判断，保证所见即所得
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       return Padding(
         // 阅读页水平 20、段落底部 16；编辑器保持 h16/v6
         padding: readingMode
             ? const EdgeInsets.fromLTRB(20, 0, 20, 16)
             : const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: inlineLatexText(content, textStyle),
+        child: hasMarkdownSyntax(content)
+            ? AiContentRenderer(content: content, isDark: isDark)
+            : inlineLatexText(content, textStyle),
       );
   }
+}
+
+// 段落是否含 Markdown 语法（**加粗**/## 标题/- 列表/> 引用/[链接]/*斜体*）。
+// text 块（编辑器预览 + 阅读端）据此决定：含 markdown 走 AiContentRenderer
+// （markdown + 行内公式组合渲染，解决"一段里公式 + 粗体只能二选一"的问题）；
+// 不含 markdown 走 inlineLatexText（纯公式/纯文字，保留块级格式/阅读排版）。
+// 逻辑跟 xmeng_write_sheet._hasMarkdown 对齐
+bool hasMarkdownSyntax(String text) {
+  if (text.contains('**') ||
+      text.contains('__') ||
+      text.contains('##') ||
+      text.contains('> ')) {
+    return true;
+  }
+  for (final line in text.split('\n')) {
+    final l = line.trimLeft();
+    if (RegExp(r'^([-*+])\s').hasMatch(l)) return true; // 无序列表
+    if (RegExp(r'^\d+\.\s').hasMatch(l)) return true; // 有序列表
+    if (RegExp(r'^#{1,6}\s').hasMatch(l)) return true; // 小节标题
+  }
+  if (RegExp(r'\[[^\]]+\]\([^)]+\)').hasMatch(text)) return true; // 链接
+  if (RegExp(r'(?<!\*)\*[^*\s][^*\n]*\*(?!\*)').hasMatch(text)) {
+    return true; // *斜体*
+  }
+  return false;
 }
 
 // text/heading block 支持行内 $...$ LaTeX——纯文字用 Text 走原来的路径，

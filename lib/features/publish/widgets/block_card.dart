@@ -24,8 +24,9 @@ import '../../../shared/utils/pro_access.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../shared/utils/ai_lang.dart';
 import '../../../shared/utils/code_highlight.dart';
+import '../../../shared/widgets/ai_content_renderer.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart'
-    show inlineLatexText;
+    show inlineLatexText, hasMarkdownSyntax;
 import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
@@ -136,6 +137,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     widget.block.content = encodeReferences(_references);
     widget.onChanged();
   }
+
   // 代码块专用——用能实时按 token 上色的 controller 替代默认的
   // TextFormField(initialValue: ...)，编辑态才能跟阅读态一样有语法高亮
   late final HighlightingCodeController _codeCtrl = HighlightingCodeController(
@@ -685,8 +687,16 @@ class _BlockCardState extends ConsumerState<BlockCard> {
     // $公式$ 源码，写完公式也不知道对不对。一点上去切回原始
     // TextFormField 改源码，光标一收起（onEditingComplete）就切回渲染态。
     // 没有公式的普通段落不受影响，还是原来那个一直可编辑的 TextFormField
+    // 含 markdown（**粗体**/列表/…）的正文段——含公式时 inlineLatexText 只渲染
+    // 公式、markdown 露源码，改走 AiContentRenderer 组合渲染（markdown + 行内
+    // 公式一起）。纯公式/纯文字（无 markdown）仍走 inlineLatexText 保留块级格式。
+    // 阅读端 text 块用同一判断，所见即所得
     final hasInlineLatex = _inlineLatexPattern.hasMatch(widget.block.content);
-    if (!_focused && hasInlineLatex) {
+    final hasMd = hasMarkdownSyntax(widget.block.content);
+    if (!_focused &&
+        widget.block.content.trim().isNotEmpty &&
+        (hasInlineLatex || hasMd)) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
@@ -699,7 +709,9 @@ class _BlockCardState extends ConsumerState<BlockCard> {
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
-          child: inlineLatexText(widget.block.content, style),
+          child: hasMd
+              ? AiContentRenderer(content: widget.block.content, isDark: isDark)
+              : inlineLatexText(widget.block.content, style),
         ),
       );
     }
@@ -1859,7 +1871,10 @@ th{background:$thBg;color:$thFg}
                             preprocessLatex(
                               widget.block.content.replaceAll(r'$$', '').trim(),
                             ),
-                            textStyle: TextStyle(fontSize: 16, color: mathColor),
+                            textStyle: TextStyle(
+                              fontSize: 16,
+                              color: mathColor,
+                            ),
                             onErrorFallback: (err) => Text(
                               widget.block.content,
                               style: const TextStyle(
@@ -2167,7 +2182,11 @@ th{background:$thBg;color:$thFg}
         children: [
           Text(
             '参考文献',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ink),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
           ),
           const SizedBox(height: 4),
           Container(
@@ -2356,10 +2375,7 @@ th{background:$thBg;color:$thFg}
     }
     setState(() => _fetchingDoi.add(i));
     try {
-      final clean = doi.replaceFirst(
-        RegExp(r'^https?://(dx\.)?doi\.org/'),
-        '',
-      );
+      final clean = doi.replaceFirst(RegExp(r'^https?://(dx\.)?doi\.org/'), '');
       final res = await Dio().get(
         'https://api.crossref.org/works/${Uri.encodeComponent(clean)}',
         options: Options(receiveTimeout: const Duration(seconds: 15)),
