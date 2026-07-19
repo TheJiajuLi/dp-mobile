@@ -702,31 +702,9 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
       await _aiGenerateSummary();
       if (!mounted) return;
     }
-    // 创作设置「发布前预览」——开启时先弹读者预览抽屉（带"确认发布"），
-    // 让作者过一眼再发；关闭时直接发布
-    final prefs = await SharedPreferences.getInstance();
-    final showPreview = prefs.getBool('creator_show_preview') ?? true;
-    if (showPreview) {
-      _scaffoldKey.currentState?.openEndDrawer();
-    } else {
-      await _save('published');
-    }
-  }
-
-  // 预览抽屉里点"确认发布"——再校验一次标题（可能是从预览眼睛图标直接进来、
-  // 没走 _publish 的声明门禁），未签过同样先弹声明；签过/签完直接发布
-  Future<void> _doPublish() async {
-    if (_titleCtrl.text.trim().isEmpty) {
-      final l10n = AppLocalizations.of(context)!;
-      showAppToast(context, l10n.pleaseEnterNoteTitle);
-      return;
-    }
-    if (!await _isDeclarationSigned()) {
-      if (!mounted) return;
-      // 已经在预览里了，签完直接发，不再重复弹预览
-      _showDeclarationSheet(() => _save('published'));
-      return;
-    }
+    // 点「发布」直接发布，不再经预览抽屉的「确认发布」二次确认。读者预览改由
+    // 工具栏眼睛图标手动查看（纯预览，无发布动作）——标题/原创声明门禁已在
+    // 上层 _publish 里过一遍
     await _save('published');
   }
 
@@ -1102,7 +1080,6 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
           tags: _tags,
           blocks: _blocks,
           coverImageUrl: _coverImageUrl,
-          onPublish: _saving ? null : _doPublish,
         ),
         body: Stack(
           children: [
