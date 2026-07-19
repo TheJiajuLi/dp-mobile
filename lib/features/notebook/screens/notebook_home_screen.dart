@@ -31,13 +31,25 @@ List<BoxShadow>? _cardShadow(bool isDark) => isDark
       ];
 
 class NotebookHomeScreen extends ConsumerStatefulWidget {
-  const NotebookHomeScreen({super.key});
+  // HD 双栏内嵌时（HdNotebookPage）传 onOpen：打开 notebook 不再 push 新路由，
+  // 而是回调给 HD 页面在同一标签内联切换到编辑器（保留 HD 侧栏/标签）。
+  // 手机端不传，走原来的 context.push('/notebook/:id')
+  final void Function(String nbId)? onOpen;
+  const NotebookHomeScreen({super.key, this.onOpen});
   @override
   ConsumerState<NotebookHomeScreen> createState() => _State();
 }
 
 class _State extends ConsumerState<NotebookHomeScreen> {
   List<Map<String, dynamic>> _recent = [];
+
+  void _open(String id) {
+    if (widget.onOpen != null) {
+      widget.onOpen!(id);
+    } else {
+      context.push('/notebook/$id');
+    }
+  }
   NotebookService? _svc;
   bool _loading = true;
 
@@ -208,7 +220,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                     if (name.isEmpty) return;
                     final nb = await _svc!.create(name, type);
                     if (ctx.mounted) Navigator.pop(ctx);
-                    if (mounted) context.push('/notebook/${nb.id}');
+                    if (mounted) _open(nb.id);
                   },
                   style: ElevatedButton.styleFrom(
                     // 品牌紫，跟主页 Hero「新建 Notebook」和顶栏「+」一套
@@ -478,8 +490,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                               ..._recent.map(
                                 (nb) => _RecentCard(
                                   nb: nb,
-                                  onTap: () =>
-                                      context.push('/notebook/${nb['id']}'),
+                                  onTap: () => _open(nb['id'].toString()),
                                   onDelete: () async {
                                     await _svc!.delete(nb['id']);
                                     _init();
@@ -551,7 +562,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                           template: t.$5,
                                         );
                                         if (context.mounted) {
-                                          context.push('/notebook/${nb.id}');
+                                          _open(nb.id);
                                         }
                                       },
                                     ),

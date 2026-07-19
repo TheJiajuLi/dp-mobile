@@ -30,7 +30,11 @@ const _primary = Color(0xFF6366F1);
 
 class NotebookEditorScreen extends ConsumerStatefulWidget {
   final String nbId;
-  const NotebookEditorScreen({super.key, required this.nbId});
+  // HD 双栏内联时（HdNotebookPage）传 onExit：顶栏返回不 Navigator.pop（内联
+  // 没有可 pop 的路由），而是回调 HD 页面切回 NotebookHomeScreen。手机端不传，
+  // 走原来的 Navigator.pop
+  final VoidCallback? onExit;
+  const NotebookEditorScreen({super.key, required this.nbId, this.onExit});
   @override
   ConsumerState<NotebookEditorScreen> createState() => _EditorState();
 }
@@ -50,6 +54,10 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   // 选中的 cell 下标（-1=无）。标题也可直接改，单独一个 controller
   final Map<String, FocusNode> _focusNodes = {};
   int _activeIndex = -1;
+  // HD 宽屏（iPad）双栏：左栏 Cell 列表选中的下标，右栏聚焦渲染这个 cell。
+  // 跟 _activeIndex 分开——点空白收键盘会把 _activeIndex 归 -1，但宽屏右栏
+  // 必须一直有个选中 cell，不能被清空
+  int _wideIndex = 0;
   // 内核状态：有 cell 正在跑 = 运行中(橙点)，否则就绪(绿点)。顶栏状态灯用
   bool _kernelBusy = false;
   final TextEditingController _titleCtrl = TextEditingController();
@@ -2665,6 +2673,9 @@ finally:
     final bg = isDark
         ? Theme.of(context).scaffoldBackgroundColor
         : const Color(0xFFFAFAF8);
+    // 宽屏（iPad/HD）走双栏：左 Cell 列表 + 右聚焦编辑。门控在 720，手机端
+    // （<720）走原来的单列竖排，路径完全不受影响
+    final wide = MediaQuery.sizeOf(context).width >= 720;
     return Scaffold(
       backgroundColor: bg,
       body: Stack(
@@ -2702,7 +2713,8 @@ finally:
             behavior: HitTestBehavior.opaque,
             onTap: () {
               FocusScope.of(context).unfocus();
-              if (_activeIndex != -1) {
+              // 宽屏右栏必须始终有选中 cell，不清 _activeIndex；窄屏保持原行为
+              if (!wide && _activeIndex != -1) {
                 setState(() => _activeIndex = -1);
               }
             },
@@ -2731,7 +2743,11 @@ finally:
                         GestureDetector(
                           onTap: () {
                             if (_nb != null) _svc!.save(_nb!);
-                            Navigator.pop(context);
+                            if (widget.onExit != null) {
+                              widget.onExit!();
+                            } else {
+                              Navigator.pop(context);
+                            }
                           },
                           behavior: HitTestBehavior.opaque,
                           child: Icon(
@@ -2852,37 +2868,15 @@ finally:
                     ),
                   ),
 
-                  // Cell 画布——单一滚动、原地编辑，支持拖拽重排；末尾挂一个
-                  // 「添加内容块」按钮
+                  // Cell 画布——窄屏单列竖排(可拖拽重排)；宽屏(iPad)双栏：
+                  // 左 Cell 列表 + 右聚焦编辑。两者都复用 _buildCellCard，
+                  // 运行/保存/AI 逻辑完全共用，不分叉
                   Expanded(
                     child: _nb == null
                         ? const Center(child: CircularProgressIndicator())
-                        : ReorderableListView(
-                            scrollController: _scrollCtrl,
-                            // 滚动 Cell 画布时自动收起键盘（跟点空白处一致）
-                            keyboardDismissBehavior:
-                                ScrollViewKeyboardDismissBehavior.onDrag,
-                            buildDefaultDragHandles: false,
-                            padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
-                            // 默认拖拽会把 cell 裹进一层矩形高亮 Material（灰底+
-                            // 阴影），露在卡片圆角之外，就是那圈"灰色 box"。用
-                            // 透明、零高度的 proxy 代替，拖起来跟静态卡片一模一样
-                            proxyDecorator: (child, index, animation) =>
-                                Material(
-                                  color: Colors.transparent,
-                                  elevation: 0,
-                                  child: child,
-                                ),
-                            onReorder: _onReorder,
-                            footer: NotebookAddDivider(
-                              isDark: isDark,
-                              onTap: () => _addCell('markdown'),
-                            ),
-                            children: [
-                              for (int i = 0; i < _nb!.cells.length; i++)
-                                _buildCellCard(_nb!.cells[i], i),
-                            ],
-                          ),
+                        : wide
+                        ? _buildWideCanvas(isDark)
+                        : _buildNarrowCanvas(isDark),
                   ),
 
                   // 底部浮动工具栏
@@ -2945,6 +2939,245 @@ finally:
       tableHint: cell.type == 'sql' ? _sqlTableHint() : null,
     );
   }
+
+  // 窄屏(手机)——原有的单列竖排 Cell 画布，支持拖拽重排
+  Widget _buildNarrowCanvas(bool isDark) {
+    return ReorderableListView(
+      scrollController: _scrollCtrl,
+      // 滚动 Cell 画布时自动收起键盘（跟点空白处一致）
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      buildDefaultDragHandles: false,
+      padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
+      // 默认拖拽会把 cell 裹进一层矩形高亮 Material，用透明零高度 proxy 代替
+      proxyDecorator: (child, index, animation) =>
+          Material(color: Colors.transparent, elevation: 0, child: child),
+      onReorder: _onReorder,
+      footer: NotebookAddDivider(
+        isDark: isDark,
+        onTap: () => _addCell('markdown'),
+      ),
+      children: [
+        for (int i = 0; i < _nb!.cells.length; i++)
+          _buildCellCard(_nb!.cells[i], i),
+      ],
+    );
+  }
+
+  // 宽屏(iPad/HD)——左 Cell 列表 + 右聚焦编辑双栏。右栏直接复用 _buildCellCard
+  // （已含代码编辑/输出/AI 助手），运行逻辑走同一套 _runCell，不分叉
+  Widget _buildWideCanvas(bool isDark) {
+    final cells = _nb!.cells;
+    final divider = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : const Color(0xFFEBEBEB);
+    if (cells.isEmpty) {
+      return Row(
+        children: [
+          SizedBox(width: 260, child: _buildCellRail(cells, -1, isDark, divider)),
+          VerticalDivider(width: 0.5, thickness: 0.5, color: divider),
+          const Expanded(
+            child: Center(
+              child: Text(
+                '还没有 Cell，点左下角添加',
+                style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    final sel = _wideIndex.clamp(0, cells.length - 1);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(width: 260, child: _buildCellRail(cells, sel, isDark, divider)),
+        VerticalDivider(width: 0.5, thickness: 0.5, color: divider),
+        Expanded(
+          child: ListView(
+            // 换选中 cell 时重建滚动位置，避免复用上一个 cell 的 offset
+            key: ValueKey('hd-right-${cells[sel].id}'),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            children: [_buildCellCard(cells[sel], sel)],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCellRail(
+    List<NotebookCell> cells,
+    int sel,
+    bool isDark,
+    Color divider,
+  ) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            itemCount: cells.length,
+            itemBuilder: (_, i) => _railItem(cells[i], i, sel == i, isDark),
+          ),
+        ),
+        // 底部「+ 添加 Cell」——新增后自动选中新 cell
+        Container(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: divider, width: 0.5)),
+          ),
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          child: GestureDetector(
+            onTap: () {
+              _addCell('markdown');
+              setState(() => _wideIndex = _nb!.cells.length - 1);
+            },
+            child: Container(
+              height: 38,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? _primary.withValues(alpha: 0.16)
+                    : const Color(0xFFEEF0FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add, size: 17, color: _primary),
+                  SizedBox(width: 6),
+                  Text(
+                    '添加 Cell',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _railItem(NotebookCell cell, int index, bool active, bool isDark) {
+    final ink = isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF999999);
+    // 代码前两行非空预览
+    final lines = cell.code
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .take(2)
+        .join('\n');
+    final preview = lines.isEmpty ? '空 Cell' : lines;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _wideIndex = index);
+        _activateCell(index);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+        padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+        decoration: BoxDecoration(
+          color: active
+              ? (isDark
+                    ? _primary.withValues(alpha: 0.14)
+                    : const Color(0xFFEEF0FF))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border(
+            left: BorderSide(
+              color: active ? _primary : Colors.transparent,
+              width: 2.5,
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: _railLangColor(cell.type)
+                        .withValues(alpha: isDark ? 0.22 : 0.12),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    _railLangLabel(cell.type),
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: _railLangColor(cell.type),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                _railStatusDot(cell),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              preview,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                height: 1.3,
+                fontFamily: 'monospace',
+                color: cell.code.trim().isEmpty ? muted : ink,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text('Cell ${index + 1}', style: TextStyle(fontSize: 10, color: muted)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Cell 运行状态圆点：运行中(橙)/报错(红)/已运行(绿)/未运行(灰)
+  Widget _railStatusDot(NotebookCell cell) {
+    Color c;
+    if (_running[cell.id] == true) {
+      c = const Color(0xFFD97706);
+    } else if (_outputTypes[cell.id] == 'error') {
+      c = const Color(0xFFDC2626);
+    } else if (_outputs[cell.id] != null) {
+      c = const Color(0xFF16A34A);
+    } else {
+      c = const Color(0xFFBBBBBB);
+    }
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: c),
+    );
+  }
+
+  Color _railLangColor(String type) => switch (type) {
+    'markdown' => const Color(0xFF16A34A),
+    'latex' => const Color(0xFF7C3AED),
+    'sql' => const Color(0xFF0EA5E9),
+    'r' => const Color(0xFFD97706),
+    'image' => const Color(0xFF888888),
+    _ => const Color(0xFF6366F1),
+  };
+
+  String _railLangLabel(String type) => switch (type) {
+    'python' => 'Python',
+    'sql' => 'SQL',
+    'javascript' => 'JS',
+    'r' => 'R',
+    'julia' => 'Julia',
+    'latex' => 'LaTeX',
+    'markdown' => 'MD',
+    'html' => 'HTML',
+    'image' => '图片',
+    _ => type,
+  };
 
   // 顶栏按钮——保存是中性灰底，运行全部换成淡紫底+紫字（accent:true），
   // 跟发布按钮的实心紫呼应但更轻，三个按钮形成"灰→浅紫→实紫"的层级
