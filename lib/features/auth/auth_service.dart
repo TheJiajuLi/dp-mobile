@@ -100,7 +100,9 @@ class AuthService {
     final raw = prefs.getString(AppConstants.keyRecentAccounts) ?? '[]';
     try {
       return List<Map<String, dynamic>>.from(
-        (jsonDecode(raw) as List).map((e) => Map<String, dynamic>.from(e as Map)),
+        (jsonDecode(raw) as List).map(
+          (e) => Map<String, dynamic>.from(e as Map),
+        ),
       );
     } catch (_) {
       return [];
@@ -167,7 +169,9 @@ class AuthService {
           extra: {'skipAuthRefresh': true},
         ),
       );
-      data = res.data is Map ? Map<String, dynamic>.from(res.data as Map) : null;
+      data = res.data is Map
+          ? Map<String, dynamic>.from(res.data as Map)
+          : null;
     } on DioException {
       data = null;
     }
@@ -238,7 +242,9 @@ class AuthService {
       },
     );
     if (!registerRes.success) {
-      throw Exception(registerRes.message ?? _currentL10n().registerFailedRetry);
+      throw Exception(
+        registerRes.message ?? _currentL10n().registerFailedRetry,
+      );
     }
 
     final loggedIn = await login(email, password);
@@ -252,7 +258,9 @@ class AuthService {
   AppLocalizations _currentL10n() {
     final pref = _ref.read(localeProvider);
     final locale = localeFor(pref) ?? PlatformDispatcher.instance.locale;
-    if (AppLocalizations.supportedLocales.any((l) => l.languageCode == locale.languageCode)) {
+    if (AppLocalizations.supportedLocales.any(
+      (l) => l.languageCode == locale.languageCode,
+    )) {
       return lookupAppLocalizations(locale);
     }
     return lookupAppLocalizations(const Locale('zh'));
@@ -282,8 +290,9 @@ class AuthService {
           extra: {'skipAuthRefresh': true},
         ),
       );
-      final data =
-          res.data is Map ? Map<String, dynamic>.from(res.data as Map) : null;
+      final data = res.data is Map
+          ? Map<String, dynamic>.from(res.data as Map)
+          : null;
       if (data == null) return;
       _ref.read(currentUserProvider.notifier).state = UserModel.fromJson(data);
     } catch (_) {
@@ -294,6 +303,11 @@ class AuthService {
   // 彻底退出登录——跟"切换账号"不一样，这里要把本地token和"最近账号"
   // 列表里的记录一起清掉，下次要用这个账号必须重新输密码
   Future<void> logout() async {
+    // 先解绑本设备的 APNs token（后端按当前会话删除），趁 cookie 还有效。
+    // 失败不阻塞登出
+    try {
+      await _api.delete('/auth/device/token');
+    } catch (_) {}
     final userId =
         await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
     if (userId.isNotEmpty) {
@@ -336,7 +350,9 @@ class AuthService {
             extra: {'skipAuthRefresh': true},
           ),
         );
-        data = res.data is Map ? Map<String, dynamic>.from(res.data as Map) : null;
+        data = res.data is Map
+            ? Map<String, dynamic>.from(res.data as Map)
+            : null;
       } on DioException {
         data = null;
       }

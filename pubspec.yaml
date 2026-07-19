@@ -66,6 +66,8 @@ dependencies:
   pdf: ^3.13.0
   printing: ^5.15.0
   gal: ^2.3.2
+  # APNs 推送（iOS）——注册 device token 上报后端，收到推送跳转对应页面
+  flutter_apns_only: ^1.6.0
 
 dev_dependencies:
   flutter_test:
