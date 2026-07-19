@@ -2932,9 +2932,11 @@ th{background:$thBg;color:$thFg}
         ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
         : const Color(0xFF1A1A1A);
 
-    // 去掉灰色填充底（pill），只留左侧紫色引用线——干净的引用样式
+    // 去掉灰色填充底（pill），只留左侧紫色引用线——干净的引用样式。
+    // 只留左内边距把文字推离紫线；不加竖直内边距——外层已有统一 block 留白
+    // (fromLTRB 10,6,10,10)，引用块再补 vertical 就会比其它块高出一截
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.only(left: 14),
       decoration: const BoxDecoration(
         color: Colors.transparent,
         border: Border(left: BorderSide(color: _primary, width: 3)),
@@ -2956,7 +2958,7 @@ th{background:$thBg;color:$thFg}
             fontSize: 14,
             fontStyle: FontStyle.italic,
             color: textColor,
-            height: 1.6,
+            height: 1.7,
           ),
           maxLines: null,
           onChanged: (v) {
