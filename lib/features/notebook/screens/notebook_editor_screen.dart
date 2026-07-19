@@ -66,6 +66,9 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
   // 内核状态：有 cell 正在跑 = 运行中(橙点)，否则就绪(绿点)。顶栏状态灯用
   bool _kernelBusy = false;
   final TextEditingController _titleCtrl = TextEditingController();
+  // HD 底部「问小梦」快捷栏：输入框（跨 cell 复用，发送后清空）+ 发送中标记
+  final TextEditingController _askCtrl = TextEditingController();
+  bool _askBusy = false;
   // 自动保存间隔——来自创作设置 creator_autosave(10s/30s/60s/off)，打开
   // 笔记本时读一次。off 用一个超长间隔实际关掉自动保存（返回/手动保存仍在）
   Duration _autosaveInterval = const Duration(seconds: 30);
@@ -2592,6 +2595,7 @@ finally:
       f.dispose();
     }
     _titleCtrl.dispose();
+    _askCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -3029,11 +3033,121 @@ finally:
                   children: [_buildCellCard(cells[sel], sel)],
                 ),
               ),
+              // C 阶段（纯前端部分）：底部「问小梦」快捷栏——把当前 Cell 代码作为
+              // 上下文提问，回答走输出区（outputType='ai'）。仅宽屏(HD)显示，图片
+              // cell 没代码不显示
+              if (cells[sel].type != 'image')
+                _wideAskBar(cells[sel], isDark, divider),
             ],
           ),
         ),
       ],
     );
+  }
+
+  // 底部「问小梦」快捷栏（HD 宽屏专属）：紫色 ✨ + 输入框 + 发送。回车或点发送
+  // 都会把「当前 Cell 代码 + 你的问题」发给小梦，答案渲染在该 cell 输出区
+  Widget _wideAskBar(NotebookCell cell, bool isDark, Color divider) {
+    final field = isDark ? const Color(0xFF17171F) : const Color(0xFFF3F3F6);
+    final ink = isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A);
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF9AA0AE);
+    const accent = Color(0xFF6366F1);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF13131A) : Colors.white,
+        border: Border(top: BorderSide(color: divider, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome, size: 18, color: accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: field,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: TextField(
+                controller: _askCtrl,
+                minLines: 1,
+                maxLines: 3,
+                style: TextStyle(fontSize: 13, color: ink, height: 1.4),
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _submitAsk(cell),
+                decoration: InputDecoration(
+                  filled: false,
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  hintText: '问小梦：解释这段代码 / 优化性能 / 查看错误原因…',
+                  hintStyle: TextStyle(fontSize: 13, color: muted),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _askBusy ? null : () => _submitAsk(cell),
+            child: Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: _askBusy ? 0.5 : 1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _askBusy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.arrow_upward_rounded,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 发送「问小梦」：拼「当前 Cell 代码 + 问题」提示词，走同一套 _xmengChat，
+  // 结果写进该 cell 的输出区用 AiContentRenderer 渲染（outputType='ai'）
+  Future<void> _submitAsk(NotebookCell cell) async {
+    final q = _askCtrl.text.trim();
+    if (q.isEmpty || _askBusy) return;
+    FocusScope.of(context).unfocus();
+    _askCtrl.clear();
+    setState(() => _askBusy = true);
+    final langHint = await aiLangHint();
+    if (!mounted) return;
+    final lang = cell.type;
+    // 优先取编辑器里最新文本（可能还没落回 cell.code）
+    final code = _controllers[cell.id]?.text ?? cell.code;
+    final prompt = '$langHint当前 Cell（$lang）：\n```$lang\n$code\n```\n\n$q';
+    _setOutput(cell, '小梦思考中…', 'ai');
+    try {
+      final result = await _xmengChat(prompt);
+      if (!mounted) return;
+      final ok = result != null && result.isNotEmpty;
+      _setOutput(cell, ok ? result : null, ok ? 'ai' : null);
+      if (!ok) _showSnack('小梦开小差了，请重试', ok: false);
+    } catch (e) {
+      if (mounted) {
+        _setOutput(cell, null, null);
+        _showSnack('小梦开小差了，请重试', ok: false);
+      }
+    } finally {
+      if (mounted) setState(() => _askBusy = false);
+    }
   }
 
   // 顶栏标题输入框（窄屏 Expanded 填满 / 宽屏 IntrinsicWidth + .ipynb 后缀共用）
