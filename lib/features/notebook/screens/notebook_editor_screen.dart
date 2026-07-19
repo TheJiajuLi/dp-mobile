@@ -2438,8 +2438,7 @@ finally:
     // 可视化图表（isVisualization）虽然也是 image，但确实是"运行产出"，要清
     bool isClearable(NotebookCell c) {
       if ((c.output?.isEmpty ?? true)) return false;
-      if (c.outputType == 'image' &&
-          c.metadata?['isVisualization'] != true) {
+      if (c.outputType == 'image' && c.metadata?['isVisualization'] != true) {
         return false; // 图片内容块，跳过
       }
       if (c.metadata?['isDataset'] == true) return false; // 数据集块，跳过
@@ -2759,32 +2758,34 @@ finally:
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // 标题可直接点击编辑
-                        Expanded(
-                          child: TextField(
-                            controller: _titleCtrl,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: isDark
-                                  ? const Color(0xFFE0E2F0)
-                                  : const Color(0xFF1A1A1A),
+                        // 标题可直接点击编辑。宽屏(HD)在标题后接一个静态 .ipynb
+                        // 后缀（IntrinsicWidth 让输入框贴合文字、后缀紧跟其后），
+                        // 窄屏保持 Expanded 填满
+                        if (wide)
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: IntrinsicWidth(
+                                    child: _titleField(isDark),
+                                  ),
+                                ),
+                                Text(
+                                  '.ipynb',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark
+                                        ? const Color(0xFF7A80A0)
+                                        : const Color(0xFF888888),
+                                  ),
+                                ),
+                              ],
                             ),
-                            maxLines: 1,
-                            textInputAction: TextInputAction.done,
-                            decoration: const InputDecoration.collapsed(
-                              hintText: '未命名 Notebook',
-                            ),
-                            onChanged: (v) {
-                              if (_nb != null) {
-                                _nb!.name = v;
-                                _scheduleSave();
-                              }
-                            },
-                          ),
-                        ),
-                        // 标题(Expanded)和按钮组之间留一段间距——否则标题末字会
-                        // 紧贴「全部运行」胶囊、被圆角盖住，看着像被遮挡
+                          )
+                        else
+                          Expanded(child: _titleField(isDark)),
+                        // 标题和按钮组之间留一段间距——否则标题末字会紧贴「全部
+                        // 运行」胶囊、被圆角盖住，看着像被遮挡
                         const SizedBox(width: 10),
                         // 内核状态灯：就绪(绿)/运行中(橙)
                         AnimatedContainer(
@@ -2973,7 +2974,10 @@ finally:
     if (cells.isEmpty) {
       return Row(
         children: [
-          SizedBox(width: 260, child: _buildCellRail(cells, -1, isDark, divider)),
+          SizedBox(
+            width: 260,
+            child: _buildCellRail(cells, -1, isDark, divider),
+          ),
           VerticalDivider(width: 0.5, thickness: 0.5, color: divider),
           const Expanded(
             child: Center(
@@ -2990,17 +2994,102 @@ finally:
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(width: 260, child: _buildCellRail(cells, sel, isDark, divider)),
+        SizedBox(
+          width: 260,
+          child: _buildCellRail(cells, sel, isDark, divider),
+        ),
         VerticalDivider(width: 0.5, thickness: 0.5, color: divider),
         Expanded(
-          child: ListView(
-            // 换选中 cell 时重建滚动位置，避免复用上一个 cell 的 offset
-            key: ValueKey('hd-right-${cells[sel].id}'),
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-            children: [_buildCellCard(cells[sel], sel)],
+          child: Column(
+            children: [
+              _wideCellHeader(cells[sel], sel, isDark, divider),
+              Expanded(
+                child: ListView(
+                  // 换选中 cell 时重建滚动位置，避免复用上一个 cell 的 offset
+                  key: ValueKey('hd-right-${cells[sel].id}'),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+                  children: [_buildCellCard(cells[sel], sel)],
+                ),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  // 顶栏标题输入框（窄屏 Expanded 填满 / 宽屏 IntrinsicWidth + .ipynb 后缀共用）
+  Widget _titleField(bool isDark) {
+    return TextField(
+      controller: _titleCtrl,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A),
+      ),
+      maxLines: 1,
+      textInputAction: TextInputAction.done,
+      decoration: const InputDecoration.collapsed(hintText: '未命名 Notebook'),
+      onChanged: (v) {
+        if (_nb != null) {
+          _nb!.name = v;
+          _scheduleSave();
+        }
+      },
+    );
+  }
+
+  // 宽屏右栏顶部条：「Python · Cell N」标签 + 删除按钮，对齐 demo 的 IDE 头。
+  // 运行/复制/AI 仍在下方 cell 卡片自带的头里，这里只补类型标签 + 删除入口
+  Widget _wideCellHeader(
+    NotebookCell cell,
+    int index,
+    bool isDark,
+    Color divider,
+  ) {
+    final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF888888);
+    final langColor = _railLangColor(cell.type);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: divider, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: langColor.withValues(alpha: isDark ? 0.22 : 0.12),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Text(
+              _railLangLabel(cell.type),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: langColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '· Cell ${index + 1}',
+            style: TextStyle(fontSize: 12, color: muted),
+          ),
+          const Spacer(),
+          Tooltip(
+            message: '删除 Cell',
+            child: GestureDetector(
+              onTap: () => _deleteCell(cell.id),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(Icons.delete_outline, size: 18, color: muted),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3063,13 +3152,11 @@ finally:
   Widget _railItem(NotebookCell cell, int index, bool active, bool isDark) {
     final ink = isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A);
     final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF999999);
-    // 代码前两行非空预览
-    final lines = cell.code
+    // 代码首行非空预览（单行，紧凑列表，对齐 IDE 式设计）
+    final firstLine = cell.code
         .split('\n')
-        .where((l) => l.trim().isNotEmpty)
-        .take(2)
-        .join('\n');
-    final preview = lines.isEmpty ? '空 Cell' : lines;
+        .firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
+    final preview = firstLine.isEmpty ? '空 Cell' : firstLine.trim();
     return GestureDetector(
       onTap: () {
         setState(() => _wideIndex = index);
@@ -3099,10 +3186,14 @@ finally:
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
-                    color: _railLangColor(cell.type)
-                        .withValues(alpha: isDark ? 0.22 : 0.12),
+                    color: _railLangColor(
+                      cell.type,
+                    ).withValues(alpha: isDark ? 0.22 : 0.12),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: Text(
@@ -3121,7 +3212,7 @@ finally:
             const SizedBox(height: 6),
             Text(
               preview,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11.5,
@@ -3131,7 +3222,10 @@ finally:
               ),
             ),
             const SizedBox(height: 4),
-            Text('Cell ${index + 1}', style: TextStyle(fontSize: 10, color: muted)),
+            Text(
+              'Cell ${index + 1}',
+              style: TextStyle(fontSize: 10, color: muted),
+            ),
           ],
         ),
       ),
