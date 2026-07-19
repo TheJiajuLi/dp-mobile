@@ -18,7 +18,9 @@ const _primary = Color(0xFF6366F1);
 const _green = Color(0xFF16A34A);
 
 class CreatorStatsScreen extends ConsumerStatefulWidget {
-  const CreatorStatsScreen({super.key});
+  // HD 双栏内嵌时（HdProfilePage 右栏）隐藏返回键——根级标签内没有可 pop 的路由
+  final bool showBackButton;
+  const CreatorStatsScreen({super.key, this.showBackButton = true});
 
   @override
   ConsumerState<CreatorStatsScreen> createState() => _CreatorStatsScreenState();
@@ -119,10 +121,13 @@ class _CreatorStatsScreenState extends ConsumerState<CreatorStatsScreen> {
           scrolledUnderElevation: 0,
           centerTitle: false,
           titleSpacing: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new, size: 18, color: ink),
-            onPressed: () => context.pop(),
-          ),
+          automaticallyImplyLeading: widget.showBackButton,
+          leading: widget.showBackButton
+              ? IconButton(
+                  icon: Icon(Icons.arrow_back_ios_new, size: 18, color: ink),
+                  onPressed: () => context.pop(),
+                )
+              : null,
           title: Text(
             '数据详情',
             style: TextStyle(

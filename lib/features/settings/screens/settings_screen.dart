@@ -15,7 +15,9 @@ import '../widgets/settings_row.dart';
 import 'changelog_screen.dart' show changelogUnseenProvider, kLatestVersion;
 
 class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+  // HD 双栏内嵌时（HdProfilePage 右栏）隐藏返回键——根级标签内没有可 pop 的路由
+  final bool showBackButton;
+  const SettingsScreen({super.key, this.showBackButton = true});
 
   // double 重写了 ==/hashCode，不能作为 const map 的 key，这里用 final
   static Map<double, String> _fontSizeLabels(AppLocalizations l10n) => {
@@ -62,15 +64,17 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: () => context.pop(),
-                        child: Icon(
-                          Icons.arrow_back_ios,
-                          size: 18,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                      if (showBackButton) ...[
+                        GestureDetector(
+                          onTap: () => context.pop(),
+                          child: Icon(
+                            Icons.arrow_back_ios,
+                            size: 18,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
+                        const SizedBox(width: 8),
+                      ],
                       Text(
                         l10n.settingsTitle,
                         style: TextStyle(
