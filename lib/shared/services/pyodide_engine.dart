@@ -200,9 +200,19 @@ try:
     df.to_sql('df', conn, if_exists='replace', index=False)
 except Exception:
     pass
-result = pd.read_sql_query("""$sql""", conn)
+# 多语句：按分号拆开分别执行（read_sql_query 一次只吃一条）——CREATE/INSERT 等
+# 走 execute+commit，SELECT/WITH/PRAGMA 走 read_sql_query，展示最后一条查询结果
+_stmts = [s.strip() for s in """$sql""".split(';') if s.strip()]
+result = None
+for _s in _stmts:
+    _u = _s.lstrip().upper()
+    if _u.startswith('SELECT') or _u.startswith('WITH') or _u.startswith('PRAGMA'):
+        result = pd.read_sql_query(_s, conn)
+    else:
+        conn.execute(_s)
+        conn.commit()
 conn.close()
-result
+result if result is not None else print("✓ 执行完成")
 ''';
 
   // 中文输入法/键盘智能标点常把 ' " - : ; 变成全角/弯版本，直接丢进

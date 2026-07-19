@@ -1627,9 +1627,20 @@ except Exception as e:
 import sqlite3, pandas as pd
 conn = sqlite3.connect(':memory:')
 $register
-result = pd.read_sql_query("""$sql""", conn)
+# 按分号拆成多条语句分别执行——sqlite/read_sql_query 一次只吃一条，前面的
+# CREATE/INSERT/DROP 走 execute+commit，SELECT/WITH/PRAGMA 走 read_sql_query，
+# 展示最后一条查询的结果（没有查询就打印执行完成）
+_stmts = [s.strip() for s in """$sql""".split(';') if s.strip()]
+result = None
+for _s in _stmts:
+    _u = _s.lstrip().upper()
+    if _u.startswith('SELECT') or _u.startswith('WITH') or _u.startswith('PRAGMA'):
+        result = pd.read_sql_query(_s, conn)
+    else:
+        conn.execute(_s)
+        conn.commit()
 conn.close()
-result
+result if result is not None else print("✓ 执行完成")
 ''';
   }
 
