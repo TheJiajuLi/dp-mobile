@@ -13,7 +13,11 @@ const _primary = Color(0xFF6366F1);
 // 发送——用户还要在对话页自己点一次发送。统一走这一条路径，不在欢迎页
 // 自己再做一份"预填在本页输入框"的重复逻辑
 class XiaomengScreen extends StatefulWidget {
-  const XiaomengScreen({super.key});
+  // HD 双栏嵌入用：embedded=true 隐藏顶部返回/历史按钮（HD 左栏自带历史+新对话）；
+  // onOpenChat 非空时"发送/点提示"不再 push 新路由，而是回调给 HD 页面驱动右栏
+  final bool embedded;
+  final void Function(String? prefill)? onOpenChat;
+  const XiaomengScreen({super.key, this.embedded = false, this.onOpenChat});
 
   @override
   State<XiaomengScreen> createState() => _XiaomengScreenState();
@@ -29,6 +33,10 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
   }
 
   void _openChat({String? prefill}) {
+    if (widget.onOpenChat != null) {
+      widget.onOpenChat!(prefill);
+      return;
+    }
     context.push('/xiaomeng/chat', extra: {'initialMessage': prefill});
   }
 
@@ -47,6 +55,7 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            if (!widget.embedded) ...[
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -94,6 +103,8 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
               ),
             ),
             const Divider(height: 20, thickness: 0.5),
+            ],
+            if (widget.embedded) const SizedBox(height: 16),
             Expanded(
               // 点空白处收起键盘
               child: GestureDetector(
