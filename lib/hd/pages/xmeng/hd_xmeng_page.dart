@@ -209,12 +209,14 @@ class _HdXmengPageState extends ConsumerState<HdXmengPage> {
       return XiaomengChatScreen(
         key: ValueKey('conv:${sel.conversationId}'),
         conversationId: sel.conversationId,
+        showBackButton: false,
       );
     }
     if (sel.newMessage != null) {
       return XiaomengChatScreen(
         key: ValueKey('new:${sel.newMessage}'),
         initialMessage: sel.newMessage!.isEmpty ? null : sel.newMessage,
+        showBackButton: false,
       );
     }
     return XiaomengScreen(

@@ -8,6 +8,6 @@ class HdNotificationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const NotificationsScreen();
+    return const NotificationsScreen(showBackButton: false);
   }
 }

@@ -35,7 +35,14 @@ class NotebookHomeScreen extends ConsumerStatefulWidget {
   // 而是回调给 HD 页面在同一标签内联切换到编辑器（保留 HD 侧栏/标签）。
   // 手机端不传，走原来的 context.push('/notebook/:id')
   final void Function(String nbId)? onOpen;
-  const NotebookHomeScreen({super.key, this.onOpen});
+  // HD 根标签内嵌时（HdNotebookPage）传 false 隐藏返回键——根标签没有可 pop 的
+  // 路由，Navigator.pop 会炸。手机端 push 进来（profile/main_shell）不传
+  final bool showBackButton;
+  const NotebookHomeScreen({
+    super.key,
+    this.onOpen,
+    this.showBackButton = true,
+  });
   @override
   ConsumerState<NotebookHomeScreen> createState() => _State();
 }
@@ -422,31 +429,33 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                   ),
                   child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.arrow_back_ios,
-                              size: 16,
-                              color: isDark
-                                  ? const Color(0xFF7A80A0)
-                                  : const Color(0xFF888888),
-                            ),
-                            Text(
-                              l10n.back,
-                              style: TextStyle(
-                                fontSize: 13,
+                      if (widget.showBackButton) ...[
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.arrow_back_ios,
+                                size: 16,
                                 color: isDark
                                     ? const Color(0xFF7A80A0)
                                     : const Color(0xFF888888),
                               ),
-                            ),
-                          ],
+                              Text(
+                                l10n.back,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark
+                                      ? const Color(0xFF7A80A0)
+                                      : const Color(0xFF888888),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
+                        const SizedBox(width: 8),
+                      ],
                       Text(
                         l10n.appNotebookTitle,
                         style: TextStyle(

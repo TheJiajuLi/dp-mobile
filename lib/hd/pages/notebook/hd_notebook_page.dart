@@ -21,6 +21,7 @@ class _HdNotebookPageState extends State<HdNotebookPage> {
   Widget build(BuildContext context) {
     if (_openNbId == null) {
       return NotebookHomeScreen(
+        showBackButton: false,
         onOpen: (id) => setState(() => _openNbId = id),
       );
     }

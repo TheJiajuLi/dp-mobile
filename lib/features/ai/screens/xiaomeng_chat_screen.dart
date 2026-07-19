@@ -27,10 +27,14 @@ const _primary = Color(0xFF6366F1);
 class XiaomengChatScreen extends ConsumerStatefulWidget {
   final String? conversationId;
   final String? initialMessage;
+  // HD 双栏右栏内嵌时（HdXmengPage）传 false 隐藏返回键——右栏内嵌没有可 pop
+  // 的路由（maybePop 不炸但点了没反应，是个死按钮）。手机端 push 进来不传
+  final bool showBackButton;
   const XiaomengChatScreen({
     super.key,
     this.conversationId,
     this.initialMessage,
+    this.showBackButton = true,
   });
 
   @override
@@ -321,20 +325,21 @@ class _XiaomengChatScreenState extends ConsumerState<XiaomengChatScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).maybePop(),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF0F0F0),
-                        borderRadius: BorderRadius.circular(10),
+                  if (widget.showBackButton)
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).maybePop(),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : const Color(0xFFF0F0F0),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.arrow_back_ios, size: 16),
                       ),
-                      child: const Icon(Icons.arrow_back_ios, size: 16),
                     ),
-                  ),
                   Expanded(
                     child: Column(
                       children: [

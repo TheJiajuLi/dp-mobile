@@ -23,7 +23,10 @@ import '../widgets/invite_summary_card.dart';
 // 单条（顺手标该条已读）或点顶部「全部已读」主动清——所以这版才看得到
 // 未读点。
 class NotificationsScreen extends ConsumerStatefulWidget {
-  const NotificationsScreen({super.key});
+  // HD 根标签内嵌时（HdNotificationsPage）传 false 隐藏返回键——根标签没有可
+  // pop 的路由，写死 context.pop() 会抛「nothing to pop」。手机端 push 进来不传
+  final bool showBackButton;
+  const NotificationsScreen({super.key, this.showBackButton = true});
   @override
   ConsumerState<NotificationsScreen> createState() =>
       _NotificationsScreenState();
@@ -672,12 +675,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     padding: const EdgeInsets.fromLTRB(4, 6, 8, 4),
     child: Row(
       children: [
-        // 这个页是 push 进来的，保留返回箭头（demo 是根级效果，这里不能去掉
-        // 不然回不去）
-        IconButton(
-          onPressed: () => context.pop(),
-          icon: const Icon(Icons.arrow_back_ios, size: 18),
-        ),
+        // 手机端是 push 进来的，保留返回箭头；HD 根标签内嵌时 showBackButton
+        // 传 false，隐藏返回键（根标签没有可 pop 的路由）
+        if (widget.showBackButton)
+          IconButton(
+            onPressed: () => context.pop(),
+            icon: const Icon(Icons.arrow_back_ios, size: 18),
+          ),
         const Text(
           '通知',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
