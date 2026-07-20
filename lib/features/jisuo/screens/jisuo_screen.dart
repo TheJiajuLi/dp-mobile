@@ -124,6 +124,9 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   // _loadStarterQuestions）。跟 _generateSuggestions（挂在每轮回答下方的
   // 「追问建议」）完全是两回事，别混淆
   List<String> _starterQuestions = _sampleQuestions;
+  // 一次只展示一个示例问题（不整批铺出来）——当前展示的是这批里的第几条。
+  // 「换一个」先在已缓存的这批里往后轮，轮完才去后端取新一批（省着用 AI）
+  int _starterIndex = 0;
   bool _loadingStarters = false;
 
   @override
@@ -421,8 +424,13 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     }
   }
 
-  // 下拉刷新：强制等新内容（转圈 → 新一批），跟后台刷新不同，这里要 await
+  // 换一个 / 下拉刷新：一次只展示一个，所以先在已缓存的这批里往后轮一条
+  // （不打网络，省着用 AI）；整批都轮完了才真正去后端取新一批、索引归零
   Future<void> _onRefreshStarters() async {
+    if (_starterIndex + 1 < _starterQuestions.length) {
+      if (mounted) setState(() => _starterIndex++);
+      return;
+    }
     if (mounted) setState(() => _loadingStarters = true);
     final fresh = await _fetchStarterQuestions();
     if (fresh.isNotEmpty) {
@@ -432,6 +440,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     if (!mounted) return;
     setState(() {
       if (fresh.isNotEmpty) _starterQuestions = fresh;
+      _starterIndex = 0;
       _loadingStarters = false;
     });
   }
@@ -785,61 +794,91 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                       ),
                     ),
                   )
-                else
-                  ..._starterQuestions.map(
-                    (q) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: GestureDetector(
-                        onTap: () => _startQuestion(q),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 11,
-                          ),
-                          decoration: BoxDecoration(
+                else if (_starterQuestions.isNotEmpty) ...[
+                  // 一次只展示一个——聚焦单条，点它直接提问
+                  _buildStarterCard(
+                    _starterQuestions[_starterIndex % _starterQuestions.length],
+                    isDark,
+                  ),
+                  const SizedBox(height: 2),
+                  // 换一个：先在已缓存这批里往后轮（不打网），轮完才取新一批
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _onRefreshStarters,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.refresh,
+                            size: 14,
                             color: isDark
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(99),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.1)
-                                  : _primary.withValues(alpha: 0.1),
-                              width: 0.5,
-                            ),
-                            // 浅色下从"淡紫填色+描边"改成"白底+极淡描边+软阴影"
-                            // ——原来的纯色填充在同样浅米白的页面背景上层次
-                            // 不够，阴影才是真正的深度来源
-                            boxShadow: isDark
-                                ? null
-                                : [
-                                    BoxShadow(
-                                      color: _primary.withValues(alpha: 0.08),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
+                                ? Colors.white.withValues(alpha: 0.4)
+                                : _primary.withValues(alpha: 0.6),
                           ),
-                          child: Text(
-                            q,
-                            textAlign: TextAlign.center,
+                          const SizedBox(width: 4),
+                          Text(
+                            '换一个',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 12,
                               color: isDark
-                                  ? Colors.white.withValues(alpha: 0.75)
-                                  : const Color(0xFF1A1A1A),
+                                  ? Colors.white.withValues(alpha: 0.4)
+                                  : _primary.withValues(alpha: 0.7),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
-                // 「换一批」入口已删除——推荐问题改为每次进入页面自动刷新，
-                // 外加下拉刷新，不再需要手动换一批按钮
+                ],
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 单条示例问题胶囊——白底+软阴影，点了直接发起提问
+  Widget _buildStarterCard(String q, bool isDark) {
+    return GestureDetector(
+      onTap: () => _startQuestion(q),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.1)
+                : _primary.withValues(alpha: 0.1),
+            width: 0.5,
+          ),
+          // 浅色下"白底+极淡描边+软阴影"——阴影才是真正的深度来源
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: _primary.withValues(alpha: 0.08),
+                    blurRadius: 18,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
+        child: Text(
+          q,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.75)
+                : const Color(0xFF1A1A1A),
+          ),
+        ),
       ),
     );
   }
