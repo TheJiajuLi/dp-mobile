@@ -33,6 +33,9 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
   // 编辑器
   String _autosave = '30s';
   String _defaultBlock = 'text';
+  // Notebook「+ 添加 Cell」新建时的默认类型（跟发布块编辑器的 _defaultBlock
+  // 是两套体系：这里是 cell 类型 python/markdown/sql/r/latex）
+  String _notebookCell = 'python';
   bool _showPreview = true;
   // 小梦 AI
   String _aiLang = 'zh';
@@ -60,6 +63,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
       _notifyFollow = p.getBool('creator_notify_follow') ?? true;
       _autosave = p.getString('creator_autosave') ?? '30s';
       _defaultBlock = p.getString('creator_default_block') ?? 'text';
+      _notebookCell = p.getString('notebook_default_cell') ?? 'python';
       _showPreview = p.getBool('creator_show_preview') ?? true;
       _aiLang = p.getString('creator_ai_lang') ?? 'zh';
       _aiCodeLang = p.getString('creator_ai_code_lang') ?? 'python';
@@ -218,6 +222,14 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                       label: '默认内容块类型',
                       value: _blockLabel(),
                       onTap: _showDefaultBlockSheet,
+                    ),
+                    _selectRow(
+                      iconBg: const Color(0xFFEAF1FB),
+                      icon: Icons.terminal_outlined,
+                      iconColor: const Color(0xFF3776AB),
+                      label: 'Notebook 默认 Cell 类型',
+                      value: _notebookCellLabel(),
+                      onTap: _showNotebookCellSheet,
                     ),
                     _toggleRow(
                       iconBg: const Color(0xFFFDF0DC),
@@ -409,6 +421,22 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
     },
   );
 
+  void _showNotebookCellSheet() => _showOptionSheet(
+    title: 'Notebook 默认 Cell 类型',
+    options: const [
+      ('python', 'Python', null),
+      ('markdown', 'Markdown', null),
+      ('sql', 'SQL', null),
+      ('r', 'R', null),
+      ('latex', 'LaTeX', null),
+    ],
+    current: _notebookCell,
+    onSelect: (v) {
+      setState(() => _notebookCell = v);
+      _save('notebook_default_cell', v);
+    },
+  );
+
   void _showAiLangSheet() => _showOptionSheet(
     title: 'AI 偏好语言',
     options: const [
@@ -565,6 +593,21 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
         return 'LaTeX';
       default:
         return '文字';
+    }
+  }
+
+  String _notebookCellLabel() {
+    switch (_notebookCell) {
+      case 'markdown':
+        return 'Markdown';
+      case 'sql':
+        return 'SQL';
+      case 'r':
+        return 'R';
+      case 'latex':
+        return 'LaTeX';
+      default:
+        return 'Python';
     }
   }
 

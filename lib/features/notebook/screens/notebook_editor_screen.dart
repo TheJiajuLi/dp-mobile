@@ -183,6 +183,15 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     });
   }
 
+  // 通用「+ 添加 Cell」——读创作设置里的「Notebook 默认 Cell 类型」
+  // （notebook_default_cell，默认 python），不再写死 markdown
+  Future<void> _addDefaultCell({int? at}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final defaultType = prefs.getString('notebook_default_cell') ?? 'python';
+    if (!mounted) return;
+    _addCell(defaultType, at: at);
+  }
+
   // 可视化 cell——本质是带 matplotlib 起始模板的 python cell + isVisualization
   // 标记（镜像数据集 cell 的 metadata 模式），绿色主题、运行/AI/复制全复用
   void _addVizCell({int? at}) {
@@ -1656,7 +1665,12 @@ for _s in _stmts:
         conn.execute(_s)
         conn.commit()
 conn.close()
-result if result is not None else print("✓ 执行完成")
+if result is not None:
+    rows, cols = result.shape
+    print(f"查询结果：{rows} 行 × {cols} 列")
+    print(result.to_string(index=False))
+else:
+    print("✓ 执行完成")
 ''';
   }
 
@@ -2977,7 +2991,7 @@ finally:
       onReorder: _onReorder,
       footer: NotebookAddDivider(
         isDark: isDark,
-        onTap: () => _addCell('markdown'),
+        onTap: () => _addDefaultCell(),
       ),
       children: [
         for (int i = 0; i < _nb!.cells.length; i++)
@@ -3251,8 +3265,9 @@ finally:
           ),
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
           child: GestureDetector(
-            onTap: () {
-              _addCell('markdown');
+            onTap: () async {
+              await _addDefaultCell();
+              if (!mounted) return;
               setState(() => _wideIndex = _nb!.cells.length - 1);
             },
             child: Container(
