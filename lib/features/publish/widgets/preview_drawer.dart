@@ -79,7 +79,8 @@ class PreviewDrawer extends ConsumerWidget {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              // 上下留白收紧——把空间让给下面的预览正文，视觉上「拉高」预览区
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
               child: Row(
                 children: [
                   Container(
@@ -286,7 +287,8 @@ class PreviewDrawer extends ConsumerWidget {
             ),
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              // 上下留白收紧——同样把空间让给预览正文
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
               // 跟编辑器底部一致的紧凑款：字数/块数/阅读时长用「·」连成一行、
               // 居中，不再摊成 spaceBetween 三段
               child: Center(
@@ -299,9 +301,8 @@ class PreviewDrawer extends ConsumerWidget {
                 ),
               ),
             ),
-            // 底部留一点安全区间距——发布确认已挪回顶部「发布」按钮直接发布，
-            // 这里不再有「返回修改/确认发布」栏，把空间让给预览内容
-            const SafeArea(top: false, child: SizedBox(height: 4)),
+            // 底部只保留系统安全区本身，不再额外垫高度——把空间让给预览内容
+            const SafeArea(top: false, child: SizedBox.shrink()),
           ],
         ),
       ),
