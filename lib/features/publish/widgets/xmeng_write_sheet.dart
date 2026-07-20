@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/utils/ai_lang.dart';
+import '../../../shared/widgets/ai_content_renderer.dart';
 import '../models/block_model.dart';
 
 const _primary = Color(0xFF6366F1);
@@ -277,7 +278,11 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     content = content.replaceAll(r'\$', r'$');
     final blocks = <XmengBlock>[];
     final lines = content.split('\n');
+    // 两种围栏：inCode = ```python/sql/r/js 等带语言标识的「可执行代码块」；
+    // inDisplay = 裸 ``` 无语言标识的「展示围栏」——里面多半是被模型误包起来
+    // 的讲解文字/公式，按正文分块处理，绝不当代码跑（否则点运行必然超时）
     var inCode = false;
+    var inDisplay = false;
     var codeLang = 'python';
     final codeBuf = <String>[];
     var titleDone = false;
@@ -300,35 +305,13 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
       }
     }
 
-    for (final raw in lines) {
-      final trimmed = raw.trim();
-
-      if (trimmed.startsWith('```')) {
-        flushPara();
-        if (!inCode) {
-          inCode = true;
-          final lang = trimmed.substring(3).trim().toLowerCase();
-          codeLang = lang.isEmpty ? 'python' : lang;
-          codeBuf.clear();
-        } else {
-          inCode = false;
-          blocks.add(
-            XmengBlock(
-              type: BlockType.code,
-              content: codeBuf.join('\n'),
-              language: codeLang,
-            ),
-          );
-        }
-        continue;
-      }
-      if (inCode) {
-        codeBuf.add(raw);
-        continue;
-      }
+    // 处理一行「正文」——普通段落、以及展示围栏内部都走这里：首行→标题，
+    // ## 小节→heading 块，整行块级公式（\[...\]/$$...$$）→独立 latex 块，
+    // 其余累进当前段落（空行触发 flush）
+    void processBodyLine(String raw, String trimmed) {
       if (trimmed.isEmpty) {
         flushPara();
-        continue;
+        return;
       }
       // 首个非空行当文章标题（单独成块）
       if (!titleDone) {
@@ -340,7 +323,7 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
             headingLevel: 2,
           ),
         );
-        continue;
+        return;
       }
       // 正文里的 Markdown 小节标题（# ~ ######）单独成 heading 块，而不是被
       // _hasMarkdown 吞进整段 markdown——否则阅读页目录抓不到、层级也丢了。
@@ -357,13 +340,63 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
             headingLevel: level,
           ),
         );
-        continue;
+        return;
+      }
+      // 整行就是一条块级公式 → 独立 latex 块，不混进文字段落显示成源码
+      final lineFormula = _standaloneFormula(trimmed);
+      if (lineFormula != null) {
+        flushPara();
+        blocks.add(XmengBlock(type: BlockType.latex, content: lineFormula));
+        return;
       }
       para.add(raw);
     }
 
+    for (final raw in lines) {
+      final trimmed = raw.trim();
+
+      // 围栏开合
+      if (trimmed.startsWith('```')) {
+        if (inCode) {
+          // 关闭可执行代码围栏
+          inCode = false;
+          blocks.add(
+            XmengBlock(
+              type: BlockType.code,
+              content: codeBuf.join('\n'),
+              language: codeLang,
+            ),
+          );
+        } else if (inDisplay) {
+          // 关闭展示围栏——里面的正文已逐行分块，收尾 flush
+          flushPara();
+          inDisplay = false;
+        } else {
+          // 打开围栏：带语言标识 → 可执行代码块；裸 ``` → 展示围栏（不可运行）
+          flushPara();
+          final lang = trimmed.substring(3).trim().toLowerCase();
+          if (lang.isEmpty) {
+            inDisplay = true;
+          } else {
+            inCode = true;
+            codeLang = lang;
+            codeBuf.clear();
+          }
+        }
+        continue;
+      }
+
+      if (inCode) {
+        codeBuf.add(raw);
+        continue;
+      }
+
+      // 普通正文 or 展示围栏内部：同一套段落/公式/标题分块逻辑
+      processBodyLine(raw, trimmed);
+    }
+
     flushPara();
-    // 代码块没闭合也兜底收进来
+    // 代码围栏没闭合也兜底收进来
     if (inCode && codeBuf.isNotEmpty) {
       blocks.add(
         XmengBlock(
@@ -558,6 +591,10 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
             _generated,
             bubbleAi,
             border,
+            // 打字机进行中仍走原始 Text（逐字流畅、不闪）；写完后整段用
+            // AiContentRenderer 渲染——标题/加粗/列表/代码块/LaTeX 都出效果，
+            // 让用户看到「填入后长这样」，不再是一堆 ## ** ``` \[\] 源码
+            renderRich: !_writing,
             trailing: _writing
                 ? const Padding(
                     padding: EdgeInsets.only(top: 8),
@@ -575,7 +612,11 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
     Color bubbleBg,
     Color border, {
     Widget? trailing,
+    // true=用 AiContentRenderer 渲染 Markdown/LaTeX/代码（生成完成的草稿预览）；
+    // false=纯 Text（问候语、流式打字中）
+    bool renderRich = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -613,14 +654,17 @@ class _XmengWriteSheetState extends ConsumerState<XmengWriteSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.7,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                if (renderRich && text.trim().isNotEmpty)
+                  AiContentRenderer(content: text, isDark: isDark)
+                else
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.7,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
                   ),
-                ),
                 if (trailing != null) trailing,
               ],
             ),
