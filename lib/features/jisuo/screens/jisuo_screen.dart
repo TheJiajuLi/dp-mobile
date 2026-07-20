@@ -651,37 +651,17 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  // 顶栏：标题 + Tab切换（问问小梦/社区提问，跟标题同一行，腾出下面
-  // 一整行的竖向空间给内容）+ （AI Tab 非 idle 态）重置/历史对话按钮
+  // 顶栏：把「问问小梦 / 社区提问 / 历史」三个入口合进一个统一胶囊控件，
+  // 去掉左上角「极索」标题，顶部留白收到最紧，把竖向空间进一步让给内容
   Widget _buildTopBar(bool isDark) {
     final l10n = AppLocalizations.of(context)!;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 8, 2),
+      padding: const EdgeInsets.fromLTRB(16, 2, 8, 2),
       child: Row(
         children: [
-          Text(
-            l10n.navJisuo,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : const Color(0xFF1A1A1A),
-            ),
-          ),
-          const SizedBox(width: 10),
-          _tabChip(
-            isDark,
-            label: l10n.jisuoAskXiaomeng,
-            icon: Icons.auto_awesome,
-            mode: 'ai',
-          ),
-          const SizedBox(width: 6),
-          _tabChip(
-            isDark,
-            label: l10n.jisuoCommunityAsk,
-            icon: Icons.people_outline,
-            mode: 'community',
-          ),
+          _buildModeSwitcher(isDark, l10n),
           const Spacer(),
+          // 对话进行中才出现的「重新开始」——上下文操作，留在胶囊外
           if (_tab == 'ai' && _jisuoMode != JisuoMode.idle)
             IconButton(
               tooltip: '重新开始',
@@ -689,13 +669,65 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
               color: Colors.grey[500],
               onPressed: _resetToIdle,
             ),
-          if (_tab == 'ai')
-            IconButton(
-              tooltip: l10n.chatHistory,
-              icon: const Icon(Icons.history, size: 20),
-              color: Colors.grey[500],
-              onPressed: () => context.push('/xiaomeng/history'),
+        ],
+      ),
+    );
+  }
+
+  // 统一胶囊：两个 Tab 分段 + 历史入口挤在同一个圆角壳里，视觉上是一个控件
+  Widget _buildModeSwitcher(bool isDark, AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : _primary.withValues(alpha: 0.12),
+          width: 0.5,
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: _primary.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _modeSegment(
+            isDark,
+            label: l10n.jisuoAskXiaomeng,
+            icon: Icons.auto_awesome,
+            mode: 'ai',
+          ),
+          _modeSegment(
+            isDark,
+            label: l10n.jisuoCommunityAsk,
+            icon: Icons.people_outline,
+            mode: 'community',
+          ),
+          // 历史对话入口——并进同一个胶囊，点开小梦历史
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.push('/xiaomeng/history'),
+            child: Tooltip(
+              message: l10n.chatHistory,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                child: Icon(
+                  Icons.history,
+                  size: 18,
+                  color: isDark ? Colors.white54 : Colors.grey[500],
+                ),
+              ),
             ),
+          ),
         ],
       ),
     );
@@ -883,44 +915,34 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     );
   }
 
-  Widget _tabChip(
+  // 胶囊内的单个 Tab 分段：选中=实心紫+白字，未选中=透明+紫/灰字。
+  // 不再各自带边框/底色（那样是两个独立胶囊，不是一个统一控件）
+  Widget _modeSegment(
     bool isDark, {
     required String label,
     required IconData icon,
     required String mode,
   }) {
     final selected = _tab == mode;
-    // 未选中态跟输入框/示例问题气泡同一套淡紫胶囊：淡紫底 + 淡紫描边 +
-    // 紫色字/图标（浅色），不再是发灰的底 + 灰字；选中态仍是实心紫 + 白字
     final contentColor = selected
         ? Colors.white
         : isDark
         ? Colors.white.withValues(alpha: 0.6)
         : _primary;
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         setState(() => _tab = mode);
         if (mode == 'community' && !_communityLoaded) {
           _loadCommunityQuestions();
         }
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: selected
-              ? _primary
-              : isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : _primary.withValues(alpha: 0.06),
+          color: selected ? _primary : Colors.transparent,
           borderRadius: BorderRadius.circular(99),
-          border: selected
-              ? null
-              : Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : _primary.withValues(alpha: 0.15),
-                  width: 0.5,
-                ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
