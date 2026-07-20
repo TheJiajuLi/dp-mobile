@@ -7,11 +7,15 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../utils/latex_utils.dart';
 import '../utils/reference_format.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../features/auth/auth_service.dart';
+import '../../features/notebook/models/notebook_model.dart';
+import '../../features/notebook/services/notebook_service.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../services/pyodide_engine.dart';
 import '../utils/block_text_style.dart';
@@ -641,12 +645,16 @@ class TutorialCodeBlock extends ConsumerStatefulWidget {
   // 里的代码）不拦截；只有"读者阅读他人文章"时运行代码才是 Pro 权益。
   // true=自己的内容，不校验；false（默认）=读者态，非 Pro 弹会员 Sheet
   final bool isSelfPreview;
+  // true 时头部多一个「在 Notebook 运行」按钮——把这段代码按检测到的语言
+  // 建成一个新 Notebook 打开（极索 CoT 回答用，其它场景默认不显示）
+  final bool allowOpenInNotebook;
 
   const TutorialCodeBlock({
     super.key,
     required this.content,
     required this.language,
     this.isSelfPreview = false,
+    this.allowOpenInNotebook = false,
   });
 
   @override
@@ -654,7 +662,9 @@ class TutorialCodeBlock extends ConsumerStatefulWidget {
 }
 
 class _TutorialCodeBlockState extends ConsumerState<TutorialCodeBlock> {
-  static const _runnableLanguages = ['python', 'javascript', 'sql'];
+  // 可内联运行的语言——python/js/sql 走 Pyodide，r 走 webR（引擎都已在同一个
+  // 隐藏 WebView 里预热）。julia 等暂无内核，只能「在 Notebook 运行」
+  static const _runnableLanguages = ['python', 'javascript', 'sql', 'r'];
 
   late final String _blockId;
   bool _running = false;
@@ -721,12 +731,15 @@ class _TutorialCodeBlockState extends ConsumerState<TutorialCodeBlock> {
     }
     final l10n = AppLocalizations.of(context)!;
     setState(() => _running = true);
+    final lang = widget.language.toLowerCase();
+    final engine = ref.read(pyodideEngineProvider);
     List<Map<String, dynamic>> outputs;
     try {
-      outputs = await ref
-          .read(pyodideEngineProvider)
-          // 跑当前 controller 的内容——读者改过就跑改过的版本
-          .run(_blockId, _codeCtrl.text, widget.language.toLowerCase(), l10n);
+      // R 走 webR（runR），其余 python/js/sql 走 Pyodide（run）——跑当前
+      // controller 的内容，读者改过就跑改过的版本
+      outputs = lang == 'r'
+          ? await engine.runR(_blockId, _codeCtrl.text, l10n)
+          : await engine.run(_blockId, _codeCtrl.text, lang, l10n);
     } finally {
       if (mounted) setState(() => _running = false);
     }
@@ -843,6 +856,63 @@ td,th{border:1px solid #334155;padding:4px 8px;}
     );
   }
 
+  // 语言标签（头部彩色 pill 显示用）——跟 Notebook 语言 pill 同一套命名
+  String get _langLabel => switch (widget.language.toLowerCase()) {
+    'python' => 'Python',
+    'sql' => 'SQL',
+    'javascript' || 'js' => 'JavaScript',
+    'r' => 'R',
+    'julia' => 'Julia',
+    'html' => 'HTML',
+    'bash' || 'shell' || 'sh' => 'Shell',
+    'json' => 'JSON',
+    final l => l.isEmpty ? 'Code' : l.toUpperCase(),
+  };
+
+  // 语言主色——跟 Notebook cell 徽标一致：Python 紫 / SQL 蓝 / R 橙 / JS 琥珀
+  Color get _langColor => switch (widget.language.toLowerCase()) {
+    'sql' => const Color(0xFF0EA5E9),
+    'r' => const Color(0xFFD97706),
+    'javascript' || 'js' => const Color(0xFFD97706),
+    'julia' => const Color(0xFF9333EA),
+    _ => const Color(0xFF6366F1),
+  };
+
+  // 「在 Notebook 运行」——把这段代码按检测到的语言建成一个新 Notebook 打开。
+  // cell 类型带上正确语言（不再写死 python），julia/r/sql 都保留原类型
+  Future<void> _openInNotebook() async {
+    final lang = widget.language.toLowerCase();
+    const known = {
+      'python',
+      'sql',
+      'javascript',
+      'r',
+      'julia',
+      'latex',
+      'markdown',
+      'html',
+    };
+    final cellType = known.contains(lang) ? lang : 'python';
+    final user = ref.read(currentUserProvider);
+    final svc = NotebookService(user?.id ?? 'guest');
+    final ms = DateTime.now().millisecondsSinceEpoch;
+    final now = ms ~/ 1000;
+    final id = 'nb_$ms';
+    final nb = Notebook(
+      id: id,
+      name: '极索代码 · $_langLabel',
+      lang: cellType,
+      cells: [
+        NotebookCell(id: 'cell_$ms', type: cellType, code: _codeCtrl.text),
+      ],
+      createdAt: now,
+      updatedAt: now,
+    );
+    await svc.save(nb);
+    if (!mounted) return;
+    context.push('/notebook/$id');
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -871,6 +941,34 @@ td,th{border:1px solid #334155;padding:4px 8px;}
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
             child: Row(
               children: [
+                // 语言彩色 pill——检测到的语言（Python/R/SQL/JS/Julia…）用对应
+                // 图标色直接表意，跟 Notebook cell 徽标同一套配色
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _langColor.withValues(alpha: isDark ? 0.20 : 0.10),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.code_rounded, size: 12, color: _langColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        _langLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _langColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 // 「已修改」标识——读者改过原始代码时显示（改完点完成后仍在）
                 if (_isModified)
                   const Padding(
@@ -1001,6 +1099,40 @@ td,th{border:1px solid #334155;padding:4px 8px;}
                     ),
                   ),
           ),
+          // 「在 Notebook 运行」——极索 CoT 回答里的代码可一键建成 Notebook 打开
+          // （cell 类型带正确语言）。julia 等没有内联内核的语言，这是唯一运行途径
+          if (widget.allowOpenInNotebook)
+            InkWell(
+              onTap: _openInNotebook,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: border, width: 0.8)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.auto_stories_outlined,
+                      size: 14,
+                      color: _langColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '在 Notebook 运行',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _langColor,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Icon(Icons.chevron_right, size: 15, color: _langColor),
+                  ],
+                ),
+              ),
+            ),
           if (_outputContent != null)
             Container(
               width: double.infinity,

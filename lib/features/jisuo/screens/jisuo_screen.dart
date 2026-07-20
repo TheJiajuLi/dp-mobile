@@ -54,12 +54,17 @@ class QaTurn {
   String answer;
   QaTurnStatus status;
   List<String> suggestions;
+  // RAG 引用——本轮回答检索/参考到的极梦文章，每项 {tutorialId, title}。
+  // 由后端在 SSE done 事件里下发 references 字段填充（后端未下发时保持空、
+  // 界面不显示"参考极梦文章"这一块，不编假引用）
+  List<Map<String, dynamic>> references;
 
   QaTurn({
     required this.question,
     this.answer = '',
     this.status = QaTurnStatus.streaming,
     this.suggestions = const [],
+    this.references = const [],
   });
 }
 
@@ -272,6 +277,8 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         switch (data['type']) {
           case 'meta':
             _convId = data['conversationId']?.toString() ?? _convId;
+            // 后端可能在 meta 里就下发检索到的引用（RAG）——有就先挂上
+            _applyReferences(turn, data['references']);
             break;
           case 'done':
             _convId = data['conversationId']?.toString() ?? _convId;
@@ -284,6 +291,8 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                   ? fullText
                   : null,
             );
+            // RAG 参考文章列表（后端下发才有）
+            _applyReferences(turn, data['references']);
             break;
           case 'chunk':
             _enqueueChunk(data['text']?.toString() ?? '', turn);
@@ -373,6 +382,22 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
+  }
+
+  // 解析后端下发的 RAG 引用（宽松兼容字段名）——每项取文章 id 与标题，缺任一
+  // 就跳过。后端字段未定/未下发时 raw 非 List，直接忽略、不显示引用块
+  void _applyReferences(QaTurn turn, dynamic raw) {
+    if (raw is! List) return;
+    final refs = <Map<String, dynamic>>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final id = (item['tutorialId'] ?? item['tutorial_id'] ?? item['id'])
+          ?.toString();
+      final title = (item['title'] ?? item['name'])?.toString();
+      if (id == null || id.isEmpty || title == null || title.isEmpty) continue;
+      refs.add({'tutorialId': id, 'title': title});
+    }
+    if (refs.isNotEmpty && mounted) setState(() => turn.references = refs);
   }
 
   // 发布到极索：把这个问题抛给社区讨论——复用社区提问 Sheet，并把最新
@@ -1221,8 +1246,16 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                       '小梦暂时休息中，请稍后再试',
                       style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                     )
-                  : AiContentRenderer(content: turn.answer, isDark: isDark),
+                  : AiContentRenderer(
+                      content: turn.answer,
+                      isDark: isDark,
+                      // 极索 CoT 回答里的代码块支持一键「在 Notebook 运行」
+                      codeToNotebook: true,
+                    ),
             ),
+            // RAG 引用——本轮回答参考到的极梦文章（后端下发才显示，点跳文章）
+            if (!streaming && turn.references.isNotEmpty)
+              _referencesSection(turn, isDark),
             // 停止生成已移到底部发送键（流式中发送键变红 ■），流式中整条
             // 操作栏隐藏；只在完成后显示 复制 + 发布到极索
             if (!streaming) ...[
@@ -1361,6 +1394,69 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       ),
     ),
   );
+
+  // 「参考极梦文章」——RAG 引用列表，紫色可点卡片，点跳到对应教程详情
+  Widget _referencesSection(QaTurn turn, bool isDark) {
+    final chipBg = isDark
+        ? _primary.withValues(alpha: 0.10)
+        : const Color(0xFFEEF0FF);
+    final chipBorder = isDark
+        ? _primary.withValues(alpha: 0.24)
+        : const Color(0xFFC7D2FE);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Divider(height: 16, color: isDark ? Colors.white12 : null),
+          Text(
+            '参考极梦文章',
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFF8A90A6) : const Color(0xFF9CA3AF),
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...turn.references.map(
+            (ref) => GestureDetector(
+              onTap: () => context.push('/tutorial/${ref['tutorialId']}'),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: chipBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: chipBorder),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.article_outlined,
+                      size: 14,
+                      color: _primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        ref['title']?.toString() ?? '',
+                        style: const TextStyle(fontSize: 12, color: _primary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 14, color: _primary),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildRelatedQuestions(bool isDark) {
     return Padding(

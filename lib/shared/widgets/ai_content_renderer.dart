@@ -160,10 +160,14 @@ List<AiSegment> _parseInlineMultiline(String text) {
 class AiContentRenderer extends StatelessWidget {
   final String content;
   final bool isDark;
+  // true 时代码块底部多一个「在 Notebook 运行」按钮（极索 CoT 回答用）——
+  // 其它场景（论坛/小梦聊天/发布预览）默认关，不额外加建 Notebook 入口
+  final bool codeToNotebook;
   const AiContentRenderer({
     super.key,
     required this.content,
     required this.isDark,
+    this.codeToNotebook = false,
   });
 
   @override
@@ -352,6 +356,7 @@ class AiContentRenderer extends StatelessWidget {
         language: lang.isEmpty ? 'python' : lang,
         // 小梦 AI 回答里的代码是用户自己的对话内容，不是"他人笔记"，不拦截
         isSelfPreview: true,
+        allowOpenInNotebook: codeToNotebook,
       ),
     );
   }
