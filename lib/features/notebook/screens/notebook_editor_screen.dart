@@ -3189,16 +3189,20 @@ finally:
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: langColor.withValues(alpha: isDark ? 0.22 : 0.12),
-              borderRadius: BorderRadius.circular(5),
+              color: langColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(
+                color: langColor.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
             ),
             child: Text(
               _railLangLabel(cell.type),
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: langColor,
               ),
             ),
@@ -3319,20 +3323,22 @@ finally:
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1,
+                    horizontal: 8,
+                    vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: _railLangColor(
-                      cell.type,
-                    ).withValues(alpha: isDark ? 0.22 : 0.12),
-                    borderRadius: BorderRadius.circular(5),
+                    color: _railLangColor(cell.type).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                      color: _railLangColor(cell.type).withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
                   ),
                   child: Text(
                     _railLangLabel(cell.type),
                     style: TextStyle(
                       fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: _railLangColor(cell.type),
                     ),
                   ),
@@ -3383,13 +3389,18 @@ finally:
     );
   }
 
+  // 语言主色——各语言官方品牌色，跟 NotebookCellCard._langColor 保持一致
   Color _railLangColor(String type) => switch (type) {
-    'markdown' => const Color(0xFF16A34A),
-    'latex' => const Color(0xFF7C3AED),
-    'sql' => const Color(0xFF0EA5E9),
-    'r' => const Color(0xFFD97706),
+    'python' => const Color(0xFF3776AB),
+    'r' => const Color(0xFF276DC3),
+    'sql' => const Color(0xFF336791),
+    'javascript' => const Color(0xFFB8860B),
+    'latex' => const Color(0xFF0369A1),
+    'markdown' => const Color(0xFF6B7280),
+    'julia' => const Color(0xFF9558B2),
+    'html' => const Color(0xFFE34C26),
     'image' => const Color(0xFF888888),
-    _ => const Color(0xFF6366F1),
+    _ => const Color(0xFF6B7280),
   };
 
   String _railLangLabel(String type) => switch (type) {

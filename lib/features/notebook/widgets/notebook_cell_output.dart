@@ -21,9 +21,12 @@ Widget buildNotebookCellOutput(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 限高 300：高图等比缩进上限内看全貌（contain），不撑高整个 Cell
+          // 限高 280、宽度自适应：按比例缩放（contain）看全貌，不撑高整个 Cell
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 300),
+            constraints: const BoxConstraints(
+              maxHeight: 280,
+              maxWidth: double.infinity,
+            ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.memory(

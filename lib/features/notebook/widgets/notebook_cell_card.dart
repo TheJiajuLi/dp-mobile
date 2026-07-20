@@ -301,12 +301,14 @@ class NotebookCellCard extends StatelessWidget {
                     )
                   : null,
               child: Container(
-                padding: const EdgeInsets.fromLTRB(10, 4, 8, 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(
-                    0xFF6366F1,
-                  ).withValues(alpha: isDark ? 0.22 : 0.12),
-                  borderRadius: BorderRadius.circular(7),
+                  color: _langColor(cell.type).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(
+                    color: _langColor(cell.type).withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -314,8 +316,8 @@ class NotebookCellCard extends StatelessWidget {
                     Text(
                       _label(cell.type),
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                         color: _langColor(cell.type),
                       ),
                     ),
@@ -607,12 +609,18 @@ class NotebookCellCard extends StatelessWidget {
     );
   }
 
-  // 语言 pill 的主色：代码类紫、markdown 绿、latex violet、图片灰
+  // 语言 pill 主色——按各语言官方品牌色，比统一紫更专业、辨识度更高
   Color _langColor(String type) => switch (type) {
-    'markdown' => const Color(0xFF16A34A),
-    'latex' => const Color(0xFF7C3AED),
+    'python' => const Color(0xFF3776AB), // Python 官方蓝
+    'r' => const Color(0xFF276DC3), // R 官方蓝
+    'sql' => const Color(0xFF336791), // PostgreSQL 蓝
+    'javascript' => const Color(0xFFB8860B), // JS 暗金（浅底可读）
+    'latex' => const Color(0xFF0369A1), // LaTeX 蓝
+    'markdown' => const Color(0xFF6B7280), // 中性灰
+    'julia' => const Color(0xFF9558B2), // Julia 紫
+    'html' => const Color(0xFFE34C26), // HTML 橙
     'image' => const Color(0xFF888888),
-    _ => const Color(0xFF6366F1),
+    _ => const Color(0xFF6B7280),
   };
 
   String _label(String type) => switch (type) {
