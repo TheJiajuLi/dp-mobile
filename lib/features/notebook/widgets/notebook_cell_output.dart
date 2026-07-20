@@ -1,6 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../shared/widgets/ai_content_renderer.dart';
 
 // 输出区：文字=绿左线浅绿底 / 图片=浅紫底 / 错误=红左线。从
 // notebook_editor_screen.dart 抽出来，纯展示，不持有状态
@@ -9,6 +12,8 @@ Widget buildNotebookCellOutput(
   String? type,
   bool isDark, {
   VoidCallback? onSaveChart,
+  // 小梦 AI 回复区「应用」到编辑器的回调（非空才显示复制/应用按钮）
+  VoidCallback? onApplyAi,
 }) {
   if (type == 'image') {
     return Container(
@@ -117,20 +122,54 @@ Widget buildNotebookCellOutput(
             ],
           ),
           const SizedBox(height: 4),
-          // 限高 200 + 内部滚动：长 AI 输出在框内滚，不撑高整个 Cell
+          // 限高 200 + 内部滚动：长 AI 输出在框内滚，不撑高整个 Cell。
+          // 用 AiContentRenderer 正确渲染 Markdown/代码块/公式，不再是生的 Text
           _BoundedScroll(
             maxHeight: 200,
-            child: Text(
-              output,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.55,
-                color: isDark
-                    ? const Color(0xFFC7CBDC)
-                    : const Color(0xFF444444),
-              ),
-            ),
+            child: AiContentRenderer(content: output, isDark: isDark),
           ),
+          // 复制 / 应用——应用会把 AI 回复落到编辑器（代码块替换当前 cell，
+          // 纯文字则插入新 markdown cell）
+          if (onApplyAi != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () =>
+                      Clipboard.setData(ClipboardData(text: output)),
+                  icon: const Icon(Icons.copy, size: 14, color: accent),
+                  label: const Text(
+                    '复制',
+                    style: TextStyle(fontSize: 12, color: accent),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const Spacer(),
+                ElevatedButton.icon(
+                  onPressed: onApplyAi,
+                  icon: const Icon(Icons.check, size: 14),
+                  label: const Text('应用'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

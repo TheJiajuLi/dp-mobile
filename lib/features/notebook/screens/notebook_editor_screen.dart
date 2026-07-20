@@ -2973,8 +2973,31 @@ finally:
       onEmptyBackspace: () => _deleteCellFromBackspace(index),
       onAiAssist: () => _showCellAiMenu(cell, ctrl),
       onSaveChart: () => _saveChart(cell.output ?? ''),
+      onApplyAi: () => _applyAiContent(cell, ctrl),
       tableHint: cell.type == 'sql' ? _sqlTableHint() : null,
     );
+  }
+
+  // 「应用」小梦回复到编辑器：回复里有代码块（```...```）→ 替换当前 cell 代码；
+  // 纯文字 → 在下方插入一个新 markdown cell。应用后关掉小梦面板 + toast
+  void _applyAiContent(NotebookCell cell, TextEditingController controller) {
+    final aiText = (_outputs[cell.id] ?? cell.output ?? '').trim();
+    if (aiText.isEmpty) return;
+    final codeMatch = RegExp(r'```\w*\n([\s\S]*?)```').firstMatch(aiText);
+    if (codeMatch != null) {
+      final code = (codeMatch.group(1) ?? aiText).trimRight();
+      controller.text = code;
+      cell.code = code;
+    } else {
+      final index = _nb!.cells.indexOf(cell);
+      _addCell('markdown', at: index + 1);
+      final newCell = _nb!.cells[index + 1];
+      newCell.code = aiText;
+      _controllers[newCell.id]?.text = aiText;
+    }
+    _setOutput(cell, null, null); // 关闭小梦面板
+    _scheduleSave();
+    _showSnack('已应用到编辑器', ok: true);
   }
 
   // 窄屏(手机)——原有的单列竖排 Cell 画布，支持拖拽重排

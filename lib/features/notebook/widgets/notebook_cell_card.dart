@@ -41,6 +41,8 @@ class NotebookCellCard extends StatelessWidget {
   final Widget? kernelStatus;
   // 保存图表——image 输出下方「保存图表」按钮
   final VoidCallback? onSaveChart;
+  // 小梦 AI 回复区「应用」按钮——把回复落到编辑器
+  final VoidCallback? onApplyAi;
   // SQL cell 头部下方的「可用表」提示——编辑器扫描已运行的 DataFrame 算出
   final String? tableHint;
   // B 阶段·对齐 IDE：执行序号（In [N]，Jupyter 式全局自增）+ 上次运行耗时(ms)。
@@ -71,6 +73,7 @@ class NotebookCellCard extends StatelessWidget {
     this.onAiToggle,
     this.kernelStatus,
     this.onSaveChart,
+    this.onApplyAi,
     this.tableHint,
     this.execCount,
     this.durationMs,
@@ -153,6 +156,7 @@ class NotebookCellCard extends StatelessWidget {
                   outputType,
                   isDark,
                   onSaveChart: outputType == 'image' ? onSaveChart : null,
+                  onApplyAi: outputType == 'ai' ? onApplyAi : null,
                 ),
                 // 输出区右上角小 ✨——展开态下继续用 AI 功能（打开菜单）。
                 // 不复用顶部那个 ✨（顶部此时管折叠）
