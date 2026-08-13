@@ -399,33 +399,46 @@ Future<Uint8List> buildTutorialPdfBytes({
               final imageUrl = block['imageUrl'] as String? ?? '';
               final bytes = images[imageUrl];
               if (bytes != null) {
-                // 图片必须显式限高：只给 width 时 pw.Image 会按原图宽高比
-                // 撑高，竖长图缩放后高度会超过一页可用高度，而 pw.Image 在
-                // MultiPage 里不是 SpanningWidget、单块高于一页就直接抛
-                // PdfException（整批导出全挂）。这里按内容区宽度等比缩放，
-                // 再把高度 clamp 到单页可用高以内，竖长图也能塞进一页
-                const contentW = 515.0;
-                const maxPageH = 740.0;
+                // 智能自适应尺寸：不再一律拉满列宽（会把小图/手绘/竖长图放大成
+                // 巨物，竖长图更会被 BoxFit.contain 撑成整页高、两侧留大片空隙）。
+                // 做法：先按视网膜 2x 把像素还原成逻辑点（px→pt），保留图片本来
+                // 该有的大小；再等比夹到「正文列宽」与「单页可用高」之内。w、h 同
+                // 比缩放 → 容器宽高比与图片一致，contain 不产生黑边/空隙。
+                // pw.Image 在 MultiPage 里不是 SpanningWidget、单块高于一页就直接
+                // 抛 PdfException，所以高度必须 clamp 到单页可用高以内
+                const contentW = 515.0; // A4 595.28 − 两侧 40 margin
+                const maxPageH = 720.0; // 单页可用高（留足页眉/页脚）
+                const pxToPt = 0.5; // 视网膜 2x：像素/2 ≈ 逻辑点
                 final img = pw.MemoryImage(bytes);
                 final imageW = (img.width ?? 0).toDouble();
                 final imageH = (img.height ?? 0).toDouble();
-                // 拿不到原图尺寸时兜底用满高，靠 BoxFit.contain 保比例不溢出
-                final scaledH = (imageW > 0 && imageH > 0)
-                    ? imageH * (contentW / imageW)
-                    : maxPageH;
-                final finalH = scaledH > maxPageH ? maxPageH : scaledH;
+                double w, h;
+                if (imageW > 0 && imageH > 0) {
+                  w = imageW * pxToPt;
+                  h = imageH * pxToPt;
+                  if (w > contentW) {
+                    final s = contentW / w;
+                    w *= s;
+                    h *= s;
+                  }
+                  if (h > maxPageH) {
+                    final s = maxPageH / h;
+                    w *= s;
+                    h *= s;
+                  }
+                } else {
+                  // 拿不到原图尺寸：兜底给列宽 + 限高，靠 contain 保比例不溢出
+                  w = contentW;
+                  h = maxPageH;
+                }
                 widgets.add(
                   pw.Container(
                     margin: const pw.EdgeInsets.symmetric(vertical: 8),
                     alignment: pw.Alignment.center,
-                    // pw.Image 不像 Flutter 会把 infinity 夹到父约束——宽高都得
-                    // 给有限值：宽用正文内容区 515pt（A4 595.28 − 两侧 margin 40），
-                    // 高按原图等比缩放并 clamp 到单页可用高内，contain 保比例。
-                    // 否则宽图溢出右边、竖长图超页高直接抛 PdfException
                     child: pw.Image(
                       img,
-                      width: contentW,
-                      height: finalH,
+                      width: w,
+                      height: h,
                       fit: pw.BoxFit.contain,
                     ),
                   ),
