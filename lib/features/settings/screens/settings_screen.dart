@@ -111,8 +111,8 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.verified_outlined,
                       iconColor: const Color(0xFF6366F1),
                       iconBg: const Color(0xFFEEF0FF),
-                      title: '用户协议',
-                      subtitle: '原创声明与著作权存证',
+                      title: l10n.userAgreement,
+                      subtitle: l10n.userAgreementSubtitle,
                       onTap: () => context.push('/settings/agreement'),
                     ),
                     // 会员中心入口收敛到创作者中心那颗（更深化的视觉语言），

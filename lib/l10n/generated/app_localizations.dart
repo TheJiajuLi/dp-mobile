@@ -2372,6 +2372,12 @@ abstract class AppLocalizations {
   /// **'User Agreement'**
   String get userAgreement;
 
+  /// No description provided for @userAgreementSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Originality statement & copyright attestation'**
+  String get userAgreementSubtitle;
+
   /// No description provided for @privacyPolicy.
   ///
   /// In en, this message translates to:

@@ -1219,6 +1219,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get userAgreement => '用户协议';
 
   @override
+  String get userAgreementSubtitle => '原创声明与著作权存证';
+
+  @override
   String get privacyPolicy => '隐私政策';
 
   @override

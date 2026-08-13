@@ -1244,6 +1244,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userAgreement => 'User Agreement';
 
   @override
+  String get userAgreementSubtitle =>
+      'Originality statement & copyright attestation';
+
+  @override
   String get privacyPolicy => 'Privacy Policy';
 
   @override
