@@ -469,6 +469,10 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   // 激活的那一个时才显示，没激活时收起来，同屏不再是一堆
                   // block各自顶着一整排图标的噪音感
                   if (_isActive) ...[
+                    // LaTeX 公式的「#编号」开关并进这排 chrome——不再单独占
+                    // block 内容区一行把块撑高，也只在激活时随其它操作一起显示
+                    if (widget.block.type == BlockType.latex)
+                      _buildAutoNumberToggle(isDark),
                     if (_showsAiButton)
                       _polishing
                           ? const Padding(
@@ -1793,6 +1797,51 @@ th{background:$thBg;color:$thFg}
   // 之前这个 block 无论明暗主题都固定用一套奶油黄配色——浅色主题下还好，
   // 深色主题下就会变成一块突兀的亮黄色，跟截图里反馈的"LaTeX 块色彩
   // 不一致"是同一个问题，这里跟着 Theme.of(context).brightness 走
+  // LaTeX 公式的「#编号」开关——放进 block chrome 那排图标里（见 build()），
+  // 开=参与文档公式顺序编号、右侧显示 (n)；关=不编号。改完 onChanged 让父级
+  // 重算所有公式编号。挪上去后不再单独占 block 内容区一行、把块撑高/脱离常规
+  Widget _buildAutoNumberToggle(bool isDark) {
+    final border = Theme.of(context).dividerColor;
+    final hintColor = isDark ? Colors.white38 : Colors.black38;
+    final on = widget.block.autoNumber;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        setState(() => widget.block.autoNumber = !widget.block.autoNumber);
+        widget.onChanged();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: on ? _primary.withValues(alpha: isDark ? 0.16 : 0.08) : null,
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(
+              color: on ? _primary.withValues(alpha: 0.3) : border,
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.tag, size: 13, color: on ? _primary : hintColor),
+              const SizedBox(width: 3),
+              Text(
+                '编号',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: on ? _primary : hintColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLatexBlock(AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // 去掉整块填充底色（原来的琥珀/米色 pill），改成我们标准的"中性圆框"：
@@ -1809,55 +1858,7 @@ th{background:$thBg;color:$thFg}
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         children: [
-          // 右上角「#编号」开关——toggle autoNumber。开=参与文档公式顺序编号、
-          // 右侧显示 (n)；关=不编号。改完 onChanged 让父级重算所有公式编号
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                setState(
-                  () => widget.block.autoNumber = !widget.block.autoNumber,
-                );
-                widget.onChanged();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: widget.block.autoNumber
-                      ? _primary.withValues(alpha: isDark ? 0.16 : 0.08)
-                      : null,
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: widget.block.autoNumber
-                        ? _primary.withValues(alpha: 0.3)
-                        : border,
-                    width: 0.5,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.tag,
-                      size: 13,
-                      color: widget.block.autoNumber ? _primary : hintColor,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      '编号',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: widget.block.autoNumber ? _primary : hintColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
+          // 「#编号」开关已挪到上面 block chrome 那排图标里（_buildAutoNumberToggle）
           widget.block.content.isNotEmpty
               // Math.tex 不会自动换行/收缩——套横向滚动，宽公式左右滑动。传统
               // 论文样式：公式居中、右侧 (n) 编号（autoNumber 开且父级派了号才显示）
