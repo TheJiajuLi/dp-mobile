@@ -14,6 +14,7 @@ import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/ai_lang.dart';
 import '../../../shared/widgets/ai_content_renderer.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart'
     show inlineLatexText;
 import '../../messages/utils/message_avatar.dart';
@@ -312,9 +313,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
       });
       _scrollToBottom();
       if (errorMessage != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+        showAppToast(context, errorMessage);
       }
     } on DioException catch (e) {
       _flushTyping(); // 出错先停打字机、补齐已入队的字，再标这一轮出错
@@ -330,7 +329,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
         turn.status = QaTurnStatus.error;
         _jisuoMode = JisuoMode.done;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      showAppToast(context, msg);
     }
   }
 
@@ -379,9 +378,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
 
   void _copyAnswer(QaTurn turn) {
     Clipboard.setData(ClipboardData(text: turn.answer));
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已复制到剪贴板')));
+    showAppToast(context, '已复制到剪贴板', ok: true);
   }
 
   // 解析后端下发的 RAG 引用（宽松兼容字段名）——每项取文章 id 与标题，缺任一
@@ -1773,7 +1770,7 @@ class _AskSheetState extends State<_AskSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _posting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      showAppToast(context, '$e');
     }
   }
 
