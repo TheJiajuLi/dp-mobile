@@ -82,6 +82,37 @@ class AuthService {
     }
   }
 
+  // Sign in with Apple：用原生拿到的凭证换后端 accessToken（POST /auth/apple），
+  // 再走跟 OAuth 一样的 /auth/me + 持久化路径。native 侧的调用/取消处理放在
+  // 登录页，这里只负责 token 交换。跟 OAuth 同样的 refreshToken 限制（后端
+  // /auth/apple 返回体里带 refreshToken，但客户端 /auth/refresh 只认 dp_refresh
+  // cookie，所以本次也只撑到 accessToken 过期）
+  Future<bool> appleLogin({
+    required String? identityToken,
+    String? authorizationCode,
+    String? fullName,
+    String? email,
+  }) async {
+    try {
+      if (identityToken == null) return false;
+      final res = await _api.post(
+        '/auth/apple',
+        data: {
+          'identityToken': identityToken,
+          'authorizationCode': authorizationCode,
+          'fullName': fullName,
+          'email': email,
+        },
+      );
+      if (!res.success || res.data == null) return false;
+      final token = res.data['accessToken'] as String?;
+      if (token == null) return false;
+      return completeOAuthLogin(token);
+    } catch (e) {
+      return false;
+    }
+  }
+
   // 数据隔离：所有 key 带 userId 前缀，防止账号串数据
   Future<void> _persistSession(UserModel user, String token) async {
     await _storage.write(key: AppConstants.keyCurrentUserId, value: user.id);

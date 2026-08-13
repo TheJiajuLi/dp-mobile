@@ -1,7 +1,10 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -58,6 +61,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final url = Uri.parse('${AppConstants.baseUrl}/auth/oauth/$provider');
     final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
     if (!ok && mounted) _placeholderSnack('无法打开登录页面');
+  }
+
+  // Sign in with Apple（仅 iOS）：原生取凭证 → auth_service.appleLogin 换 token。
+  // 用户主动取消（canceled）静默忽略，不弹错误
+  Future<void> _signInWithApple() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      final fullName = credential.givenName != null
+          ? '${credential.givenName} ${credential.familyName ?? ''}'.trim()
+          : null;
+      if (!mounted) return;
+      setState(() => _loading = true);
+      final ok = await ref
+          .read(authServiceProvider)
+          .appleLogin(
+            identityToken: credential.identityToken,
+            authorizationCode: credential.authorizationCode,
+            fullName: fullName,
+            email: credential.email,
+          );
+      if (!mounted) return;
+      setState(() => _loading = false);
+      if (ok) {
+        context.go('/home');
+      } else {
+        _placeholderSnack('Apple 登录失败，请重试');
+      }
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // 用户取消不算错误；其它授权异常才提示
+      if (e.code != AuthorizationErrorCode.canceled && mounted) {
+        _placeholderSnack('Apple 登录失败，请重试');
+      }
+    } catch (_) {
+      if (mounted) _placeholderSnack('Apple 登录失败，请重试');
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -142,6 +185,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: 24),
                       _divider(isDark),
                       const SizedBox(height: 16),
+                      // Sign in with Apple——仅 iOS 显示（App Store 审核要求）
+                      if (Platform.isIOS) ...[
+                        _appleButton(isDark),
+                        const SizedBox(height: 10),
+                      ],
                       _thirdPartyRow(isDark),
                       const SizedBox(height: 24),
                       _registerRow(isDark),
@@ -320,6 +368,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         Expanded(child: Container(height: 0.5, color: lineColor)),
       ],
+    );
+  }
+
+  Widget _appleButton(bool isDark) {
+    // 深色用白底黑字、浅色用黑底白字，符合 Apple 人机指南；圆角与其它按钮一致
+    return SizedBox(
+      height: 48,
+      width: double.infinity,
+      child: SignInWithAppleButton(
+        onPressed: _loading ? () {} : _signInWithApple,
+        text: '通过 Apple 登录',
+        height: 48,
+        borderRadius: BorderRadius.circular(14),
+        style: isDark
+            ? SignInWithAppleButtonStyle.white
+            : SignInWithAppleButtonStyle.black,
+      ),
     );
   }
 
