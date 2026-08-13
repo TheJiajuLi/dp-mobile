@@ -9,6 +9,7 @@ import '../../../core/font_size_provider.dart';
 import '../../../core/locale_provider.dart';
 import '../../../core/notification_provider.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../auth/auth_service.dart';
 import '../providers/storage_provider.dart';
 import '../widgets/settings_row.dart';
@@ -444,9 +445,7 @@ class SettingsScreen extends ConsumerWidget {
       await prefs.remove(key);
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.cacheCleared)),
-      );
+      showAppToast(context, AppLocalizations.of(context)!.cacheCleared, ok: true);
     }
   }
 
