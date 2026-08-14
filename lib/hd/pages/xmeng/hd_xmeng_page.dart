@@ -116,7 +116,7 @@ class _HdXmengPageState extends ConsumerState<HdXmengPage> {
               decoration: BoxDecoration(
                 color: isDark
                     ? _primary.withValues(alpha: 0.18)
-                    : const Color(0xFFEEF0FF),
+                    : AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Row(
@@ -172,7 +172,7 @@ class _HdXmengPageState extends ConsumerState<HdXmengPage> {
           color: active
               ? (isDark
                     ? _primary.withValues(alpha: 0.15)
-                    : const Color(0xFFEEF0FF))
+                    : AppColors.primaryLight)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),

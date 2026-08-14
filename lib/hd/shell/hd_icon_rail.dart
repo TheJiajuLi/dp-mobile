@@ -39,7 +39,7 @@ class HdIconRail extends ConsumerWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF0FF),
+              color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(9),
             ),
             child: const Center(

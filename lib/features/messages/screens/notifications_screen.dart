@@ -1047,7 +1047,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     decoration: BoxDecoration(
                       color: isDark
                           ? const Color(0xFF1A1A35)
-                          : const Color(0xFFEEF0FF),
+                          : AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Icon(

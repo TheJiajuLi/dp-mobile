@@ -257,7 +257,7 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
                             width: 22,
                             height: 22,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEEF0FF),
+                              color: AppColors.primaryLight,
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: const Color(

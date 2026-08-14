@@ -305,7 +305,7 @@ class _PublishMetaSectionState extends State<PublishMetaSection> {
                           decoration: BoxDecoration(
                             color: isDarkMode
                                 ? _primary.withValues(alpha: 0.15)
-                                : const Color(0xFFEEF0FF),
+                                : AppColors.primaryLight,
                             borderRadius: BorderRadius.circular(99),
                             border: Border.all(color: _primary, width: 0.5),
                           ),

@@ -275,7 +275,7 @@ Widget buildTutorialBlockWidget(
         borderColor: const Color(0xFFE5E5EA),
         leadingIcon: Icons.link,
         leadingColor: _primary,
-        leadingBg: const Color(0xFFEEF0FF),
+        leadingBg: AppColors.primaryLight,
         title: (linkTitle?.isNotEmpty ?? false) ? linkTitle! : linkUrl,
         titleColor: Theme.of(context).textTheme.bodyLarge?.color,
         subtitle: (linkTitle?.isNotEmpty ?? false) ? linkUrl : null,
@@ -332,7 +332,7 @@ Widget buildTutorialBlockWidget(
           : const {
               'tip': Color(0xFFE8F8F0),
               'warning': Color(0xFFFFF7E6),
-              'info': Color(0xFFEEF0FF),
+              'info': AppColors.primaryLight,
             };
       // 文字 + 左侧竖条共用这套强调色，深色下用调淡的色，浅色下保持原样
       final accentColors = isDark

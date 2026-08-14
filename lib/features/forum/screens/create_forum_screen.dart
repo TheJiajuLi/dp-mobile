@@ -558,7 +558,7 @@ class _SelectedTag extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(10, 5, 6, 5),
     decoration: BoxDecoration(
-      color: const Color(0xFFEEF0FF),
+      color: AppColors.primaryLight,
       borderRadius: BorderRadius.circular(99),
       border: Border.all(color: _primary, width: 0.5),
     ),

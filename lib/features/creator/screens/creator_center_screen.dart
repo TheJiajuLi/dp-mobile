@@ -351,7 +351,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
           children: [
             _heroStatCell(
               icon: Icons.description_outlined,
-              iconBg: const Color(0xFFEEF0FF),
+              iconBg: AppColors.primaryLight,
               iconColor: AppColors.primary,
               value: _formatCount(_publishedCount),
               label: '作品',
@@ -477,7 +477,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                     _toolCell(
                       ink: ink,
                       icon: Icons.description_outlined,
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       iconColor: AppColors.primary,
                       label: '作品管理',
                       dot: _draftCount > _seenDraftCount,

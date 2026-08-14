@@ -138,7 +138,7 @@ class PreviewDrawer extends ConsumerWidget {
                           Container(
                             height: 120,
                             width: double.infinity,
-                            color: const Color(0xFFEEF0FF),
+                            color: AppColors.primaryLight,
                             child: const Icon(
                               Icons.show_chart,
                               color: _primary,
@@ -191,7 +191,7 @@ class PreviewDrawer extends ConsumerWidget {
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFEEF0FF),
+                                            color: AppColors.primaryLight,
                                             borderRadius: BorderRadius.circular(
                                               99,
                                             ),

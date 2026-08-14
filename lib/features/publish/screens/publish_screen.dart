@@ -1464,7 +1464,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
                       icon: Icons.code,
                       label: l10n.quickStartCode,
                       color: _primary,
-                      bg: const Color(0xFFEEF0FF),
+                      bg: AppColors.primaryLight,
                       onTap: () => _addBlock(BlockType.code),
                     ),
                     _QuickStartBtn(

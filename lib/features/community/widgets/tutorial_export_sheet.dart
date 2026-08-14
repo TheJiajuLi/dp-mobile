@@ -86,7 +86,7 @@ class _ExportSheetState extends State<_ExportSheet> {
               _FormatOpt(
                 icon: Icons.code,
                 iconColor: _primary,
-                bgColor: const Color(0xFFEEF0FF),
+                bgColor: AppColors.primaryLight,
                 name: 'Markdown',
                 desc: '纯文本格式',
                 selected: _format == 'md',
@@ -203,7 +203,7 @@ class _FormatOpt extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: selected
-                ? (isDark ? _primary.withValues(alpha: 0.15) : const Color(0xFFEEF0FF))
+                ? (isDark ? _primary.withValues(alpha: 0.15) : AppColors.primaryLight)
                 : (isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF8F8FF)),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(

@@ -954,7 +954,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEEF0FF),
+                    color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -1328,7 +1328,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF0FF),
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -1973,7 +1973,7 @@ th{background:$thBg;color:$thFg}
     final dashColor = isDark ? Colors.white24 : const Color(0xFFD1D1D6);
     final iconChipBg = isDark
         ? _primary.withValues(alpha: 0.18)
-        : const Color(0xFFEEF0FF);
+        : AppColors.primaryLight;
     final hintColor = isDark ? Colors.white54 : const Color(0xFF999999);
     final subHintColor = isDark ? Colors.white30 : const Color(0xFFC7C7CC);
 
@@ -2134,7 +2134,7 @@ th{background:$thBg;color:$thFg}
                     fontFamily: 'monospace',
                     fontSize: 12,
                     color: AppColors.primary,
-                    backgroundColor: Color(0xFFEEF0FF),
+                    backgroundColor: AppColors.primaryLight,
                   ),
                 ),
           ),
@@ -2888,7 +2888,7 @@ th{background:$thBg;color:$thFg}
             width: 44,
             height: 44,
             decoration: const BoxDecoration(
-              color: Color(0xFFEEF0FF),
+              color: AppColors.primaryLight,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(7),
                 bottomLeft: Radius.circular(7),

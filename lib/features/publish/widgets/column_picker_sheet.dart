@@ -284,7 +284,7 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? const Color(0xFFEEF0FF)
+                ? AppColors.primaryLight
                 : Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(

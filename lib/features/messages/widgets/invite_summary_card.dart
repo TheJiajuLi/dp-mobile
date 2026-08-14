@@ -60,7 +60,7 @@ class InviteSummaryCard extends StatelessWidget {
                         height: 42,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFFEEF0FF), Color(0xFFE0E7FF)],
+                            colors: [AppColors.primaryLight, Color(0xFFE0E7FF)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),

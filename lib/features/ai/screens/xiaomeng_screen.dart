@@ -209,7 +209,7 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                           isDark,
                           icon: Icons.functions,
                           iconColor: _primary,
-                          iconBg: const Color(0xFFEEF0FF),
+                          iconBg: AppColors.primaryLight,
                           iconBgDark: const Color(0xFF20284A),
                           label: '数学推导',
                           subtitle: '公式·证明·计算',

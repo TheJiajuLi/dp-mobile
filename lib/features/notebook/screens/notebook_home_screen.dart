@@ -150,7 +150,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                       'Python',
                       Icons.code_rounded,
                       AppColors.primary,
-                      const Color(0xFFEEF0FF),
+                      AppColors.primaryLight,
                     ),
                     (
                       'latex',
@@ -525,7 +525,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                       Icons.bar_chart,
                                       'python',
                                       const (
-                                        Color(0xFFEEF0FF),
+                                        AppColors.primaryLight,
                                         AppColors.primary,
                                       ),
                                       'data_analysis',

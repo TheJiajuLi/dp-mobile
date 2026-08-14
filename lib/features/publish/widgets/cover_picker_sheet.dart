@@ -103,7 +103,7 @@ Future<void> showCoverOptions(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF0FF),
+                color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
@@ -298,7 +298,7 @@ void showCoverPickerSheet(
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF0FF),
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(

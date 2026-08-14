@@ -74,7 +74,7 @@ class HdArticleCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isDark
                           ? _primary.withValues(alpha: 0.16)
-                          : const Color(0xFFEEF0FF),
+                          : AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(

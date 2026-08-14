@@ -409,7 +409,7 @@ class AiContentRenderer extends StatelessWidget {
       border: const Border(
         left: BorderSide(color: AppColors.primary, width: 3),
       ),
-      color: isDark ? const Color(0xFF1A1A35) : const Color(0xFFEEF0FF),
+      color: isDark ? const Color(0xFF1A1A35) : AppColors.primaryLight,
     ),
     // 不设置的话 flutter_markdown 的 --- 分割线默认渲染成一整条实心灰
     // 色块，很显眼、像一条"带子"横在正文中间——改成克制的 0.5px 细线

@@ -193,7 +193,7 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
             isDark,
             icon: Icons.card_giftcard_outlined,
             iconColor: _primary,
-            iconBg: const Color(0xFFEEF0FF),
+            iconBg: AppColors.primaryLight,
             label: '你获得',
             value: '+7天 Pro',
           ),

@@ -1245,7 +1245,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                                   decoration: BoxDecoration(
                                     color: isDark
                                         ? _primary.withValues(alpha: 0.16)
-                                        : const Color(0xFFEEF0FF),
+                                        : AppColors.primaryLight,
                                     borderRadius: BorderRadius.circular(99),
                                   ),
                                   child: Text(
@@ -1416,7 +1416,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
                           decoration: BoxDecoration(
                             color: isDark
                                 ? Colors.white.withValues(alpha: 0.08)
-                                : const Color(0xFFEEF0FF),
+                                : AppColors.primaryLight,
                             borderRadius: BorderRadius.circular(99),
                           ),
                           child: Text(
@@ -1928,7 +1928,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
           color: selected
               ? (isDark
                     ? Colors.white.withValues(alpha: 0.08)
-                    : const Color(0xFFEEF0FF))
+                    : AppColors.primaryLight)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
@@ -1977,7 +1977,7 @@ class _TutorialDetailScreenState extends ConsumerState<TutorialDetailScreen> {
               decoration: BoxDecoration(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.08)
-                    : const Color(0xFFEEF0FF),
+                    : AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(

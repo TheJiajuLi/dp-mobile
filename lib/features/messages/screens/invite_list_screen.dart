@@ -396,7 +396,7 @@ class _InviteItem extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEEF0FF),
+                    color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

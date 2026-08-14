@@ -320,7 +320,7 @@ class _ForumHomeScreenState extends ConsumerState<ForumHomeScreen>
                             decoration: BoxDecoration(
                               color: isDark
                                   ? _primary.withValues(alpha: 0.15)
-                                  : const Color(0xFFEEF0FF),
+                                  : AppColors.primaryLight,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(

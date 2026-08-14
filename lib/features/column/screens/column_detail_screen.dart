@@ -908,7 +908,7 @@ class _ColumnDetailScreenState extends ConsumerState<ColumnDetailScreen> {
     decoration: BoxDecoration(
       color: _isDark
           ? _primary.withValues(alpha: 0.16)
-          : const Color(0xFFEEF0FF),
+          : AppColors.primaryLight,
       borderRadius: BorderRadius.circular(8),
     ),
     child: const Icon(

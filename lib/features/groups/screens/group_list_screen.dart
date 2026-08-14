@@ -205,7 +205,7 @@ class _GroupListScreenState extends ConsumerState<GroupListScreen>
                   height: 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFEEF0FF), Color(0xFFDDD6FE)],
+                      colors: [AppColors.primaryLight, Color(0xFFDDD6FE)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),

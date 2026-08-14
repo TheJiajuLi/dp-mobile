@@ -127,7 +127,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                   _sectionLabel('内容设置'),
                   _card_([
                     _selectRow(
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       icon: Icons.visibility_outlined,
                       iconColor: _primary,
                       label: '文章默认可见性',
@@ -157,7 +157,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                       },
                     ),
                     _toggleRow(
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       icon: Icons.download_outlined,
                       iconColor: _primary,
                       label: '允许下载附件',
@@ -172,7 +172,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                   _sectionLabel('互动设置'),
                   _card_([
                     _toggleRow(
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       icon: Icons.notifications_outlined,
                       iconColor: _primary,
                       label: '新评论通知',
@@ -209,7 +209,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                   _sectionLabel('编辑器设置'),
                   _card_([
                     _selectRow(
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       icon: Icons.save_outlined,
                       iconColor: _primary,
                       label: '自动保存间隔',
@@ -248,7 +248,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                   _sectionLabel('小梦 AI 设置'),
                   _card_([
                     _selectRow(
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       icon: Icons.auto_awesome_outlined,
                       iconColor: _primary,
                       label: 'AI 偏好语言',

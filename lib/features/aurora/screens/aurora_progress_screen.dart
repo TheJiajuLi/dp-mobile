@@ -240,7 +240,7 @@ class _AuroraProgressScreenState extends ConsumerState<AuroraProgressScreen>
               const SizedBox(height: 6),
               _conditionRow(
                 icon: Icons.edit_note,
-                iconBg: const Color(0xFFEEF0FF),
+                iconBg: AppColors.primaryLight,
                 iconColor: _primary,
                 label: '发布笔记',
                 current: m.publishedCount,

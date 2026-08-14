@@ -22,7 +22,7 @@ const topicBadgeRules = [
   TopicBadgeRule(
     label: '数据科学',
     keywords: ['数据'],
-    bg: Color(0xFFEEF0FF),
+    bg: AppColors.primaryLight,
     fg: AppColors.primary,
   ),
   TopicBadgeRule(

@@ -21,7 +21,7 @@ Widget buildNotebookCellOutput(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF13131F) : const Color(0xFFEEF0FF),
+        color: isDark ? const Color(0xFF13131F) : AppColors.primaryLight,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
       ),
       child: Column(

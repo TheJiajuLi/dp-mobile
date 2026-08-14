@@ -33,7 +33,7 @@ Color jisuoDomainColor(String d) => switch (d) {
 };
 
 Color jisuoDomainBg(String d) => switch (d) {
-  '编程开发' => const Color(0xFFEEF0FF),
+  '编程开发' => AppColors.primaryLight,
   '数学' => const Color(0xFFFEF3C7),
   '天体物理' => const Color(0xFFF3E8FF),
   '经济' => const Color(0xFFDCFCE7),
@@ -1286,7 +1286,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
                           decoration: BoxDecoration(
                             color: isDark
                                 ? _primary.withValues(alpha: 0.1)
-                                : const Color(0xFFEEF0FF),
+                                : AppColors.primaryLight,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isDark
@@ -1406,7 +1406,7 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
   Widget _referencesSection(QaTurn turn, bool isDark) {
     final chipBg = isDark
         ? _primary.withValues(alpha: 0.10)
-        : const Color(0xFFEEF0FF);
+        : AppColors.primaryLight;
     final chipBorder = isDark
         ? _primary.withValues(alpha: 0.24)
         : const Color(0xFFC7D2FE);
@@ -2070,7 +2070,7 @@ class _AskSheetState extends State<_AskSheet> {
             width: 64,
             height: 64,
             decoration: const BoxDecoration(
-              color: Color(0xFFEEF0FF),
+              color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
             child: const Icon(

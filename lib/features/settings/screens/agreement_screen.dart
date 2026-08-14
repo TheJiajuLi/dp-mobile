@@ -361,7 +361,7 @@ class _AgreementScreenState extends ConsumerState<AgreementScreen> {
       decoration: BoxDecoration(
         color: isDark
             ? const Color(0xFF1A1A35)
-            : const Color(0xFFEEF0FF),
+            : AppColors.primaryLight,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark

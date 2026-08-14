@@ -47,7 +47,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   Color get _border => Theme.of(context).dividerColor;
   Color get _muted => _isDark ? Colors.white54 : const Color(0xFF999999);
   Color get _tagBg =>
-      _isDark ? _primary.withValues(alpha: 0.15) : const Color(0xFFEEF0FF);
+      _isDark ? _primary.withValues(alpha: 0.15) : AppColors.primaryLight;
 
   late final TextEditingController _ctrl;
   late final FocusNode _focusNode;
@@ -1087,7 +1087,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             height: 44,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFFEEF0FF), Color(0xFFDDD6FE)],
+                colors: [AppColors.primaryLight, Color(0xFFDDD6FE)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -1358,7 +1358,7 @@ class _TutorialResultItem extends StatelessWidget {
     final muted = isDark ? Colors.white54 : const Color(0xFF999999);
     final tagBg = isDark
         ? AppColors.primary.withValues(alpha: 0.15)
-        : const Color(0xFFEEF0FF);
+        : AppColors.primaryLight;
 
     return GestureDetector(
       onTap: onTap,

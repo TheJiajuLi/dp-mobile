@@ -166,7 +166,7 @@ class _HelpFeedbackScreenState extends State<HelpFeedbackScreen> {
             SettingsRow(
               icon: Icons.help_outline,
               iconColor: _primary,
-              iconBg: const Color(0xFFEEF0FF),
+              iconBg: AppColors.primaryLight,
               title: '常见问题',
               subtitle: '查看高频问题解答',
               onTap: () => _openFaq(),

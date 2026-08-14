@@ -908,7 +908,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: selected
-                    ? const Color(0xFFEEF0FF)
+                    ? AppColors.primaryLight
                     : Theme.of(context).inputDecorationTheme.fillColor,
                 borderRadius: BorderRadius.circular(99),
                 border: Border.all(

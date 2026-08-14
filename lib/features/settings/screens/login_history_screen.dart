@@ -154,7 +154,7 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: isNow ? const Color(0xFFEEF0FF) : Colors.grey[100],
+          color: isNow ? AppColors.primaryLight : Colors.grey[100],
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
@@ -191,7 +191,7 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF0FF),
+                color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(99),
               ),
               child: Text(

@@ -118,7 +118,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
             SettingsSwitchRow(
               icon: Icons.chat_bubble_outline,
               iconColor: AppColors.primary,
-              iconBg: const Color(0xFFEEF0FF),
+              iconBg: AppColors.primaryLight,
               title: l10n.allowComments,
               subtitle: l10n.allowCommentsSubtitle,
               value: _allowComments,

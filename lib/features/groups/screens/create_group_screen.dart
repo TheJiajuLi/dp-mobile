@@ -174,7 +174,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           shape: BoxShape.circle,
           gradient: _avatarFile == null
               ? const LinearGradient(
-                  colors: [Color(0xFFEEF0FF), Color(0xFFE0E7FF)],
+                  colors: [AppColors.primaryLight, Color(0xFFE0E7FF)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
@@ -660,7 +660,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     child: _TypeCard(
                       icon: Icons.public,
                       iconColor: _primary,
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       title: '公开群',
                       desc: '任何人可搜索并申请加入',
                       selected: _isPublic,
@@ -1043,7 +1043,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [
-                                    Color(0xFFEEF0FF),
+                                    AppColors.primaryLight,
                                     Color(0xFFDDD6FE),
                                   ],
                                 ),

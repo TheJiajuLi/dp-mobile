@@ -327,7 +327,7 @@ class _HdProfilePageState extends ConsumerState<HdProfilePage> {
         color: active
             ? (isDark
                 ? _accent.withValues(alpha: 0.15)
-                : const Color(0xFFEEF0FF))
+                : AppColors.primaryLight)
             : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Row(
@@ -418,7 +418,7 @@ class _HdProfilePageState extends ConsumerState<HdProfilePage> {
                     decoration: BoxDecoration(
                       color: isDark
                           ? _accent.withValues(alpha: 0.18)
-                          : const Color(0xFFEEF0FF),
+                          : AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Row(

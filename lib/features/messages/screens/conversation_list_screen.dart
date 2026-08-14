@@ -313,7 +313,7 @@ class _ConversationListScreenState
           color: selected
               ? (isDark
                     ? primary.withValues(alpha: 0.15)
-                    : const Color(0xFFEEF0FF))
+                    : AppColors.primaryLight)
               : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(

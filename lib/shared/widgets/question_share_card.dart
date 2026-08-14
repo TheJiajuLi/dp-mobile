@@ -122,7 +122,7 @@ class QuestionShareCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: isDark
                               ? _primary.withValues(alpha: 0.18)
-                              : const Color(0xFFEEF0FF),
+                              : AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(99),
                         ),
                         child: Text(

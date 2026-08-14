@@ -240,7 +240,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                         // 视觉），浅色维持淡紫底 + 紫号
                         color: Theme.of(context).brightness == Brightness.dark
                             ? _primary
-                            : const Color(0xFFEEF0FF),
+                            : AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
@@ -307,7 +307,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                     child: _quickTile(
                       icon: Icons.chat_bubble,
                       iconColor: _primary,
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       label: l10n.tabDirectMessages,
                       subtitle: dmUnread > 0
                           ? l10n.unreadCountLabel(dmUnread)
@@ -596,7 +596,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               l10n.addFriend,
               l10n.addFriendSubtitle,
               _primary,
-              const Color(0xFFEEF0FF),
+              AppColors.primaryLight,
               () {
                 Navigator.pop(ctx);
                 _showAddFriendSearch();
@@ -784,7 +784,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEEF0FF),
+                    color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(

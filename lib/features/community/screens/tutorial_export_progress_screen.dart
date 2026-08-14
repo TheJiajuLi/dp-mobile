@@ -168,7 +168,7 @@ class _TutorialExportProgressScreenState
                         width: 72,
                         height: 72,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEEF0FF),
+                          color: AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: const Icon(

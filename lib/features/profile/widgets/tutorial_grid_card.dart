@@ -127,7 +127,7 @@ class TutorialGridCard extends StatelessWidget {
   );
 
   Widget _defaultCover(bool isDark) => Container(
-    color: isDark ? const Color(0xFF252540) : const Color(0xFFEEF0FF),
+    color: isDark ? const Color(0xFF252540) : AppColors.primaryLight,
     child: const Center(
       child: Icon(Icons.auto_stories, color: _primary, size: 28),
     ),

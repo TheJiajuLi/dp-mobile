@@ -24,7 +24,7 @@ const _highlightColors = [
   Color(0xFFDBEAFE),
   Color(0xFFDCFCE7),
   Color(0xFFFEE2E2),
-  Color(0xFFEEF0FF),
+  AppColors.primaryLight,
 ];
 
 // 整块 block 一起套用格式，不是逐字符选区——见 block_model.dart 里
@@ -520,7 +520,7 @@ void showFontSheet(
                   ),
                   decoration: BoxDecoration(
                     color: selected
-                        ? const Color(0xFFEEF0FF)
+                        ? AppColors.primaryLight
                         : (dark
                               ? const Color(0xFF111118)
                               : const Color(0xFFF5F5F5)),
@@ -745,7 +745,7 @@ class _BlockPickerItem extends StatelessWidget {
           height: 48,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF20284A) : const Color(0xFFEEF0FF),
+            color: isDark ? const Color(0xFF20284A) : AppColors.primaryLight,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, size: 22, color: _primary),

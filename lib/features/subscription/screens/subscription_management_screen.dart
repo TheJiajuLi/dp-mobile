@@ -470,7 +470,7 @@ class _SubscriptionManagementScreenState
       decoration: BoxDecoration(
         color: _isDark
             ? _primary.withValues(alpha: 0.14)
-            : const Color(0xFFEEF0FF),
+            : AppColors.primaryLight,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: _isDark

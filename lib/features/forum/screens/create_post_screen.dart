@@ -653,7 +653,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                   decoration: BoxDecoration(
                     color: isDark
                         ? _primary.withValues(alpha: 0.18)
-                        : const Color(0xFFEEF0FF),
+                        : AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Row(

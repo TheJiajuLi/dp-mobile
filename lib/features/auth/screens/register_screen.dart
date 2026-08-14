@@ -271,7 +271,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       width: 72,
       height: 72,
       decoration: BoxDecoration(
-        color: gradient == null ? (color ?? const Color(0xFFEEF0FF)) : null,
+        color: gradient == null ? (color ?? AppColors.primaryLight) : null,
         gradient: gradient,
         borderRadius: BorderRadius.circular(18),
       ),
@@ -508,7 +508,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF0FF),
+              color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(

@@ -1647,7 +1647,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
                       color: isMe
                           ? Colors.white.withValues(alpha: 0.15)
                           : isTutorial
-                          ? const Color(0xFFEEF0FF)
+                          ? AppColors.primaryLight
                           : const Color(0xFFF3E8FF),
                       borderRadius: BorderRadius.circular(5),
                     ),
@@ -2205,7 +2205,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF0FF),
+              color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(icon, color: _primary, size: 24),

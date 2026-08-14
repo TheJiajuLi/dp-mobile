@@ -564,7 +564,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
         'label': l10n.folderNotebooks,
         'icon': Icons.menu_book_outlined,
         'color': AppColors.primary,
-        'bg': const Color(0xFFEEF0FF),
+        'bg': AppColors.primaryLight,
       },
       {
         'key': 'tutorials',
@@ -629,7 +629,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEF0FF),
+                        color: AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(

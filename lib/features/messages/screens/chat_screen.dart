@@ -1071,7 +1071,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF0FF),
+              color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(icon, color: _primary, size: 24),

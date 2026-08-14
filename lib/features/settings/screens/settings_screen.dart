@@ -112,7 +112,7 @@ class SettingsScreen extends ConsumerWidget {
                     SettingsRow(
                       icon: Icons.verified_outlined,
                       iconColor: AppColors.primary,
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       title: l10n.userAgreement,
                       subtitle: l10n.userAgreementSubtitle,
                       onTap: () => context.push('/settings/agreement'),
@@ -122,7 +122,7 @@ class SettingsScreen extends ConsumerWidget {
                     SettingsRow(
                       icon: Icons.notifications_outlined,
                       iconColor: AppColors.primary,
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       title: l10n.notificationSettings,
                       subtitle: l10n.notificationSettingsSubtitle,
                       onTap: () => showModalBottomSheet(
@@ -146,7 +146,7 @@ class SettingsScreen extends ConsumerWidget {
                     SettingsRow(
                       icon: Icons.text_fields,
                       iconColor: AppColors.primary,
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       title: l10n.fontSize,
                       trailing:
                           _fontSizeLabels(l10n)[fontSize] ??
@@ -216,7 +216,7 @@ class SettingsScreen extends ConsumerWidget {
                     SettingsRow(
                       icon: Icons.help_outline,
                       iconColor: AppColors.primary,
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       title: l10n.helpAndFeedback,
                       onTap: () => context.push('/settings/help'),
                     ),
@@ -267,7 +267,7 @@ class SettingsScreen extends ConsumerWidget {
                     SettingsRow(
                       icon: Icons.swap_horizontal_circle_outlined,
                       iconColor: AppColors.primary,
-                      iconBg: const Color(0xFFEEF0FF),
+                      iconBg: AppColors.primaryLight,
                       title: l10n.switchAccount,
                       onTap: () => context.push('/switch-account'),
                     ),
@@ -707,7 +707,7 @@ class _NotifSettingsSheet extends ConsumerWidget {
             SettingsSwitchRow(
               icon: Icons.favorite_border,
               iconColor: AppColors.primary,
-              iconBg: const Color(0xFFEEF0FF),
+              iconBg: AppColors.primaryLight,
               title: l10n.likeNotifications,
               value: settings.likes,
               onChanged: (v) => notifier.toggle('likes', v),

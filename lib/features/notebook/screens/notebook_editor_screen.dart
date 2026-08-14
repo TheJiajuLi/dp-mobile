@@ -255,7 +255,7 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
           decoration: BoxDecoration(
             color: isDark
                 ? AppColors.primary.withValues(alpha: 0.16)
-                : const Color(0xFFEEF0FF),
+                : AppColors.primaryLight,
             borderRadius: BorderRadius.circular(99),
           ),
           child: Text(
@@ -3299,7 +3299,7 @@ finally:
               decoration: BoxDecoration(
                 color: isDark
                     ? _primary.withValues(alpha: 0.16)
-                    : const Color(0xFFEEF0FF),
+                    : AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Row(
@@ -3345,7 +3345,7 @@ finally:
           color: active
               ? (isDark
                     ? _primary.withValues(alpha: 0.14)
-                    : const Color(0xFFEEF0FF))
+                    : AppColors.primaryLight)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border(
