@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,7 +13,7 @@ import 'creator_center_screen.dart' show auroraNoteTarget;
 //   · 快速入门清单里「发布第一篇 / 发布10篇」的完成状态 → 本人已发布篇数
 //   · 底部「离极光还差 X 篇」→ 同一份已发布篇数 vs auroraNoteTarget(10)
 // 指南卡片点开是内置的静态讲解，不是编造的后端数据。
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class CreatorGuideScreen extends ConsumerStatefulWidget {
   const CreatorGuideScreen({super.key});
@@ -148,7 +149,7 @@ class _CreatorGuideScreenState extends ConsumerState<CreatorGuideScreen> {
                 height: 130,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.14),
+                  color: AppColors.primary.withValues(alpha: 0.14),
                 ),
               ),
             ),

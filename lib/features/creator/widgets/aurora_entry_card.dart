@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 const _cyan = Color(0xFFA5F3FC);
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 极光计划入口卡——不管创作者中心当前是浅色还是深色主题，这张卡始终用
 // 深色星空底 + 极光光晕，跟个人主页头图区一样是刻意保留的局部深色例外，

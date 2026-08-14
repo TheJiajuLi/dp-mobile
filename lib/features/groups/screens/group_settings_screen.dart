@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,7 +12,7 @@ import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
 import '../models/group_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _ownerColor = Color(0xFFF59E0B);
 const _danger = Color(0xFFEF4444);
 

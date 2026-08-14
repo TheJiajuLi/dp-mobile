@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../../shared/utils/forum_gradient.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 建论坛——POST /auth/forums 是真实接口（name/description/tags/
 // color_index）。color_index（0-5，对应 forumGradients 的下标）会随创建

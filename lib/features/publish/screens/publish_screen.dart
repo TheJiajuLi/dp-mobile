@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +26,7 @@ import '../widgets/publish_toolbar.dart';
 import '../widgets/xmeng_write_sheet.dart';
 import 'import_browser_screen.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _ink = Color(0xFF1A1A1A);
 const _bg = Color(0xFFFAFAF8);
 const _muted = Color(0xFF999999);
@@ -988,7 +989,7 @@ class _PublishScreenState extends ConsumerState<PublishScreen> {
             child: const Text(
               '继续编辑',
               style: TextStyle(
-                color: Color(0xFF6366F1),
+                color: AppColors.primary,
                 fontWeight: FontWeight.w500,
               ),
             ),

@@ -16,7 +16,7 @@ import '../../auth/auth_service.dart';
 import '../../messages/providers/messages_provider.dart';
 import '../providers/home_feed_provider.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 分类 pill 只是 homeFeedCategories 的一个展示子集——「全部」不再单独
 // 出一个 pill（不选中任何 pill 就等价于全部，靠 HomeFeedState 默认的
@@ -434,7 +434,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   height: 2,
                   decoration: BoxDecoration(
                     color: selected
-                        ? const Color(0xFF6366F1)
+                        ? AppColors.primary
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(99),
                   ),

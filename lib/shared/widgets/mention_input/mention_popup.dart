@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -184,7 +185,7 @@ class _MentionPopupState extends ConsumerState<MentionPopup> {
           children: [
             CircleAvatar(
               radius: 14,
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: AppColors.primary,
               child: Text(
                 username.isNotEmpty ? username[0].toUpperCase() : 'U',
                 style: const TextStyle(

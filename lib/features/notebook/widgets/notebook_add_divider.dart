@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 // 末尾「添加内容块」按钮——挂在 Cell 画布 ReorderableListView 的 footer，
 // 从 notebook_editor_screen.dart 抽出来
@@ -34,14 +35,14 @@ class NotebookAddDivider extends StatelessWidget {
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add, size: 15, color: Color(0xFF6366F1)),
+            Icon(Icons.add, size: 15, color: AppColors.primary),
             SizedBox(width: 6),
             Text(
               '添加内容块',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF6366F1),
+                color: AppColors.primary,
               ),
             ),
           ],

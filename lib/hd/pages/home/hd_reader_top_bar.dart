@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/community/providers/article_provider.dart';
@@ -7,7 +8,7 @@ import '../../../features/community/widgets/article_body_view.dart';
 import '../../../shared/widgets/app_toast.dart';
 import 'hd_toc_panel.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 中间阅读面板顶栏：标题 + 收藏/分享/PDF/更多。中窄屏(768-1024)额外露出「目录」
 // 按钮，点开浮层显示目录（宽屏有独立右侧目录面板，不需要）

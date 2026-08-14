@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 
@@ -112,7 +113,7 @@ class NotebookBottomToolbar extends StatelessWidget {
                     Icon(
                       Icons.upload_file_outlined,
                       size: 14,
-                      color: Color(0xFF6366F1),
+                      color: AppColors.primary,
                     ),
                     SizedBox(width: 4),
                     Text(
@@ -120,7 +121,7 @@ class NotebookBottomToolbar extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF6366F1),
+                        color: AppColors.primary,
                       ),
                     ),
                   ],
@@ -161,13 +162,13 @@ void showMoreLanguagesSheet(
                 leading: const Icon(
                   Icons.auto_awesome,
                   size: 20,
-                  color: Color(0xFF6366F1),
+                  color: AppColors.primary,
                 ),
                 title: const Text(
                   '描述生成代码',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6366F1),
+                    color: AppColors.primary,
                   ),
                 ),
                 subtitle: const Text(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/app_toast.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 问题详情页「分享问题」——三选一：分享到论坛 / 群组 / 好友，各自二级选目标、
 // 多选（论坛单选）、可加附言、确认发送。全部用真实后端端点：
@@ -32,7 +33,7 @@ enum _Step { choose, forum, group, friend }
 
 // 字母头像的浅底/深字配色，按列表下标轮换（跟截图的紫/绿/琥珀三色一致）
 const _avatarPalette = [
-  [Color(0xFFEEF0FF), Color(0xFF6366F1)],
+  [Color(0xFFEEF0FF), AppColors.primary],
   [Color(0xFFE7F8EF), Color(0xFF16A34A)],
   [Color(0xFFFEF3C7), Color(0xFFD97706)],
 ];
@@ -436,7 +437,7 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
           _shareOption(
             iconBg: const Color(0xFFEEF0FF),
             icon: Icons.view_column_outlined,
-            iconColor: const Color(0xFF6366F1),
+            iconColor: AppColors.primary,
             label: '分享到论坛',
             sub: '发布到公开版块，所有人可见',
             onTap: _goForum,

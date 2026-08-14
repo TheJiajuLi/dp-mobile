@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../models/answer_block.dart';
 
@@ -22,9 +23,9 @@ class BlockPickerSheet extends StatelessWidget {
 
     final options = [
       (BlockType.text, '正文', Icons.notes, const Color(0xFF555555), const Color(0xFFF5F5F5)),
-      (BlockType.heading2, '标题', Icons.title, const Color(0xFF6366F1), const Color(0xFFEEF2FF)),
+      (BlockType.heading2, '标题', Icons.title, AppColors.primary, const Color(0xFFEEF2FF)),
       (BlockType.heading3, '小标题', Icons.text_fields, const Color(0xFF16A34A), const Color(0xFFF0FFF4)),
-      (BlockType.quote, '引用', Icons.format_quote, const Color(0xFF6366F1), const Color(0xFFEEF0FF)),
+      (BlockType.quote, '引用', Icons.format_quote, AppColors.primary, const Color(0xFFEEF0FF)),
       (BlockType.formula, '公式', Icons.functions, const Color(0xFF8B5CF6), const Color(0xFFFAF0FF)),
       (BlockType.code, '代码', Icons.code, const Color(0xFF1D4ED8), const Color(0xFFEFF6FF)),
       // 图片上传后端未上线，暂时不提供入口（原来加进来只是个"即将支持"占位）

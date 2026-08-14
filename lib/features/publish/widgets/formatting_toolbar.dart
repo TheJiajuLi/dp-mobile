@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/code_highlight.dart';
 import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 const _textColors = [
   null, // 默认——跟随主题正文色，不是字面意义上的"黑"
-  Color(0xFF6366F1),
+  AppColors.primary,
   Color(0xFF2563EB),
   Color(0xFF16A34A),
   Color(0xFFEF4444),

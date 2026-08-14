@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
 // 聊天里「极梦社区问题」分享卡片——紫色渐变头（来源标识 + 问题标题）+ 白色
 // 内容区（标签 + 回答数 + 双按钮：写回答 / 查看详情）。私聊/群聊共用。
@@ -15,7 +16,7 @@ class QuestionShareCard extends StatelessWidget {
     required this.onDetailTap,
   });
 
-  static const _primary = Color(0xFF6366F1);
+  static const _primary = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {

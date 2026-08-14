@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // 持久化（这些是「创作默认偏好」，非账号级服务端配置）。开关即存即生效于本地，
 // 具体消费方（发布流程读默认可见性、编辑器读默认块类型/自动保存、小梦读语言）
 // 后续按需接入，这里先做设置面板本身。
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class CreatorSettingsScreen extends ConsumerStatefulWidget {
   const CreatorSettingsScreen({super.key});

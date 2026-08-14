@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:ui';
@@ -19,11 +20,11 @@ import '../../../shared/widgets/tutorial_block_renderer.dart'
     show inlineLatexText;
 import '../../messages/utils/message_avatar.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 提问领域配色——提问 Sheet 的领域选择跟热门提问卡片的领域标签共用同一套
 Color jisuoDomainColor(String d) => switch (d) {
-  '编程开发' => const Color(0xFF6366F1),
+  '编程开发' => AppColors.primary,
   '数学' => const Color(0xFFD97706),
   '天体物理' => const Color(0xFF8B5CF6),
   '经济' => const Color(0xFF16A34A),
@@ -1664,7 +1665,7 @@ class _NebulaPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const blobColors = [
-      Color(0xFF6366F1),
+      AppColors.primary,
       Color(0xFF8B5CF6),
       Color(0xFF3B82F6),
     ];
@@ -1952,7 +1953,7 @@ class _AskSheetState extends State<_AskSheet> {
               Switch.adaptive(
                 value: _anon,
                 onChanged: (v) => setState(() => _anon = v),
-                activeThumbColor: const Color(0xFF6366F1),
+                activeThumbColor: AppColors.primary,
               ),
             ],
           ),
@@ -2075,7 +2076,7 @@ class _AskSheetState extends State<_AskSheet> {
             child: const Icon(
               Icons.check_circle_outline,
               size: 30,
-              color: Color(0xFF6366F1),
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 16),
@@ -2140,7 +2141,7 @@ class _AskSheetState extends State<_AskSheet> {
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(

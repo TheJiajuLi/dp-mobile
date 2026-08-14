@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
 // CONTEXT.md 里的话题领域配色规则表，唯一数据来源——个人主页的兴趣领域
 // badge、首页 Feed 卡片的话题角标都从这一份表里取色，不要各自维护一份，
@@ -22,7 +23,7 @@ const topicBadgeRules = [
     label: '数据科学',
     keywords: ['数据'],
     bg: Color(0xFFEEF0FF),
-    fg: Color(0xFF6366F1),
+    fg: AppColors.primary,
   ),
   TopicBadgeRule(
     label: '生命科学',

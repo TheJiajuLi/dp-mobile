@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
 // 全站统一的「文本输入」弹窗——圆角卡片 + 品牌紫聚焦输入框 + 字数计数 +
 // 取消(幽灵)/保存(紫色实心)，跟 showDangerConfirm 同一套视觉语言。返回
 // 输入的字符串（已 trim）；取消/dismiss 返回 null。别再各页手搓 AlertDialog。
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 Future<String?> showInputDialog(
   BuildContext context, {

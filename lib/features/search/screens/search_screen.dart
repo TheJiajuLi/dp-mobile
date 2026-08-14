@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -35,7 +36,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 
 class _SearchScreenState extends ConsumerState<SearchScreen>
     with TickerProviderStateMixin {
-  static const _primary = Color(0xFF6366F1);
+  static const _primary = AppColors.primary;
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   Color get _ink => _isDark ? Colors.white : const Color(0xFF1A1A1A);
@@ -1356,7 +1357,7 @@ class _TutorialResultItem extends StatelessWidget {
     final ink = isDark ? Colors.white : const Color(0xFF1A1A1A);
     final muted = isDark ? Colors.white54 : const Color(0xFF999999);
     final tagBg = isDark
-        ? const Color(0xFF6366F1).withValues(alpha: 0.15)
+        ? AppColors.primary.withValues(alpha: 0.15)
         : const Color(0xFFEEF0FF);
 
     return GestureDetector(
@@ -1383,7 +1384,7 @@ class _TutorialResultItem extends StatelessWidget {
                     highlightStyle: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF6366F1),
+                      color: AppColors.primary,
                       height: 1.4,
                     ),
                   ),
@@ -1413,7 +1414,7 @@ class _TutorialResultItem extends StatelessWidget {
                             '#$t',
                             style: const TextStyle(
                               fontSize: 10,
-                              color: Color(0xFF6366F1),
+                              color: AppColors.primary,
                             ),
                           ),
                         );
@@ -1424,7 +1425,7 @@ class _TutorialResultItem extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 10,
-                        backgroundColor: const Color(0xFF6366F1),
+                        backgroundColor: AppColors.primary,
                         backgroundImage: (tutorial.avatar ?? '').isNotEmpty
                             ? CachedNetworkImageProvider(tutorial.avatar!)
                             : null,

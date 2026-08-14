@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,7 +9,7 @@ import '../models/forum_post_model.dart';
 import '../models/forum_reply_model.dart';
 import '../widgets/post_card.dart' show forumTimeAgo;
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class PostDetailScreen extends ConsumerStatefulWidget {
   final String postId;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 // 语言选择器只覆盖"代码"这一类cell（python/r/julia/sql）——latex/markdown/
 // html 是完全不同的渲染方式，不是"代码语言的变体"，不接入这个切换器
@@ -15,7 +16,7 @@ extension NotebookLanguageX on NotebookLanguage {
   // 跟 _buildCell 里 badgeColor 的取色保持一致，同一语言在列表页/编辑页
   // 看到的应该是同一个颜色
   Color get dotColor => switch (this) {
-    NotebookLanguage.python => const Color(0xFF6366F1),
+    NotebookLanguage.python => AppColors.primary,
     NotebookLanguage.r => const Color(0xFF2563EB),
     NotebookLanguage.julia => const Color(0xFF9333EA),
     NotebookLanguage.sql => const Color(0xFF0EA5E9),

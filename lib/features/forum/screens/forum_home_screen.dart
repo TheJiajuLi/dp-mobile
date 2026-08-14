@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart' show Share;
@@ -7,7 +8,7 @@ import '../../../core/network/api_client.dart';
 import '../../../shared/utils/forum_gradient.dart';
 import 'forum_list_screen.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 论坛主页——GET /auth/forums/:forumId 已经真实返回 forum + pinnedPosts
 // （member_count/follower_count/reply_count/is_following 都是后端算好的，

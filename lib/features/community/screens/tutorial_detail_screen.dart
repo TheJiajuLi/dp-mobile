@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -22,7 +23,7 @@ import '../providers/article_provider.dart';
 import '../widgets/article_actions.dart';
 import '../widgets/article_body_view.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 String _initial(String? name) {
   if (name == null || name.isEmpty) return '?';

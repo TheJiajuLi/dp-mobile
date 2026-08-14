@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../models/user_profile_model.dart';
 import 'profile_painters.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 主页不公开（私密账号）时的受限视图——头图+头像+基本信息+关注/私信按钮
 // 照常显示，下面用一把锁图标替掉真实内容

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/pro_access.dart';
 import '../../../shared/widgets/app_toast.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 Future<void> pickCoverImage(
   BuildContext context,
@@ -303,7 +304,7 @@ void showCoverPickerSheet(
                     child: const Icon(
                       Icons.auto_awesome_outlined,
                       size: 14,
-                      color: Color(0xFF6366F1),
+                      color: AppColors.primary,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -348,7 +349,7 @@ void showCoverPickerSheet(
                                   child: const Center(
                                     child: CircularProgressIndicator(
                                       strokeWidth: 1.5,
-                                      color: Color(0xFF6366F1),
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                 ),
@@ -395,14 +396,14 @@ void showCoverPickerSheet(
                   icon: const Icon(
                     Icons.refresh,
                     size: 16,
-                    color: Color(0xFF6366F1),
+                    color: AppColors.primary,
                   ),
                   label: const Text(
                     '重新生成',
-                    style: TextStyle(color: Color(0xFF6366F1)),
+                    style: TextStyle(color: AppColors.primary),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF6366F1)),
+                    side: const BorderSide(color: AppColors.primary),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),

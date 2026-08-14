@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +14,7 @@ import '../../../shared/widgets/pro_badge.dart';
 import '../../auth/auth_service.dart';
 import '../widgets/aurora_entry_card.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _darkBg = Color(0xFF0A0A1A);
 
 // 极光计划的达成门槛，跟 AuroraScreen 保持同一份数字，两处都是从这里改，
@@ -351,7 +352,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
             _heroStatCell(
               icon: Icons.description_outlined,
               iconBg: const Color(0xFFEEF0FF),
-              iconColor: const Color(0xFF6366F1),
+              iconColor: AppColors.primary,
               value: _formatCount(_publishedCount),
               label: '作品',
               isDark: isDark,
@@ -477,7 +478,7 @@ class _CreatorCenterScreenState extends ConsumerState<CreatorCenterScreen> {
                       ink: ink,
                       icon: Icons.description_outlined,
                       iconBg: const Color(0xFFEEF0FF),
-                      iconColor: const Color(0xFF6366F1),
+                      iconColor: AppColors.primary,
                       label: '作品管理',
                       dot: _draftCount > _seenDraftCount,
                       onTap: () {

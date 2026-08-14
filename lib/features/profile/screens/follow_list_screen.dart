@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +33,7 @@ Widget _buildAvatar(String? avatar, String username) {
     }
   }
   return CircleAvatar(
-    backgroundColor: const Color(0xFF6366F1),
+    backgroundColor: AppColors.primary,
     child: Text(
       _initial(username),
       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),

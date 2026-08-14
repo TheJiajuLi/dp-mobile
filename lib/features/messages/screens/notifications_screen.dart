@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,7 +34,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  static const _primary = Color(0xFF6366F1);
+  static const _primary = AppColors.primary;
 
   List<Map<String, dynamic>> _invites = [];
   bool _loadingInvites = false;
@@ -199,7 +200,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 height: 64,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    colors: [AppColors.primary, Color(0xFF8B5CF6)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -266,7 +267,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           await _joinAndEnterGroup(groupId, name, memberCount);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6366F1),
+                          backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -357,14 +358,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'like':
         return const Color(0xFFEF4444);
       case 'comment':
-        return const Color(0xFF6366F1);
+        return AppColors.primary;
       case 'follow':
         return const Color(0xFF2563EB);
       case 'mention':
       case 'group_message_mention':
         return const Color(0xFF0891B2);
       case 'group_invite':
-        return const Color(0xFF6366F1);
+        return AppColors.primary;
       default:
         return Colors.grey;
     }
@@ -943,7 +944,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     height: 40,
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                        colors: [AppColors.primary, Color(0xFF8B5CF6)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

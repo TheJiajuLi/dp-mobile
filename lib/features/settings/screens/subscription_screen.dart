@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +24,7 @@ class SubscriptionScreen extends ConsumerStatefulWidget {
 enum _Plan { pro, proMax, aurora }
 
 class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
-  static const _primary = Color(0xFF6366F1);
+  static const _primary = AppColors.primary;
   // Pro Max 的品牌辅色——跟 Pro 的靛紫区分开，参考图里 Pro Max 全程用
   // 一个偏洋红的紫色（按钮/图标/边框），不是简单复用 _primary
   static const _proMaxAccent = Color(0xFF9B5DE5);

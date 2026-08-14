@@ -1,11 +1,12 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 
-const kMessagesPrimary = Color(0xFF6366F1);
+const kMessagesPrimary = AppColors.primary;
 
 String avatarInitial(String? name) {
   if (name == null || name.isEmpty) return '?';

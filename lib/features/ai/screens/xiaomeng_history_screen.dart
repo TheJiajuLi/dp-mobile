@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,7 +8,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/widgets/confirm_sheet.dart';
 import '../models/ai_conversation_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 历史对话——GET /auth/xmeng/conversations 是真实接口，返回
 // {conversations:[{id,title,created_at,updated_at}]}。title 是后端建

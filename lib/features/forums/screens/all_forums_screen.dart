@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,7 +8,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/forum_gradient.dart';
 import '../models/forum_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 消息页论坛Tab——只显示"我关注的论坛"，不再是浏览全部论坛的入口。
 // GET /auth/forums 目前唯一支持的排序是 post_count DESC，也没有

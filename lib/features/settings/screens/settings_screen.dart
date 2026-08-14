@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,7 +111,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     SettingsRow(
                       icon: Icons.verified_outlined,
-                      iconColor: const Color(0xFF6366F1),
+                      iconColor: AppColors.primary,
                       iconBg: const Color(0xFFEEF0FF),
                       title: l10n.userAgreement,
                       subtitle: l10n.userAgreementSubtitle,
@@ -120,7 +121,7 @@ class SettingsScreen extends ConsumerWidget {
                     // 这里不再重复放一个，避免多入口冗余
                     SettingsRow(
                       icon: Icons.notifications_outlined,
-                      iconColor: const Color(0xFF6366F1),
+                      iconColor: AppColors.primary,
                       iconBg: const Color(0xFFEEF0FF),
                       title: l10n.notificationSettings,
                       subtitle: l10n.notificationSettingsSubtitle,
@@ -144,7 +145,7 @@ class SettingsScreen extends ConsumerWidget {
                   SettingsGroup([
                     SettingsRow(
                       icon: Icons.text_fields,
-                      iconColor: const Color(0xFF6366F1),
+                      iconColor: AppColors.primary,
                       iconBg: const Color(0xFFEEF0FF),
                       title: l10n.fontSize,
                       trailing:
@@ -214,7 +215,7 @@ class SettingsScreen extends ConsumerWidget {
                   SettingsGroup([
                     SettingsRow(
                       icon: Icons.help_outline,
-                      iconColor: const Color(0xFF6366F1),
+                      iconColor: AppColors.primary,
                       iconBg: const Color(0xFFEEF0FF),
                       title: l10n.helpAndFeedback,
                       onTap: () => context.push('/settings/help'),
@@ -265,7 +266,7 @@ class SettingsScreen extends ConsumerWidget {
                   SettingsGroup([
                     SettingsRow(
                       icon: Icons.swap_horizontal_circle_outlined,
-                      iconColor: const Color(0xFF6366F1),
+                      iconColor: AppColors.primary,
                       iconBg: const Color(0xFFEEF0FF),
                       title: l10n.switchAccount,
                       onTap: () => context.push('/switch-account'),
@@ -346,7 +347,7 @@ class SettingsScreen extends ConsumerWidget {
                           trailing: current == e.key
                               ? const Icon(
                                   Icons.check,
-                                  color: Color(0xFF6366F1),
+                                  color: AppColors.primary,
                                 )
                               : null,
                           onTap: () {
@@ -409,7 +410,7 @@ class SettingsScreen extends ConsumerWidget {
                           trailing: current == e.key
                               ? const Icon(
                                   Icons.check,
-                                  color: Color(0xFF6366F1),
+                                  color: AppColors.primary,
                                 )
                               : null,
                           onTap: () {
@@ -519,7 +520,7 @@ class SettingsScreen extends ConsumerWidget {
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: const Color(0xFF6366F1),
+                    backgroundColor: AppColors.primary,
                     backgroundImage: avatarImage,
                     child: avatarImage == null
                         ? Text(
@@ -705,7 +706,7 @@ class _NotifSettingsSheet extends ConsumerWidget {
           SettingsGroup(dividerIndent: 62, [
             SettingsSwitchRow(
               icon: Icons.favorite_border,
-              iconColor: const Color(0xFF6366F1),
+              iconColor: AppColors.primary,
               iconBg: const Color(0xFFEEF0FF),
               title: l10n.likeNotifications,
               value: settings.likes,

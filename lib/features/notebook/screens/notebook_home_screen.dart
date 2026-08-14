@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -148,7 +149,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                       'python',
                       'Python',
                       Icons.code_rounded,
-                      const Color(0xFF6366F1),
+                      AppColors.primary,
                       const Color(0xFFEEF0FF),
                     ),
                     (
@@ -231,7 +232,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     // 品牌紫，跟主页 Hero「新建 Notebook」和顶栏「+」一套
-                    backgroundColor: const Color(0xFF6366F1),
+                    backgroundColor: AppColors.primary,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -525,7 +526,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                       'python',
                                       const (
                                         Color(0xFFEEF0FF),
-                                        Color(0xFF6366F1),
+                                        AppColors.primary,
                                       ),
                                       'data_analysis',
                                     ),
@@ -612,7 +613,7 @@ class _SectionHeader extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF6366F1),
+              color: AppColors.primary,
             ),
           ),
         ),

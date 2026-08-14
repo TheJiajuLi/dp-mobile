@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:collection';
 import 'dart:convert';
 
@@ -11,7 +12,7 @@ import '../../../shared/utils/ai_lang.dart';
 import '../../../shared/widgets/ai_content_renderer.dart';
 import '../models/block_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 小梦生成内容解析出来的"轻量 block 规格"——只带纯数据，不持有 FocusNode，
 // 用户关掉对话框不填入时不会泄漏。真正的 EditorBlock 交给 publish_screen 在

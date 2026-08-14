@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -116,7 +117,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
             ),
             SettingsSwitchRow(
               icon: Icons.chat_bubble_outline,
-              iconColor: const Color(0xFF6366F1),
+              iconColor: AppColors.primary,
               iconBg: const Color(0xFFEEF0FF),
               title: l10n.allowComments,
               subtitle: l10n.allowCommentsSubtitle,

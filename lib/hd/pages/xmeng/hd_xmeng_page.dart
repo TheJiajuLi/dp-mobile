@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
@@ -6,7 +7,7 @@ import '../../../features/ai/models/ai_conversation_model.dart';
 import '../../../features/ai/screens/xiaomeng_chat_screen.dart';
 import '../../../features/ai/screens/xiaomeng_screen.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // HD 小梦右栏选中态：conversationId 命中历史对话；newMessage 命中「欢迎页发送/点
 // 提示」新起的对话（可为空串=空白新对话）；两者都为 null = 显示欢迎页 XiaomengScreen。

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -562,7 +563,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
         'key': 'notebooks',
         'label': l10n.folderNotebooks,
         'icon': Icons.menu_book_outlined,
-        'color': const Color(0xFF6366F1),
+        'color': AppColors.primary,
         'bg': const Color(0xFFEEF0FF),
       },
       {
@@ -612,7 +613,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.cloud_outlined, color: Color(0xFF6366F1)),
+                    const Icon(Icons.cloud_outlined, color: AppColors.primary),
                     const SizedBox(width: 8),
                     Text(
                       l10n.storageSpace,
@@ -635,7 +636,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                         membershipLabel,
                         style: const TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF6366F1),
+                          color: AppColors.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -650,7 +651,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                     minHeight: 10,
                     backgroundColor: Colors.grey[100],
                     valueColor: AlwaysStoppedAnimation(
-                      usedPercent > 0.9 ? Colors.red : const Color(0xFF6366F1),
+                      usedPercent > 0.9 ? Colors.red : AppColors.primary,
                     ),
                   ),
                 ),

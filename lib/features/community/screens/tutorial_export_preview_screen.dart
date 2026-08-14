@@ -1,11 +1,12 @@
 import 'dart:typed_data';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 用 printing 包自带的 PdfPreview 控件直接渲染真实生成的 PDF 字节——
 // 所见即所得，不会跟实际导出结果走样（不是自己用 Container/Text 仿一份

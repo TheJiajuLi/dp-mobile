@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../../../shared/models/tutorial_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // HD 列表文章卡——首页/发现列表面板共用。标题(2行) + 领域标签 + 作者 + 浏览/
 // 点赞。选中态紫色左竖条 + 背景高亮

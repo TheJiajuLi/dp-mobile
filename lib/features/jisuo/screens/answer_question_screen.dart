@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -144,7 +145,7 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
                 style: TextButton.styleFrom(
                   backgroundColor: _hasContent && !_submitting
                       ? (isDark
-                            ? const Color(0xFF6366F1)
+                            ? AppColors.primary
                             : const Color(0xFF1A1A1A))
                       : (isDark
                             ? Colors.white.withValues(alpha: 0.08)
@@ -193,10 +194,10 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
           margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+            color: AppColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.18),
+              color: AppColors.primary.withValues(alpha: 0.18),
               width: 0.5,
             ),
           ),
@@ -209,7 +210,7 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   letterSpacing: .06,
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.8),
+                  color: AppColors.primary.withValues(alpha: 0.8),
                 ),
               ),
               const SizedBox(height: 4),
@@ -268,7 +269,7 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
                             child: const Icon(
                               Icons.add,
                               size: 13,
-                              color: Color(0xFF6366F1),
+                              color: AppColors.primary,
                             ),
                           ),
                           Expanded(
@@ -342,7 +343,7 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
                   extra: {'text': widget.questionText, 'domain': widget.domain},
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(

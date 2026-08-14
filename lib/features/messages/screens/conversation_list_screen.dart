@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -303,7 +304,7 @@ class _ConversationListScreenState
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const primary = Color(0xFF6366F1);
+    const primary = AppColors.primary;
     return GestureDetector(
       onTap: onTap,
       child: Container(

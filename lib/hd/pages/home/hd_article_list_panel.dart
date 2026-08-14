@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/home/providers/home_feed_provider.dart';
 import 'hd_article_card.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // HD 左侧内容列表面板：搜索框 + 推荐/关注/最新 Tab + 文章卡片。复用现成
 // homeFeedProvider（GET /auth/tutorials?status=published）。推荐=后端默认序

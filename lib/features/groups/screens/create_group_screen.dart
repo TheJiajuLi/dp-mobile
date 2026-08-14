@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +12,7 @@ import '../../messages/utils/message_avatar.dart';
 import '../../profile/models/user_profile_model.dart';
 import '../models/group_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 后端还没有 /auth/groups 相关接口（POST 建群/POST 邀请成员），这个页面
 // 调用的是真实的 ApiClient，不是编个假的成功——后端补上接口之前，点

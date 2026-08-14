@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -158,7 +159,7 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
         ),
         child: Icon(
           Icons.phone_iphone,
-          color: isNow ? const Color(0xFF6366F1) : Colors.grey,
+          color: isNow ? AppColors.primary : Colors.grey,
           size: 20,
         ),
       ),
@@ -197,7 +198,7 @@ class _LoginHistoryScreenState extends ConsumerState<LoginHistoryScreen> {
                 l10n.currentDeviceLabel,
                 style: const TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF6366F1),
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),

@@ -1,9 +1,10 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 没有真实封面图时的默认底——头像/用户名这一圈无论 App 是浅色还是深色
 // 主题都固定叠白字白描边（见本文件里关于崩溃修复/暗色适配的说明，这块

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 头像选项弹层里行与行之间的克制分割线——缩进 56 对齐 ListTile 标题文字
 // （避开左侧图标），不铺满整行

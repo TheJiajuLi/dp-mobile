@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -160,7 +161,7 @@ class MainShell extends ConsumerWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                  color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Center(
@@ -169,7 +170,7 @@ class MainShell extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF6366F1),
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -336,7 +337,7 @@ class MainShell extends ConsumerWidget {
       } else {
         circle = CircleAvatar(
           radius: 15,
-          backgroundColor: const Color(0xFF6366F1),
+          backgroundColor: AppColors.primary,
           backgroundImage: CachedNetworkImageProvider(avatar),
         );
       }
@@ -352,7 +353,7 @@ class MainShell extends ConsumerWidget {
 
   Widget _railAvatarFallback(UserModel? user) => CircleAvatar(
     radius: 15,
-    backgroundColor: const Color(0xFF6366F1),
+    backgroundColor: AppColors.primary,
     child: Text(
       (user?.username.isNotEmpty ?? false)
           ? user!.username.substring(0, 1).toUpperCase()
@@ -392,7 +393,7 @@ class _NavItem extends StatelessWidget {
     // 选中态用品牌紫（深浅色一致）；未选中仍走 onSurface 淡化，切主题时
     // 跟着 AnimatedTheme 平滑插值。「+」是单独的 _PublishButton，不受影响
     final color = selected
-        ? const Color(0xFF6366F1)
+        ? AppColors.primary
         : onSurface.withValues(alpha: 0.45);
     return InkWell(
       onTap: onTap,
@@ -473,7 +474,7 @@ class _JisuoIconPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final colors = selected
         ? [
-            const Color(0xFF6366F1).withValues(alpha: 0.5),
+            AppColors.primary.withValues(alpha: 0.5),
             const Color(0xFF818CF8).withValues(alpha: 0.8),
             const Color(0xFF4ADE80),
           ]
@@ -503,7 +504,7 @@ class _JisuoIconPainter extends CustomPainter {
     }
 
     final mgPaint = Paint()
-      ..color = selected ? const Color(0xFF6366F1) : Colors.grey
+      ..color = selected ? AppColors.primary : Colors.grey
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;

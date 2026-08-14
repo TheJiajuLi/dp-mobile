@@ -1,9 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/tutorial_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 收藏/点赞 tab 用的小红书风格网格卡片——封面图+标题+作者+点赞数，跟
 // 文章 tab 的横向列表卡片（tutorial_list_card.dart）是两种不同场景各自

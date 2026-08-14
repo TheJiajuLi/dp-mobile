@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 class NotebookTopBar extends StatelessWidget {
   final String title;
@@ -31,7 +32,7 @@ class NotebookTopBar extends StatelessWidget {
     final iconColor = isDark
         ? Colors.white.withValues(alpha: 0.6)
         : const Color(0xFF555555);
-    final runBg = isDark ? const Color(0xFF6366F1) : const Color(0xFF1A1A1A);
+    final runBg = isDark ? AppColors.primary : const Color(0xFF1A1A1A);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),

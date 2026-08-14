@@ -30,7 +30,7 @@ import '../../home/providers/home_feed_provider.dart';
 import '../models/group_message_model.dart';
 import '../models/group_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 群相关接口大部分已上线（GET /auth/groups 列表、GET /auth/groups/:id 详情、
 // POST 建群等）；只有 GET /auth/groups/:id/messages 消息接口还没上线，拉取

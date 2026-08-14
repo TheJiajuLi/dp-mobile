@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 发布前的「原创声明」确认 Sheet：勾选同意后「确认并发布」才激活，勾选即
 // 记录签署时间戳展示。真正的签署落库（SharedPreferences + payload）由调用
@@ -79,7 +80,7 @@ class _DeclarationSheetState extends State<DeclarationSheet> {
               height: 60,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+                  colors: [Color(0xFF818CF8), AppColors.primary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

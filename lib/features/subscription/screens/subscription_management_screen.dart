@@ -10,7 +10,7 @@ import '../../../shared/widgets/app_toast.dart';
 import '../../auth/auth_service.dart';
 import '../purchase_service.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _danger = Color(0xFFEF4444);
 const _appStoreSubs = 'https://apps.apple.com/account/subscriptions';
 
@@ -203,7 +203,7 @@ class _SubscriptionManagementScreenState
   Widget _gradientCard(bool isProMax, String expiry) {
     final colors = isProMax
         ? const [Color(0xFFB45309), Color(0xFFD97706), Color(0xFFF59E0B)]
-        : const [Color(0xFF4F46E5), Color(0xFF6366F1), Color(0xFF818CF8)];
+        : const [Color(0xFF4F46E5), AppColors.primary, Color(0xFF818CF8)];
     final perks = isProMax
         ? ['20GB 存储', 'AI 工具使用无限制', '100MB 视频', '优先体验']
         : ['5GB 存储', '代码运行', 'AI 20次/天', '音视频'];
@@ -495,7 +495,7 @@ class _SubscriptionManagementScreenState
             '首次订阅可免费体验 7 天，随时取消。',
             style: TextStyle(
               fontSize: 12,
-              color: const Color(0xFF6366F1).withValues(alpha: 0.85),
+              color: AppColors.primary.withValues(alpha: 0.85),
             ),
           ),
         ],

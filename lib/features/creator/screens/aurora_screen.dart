@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,7 +12,7 @@ const _bg = Color(0xFF0A0812);
 const _glass = Color(0x0FFFFFFF); // rgba(255,255,255,0.06)
 const _glassBorder = Color(0x1AFFFFFF); // rgba(255,255,255,0.1)
 const _cyan = Color(0xFFA5F3FC);
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 极光计划详情页——固定深色星空背景，不跟随 ThemePreference。跟个人主页
 // 头图区是同一类"刻意保留的局部深色例外"：这个页面卖的是"稀有感"，不该
@@ -305,7 +306,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
     final items = [
       (
         Icons.workspace_premium,
-        const Color(0xFF6366F1),
+        AppColors.primary,
         '免费 Pro 会员',
         '价值 ¥39/月，5GB存储、AI功能、视频/音频块全解锁，不花一分钱',
       ),
@@ -424,7 +425,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _weightTag('浏览量', '×1', const Color(0xFF6366F1))),
+              Expanded(child: _weightTag('浏览量', '×1', AppColors.primary)),
               const SizedBox(width: 8),
               Expanded(child: _weightTag('评论', '×2', const Color(0xFFEC4899))),
             ],

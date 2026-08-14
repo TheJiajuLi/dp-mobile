@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 // 兴趣标签的毛玻璃配色表——跟 shared/utils/topic_badge.dart 是两套独立的
 // 配色系统，不是重复维护：topic_badge.dart 服务的是白色卡片背景上的浅底
@@ -42,7 +43,7 @@ const tagCategories = {
     bgColor: Color(0x446366F1),
     borderColor: Color(0x666366F1),
     textColor: Color(0xFFC7D2FE),
-    glowColor: Color(0xFF6366F1),
+    glowColor: AppColors.primary,
   ),
   '编程': TagCategory(
     bgColor: Color(0x4406B6D4),

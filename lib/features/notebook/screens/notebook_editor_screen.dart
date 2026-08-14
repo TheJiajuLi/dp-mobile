@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -26,7 +27,7 @@ import '../widgets/notebook_add_divider.dart';
 import '../widgets/notebook_bottom_toolbar.dart';
 import '../widgets/notebook_cell_card.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class NotebookEditorScreen extends ConsumerStatefulWidget {
   final String nbId;
@@ -253,13 +254,13 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: isDark
-                ? const Color(0xFF6366F1).withValues(alpha: 0.16)
+                ? AppColors.primary.withValues(alpha: 0.16)
                 : const Color(0xFFEEF0FF),
             borderRadius: BorderRadius.circular(99),
           ),
           child: Text(
             text,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF6366F1)),
+            style: const TextStyle(fontSize: 11, color: AppColors.primary),
           ),
         ),
       );
@@ -310,7 +311,7 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
                       Icon(
                         Icons.auto_awesome,
                         size: 16,
-                        color: Color(0xFF6366F1),
+                        color: AppColors.primary,
                       ),
                       SizedBox(width: 6),
                       Text(
@@ -344,7 +345,7 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFF6366F1)),
+                        borderSide: const BorderSide(color: AppColors.primary),
                       ),
                     ),
                   ),
@@ -365,7 +366,7 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
                     child: ElevatedButton(
                       onPressed: generating ? null : generate,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
+                        backgroundColor: AppColors.primary,
                         disabledBackgroundColor: const Color(
                           0xFF6366F1,
                         ).withValues(alpha: 0.55),
@@ -2522,7 +2523,7 @@ finally:
               _moreItem(
                 ctx: ctx,
                 icon: Icons.download_outlined,
-                iconColor: const Color(0xFF6366F1),
+                iconColor: AppColors.primary,
                 label: l10n.exportIpynb,
                 sub: '保存为 Jupyter Notebook 文件',
                 onTap: () {
@@ -3088,7 +3089,7 @@ finally:
     final field = isDark ? const Color(0xFF17171F) : const Color(0xFFF3F3F6);
     final ink = isDark ? const Color(0xFFE0E2F0) : const Color(0xFF1A1A1A);
     final muted = isDark ? const Color(0xFF7A80A0) : const Color(0xFF9AA0AE);
-    const accent = Color(0xFF6366F1);
+    const accent = AppColors.primary;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(

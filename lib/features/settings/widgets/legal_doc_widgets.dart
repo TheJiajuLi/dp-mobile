@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../../../shared/widgets/brand_logo.dart';
 
-const kLegalAccent = Color(0xFF6366F1);
+const kLegalAccent = AppColors.primary;
 
 // 法律文档页（用户服务协议/隐私政策）共用的排版组件——跟 PDF 版本的
 // 视觉语言对齐：品牌色小节标题+细分割线、缩进要点、左侧强调色竖线的

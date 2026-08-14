@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,7 +10,7 @@ const _bg = Color(0xFF0A0812);
 const _glass = Color(0x0FFFFFFF);
 const _glassBorder = Color(0x1AFFFFFF);
 const _cyan = Color(0xFFA5F3FC);
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _gold = Color(0xFFF59E0B);
 const _green = Color(0xFF16A34A);
 

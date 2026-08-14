@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -30,7 +31,7 @@ import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../providers/messages_provider.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 消息列表按天分组后拼出来的时间线——日期分隔条跟消息本体混在同一个
 // 列表里渲染，用 sealed class 区分这一项到底是分隔条还是消息，比

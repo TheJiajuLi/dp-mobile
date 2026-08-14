@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/community/providers/article_provider.dart';
 import '../../../features/community/widgets/article_body_view.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 目录 heading 列表——右侧 180 面板 + 中窄屏「目录」浮层复用同一份。watch
 // articleProvider(id).toc 渲染层级目录，ValueListenableBuilder 跟 scroll-spy

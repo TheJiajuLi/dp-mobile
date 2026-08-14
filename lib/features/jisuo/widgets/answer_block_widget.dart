@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../models/answer_block.dart';
 
@@ -165,7 +166,7 @@ class _TextBlockState extends State<_TextBlock> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: const Color(0xFF6366F1).withValues(alpha: 0.3), width: 0.5),
+            borderSide: BorderSide(color: AppColors.primary.withValues(alpha: 0.3), width: 0.5),
           ),
           enabledBorder: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -210,8 +211,8 @@ class _QuoteBlockState extends State<_QuoteBlock> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF6366F1).withValues(alpha: 0.08) : const Color(0xFFF9F9FF),
-        border: const Border(left: BorderSide(color: Color(0xFF6366F1), width: 3)),
+        color: isDark ? AppColors.primary.withValues(alpha: 0.08) : const Color(0xFFF9F9FF),
+        border: const Border(left: BorderSide(color: AppColors.primary, width: 3)),
         borderRadius: const BorderRadius.only(
           topRight: Radius.circular(8),
           bottomRight: Radius.circular(8),
@@ -378,7 +379,7 @@ class _CodeBlockState extends State<_CodeBlock> {
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6366F1),
+                    color: AppColors.primary,
                     letterSpacing: .04,
                   ),
                 ),

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/settings_row.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class HelpFeedbackScreen extends StatefulWidget {
   const HelpFeedbackScreen({super.key});

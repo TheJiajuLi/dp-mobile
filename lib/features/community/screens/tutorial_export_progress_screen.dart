@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../services/latex_image_renderer.dart';
 import '../services/tutorial_export_service.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 真实 PDF 生成就是 buildTutorialPdfBytes 一次同步调用，没有"解析/渲染
 // 公式/代码高亮/排版"这四个真实可观测的阶段——这四步是定时模拟的视觉

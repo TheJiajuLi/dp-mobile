@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -403,7 +404,7 @@ class _InviteItem extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF6366F1),
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -452,7 +453,7 @@ class _InviteItem extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 9),
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF6366F1)
+                            ? AppColors.primary
                             : const Color(0xFF1A1A1A),
                         borderRadius: BorderRadius.circular(8),
                       ),

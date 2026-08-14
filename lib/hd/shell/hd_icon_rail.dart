@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_service.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // HD 全局 64px 图标侧栏——顶部 5 个内容分支（首页/发现/极索/Notebook/小梦），
 // 底部 3 个（通知/设置/头像）。全部对应 StatefulShellRoute 的 branch，点击走

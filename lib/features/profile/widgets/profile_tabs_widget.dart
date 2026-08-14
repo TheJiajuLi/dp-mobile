@@ -7,7 +7,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../column/models/column_model.dart';
 import 'create_column_sheet.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _ink = Color(0xFF1A1A1A);
 const _muted = Color(0xFF999999);
 const _heroBg = Color(0xFFFAFAF8); // 首页同款米白，浅色统一

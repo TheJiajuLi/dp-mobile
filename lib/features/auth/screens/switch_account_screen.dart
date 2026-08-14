@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -12,7 +13,7 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../messages/providers/messages_provider.dart';
 import '../../settings/widgets/settings_row.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class SwitchAccountScreen extends ConsumerStatefulWidget {
   const SwitchAccountScreen({super.key});

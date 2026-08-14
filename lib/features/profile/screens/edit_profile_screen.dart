@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
@@ -28,7 +29,7 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
-  static const _primary = Color(0xFF6366F1);
+  static const _primary = AppColors.primary;
   static const _chevronColor = Color(0xFFC7C7CC);
 
   final _usernameCtrl = TextEditingController();

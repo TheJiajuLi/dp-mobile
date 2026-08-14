@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../models/notebook_language.dart';
 
@@ -66,14 +67,14 @@ class _LangPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6366F1).withValues(alpha: 0.12)
+              ? AppColors.primary.withValues(alpha: 0.12)
               : isDark
               ? Colors.white.withValues(alpha: 0.04)
               : const Color(0xFFF5F5F5),
           borderRadius: BorderRadius.circular(99),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6366F1).withValues(alpha: 0.6)
+                ? AppColors.primary.withValues(alpha: 0.6)
                 : isDark
                 ? Colors.white.withValues(alpha: 0.08)
                 : const Color(0xFFE5E5E5),

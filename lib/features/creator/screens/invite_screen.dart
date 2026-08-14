@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart' show Share;
@@ -7,7 +8,7 @@ import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../messages/utils/message_avatar.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class InviteRecord {
   final String username;

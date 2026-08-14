@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +12,7 @@ import '../../../core/widgets/founding_badge.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../auth_service.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _ink = Color(0xFF1A1A1A);
 const _bg = Color(0xFFFAFAF8);
 

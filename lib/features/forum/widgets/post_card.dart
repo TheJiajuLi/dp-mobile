@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../models/forum_post_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 论坛统一的相对时间格式。后端 created_at 是秒级时间戳
 String forumTimeAgo(int ts) {

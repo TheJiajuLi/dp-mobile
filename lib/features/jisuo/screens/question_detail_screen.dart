@@ -635,7 +635,7 @@ class _WriteAnswerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primary = Color(0xFF6366F1);
+    const primary = AppColors.primary;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -687,7 +687,7 @@ class _WriteAnswerSheet extends ConsumerStatefulWidget {
 }
 
 class _WriteAnswerSheetState extends ConsumerState<_WriteAnswerSheet> {
-  static const _primary = Color(0xFF6366F1);
+  static const _primary = AppColors.primary;
   static const _maxLen = 2000;
   final _ctrl = TextEditingController();
   final _focus = FocusNode();

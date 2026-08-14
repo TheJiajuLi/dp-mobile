@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/app_toast.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _green = Color(0xFF16A34A);
 const _red = Color(0xFFDC2626);
 

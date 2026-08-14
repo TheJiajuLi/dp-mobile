@@ -514,14 +514,14 @@ class _AuroraGlowLayer extends StatelessWidget {
           child: _blob(
             isDark
                 ? const Color(0xFF4A48B4).withValues(alpha: 0.35)
-                : const Color(0xFF6366F1).withValues(alpha: 0.08),
+                : AppColors.primary.withValues(alpha: 0.08),
           ),
         ),
         if (isDark)
           Positioned(
             top: -60,
             right: -120,
-            child: _blob(const Color(0xFF6366F1).withValues(alpha: 0.20)),
+            child: _blob(AppColors.primary.withValues(alpha: 0.20)),
           ),
       ],
     );

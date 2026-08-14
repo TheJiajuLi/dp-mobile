@@ -14,7 +14,7 @@ import '../../../shared/widgets/app_toast.dart';
 import '../../auth/auth_service.dart';
 import '../models/column_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 String _initial(String? name) {
   if (name == null || name.isEmpty) return '?';

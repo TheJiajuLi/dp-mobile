@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -124,7 +125,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final sloganColor = isDark
         ? const Color(0x73FFFFFF)
         : const Color(0xFF888888);
-    final dotColor = isDark ? const Color(0x33FFFFFF) : const Color(0xFF6366F1);
+    final dotColor = isDark ? const Color(0x33FFFFFF) : AppColors.primary;
     final versionColor = isDark
         ? const Color(0x33FFFFFF)
         : const Color(0xFFCCCCCC);
@@ -240,7 +241,7 @@ class _SplashGlowLayer extends StatelessWidget {
         Positioned(
           top: -60,
           right: -80,
-          child: _blob(const Color(0xFF6366F1), isDark ? 0.18 : 0.05),
+          child: _blob(AppColors.primary, isDark ? 0.18 : 0.05),
         ),
         if (isDark)
           Positioned(

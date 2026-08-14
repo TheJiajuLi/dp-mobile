@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 import '../../../shared/utils/premium_button.dart';
@@ -6,7 +7,7 @@ import '../../../shared/utils/topic_badge.dart';
 import '../../../shared/widgets/tutorial_block_renderer.dart'
     show inlineLatexText;
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _ink = Color(0xFF1A1A1A);
 
 const _seriesTagOptions = ['连载', '独立', '翻译', '深度', '快讯'];

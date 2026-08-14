@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -503,7 +504,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
           // 「问问小梦」按钮一套）
           decoration: BoxDecoration(
             color: selected
-                ? const Color(0xFF6366F1)
+                ? AppColors.primary
                 : (Theme.of(context).brightness == Brightness.dark
                       ? Colors.white.withValues(alpha: 0.08)
                       : Colors.grey[100]),

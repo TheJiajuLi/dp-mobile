@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +10,7 @@ import '../../../shared/widgets/tutorial_block_renderer.dart';
 import '../../auth/auth_service.dart';
 import '../models/block_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _bg = Color(0xFFFAFAF8);
 
 class PreviewDrawer extends ConsumerWidget {

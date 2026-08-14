@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +10,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/profile_refresh_signal.dart';
 import '../../auth/auth_service.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 新建专栏底部弹窗（重设计版）：纯色封面快选 + 名称(必填,30字实时计数) +
 // 简介 + 领域单选胶囊 + 灰→黑激活的创建按钮。
@@ -43,7 +44,7 @@ class _CreateColumnSheetState extends ConsumerState<CreateColumnSheet> {
   bool _loading = false;
 
   static const _coverColors = [
-    Color(0xFF6366F1),
+    AppColors.primary,
     Color(0xFFF59E0B),
     Color(0xFF16A34A),
     Color(0xFFC026D3),
@@ -53,7 +54,7 @@ class _CreateColumnSheetState extends ConsumerState<CreateColumnSheet> {
   ];
 
   static const _domainColors = {
-    '数据': Color(0xFF6366F1),
+    '数据': AppColors.primary,
     '编程': Color(0xFF2563EB),
     '科学': Color(0xFFD97706),
     '经济': Color(0xFFDC2626),

@@ -13,13 +13,13 @@ import '../../auth/auth_service.dart';
 import '../../column/models/column_model.dart';
 import '../widgets/creator_sheets.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 专栏封面预设调色板——每个专栏用 coverIndex 选一组稳定配色（后端没存
 // coverIndex 时按列表位置轮换）。记录: (浅色封面条底色, 强调/图标底色,
 // 深色文字色, 图标)
 const _covers = <(Color, Color, Color, IconData)>[
-  (Color(0xFFEEF0FF), Color(0xFF6366F1), Color(0xFF4F46E5), Icons.functions),
+  (Color(0xFFEEF0FF), AppColors.primary, Color(0xFF4F46E5), Icons.functions),
   (Color(0xFFF0FFF5), Color(0xFF16A34A), Color(0xFF15803D), Icons.code),
   (Color(0xFFFEF3C7), Color(0xFFD97706), Color(0xFFB45309), Icons.show_chart),
   (Color(0xFFF0F9FF), Color(0xFF0284C7), Color(0xFF0369A1), Icons.nights_stay),

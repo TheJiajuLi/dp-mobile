@@ -8,7 +8,7 @@ import '../../core/widgets/founding_badge.dart';
 import '../models/tutorial_model.dart';
 import 'tutorial_block_renderer.dart' show inlineLatexText;
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 主页「文章流」列表项——头图/来源行 + 标题 + 作者 + 摘要+小缩略图 +
 // 一排操作按钮，条目之间用整行分割线隔开（不是浮起来的圆角卡片）。

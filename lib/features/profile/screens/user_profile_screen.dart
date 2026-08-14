@@ -33,7 +33,7 @@ import '../widgets/profile_painters.dart';
 import '../widgets/profile_tabs_widget.dart';
 import '../../../shared/widgets/article_flow_item.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 // 网易云风格视觉语言（2026-07-05 重设计）：米白底 + 近黑正文 + 紫蓝只做
 // 点缀，卡片用 0.5px 细线不用阴影。深色模式下这几个不跟着主题走的固定色
 // 只在浅色场景使用，深色场景仍然读 Theme.of(context) 已有的那一套

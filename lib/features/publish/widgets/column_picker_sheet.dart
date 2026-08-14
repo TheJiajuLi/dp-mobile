@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,7 +8,7 @@ import '../../../core/profile_refresh_signal.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../column/models/column_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class ColumnPickerResult {
   final String? columnId;
@@ -31,7 +32,7 @@ class ColumnPickerSheet extends ConsumerStatefulWidget {
 
 class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
   static const _coverColors = [
-    Color(0xFF6366F1),
+    AppColors.primary,
     Color(0xFFD97706),
     Color(0xFF16A34A),
     Color(0xFFDC2626),

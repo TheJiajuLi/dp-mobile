@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -6,7 +7,7 @@ import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart' show Share;
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 class TutorialPosterScreen extends StatefulWidget {
   final Map<String, dynamic> tutorial;

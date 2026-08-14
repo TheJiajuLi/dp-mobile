@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,7 +13,7 @@ import '../../publish/widgets/block_picker_sheet.dart' show blockTypeIcon;
 import '../../publish/widgets/formatting_toolbar.dart'
     show showBlockPickerSheet;
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 论坛发帖——复用发布页那套 Block 编辑器（EditorBlock + BlockCard）：文字/
 // 标题/引用/公式(源码+预览)/代码(可运行 Pyodide)/图片(上传 COS) 都现成，

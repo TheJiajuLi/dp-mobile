@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,7 +12,7 @@ import '../../../features/settings/screens/settings_screen.dart';
 import '../../../shared/models/tutorial_model.dart';
 import '../../../shared/models/user_model.dart';
 
-const _accent = Color(0xFF6366F1);
+const _accent = AppColors.primary;
 
 enum _Section { articles, notebook, collections, stats, settings }
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../core/theme/app_colors.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +25,7 @@ import '../utils/pro_access.dart';
 import 'ai_content_renderer.dart';
 import 'app_toast.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 教程详情页（阅读视角）和发布页的实时预览抽屉共用同一套渲染逻辑——
 // 之前只有 tutorial_detail_screen.dart 自己一份私有实现，只认
@@ -875,7 +876,7 @@ td,th{border:1px solid #334155;padding:4px 8px;}
     'r' => const Color(0xFFD97706),
     'javascript' || 'js' => const Color(0xFFD97706),
     'julia' => const Color(0xFF9333EA),
-    _ => const Color(0xFF6366F1),
+    _ => AppColors.primary,
   };
 
   // 「在 Notebook 运行」——把这段代码按检测到的语言建成一个新 Notebook 打开。

@@ -18,7 +18,7 @@ import '../../column/models/column_model.dart';
 import '../../community/services/tutorial_export_service.dart';
 import '../widgets/creator_sheets.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _danger = Color(0xFFEF4444);
 
 // 作品分区：全部 / 已发布 / 草稿 / 私密。私密 = status='private'（后端

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
 
@@ -68,7 +69,7 @@ class InviteSummaryCard extends StatelessWidget {
                         child: const Icon(
                           Icons.question_answer_outlined,
                           size: 20,
-                          color: Color(0xFF6366F1),
+                          color: AppColors.primary,
                         ),
                       ),
                       if (count > 0)
@@ -156,10 +157,10 @@ class InviteSummaryCard extends StatelessWidget {
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+                        color: AppColors.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(99),
                         border: Border.all(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                          color: AppColors.primary.withValues(alpha: 0.2),
                           width: 0.5,
                         ),
                       ),
@@ -167,7 +168,7 @@ class InviteSummaryCard extends StatelessWidget {
                         q.length > 14 ? '${q.substring(0, 14)}...' : q,
                         style: const TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF6366F1),
+                          color: AppColors.primary,
                         ),
                       ),
                     );

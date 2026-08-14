@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:dio/dio.dart'
     show DioException, Options, ResponseBody, ResponseType;
@@ -9,7 +10,7 @@ import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/ai_content_renderer.dart';
 import '../models/ai_message_model.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 小梦对话页——真实接口：
 // 新对话 POST /auth/xmeng/conversations {message}

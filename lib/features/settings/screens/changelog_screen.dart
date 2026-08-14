@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +28,7 @@ class _Change {
   const _Change(this.text, this.type);
 
   Color get color => switch (type) {
-    ChangeType.feature => const Color(0xFF6366F1),
+    ChangeType.feature => AppColors.primary,
     ChangeType.improve => const Color(0xFF2563EB),
     ChangeType.fix => const Color(0xFFD97706),
     ChangeType.breaking => const Color(0xFFEF4444),
@@ -42,7 +43,7 @@ String _typeLabel(ChangeType t) => switch (t) {
 };
 
 Color _typeColor(ChangeType t) => switch (t) {
-  ChangeType.feature => const Color(0xFF6366F1),
+  ChangeType.feature => AppColors.primary,
   ChangeType.improve => const Color(0xFF2563EB),
   ChangeType.fix => const Color(0xFFD97706),
   ChangeType.breaking => const Color(0xFFEF4444),

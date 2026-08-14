@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 
 import '../models/notebook_model.dart';
@@ -458,7 +459,7 @@ class NotebookCellCard extends StatelessWidget {
   //   折叠         → onAiToggle 展开（点完变紫）
   // 颜色只跟折叠态走：折叠=灰、否则=紫
   Widget _aiButton() {
-    const accent = Color(0xFF6366F1);
+    const accent = AppColors.primary;
     const grey = Color(0xFF9AA0AE);
     final hasOutput = output != null && output!.isNotEmpty;
     final color = aiCollapsed ? grey : accent;
@@ -485,7 +486,7 @@ class NotebookCellCard extends StatelessWidget {
 
   // 输出区右上角的小 ✨——展开态下点它继续用 AI（打开菜单）
   Widget _outputRegenBtn() {
-    const accent = Color(0xFF6366F1);
+    const accent = AppColors.primary;
     return GestureDetector(
       onTap: onAiAssist,
       behavior: HitTestBehavior.opaque,
@@ -575,7 +576,7 @@ class NotebookCellCard extends StatelessWidget {
   // 运行按钮——跟顶栏「全部运行」同款淡紫底紫字胶囊：播放图标 + "运行"，
   // 运行中换成小转圈
   Widget _runButton() {
-    const accent = Color(0xFF6366F1);
+    const accent = AppColors.primary;
     return GestureDetector(
       onTap: isRunning ? null : onRun,
       child: Container(
@@ -652,7 +653,7 @@ void showLanguagePickerSheet(
   required void Function(String type) onSelect,
 }) {
   const langs = [
-    ('python', 'Python', '数据分析 · 科学计算', Color(0xFF6366F1)),
+    ('python', 'Python', '数据分析 · 科学计算', AppColors.primary),
     ('javascript', 'JavaScript', '前端逻辑 · 快速脚本', Color(0xFFD97706)),
     ('sql', 'SQL', '跨表查询已定义的 DataFrame', Color(0xFF0EA5E9)),
     ('r', 'R', '统计建模 · 可视化', Color(0xFF2563EB)),
@@ -755,7 +756,7 @@ void showLanguagePickerSheet(
                         const Icon(
                           Icons.check,
                           size: 18,
-                          color: Color(0xFF6366F1),
+                          color: AppColors.primary,
                         ),
                     ],
                   ),

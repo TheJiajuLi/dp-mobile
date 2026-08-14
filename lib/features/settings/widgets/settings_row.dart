@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 // 设置页开关统一走极梦品牌紫：开启态紫轨道 + 白拨钮，跟创作者设置页
 // 那套一致，整体视感更精神（原来的黑白 mono 配色偏冷、偏功能性）。
@@ -8,7 +9,7 @@ import 'package:flutter/material.dart';
 brandSwitchColors() {
   return (
     thumb: Colors.white,
-    track: const Color(0xFF6366F1),
+    track: AppColors.primary,
     outline: const WidgetStatePropertyAll(Colors.transparent),
   );
 }

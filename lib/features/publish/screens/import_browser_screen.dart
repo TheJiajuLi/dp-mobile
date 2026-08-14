@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -146,7 +147,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                       decoration: BoxDecoration(
                         color: (_importing || !_hasNavigated)
                             ? Colors.grey[400]
-                            : const Color(0xFF6366F1),
+                            : AppColors.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -375,7 +376,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                     const SizedBox(width: 8),
                     TextButton(
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF6366F1),
+                        foregroundColor: AppColors.primary,
                       ),
                       onPressed: () {
                         Navigator.pop(sheetCtx);

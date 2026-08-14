@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../core/theme/app_colors.dart';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
@@ -30,7 +31,7 @@ import '../../../shared/widgets/tutorial_block_renderer.dart'
 import '../models/block_model.dart';
 import 'block_picker_sheet.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 String _formatSize(int bytes) {
   if (bytes < 1024) return '${bytes}B';
@@ -1141,7 +1142,7 @@ class _BlockCardState extends ConsumerState<BlockCard> {
                             height: 34,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
+                                colors: [Color(0xFF818CF8), AppColors.primary],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -2132,7 +2133,7 @@ th{background:$thBg;color:$thFg}
                   code: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
-                    color: Color(0xFF6366F1),
+                    color: AppColors.primary,
                     backgroundColor: Color(0xFFEEF0FF),
                   ),
                 ),

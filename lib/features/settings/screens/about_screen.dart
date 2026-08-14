@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -67,7 +68,7 @@ class AboutScreen extends StatelessWidget {
                     kLatestVersion,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF6366F1),
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -93,7 +94,7 @@ class AboutScreen extends StatelessWidget {
               trailing: const Text(
                 'Dreaming Polar',
                 style: TextStyle(
-                  color: Color(0xFF6366F1),
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -102,7 +103,7 @@ class AboutScreen extends StatelessWidget {
               title: Text(l10n.officialWebsite),
               trailing: const Text(
                 'dreamingpolar.com',
-                style: TextStyle(color: Color(0xFF6366F1)),
+                style: TextStyle(color: AppColors.primary),
               ),
               onTap: () => _open('https://dreamingpolar.com'),
             ),

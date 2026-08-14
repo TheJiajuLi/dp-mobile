@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -93,7 +94,7 @@ Widget buildNotebookCellOutput(
   // 小梦 AI 结果——紫色左线+浅紫底+「✨ 小梦」头，跟真实代码运行的绿色
   // 「✓ 输出」区分开，不让人误以为是运行结果
   if (type == 'ai') {
-    const accent = Color(0xFF6366F1);
+    const accent = AppColors.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
@@ -406,7 +407,7 @@ class AiContentRenderer extends StatelessWidget {
     ),
     blockquoteDecoration: BoxDecoration(
       border: const Border(
-        left: BorderSide(color: Color(0xFF6366F1), width: 3),
+        left: BorderSide(color: AppColors.primary, width: 3),
       ),
       color: isDark ? const Color(0xFF1A1A35) : const Color(0xFFEEF0FF),
     ),

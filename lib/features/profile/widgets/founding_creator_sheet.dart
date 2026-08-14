@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/auth_service.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _star = Color(0xFFF59E0B);
 
 // 元老创作者卡片——极稀有身份，只有注册时用邀请码拿到元老标识的用户，在

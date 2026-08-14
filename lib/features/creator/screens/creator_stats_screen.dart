@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,7 +15,7 @@ import '../../../shared/widgets/app_toast.dart';
 //   · codeRuns / codeSuccessRate → 显示「暂无统计」
 // 真实：likes/saves/comments、likesChange/savesChange 环比、trend[].likes 逐日
 // 点赞、topArticles Top5、codeArticles 含代码文章数。
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 const _green = Color(0xFF16A34A);
 
 class CreatorStatsScreen extends ConsumerStatefulWidget {

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 // 元老创作者标识——方案C（极简徽章）+ 极光头像边框的组合：平时用小标签，
 // 个人主页展示大徽章，头像用彩色极光边框区分
 const _foundingBg = Color(0xFF1A0E2E);
-const _foundingBorder = Color(0xFF6366F1);
+const _foundingBorder = AppColors.primary;
 const _foundingStar = Color(0xFFF59E0B);
 const _foundingText = Color(0xFFA5B4FC);
 

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 
-const _primary = Color(0xFF6366F1);
+const _primary = AppColors.primary;
 
 // 小梦对话——欢迎页。真实接口是 POST /auth/xmeng/conversations（新对话）
 // 和 POST /auth/xmeng/conversations/:id/messages（继续对话），不是
