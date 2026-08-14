@@ -107,7 +107,20 @@ class AuthService {
       if (!res.success || res.data == null) return false;
       final token = res.data['accessToken'] as String?;
       if (token == null) return false;
-      return completeOAuthLogin(token);
+      final ok = await completeOAuthLogin(token);
+      // 登录成功后把 refreshToken 存进 SecureStorage（按 userId 隔离），
+      // 供 accessToken 过期时走 /auth/refresh-token 刷新
+      if (ok) {
+        final refreshToken = res.data['refreshToken'] as String?;
+        final uid = _ref.read(currentUserProvider)?.id;
+        if (refreshToken != null && uid != null) {
+          await _storage.write(
+            key: AppConstants.keyRefreshToken(uid),
+            value: refreshToken,
+          );
+        }
+      }
+      return ok;
     } catch (e) {
       return false;
     }

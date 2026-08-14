@@ -146,11 +146,12 @@ class ApiClient {
   }
 
   Future<bool> _doRefresh() async {
-    try {
-      final userId =
-          await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
-      if (userId.isEmpty) return false;
+    final userId =
+        await _storage.read(key: AppConstants.keyCurrentUserId) ?? '';
+    if (userId.isEmpty) return false;
 
+    // 1) cookie 版（密码登录：dp_refresh HttpOnly cookie）
+    try {
       final res = await dio.post(
         '/auth/refresh',
         options: Options(extra: {'skipAuthRefresh': true}),
@@ -164,10 +165,32 @@ class ApiClient {
         );
         return true;
       }
-      return false;
-    } catch (_) {
-      return false;
-    }
+    } catch (_) {}
+
+    // 2) body 版（Apple/OAuth：refresh cookie 进不到 CookieJar，refreshToken
+    // 存在 SecureStorage，显式传给 /auth/refresh-token 换新 accessToken）
+    try {
+      final rt = await _storage.read(
+        key: AppConstants.keyRefreshToken(userId),
+      );
+      if (rt == null || rt.isEmpty) return false;
+      final res = await dio.post(
+        '/auth/refresh-token',
+        data: {'refreshToken': rt},
+        options: Options(extra: {'skipAuthRefresh': true}),
+      );
+      final data = res.data;
+      final newToken = data is Map ? data['accessToken'] as String? : null;
+      if (res.statusCode == 200 && newToken != null) {
+        await _storage.write(
+          key: AppConstants.keyToken(userId),
+          value: newToken,
+        );
+        return true;
+      }
+    } catch (_) {}
+
+    return false;
   }
 
   // 跟 _refreshToken() 同一个道理，只是这次要防的是另一层：打开一个页面
