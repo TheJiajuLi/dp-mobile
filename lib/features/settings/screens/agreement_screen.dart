@@ -6,7 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/app_toast.dart';
 
 const _primary = AppColors.primary;
-const _green = Color(0xFF16A34A);
+const _green = AppColors.success;
 const _red = Color(0xFFDC2626);
 
 // 用户协议——极梦原创声明协议的签署 / 状态展示 / 撤回。真实端点：

@@ -496,7 +496,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             height: 22,
             decoration: BoxDecoration(
               color: isDone
-                  ? const Color(0xFF16A34A)
+                  ? AppColors.success
                   : isNow
                   ? _primary
                   : isDark
@@ -531,7 +531,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               fontSize: 10,
               fontWeight: (isDone || isNow) ? FontWeight.w500 : FontWeight.w400,
               color: isDone
-                  ? const Color(0xFF16A34A)
+                  ? AppColors.success
                   : isNow
                   ? _primary
                   : isDark
@@ -547,7 +547,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       child: Container(
         height: 1,
         margin: const EdgeInsets.symmetric(horizontal: 6),
-        color: done ? const Color(0xFF16A34A) : divColor,
+        color: done ? AppColors.success : divColor,
       ),
     );
 
@@ -995,7 +995,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         child: const Icon(
                           Icons.check,
                           size: 34,
-                          color: Color(0xFF16A34A),
+                          color: AppColors.success,
                         ),
                       ),
                       const SizedBox(height: 16),

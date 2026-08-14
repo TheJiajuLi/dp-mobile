@@ -168,7 +168,7 @@ class _SubscriptionManagementScreenState
         _infoRow('订阅价格', isProMax ? priceMax : priceMonthly),
         _infoRow('下次续费', expiry, valueColor: _primary),
         _infoRow('订阅平台', 'Apple App Store', valueMuted: true),
-        _infoRow('自动续订', '已开启', valueColor: const Color(0xFF16A34A)),
+        _infoRow('自动续订', '已开启', valueColor: AppColors.success),
       ]),
       const SizedBox(height: 20),
       _sectionLabel('切换套餐'),
@@ -624,7 +624,7 @@ class _SubscriptionManagementScreenState
                         const Icon(
                           Icons.check,
                           size: 13,
-                          color: Color(0xFF16A34A),
+                          color: AppColors.success,
                         ),
                         const SizedBox(width: 4),
                         Expanded(

@@ -27,7 +27,7 @@ Color jisuoDomainColor(String d) => switch (d) {
   '编程开发' => AppColors.primary,
   '数学' => const Color(0xFFD97706),
   '天体物理' => const Color(0xFF8B5CF6),
-  '经济' => const Color(0xFF16A34A),
+  '经济' => AppColors.success,
   '生命科学' => const Color(0xFFDC2626),
   _ => const Color(0xFF6B7280),
 };

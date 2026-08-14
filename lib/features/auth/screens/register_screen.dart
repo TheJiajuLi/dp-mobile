@@ -378,7 +378,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 color: !showValidation
                     ? Colors.grey[600]
                     : _emailValid
-                    ? const Color(0xFF16A34A)
+                    ? AppColors.success
                     : const Color(0xFFDC2626),
               ),
             ),
@@ -660,7 +660,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               style: TextStyle(
                 fontSize: 12,
                 color: _codeVerified
-                    ? const Color(0xFF16A34A)
+                    ? AppColors.success
                     : _codeError != null
                     ? const Color(0xFFDC2626)
                     : Colors.grey[600],
@@ -1041,7 +1041,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   alignment: Alignment.center,
                   child: const Icon(
                     Icons.check_circle,
-                    color: Color(0xFF16A34A),
+                    color: AppColors.success,
                     size: 44,
                   ),
                 ),

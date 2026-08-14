@@ -97,7 +97,7 @@ class _ImportBrowserScreenState extends ConsumerState<ImportBrowserScreen> {
                                   size: 12,
                                   color: _currentUrl.isEmpty
                                       ? Colors.grey[400]
-                                      : const Color(0xFF16A34A),
+                                      : AppColors.success,
                                 ),
                                 const SizedBox(width: 5),
                                 Expanded(

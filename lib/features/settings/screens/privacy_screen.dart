@@ -105,7 +105,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
             ),
             SettingsSwitchRow(
               icon: Icons.bookmark_outline,
-              iconColor: const Color(0xFF16A34A),
+              iconColor: AppColors.success,
               iconBg: const Color(0xFFE8F8F0),
               title: l10n.publicFavorites,
               subtitle: l10n.publicFavoritesSubtitle,

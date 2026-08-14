@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
 // 全站统一的轻量结果提示——浮动居中的圆角胶囊：卡片底 + 成功绿/失败红
 // 图标 + 柔和阴影，替代默认那条铺满全宽的纯色 SnackBar，跟全站卡片语言
@@ -42,7 +43,7 @@ void showAppToast(BuildContext context, String message, {bool ok = false}) {
               Icon(
                 ok ? Icons.check_circle_rounded : Icons.error_outline_rounded,
                 size: 18,
-                color: ok ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
+                color: ok ? AppColors.success : const Color(0xFFEF4444),
               ),
               const SizedBox(width: 10),
               Flexible(

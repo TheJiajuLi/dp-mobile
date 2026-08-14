@@ -348,7 +348,7 @@ class _CreatorGuideScreenState extends ConsumerState<CreatorGuideScreen> {
                     ? const Icon(
                         Icons.check,
                         size: 14,
-                        color: Color(0xFF16A34A),
+                        color: AppColors.success,
                       )
                     : Text(
                         '${index + 1}',
@@ -372,7 +372,7 @@ class _CreatorGuideScreenState extends ConsumerState<CreatorGuideScreen> {
               ),
             ),
             if (step.done)
-              const Icon(Icons.check, size: 18, color: Color(0xFF16A34A))
+              const Icon(Icons.check, size: 18, color: AppColors.success)
             else
               Icon(Icons.chevron_right, size: 20, color: muted),
           ],
@@ -488,9 +488,9 @@ class _CreatorGuideScreenState extends ConsumerState<CreatorGuideScreen> {
   Widget _tagChip(String tag) {
     // 按分类给标签一点色彩区分，跟卡片图标呼应
     final map = {
-      '入门': const [Color(0xFFE8F7EE), Color(0xFF16A34A)],
+      '入门': const [Color(0xFFE8F7EE), AppColors.success],
       'LaTeX': const [Color(0xFFEDEBFF), Color(0xFF6D5DF6)],
-      '代码': const [Color(0xFFE9F7EF), Color(0xFF16A34A)],
+      '代码': const [Color(0xFFE9F7EF), AppColors.success],
       'Notebook': const [Color(0xFFFDF0DC), Color(0xFFD97706)],
       '增长': const [Color(0xFFEDEBFF), Color(0xFF6D5DF6)],
     };
@@ -759,7 +759,7 @@ const _guides = <_Guide>[
     cat: '入门',
     icon: Icons.edit_note_outlined,
     iconBg: Color(0xFFE8F7EE),
-    iconColor: Color(0xFF16A34A),
+    iconColor: AppColors.success,
     title: '发布你的第一篇文章',
     desc: '从新建、写作到发布的完整流程',
     tags: ['入门'],
@@ -806,7 +806,7 @@ const _guides = <_Guide>[
     cat: '代码',
     icon: Icons.code,
     iconBg: Color(0xFFE9F7EF),
-    iconColor: Color(0xFF16A34A),
+    iconColor: AppColors.success,
     title: '添加可运行的 Python 代码块',
     desc: '让读者直接运行你的代码，验证分析结论',
     tags: ['代码'],

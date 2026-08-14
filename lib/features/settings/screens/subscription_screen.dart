@@ -28,7 +28,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   // Pro Max 的品牌辅色——跟 Pro 的靛紫区分开，参考图里 Pro Max 全程用
   // 一个偏洋红的紫色（按钮/图标/边框），不是简单复用 _primary
   static const _proMaxAccent = Color(0xFF9B5DE5);
-  static const _green = Color(0xFF16A34A);
+  static const _green = AppColors.success;
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   Color get _ink =>

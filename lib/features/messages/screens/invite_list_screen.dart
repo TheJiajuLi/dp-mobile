@@ -429,7 +429,7 @@ class _InviteItem extends StatelessWidget {
                 color: const Color(0xFFF0FFF4),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+                  color: AppColors.success.withValues(alpha: 0.2),
                   width: 0.5,
                 ),
               ),
@@ -438,7 +438,7 @@ class _InviteItem extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF16A34A),
+                  color: AppColors.success,
                   fontWeight: FontWeight.w500,
                 ),
               ),

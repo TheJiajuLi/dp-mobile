@@ -873,7 +873,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (username.isNotEmpty) unawaited(_ensureFollowState(username));
     final following = _isFollowing[username] ?? false;
     final toggling = _togglingFollow.contains(username);
-    const green = Color(0xFF16A34A);
+    const green = AppColors.success;
     final fg = following ? green : _primary;
     final bg = following
         ? (isDark ? green.withValues(alpha: 0.18) : const Color(0xFFE8F8F0))

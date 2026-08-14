@@ -12,7 +12,7 @@ const _textColors = [
   null, // 默认——跟随主题正文色，不是字面意义上的"黑"
   AppColors.primary,
   Color(0xFF2563EB),
-  Color(0xFF16A34A),
+  AppColors.success,
   Color(0xFFEF4444),
   Color(0xFFD97706),
   Color(0xFF888888),

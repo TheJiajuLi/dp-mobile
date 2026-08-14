@@ -88,7 +88,7 @@ class PreviewDrawer extends ConsumerWidget {
                     width: 8,
                     height: 8,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF16A34A),
+                      color: AppColors.success,
                       shape: BoxShape.circle,
                     ),
                   ),

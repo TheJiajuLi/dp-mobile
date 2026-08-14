@@ -24,7 +24,7 @@ class BlockPickerSheet extends StatelessWidget {
     final options = [
       (BlockType.text, '正文', Icons.notes, const Color(0xFF555555), const Color(0xFFF5F5F5)),
       (BlockType.heading2, '标题', Icons.title, AppColors.primary, const Color(0xFFEEF2FF)),
-      (BlockType.heading3, '小标题', Icons.text_fields, const Color(0xFF16A34A), const Color(0xFFF0FFF4)),
+      (BlockType.heading3, '小标题', Icons.text_fields, AppColors.success, const Color(0xFFF0FFF4)),
       (BlockType.quote, '引用', Icons.format_quote, AppColors.primary, const Color(0xFFEEF0FF)),
       (BlockType.formula, '公式', Icons.functions, const Color(0xFF8B5CF6), const Color(0xFFFAF0FF)),
       (BlockType.code, '代码', Icons.code, const Color(0xFF1D4ED8), const Color(0xFFEFF6FF)),

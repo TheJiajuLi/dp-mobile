@@ -201,7 +201,7 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
           _rewardCard(
             isDark,
             icon: Icons.auto_awesome_outlined,
-            iconColor: const Color(0xFF16A34A),
+            iconColor: AppColors.success,
             iconBg: const Color(0xFFEAFBF1),
             label: '好友获得',
             value: '+7天 Pro',
@@ -457,7 +457,7 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
             decoration: BoxDecoration(
               color: invite.hasPublished
                   ? (isDark
-                        ? const Color(0xFF16A34A).withValues(alpha: 0.16)
+                        ? AppColors.success.withValues(alpha: 0.16)
                         : const Color(0xFFEAFBF1))
                   : (isDark
                         ? const Color(0xFF111118)
@@ -473,7 +473,7 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: invite.hasPublished
-                    ? const Color(0xFF16A34A)
+                    ? AppColors.success
                     : const Color(0xFF999999),
               ),
             ),

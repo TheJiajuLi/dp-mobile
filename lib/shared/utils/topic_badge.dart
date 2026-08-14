@@ -29,7 +29,7 @@ const topicBadgeRules = [
     label: '生命科学',
     keywords: ['生命', '生物'],
     bg: Color(0xFFE8F8F0),
-    fg: Color(0xFF16A34A),
+    fg: AppColors.success,
   ),
   TopicBadgeRule(
     label: '经济',

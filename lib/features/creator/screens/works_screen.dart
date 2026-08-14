@@ -575,7 +575,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
 
   Widget _statusChip(String status) {
     final (label, color) = switch (status) {
-      'published' => ('已发布', const Color(0xFF16A34A)),
+      'published' => ('已发布', AppColors.success),
       'draft' => ('草稿', const Color(0xFF888888)),
       'private' => ('私密', const Color(0xFFD97706)),
       _ => ('', const Color(0xFF999999)),
@@ -941,7 +941,7 @@ class _WorksScreenState extends ConsumerState<WorksScreen>
         creatorSheetDivider(context),
         CreatorSheetItem(
           icon: Icons.download_outlined,
-          accent: const Color(0xFF16A34A),
+          accent: AppColors.success,
           label: '导出全部文章',
           sub: 'PDF 格式',
           onTap: () {

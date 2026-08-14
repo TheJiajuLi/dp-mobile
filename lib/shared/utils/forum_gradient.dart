@@ -6,7 +6,7 @@ import '../../core/theme/app_colors.dart';
 // 一份，不要各自复制一份数组，否则容易改一处漏改另外两处
 const List<List<Color>> forumGradients = [
   [AppColors.primary, Color(0xFF8B5CF6)],
-  [Color(0xFF16A34A), Color(0xFF0891B2)],
+  [AppColors.success, Color(0xFF0891B2)],
   [Color(0xFFD97706), Color(0xFFEF4444)],
   [Color(0xFFEC4899), Color(0xFF8B5CF6)],
   [Color(0xFF0891B2), AppColors.primary],

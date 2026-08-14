@@ -46,7 +46,7 @@ class _CreateColumnSheetState extends ConsumerState<CreateColumnSheet> {
   static const _coverColors = [
     AppColors.primary,
     Color(0xFFF59E0B),
-    Color(0xFF16A34A),
+    AppColors.success,
     Color(0xFFC026D3),
     Color(0xFF2563EB),
     Color(0xFFDC2626),
@@ -59,7 +59,7 @@ class _CreateColumnSheetState extends ConsumerState<CreateColumnSheet> {
     '科学': Color(0xFFD97706),
     '经济': Color(0xFFDC2626),
     '宇宙': Color(0xFF8B5CF6),
-    '生命科学': Color(0xFF16A34A),
+    '生命科学': AppColors.success,
     '时事': Color(0xFF555555),
     '生活': Color(0xFFEC4899),
   };

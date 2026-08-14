@@ -20,7 +20,7 @@ const _primary = AppColors.primary;
 // 深色文字色, 图标)
 const _covers = <(Color, Color, Color, IconData)>[
   (Color(0xFFEEF0FF), AppColors.primary, Color(0xFF4F46E5), Icons.functions),
-  (Color(0xFFF0FFF5), Color(0xFF16A34A), Color(0xFF15803D), Icons.code),
+  (Color(0xFFF0FFF5), AppColors.success, Color(0xFF15803D), Icons.code),
   (Color(0xFFFEF3C7), Color(0xFFD97706), Color(0xFFB45309), Icons.show_chart),
   (Color(0xFFF0F9FF), Color(0xFF0284C7), Color(0xFF0369A1), Icons.nights_stay),
   (Color(0xFFFDF2F8), Color(0xFFDB2777), Color(0xFFBE185D), Icons.science),

@@ -334,7 +334,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                     width: 72,
                     child: _quickTile(
                       icon: Icons.people,
-                      iconColor: const Color(0xFF16A34A),
+                      iconColor: AppColors.success,
                       iconBg: const Color(0xFFE8F8F0),
                       label: l10n.friendsQuickLabel,
                       subtitle: _friendsCount == null
@@ -607,7 +607,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               Icons.group_add_outlined,
               l10n.createGroup,
               l10n.createGroupSubtitle,
-              const Color(0xFF16A34A),
+              AppColors.success,
               const Color(0xFFE8F8F0),
               () {
                 Navigator.pop(ctx);

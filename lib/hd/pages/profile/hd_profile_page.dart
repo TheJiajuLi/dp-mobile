@@ -224,7 +224,7 @@ class _HdProfilePageState extends ConsumerState<HdProfilePage> {
               child: Row(
                 children: [
                   const Icon(Icons.verified_user_outlined,
-                      size: 14, color: Color(0xFF16A34A)),
+                      size: 14, color: AppColors.success),
                   const SizedBox(width: 6),
                   Text(
                     '已签署原创声明协议',

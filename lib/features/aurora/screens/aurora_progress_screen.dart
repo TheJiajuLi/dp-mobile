@@ -12,7 +12,7 @@ const _glassBorder = Color(0x1AFFFFFF);
 const _cyan = Color(0xFFA5F3FC);
 const _primary = AppColors.primary;
 const _gold = Color(0xFFF59E0B);
-const _green = Color(0xFF16A34A);
+const _green = AppColors.success;
 
 // 极光创作者"每月续期"进度页——跟 creator/screens/aurora_screen.dart
 // 不是同一个页面：那边是"还没入选"时的申请门槛/宣传页（一次性达标

@@ -320,7 +320,7 @@ class _AnswerQuestionScreenState extends ConsumerState<AnswerQuestionScreen> {
               child: const Icon(
                 Icons.check,
                 size: 30,
-                color: Color(0xFF16A34A),
+                color: AppColors.success,
               ),
             ),
             const SizedBox(height: 16),

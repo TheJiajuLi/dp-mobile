@@ -34,7 +34,7 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
   static const _coverColors = [
     AppColors.primary,
     Color(0xFFD97706),
-    Color(0xFF16A34A),
+    AppColors.success,
     Color(0xFFDC2626),
     Color(0xFF8B5CF6),
     Color(0xFF0284C7),
@@ -537,7 +537,7 @@ class _ColumnPickerSheetState extends ConsumerState<ColumnPickerSheet> {
               color: Color(0xFFE8F8F0),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check, size: 36, color: Color(0xFF16A34A)),
+            child: const Icon(Icons.check, size: 36, color: AppColors.success),
           ),
           const SizedBox(height: 16),
           const Text(

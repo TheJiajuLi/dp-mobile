@@ -191,7 +191,7 @@ class NotebookListItem extends StatelessWidget {
         const {
           'python': _primary,
           'latex': Color(0xFFC026D3),
-          'mixed': Color(0xFF16A34A),
+          'mixed': AppColors.success,
         }[lang] ??
         _primary;
     final name = notebook['name'] as String? ?? '';

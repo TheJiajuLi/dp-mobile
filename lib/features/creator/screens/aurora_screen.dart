@@ -318,7 +318,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
       ),
       (
         Icons.attach_money,
-        const Color(0xFF16A34A),
+        AppColors.success,
         '流量分成资格',
         '内容浏览量直接转化收益，看的人越多赚得越多',
       ),
@@ -433,7 +433,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _weightTag('点赞', '×3', const Color(0xFF16A34A))),
+              Expanded(child: _weightTag('点赞', '×3', AppColors.success)),
               const SizedBox(width: 8),
               Expanded(child: _weightTag('分享', '×4', const Color(0xFFEA580C))),
             ],
@@ -459,7 +459,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+              color: AppColors.success.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Column(
@@ -659,7 +659,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
                     const Icon(
                       Icons.check_circle,
                       size: 16,
-                      color: Color(0xFF16A34A),
+                      color: AppColors.success,
                     ),
                     const SizedBox(width: 10),
                     Expanded(

@@ -292,7 +292,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
                           style: TextStyle(
                             fontSize: 10,
                             color: status == 'published'
-                                ? const Color(0xFF16A34A)
+                                ? AppColors.success
                                 : const Color(0xFFD97706),
                           ),
                         ),
@@ -404,7 +404,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.deletedFreedSpace(_fmt(size))),
-          backgroundColor: const Color(0xFF16A34A),
+          backgroundColor: AppColors.success,
         ),
       );
     } else {
@@ -450,7 +450,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.tutorialDeletedMessage(name)),
-          backgroundColor: const Color(0xFF16A34A),
+          backgroundColor: AppColors.success,
         ),
       );
     } else {
@@ -485,7 +485,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
               ? (res.data?['message'] as String? ?? '清理完成')
               : '清理失败，请稍后重试',
         ),
-        backgroundColor: res.success ? const Color(0xFF16A34A) : null,
+        backgroundColor: res.success ? AppColors.success : null,
       ),
     );
   }
@@ -529,7 +529,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(l10n.deletedCountFreedSpace(deleted, _fmt(totalSize))),
-        backgroundColor: const Color(0xFF16A34A),
+        backgroundColor: AppColors.success,
       ),
     );
   }
@@ -570,7 +570,7 @@ class _StorageScreenState extends ConsumerState<StorageScreen> {
         'key': 'tutorials',
         'label': l10n.folderTutorials,
         'icon': Icons.article_outlined,
-        'color': const Color(0xFF16A34A),
+        'color': AppColors.success,
         'bg': const Color(0xFFE8F8F0),
       },
       {

@@ -2318,7 +2318,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
     const colors = [
       _primary,
       Color(0xFF8B5CF6),
-      Color(0xFF16A34A),
+      AppColors.success,
       Color(0xFFD97706),
       Color(0xFFEC4899),
       Color(0xFF0891B2),

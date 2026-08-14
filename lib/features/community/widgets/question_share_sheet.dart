@@ -34,7 +34,7 @@ enum _Step { choose, forum, group, friend }
 // 字母头像的浅底/深字配色，按列表下标轮换（跟截图的紫/绿/琥珀三色一致）
 const _avatarPalette = [
   [Color(0xFFEEF0FF), AppColors.primary],
-  [Color(0xFFE7F8EF), Color(0xFF16A34A)],
+  [Color(0xFFE7F8EF), AppColors.success],
   [Color(0xFFFEF3C7), Color(0xFFD97706)],
 ];
 
@@ -448,7 +448,7 @@ class _QuestionShareSheetState extends ConsumerState<_QuestionShareSheet> {
           _shareOption(
             iconBg: const Color(0xFFF0FFF5),
             icon: Icons.group_outlined,
-            iconColor: const Color(0xFF16A34A),
+            iconColor: AppColors.success,
             label: '分享到群组',
             sub: '发送到你加入的群聊',
             onTap: _goGroup,

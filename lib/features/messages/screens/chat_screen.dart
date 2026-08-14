@@ -1480,7 +1480,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: _buildAvatar(
                 msg.senderAvatar,
                 msg.senderUsername,
-                const Color(0xFF16A34A),
+                AppColors.success,
               ),
             ),
             const SizedBox(width: 8),

@@ -137,7 +137,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                     _toggleRow(
                       iconBg: const Color(0xFFEAF8F0),
                       icon: Icons.chat_bubble_outline,
-                      iconColor: const Color(0xFF16A34A),
+                      iconColor: AppColors.success,
                       label: '允许评论',
                       value: _allowComment,
                       onChanged: (v) {
@@ -185,7 +185,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                     _toggleRow(
                       iconBg: const Color(0xFFEAF8F0),
                       icon: Icons.favorite_outline,
-                      iconColor: const Color(0xFF16A34A),
+                      iconColor: AppColors.success,
                       label: '获赞通知',
                       value: _notifyLike,
                       onChanged: (v) {
@@ -219,7 +219,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                     _selectRow(
                       iconBg: const Color(0xFFEAF8F0),
                       icon: Icons.view_agenda_outlined,
-                      iconColor: const Color(0xFF16A34A),
+                      iconColor: AppColors.success,
                       label: '默认内容块类型',
                       value: _blockLabel(),
                       onTap: _showDefaultBlockSheet,
@@ -258,7 +258,7 @@ class _CreatorSettingsScreenState extends ConsumerState<CreatorSettingsScreen> {
                     _selectRow(
                       iconBg: const Color(0xFFEAF8F0),
                       icon: Icons.code_outlined,
-                      iconColor: const Color(0xFF16A34A),
+                      iconColor: AppColors.success,
                       label: 'AI 默认代码语言',
                       value: _codeLangLabel(),
                       onTap: _showCodeLangSheet,

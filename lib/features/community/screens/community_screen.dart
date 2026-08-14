@@ -32,7 +32,7 @@ String _tagLabel(AppLocalizations l10n, String tag) => switch (tag) {
 
 const _coverPalette = [
   (bg: Color(0xFFEEF2FF), icon: Icons.terminal, fg: AppColors.primary),
-  (bg: Color(0xFFECFDF5), icon: Icons.functions, fg: Color(0xFF16A34A)),
+  (bg: Color(0xFFECFDF5), icon: Icons.functions, fg: AppColors.success),
   (
     bg: Color(0xFFFFF7ED),
     icon: Icons.smart_toy_outlined,

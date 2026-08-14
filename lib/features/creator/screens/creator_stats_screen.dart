@@ -16,7 +16,7 @@ import '../../../shared/widgets/app_toast.dart';
 // 真实：likes/saves/comments、likesChange/savesChange 环比、trend[].likes 逐日
 // 点赞、topArticles Top5、codeArticles 含代码文章数。
 const _primary = AppColors.primary;
-const _green = Color(0xFF16A34A);
+const _green = AppColors.success;
 
 class CreatorStatsScreen extends ConsumerStatefulWidget {
   // HD 双栏内嵌时（HdProfilePage 右栏）隐藏返回键——根级标签内没有可 pop 的路由

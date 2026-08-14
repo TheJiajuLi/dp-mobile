@@ -173,7 +173,7 @@ class _HelpFeedbackScreenState extends State<HelpFeedbackScreen> {
             ),
             SettingsRow(
               icon: Icons.feedback_outlined,
-              iconColor: const Color(0xFF16A34A),
+              iconColor: AppColors.success,
               iconBg: const Color(0xFFE8F8F0),
               title: '问题反馈',
               subtitle: 'Bug报告、功能建议',

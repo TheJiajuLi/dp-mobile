@@ -342,7 +342,7 @@ Widget buildTutorialBlockWidget(
               'info': Color(0xFF9B9EF8),
             }
           : const {
-              'tip': Color(0xFF16A34A),
+              'tip': AppColors.success,
               'warning': Color(0xFFD97706),
               'info': _primary,
             };
@@ -563,7 +563,7 @@ Widget _buildDatasetCard(BuildContext context, String content) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final (name, rows) = _extractDatasetInfo(content);
   const amber = Color(0xFFD97706);
-  const green = Color(0xFF16A34A);
+  const green = AppColors.success;
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
     child: Container(

@@ -1028,7 +1028,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('头像已更新'),
-            backgroundColor: Color(0xFF16A34A),
+            backgroundColor: AppColors.success,
           ),
         );
       }

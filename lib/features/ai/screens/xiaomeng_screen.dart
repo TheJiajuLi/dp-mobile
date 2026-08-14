@@ -218,7 +218,7 @@ class _XiaomengScreenState extends State<XiaomengScreen> {
                         _capabilityCard(
                           isDark,
                           icon: Icons.code,
-                          iconColor: const Color(0xFF16A34A),
+                          iconColor: AppColors.success,
                           iconBg: const Color(0xFFDCFCE7),
                           iconBgDark: const Color(0xFF0F2A1A),
                           label: '代码辅助',

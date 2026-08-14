@@ -83,7 +83,7 @@ class _QuestionDetailScreenState extends ConsumerState<QuestionDetailScreen> {
           content: Text('回答已发布，提问者将收到通知'),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Color(0xFF16A34A),
+          backgroundColor: AppColors.success,
         ),
       );
     }

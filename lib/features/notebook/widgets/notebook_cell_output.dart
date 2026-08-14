@@ -60,7 +60,7 @@ Widget buildNotebookCellOutput(
                   ),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? const Color(0xFF16A34A).withValues(alpha: 0.18)
+                        ? AppColors.success.withValues(alpha: 0.18)
                         : const Color(0xFFE8F8F0),
                     borderRadius: BorderRadius.circular(7),
                   ),
@@ -70,7 +70,7 @@ Widget buildNotebookCellOutput(
                       Icon(
                         Icons.download_outlined,
                         size: 13,
-                        color: Color(0xFF16A34A),
+                        color: AppColors.success,
                       ),
                       SizedBox(width: 4),
                       Text(
@@ -78,7 +78,7 @@ Widget buildNotebookCellOutput(
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF16A34A),
+                          color: AppColors.success,
                         ),
                       ),
                     ],
@@ -176,7 +176,7 @@ Widget buildNotebookCellOutput(
     );
   }
   final isError = type == 'error';
-  final accent = isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A);
+  final accent = isError ? const Color(0xFFDC2626) : AppColors.success;
   final lightBg = isError ? const Color(0xFFFEF2F2) : const Color(0xFFF0FFF5);
   return Container(
     width: double.infinity,

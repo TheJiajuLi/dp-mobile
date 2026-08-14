@@ -124,7 +124,7 @@ class NotebookCellCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: _isViz
-              ? const Color(0xFF16A34A)
+              ? AppColors.success
               : _isDataset
               ? const Color(0xFFD97706)
               : (isActive ? activeBorder : idleBorder),
@@ -236,7 +236,7 @@ class NotebookCellCard extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     final headerBg = _isViz
         ? (isDark
-              ? const Color(0xFF16A34A).withValues(alpha: 0.10)
+              ? AppColors.success.withValues(alpha: 0.10)
               : const Color(0xFFF0FFF5))
         : _isDataset
         ? (isDark
@@ -280,7 +280,7 @@ class NotebookCellCard extends StatelessWidget {
                   Icon(
                     Icons.bar_chart_outlined,
                     size: 12,
-                    color: Color(0xFF16A34A),
+                    color: AppColors.success,
                   ),
                   SizedBox(width: 4),
                   Text(
@@ -288,7 +288,7 @@ class NotebookCellCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF16A34A),
+                      color: AppColors.success,
                     ),
                   ),
                 ],
@@ -448,7 +448,7 @@ class NotebookCellCard extends StatelessWidget {
       const SnackBar(
         content: Text('已复制'),
         duration: Duration(seconds: 1),
-        backgroundColor: Color(0xFF16A34A),
+        backgroundColor: AppColors.success,
       ),
     );
   }
@@ -532,7 +532,7 @@ class NotebookCellCard extends StatelessWidget {
     final isError = outputType == 'error';
     final statusColor = isError
         ? const Color(0xFFDC2626)
-        : const Color(0xFF16A34A);
+        : AppColors.success;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

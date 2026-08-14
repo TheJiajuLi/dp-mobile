@@ -1141,7 +1141,7 @@ class _EditorState extends ConsumerState<NotebookEditorScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final card = isDark ? const Color(0xFF17171F) : Colors.white;
     final ink = isDark ? const Color(0xFFF0F2F8) : const Color(0xFF1A1A1A);
-    const green = Color(0xFF16A34A);
+    const green = AppColors.success;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1973,7 +1973,7 @@ finally:
       valueListenable: engine.rStatus,
       builder: (context, s, _) {
         final (Color color, String label) = switch (s) {
-          1 => (const Color(0xFF16A34A), 'R 就绪'),
+          1 => (AppColors.success, 'R 就绪'),
           2 => (const Color(0xFF9AA0AE), 'R 暂不可用'),
           _ => (const Color(0xFFD97706), 'R 内核加载中'),
         };
@@ -2831,7 +2831,7 @@ finally:
                             shape: BoxShape.circle,
                             color: _kernelBusy
                                 ? const Color(0xFFD97706)
-                                : const Color(0xFF16A34A),
+                                : AppColors.success,
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -3417,7 +3417,7 @@ finally:
     } else if (_outputTypes[cell.id] == 'error') {
       c = const Color(0xFFDC2626);
     } else if (_outputs[cell.id] != null) {
-      c = const Color(0xFF16A34A);
+      c = AppColors.success;
     } else {
       c = const Color(0xFFBBBBBB);
     }

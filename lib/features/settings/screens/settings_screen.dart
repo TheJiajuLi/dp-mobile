@@ -133,7 +133,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     SettingsRow(
                       icon: Icons.lock_outlined,
-                      iconColor: const Color(0xFF16A34A),
+                      iconColor: AppColors.success,
                       iconBg: const Color(0xFFE8F8F0),
                       title: l10n.privacy,
                       subtitle: l10n.privacySubtitle,
@@ -173,7 +173,7 @@ class SettingsScreen extends ConsumerWidget {
                                 200 * 1024 * 1024;
                             return SettingsRow(
                               icon: Icons.cloud_outlined,
-                              iconColor: const Color(0xFF16A34A),
+                              iconColor: AppColors.success,
                               iconBg: const Color(0xFFE8F8F0),
                               title: l10n.cloudStorage,
                               subtitle: l10n.storageUsedOfQuota(
@@ -185,7 +185,7 @@ class SettingsScreen extends ConsumerWidget {
                           },
                           loading: () => SettingsRow(
                             icon: Icons.cloud_outlined,
-                            iconColor: const Color(0xFF16A34A),
+                            iconColor: AppColors.success,
                             iconBg: const Color(0xFFE8F8F0),
                             title: l10n.cloudStorage,
                             subtitle: l10n.loadingEllipsis,
@@ -193,7 +193,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                           error: (_, __) => SettingsRow(
                             icon: Icons.cloud_outlined,
-                            iconColor: const Color(0xFF16A34A),
+                            iconColor: AppColors.success,
                             iconBg: const Color(0xFFE8F8F0),
                             title: l10n.cloudStorage,
                             subtitle: l10n.tapToViewDetails,
@@ -230,7 +230,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     SettingsRow(
                       icon: Icons.list_alt_outlined,
-                      iconColor: const Color(0xFF16A34A),
+                      iconColor: AppColors.success,
                       iconBg: const Color(0xFFF0FFF5),
                       title: l10n.changelog,
                       // 只在有没看过的新版本时才显示绿点"新动态"，看过即消失
@@ -722,7 +722,7 @@ class _NotifSettingsSheet extends ConsumerWidget {
             ),
             SettingsSwitchRow(
               icon: Icons.person_add_alt_1,
-              iconColor: const Color(0xFF16A34A),
+              iconColor: AppColors.success,
               iconBg: const Color(0xFFE8F8F0),
               title: l10n.followNotifications,
               value: settings.follows,

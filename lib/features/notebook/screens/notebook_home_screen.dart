@@ -16,7 +16,7 @@ const _palette = <(Color, Color)>[
   (Color(0xFFFEF3C7), Color(0xFFF59E0B)), // 琥珀
   (Color(0xFFDBEAFE), Color(0xFF3B82F6)), // 蓝
   (Color(0xFFFCE7F3), Color(0xFFC026D3)), // 品红
-  (Color(0xFFDCFCE7), Color(0xFF16A34A)), // 绿
+  (Color(0xFFDCFCE7), AppColors.success), // 绿
 ];
 
 // 浅色卡片统一的一层极淡阴影，制造"浮起"的层次；深色不用
@@ -556,7 +556,7 @@ class _State extends ConsumerState<NotebookHomeScreen> {
                                       'python',
                                       const (
                                         Color(0xFFDCFCE7),
-                                        Color(0xFF16A34A),
+                                        AppColors.success,
                                       ),
                                       'visualization',
                                     ),
