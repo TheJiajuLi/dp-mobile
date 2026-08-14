@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/confirm_dialog.dart';
+import '../../../shared/widgets/input_dialog.dart';
 import '../../../shared/widgets/online_dot.dart';
 import '../../auth/auth_service.dart';
 import '../../messages/utils/message_avatar.dart';
@@ -798,36 +801,14 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     );
   }
 
-  Future<String?> _promptCustomTag() async {
-    final ctrl = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('添加自定义标签'),
-        content: TextField(
-          controller: ctrl,
-          maxLength: 10,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '输入标签名称',
-            counterText: '',
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('添加'),
-          ),
-        ],
-      ),
+  Future<String?> _promptCustomTag() {
+    return showInputDialog(
+      context,
+      title: '添加自定义标签',
+      hint: '输入标签名称',
+      maxLength: 10,
+      confirmText: '添加',
     );
-    ctrl.dispose();
-    return result;
   }
 
   Future<void> _onDissolve() async {
@@ -882,31 +863,13 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     int maxLength = 50,
     int maxLines = 1,
   }) async {
-    final ctrl = TextEditingController(text: initial);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontSize: 16)),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          maxLength: maxLength,
-          maxLines: maxLines,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    final result = await showInputDialog(
+      context,
+      title: title,
+      initial: initial,
+      maxLength: maxLength,
+      maxLines: maxLines,
     );
-    ctrl.dispose();
     if (result == null || !mounted) return;
     // 群名称不能清空；群简介允许清空
     if (title.contains('名称') && result.isEmpty) return;
@@ -917,32 +880,21 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     required String title,
     required String message,
     required String confirmLabel,
-  }) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(title, style: const TextStyle(fontSize: 16)),
-            content: Text(message, style: const TextStyle(fontSize: 14)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(
-                  confirmLabel,
-                  style: const TextStyle(color: _danger),
-                ),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+  }) {
+    // 群相关的确认基本都是危险/不可逆操作（解散/退出/移除），统一走全站的
+    // 危险确认弹窗（红底警示图标 + 取消幽灵 / 红色实心确认）
+    return showDangerConfirm(
+      context,
+      title: title,
+      message: message,
+      confirmText: confirmLabel,
+    );
   }
 
+  // 轻量提示统一走全站浮动圆角胶囊——失败/错误红、其余绿对勾
   void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    final isError = msg.contains('失败') || msg.contains('错误');
+    showAppToast(context, msg, ok: !isError);
   }
 
   Widget _card(bool isDark, {required Widget child}) {
