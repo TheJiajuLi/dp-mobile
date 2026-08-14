@@ -1,30 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-class AppColors {
-  static const primary = Color(0xFF6366F1);
-  static const bg = Color(0xFFF7F7FB);
-  static const surface = Colors.white;
-  static const border = Color(0xFFE5E5EA);
-  static const textPrimary = Color(0xFF1C1C1E);
-  static const textMuted = Color(0xFF8E8E93);
-  static const danger = Color(0xFFFF3B30);
+import 'app_colors.dart';
 
-  // 深色主题层级——之前深色下背景/卡片/分割线用的都是同一档 Material
-  // 默认灰阶（#1C1C1E/#2C2C2E/#3A3A3C），拉不开视觉深度，糊成一块。
-  // 这一套改用更深的近黑背景 + 逐级提亮的卡片/表面色，层级差拉开了
-  // 才看得出"背景之上浮着卡片"的立体感
-  static const darkBg = Color(0xFF0A0A0F);
-  static const darkCard = Color(0xFF111118);
-  static const darkCardHero = Color(0xFF141427);
-  static const darkCardList = Color(0xFF101017);
-  static const darkSurface = Color(0xFF17171F);
-  static const darkBorder = Color(0x0FFFFFFF); // rgba(255,255,255,.06)
-  static const darkDivider = Color(0xFF1A1A28);
-  static const darkTextPrimary = Color(0xFFF0F2F8);
-  static const darkTextSecondary = Color(0xFF7A80A0);
-  static const darkTextMuted = Color(0xFF4A4A6A);
-}
+// AppColors 已迁到 app_colors.dart 集中管理；这里 re-export，老的
+// `import '.../app_theme.dart'` 引用 AppColors 照常可用，无需改调用点
+export 'app_colors.dart';
 
 class AppRadius {
   static const sm = 8.0;
