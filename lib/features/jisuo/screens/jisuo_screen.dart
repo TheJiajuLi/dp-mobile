@@ -734,6 +734,15 @@ class _JisuoScreenState extends ConsumerState<JisuoScreen> {
             icon: Icons.people_outline,
             mode: 'community',
           ),
+          // Tab 分段与历史入口之间的细分隔线——同一胶囊内做视觉分区
+          Container(
+            width: 0.5,
+            height: 16,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.14)
+                : _primary.withValues(alpha: 0.16),
+          ),
           // 历史对话入口——并进同一个胶囊，点开小梦历史
           GestureDetector(
             behavior: HitTestBehavior.opaque,
