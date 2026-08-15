@@ -113,11 +113,16 @@ class _FaqListScreenState extends State<FaqListScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: TextField(
+      // 点空白处收起键盘——包住整页内容（含搜索框周围/顶部空白），跟其它
+      // 页面统一写法，不再只覆盖下面的列表区
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: TextField(
               controller: _searchCtrl,
               autofocus: widget.initialQuery == null,
               onChanged: (v) => setState(() => _query = v),
@@ -127,23 +132,26 @@ class _FaqListScreenState extends State<FaqListScreen> {
                 filled: true,
                 fillColor: Theme.of(context).cardColor,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                // 跟「帮助与反馈」页统一：不设描边，靠 filled 胶囊底色区分。
+                // 之前没设 focusedBorder，一聚焦就吃主题默认的粗品牌紫圈，
+                // 跟外面的搜索框长得不一样
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                  borderSide: BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
           ),
           Expanded(
-            // 点空白处收起键盘
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => FocusScope.of(context).unfocus(),
-              child: results.isEmpty
+            child: results.isEmpty
                   ? const Center(
                       child: Text(
                         '没有找到相关问题',
@@ -189,9 +197,9 @@ class _FaqListScreenState extends State<FaqListScreen> {
                         ),
                       ],
                     ),
-            ),
           ),
         ],
+        ),
       ),
     );
   }
