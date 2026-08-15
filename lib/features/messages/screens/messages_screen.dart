@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../auth/auth_service.dart';
 import '../../profile/models/user_profile_model.dart';
 import '../models/conversation_model.dart';
 import '../models/notification_model.dart';
@@ -163,6 +164,17 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // 换账号/登录/登出（用户身份变）→ 主动重拉。会话/通知列表已由 provider
+    // 响应 currentUserProvider 自动清空（B），这里补拉新账号数据 + 刷新那几个
+    // 只在 initState 拉过的本地信号（好友数/关注论坛/邀请），不再残留上一个号。
+    // shell 保活不会重跑 initState，靠这个 listen 兜住切号刷新
+    ref.listen(currentUserProvider.select((u) => u?.id), (prev, next) {
+      if (prev != next) {
+        _loadData();
+        _loadFriendsCount();
+        _loadForumSignal();
+      }
+    });
     final notifications = ref.watch(notificationsProvider);
     final conversations = ref.watch(conversationsProvider);
     final unread = ref.watch(unreadCountProvider);

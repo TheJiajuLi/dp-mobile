@@ -10,6 +10,11 @@ final mentionUnreadCountProvider = StateProvider<int>((ref) => 0);
 
 final notificationsProvider =
     StateNotifierProvider<NotificationsNotifier, List<AppNotification>>((ref) {
+      // 用户身份变（换账号/登录/登出）→ 重建 notifier，旧账号数据随之清空，
+      // 不再残留上一个号的内容（跟首页 homeFeedProvider 响应 currentUserProvider
+      // 一致）。select(id) 只认身份变化，改资料等非身份变化不触发重建。
+      // 清空后的重新拉取由 messages_screen 的 ref.listen 统一驱动
+      ref.watch(currentUserProvider.select((u) => u?.id));
       return NotificationsNotifier(ref.read(apiClientProvider));
     });
 
@@ -65,6 +70,8 @@ class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
 
 final conversationsProvider =
     StateNotifierProvider<ConversationsNotifier, List<Conversation>>((ref) {
+      // 同 notificationsProvider：用户身份一变就重建、清空旧账号会话列表
+      ref.watch(currentUserProvider.select((u) => u?.id));
       return ConversationsNotifier(ref);
     });
 
