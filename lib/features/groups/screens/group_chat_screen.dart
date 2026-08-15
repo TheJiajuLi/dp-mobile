@@ -864,9 +864,14 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen>
       body: GestureDetector(
         // 点空白处收起键盘——opaque 让整块正文（含消息间空隙）都接住 tap；
         // 用 FocusScope.unfocus 而不是只 unfocus 输入框那个 node，搜索态下
-        // 也能把搜索框的键盘一起收起
+        // 也能把搜索框的键盘一起收起。
+        // 搜索态且还没输入关键词时，点空白直接退出搜索（收起搜索栏），不用
+        // 再多点一次返回键；已经有关键词/结果时只收键盘、保留结果方便滚动
         behavior: HitTestBehavior.opaque,
-        onTap: () => FocusScope.of(context).unfocus(),
+        onTap: () {
+          FocusScope.of(context).unfocus();
+          if (_searchMode && _searchQuery.isEmpty) _exitSearch();
+        },
         child: Column(
           children: [
             Expanded(
