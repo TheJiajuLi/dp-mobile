@@ -2121,10 +2121,16 @@ th{background:$thBg;color:$thFg}
                     fontWeight: FontWeight.w500,
                     color: muted,
                   ),
-                  p: TextStyle(fontSize: 14, height: 1.7, color: ink),
-                  strong: TextStyle(fontWeight: FontWeight.w600, color: ink),
+                  // 正文/列表/加粗对齐 App 正文 15（跟 text 块一致），不用
+                  // fromTheme 的偏大默认值
+                  p: TextStyle(fontSize: 15, height: 1.7, color: ink),
+                  strong: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: ink,
+                  ),
                   em: TextStyle(fontStyle: FontStyle.italic, color: ink),
-                  listBullet: TextStyle(fontSize: 14, color: muted),
+                  listBullet: TextStyle(fontSize: 15, color: muted),
                   blockquote: TextStyle(
                     fontSize: 14,
                     fontStyle: FontStyle.italic,

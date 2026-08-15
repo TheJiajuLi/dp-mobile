@@ -381,29 +381,107 @@ Widget buildTutorialBlockWidget(
       );
 
     case 'markdown':
-      // 原始 Markdown 块——用 flutter_markdown 渲染加粗/列表/小节标题等，
-      // 跟发布页编辑器 _buildMarkdownBlock 是同一份渲染，两端观感一致
-      return Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: readingMode ? 8 : 6,
-        ),
-        child: MarkdownBody(
-          data: content,
-          selectable: false,
-          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            p: TextStyle(
-              fontSize: readingMode ? 16 : 15,
-              height: readingMode ? 1.85 : 1.7,
-              color: readingMode
-                  ? (Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFFC8CAD8)
-                        : const Color(0xFF2A2A2A))
-                  : Theme.of(context).textTheme.bodyLarge?.color,
+      {
+        // 原始 Markdown 块——用 flutter_markdown 渲染加粗/列表/小节标题等。
+        // 不用 MarkdownStyleSheet.fromTheme：它从主题 TextTheme 推导字号，标题/
+        // 列表/加粗会比 App 正文大一截（markdown 块整体比 text 块显著偏大）。
+        // 改成完整显式样式表，所有字号对齐 App 正文体系——正文与 text 块一致
+        // （阅读 18 / 编辑 15），标题按层级递减
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final bodyColor = readingMode
+            ? (isDark ? const Color(0xFFC8CAD8) : const Color(0xFF2A2A2A))
+            : Theme.of(context).textTheme.bodyLarge?.color;
+        final headingColor = isDark
+            ? const Color(0xFFF0F2F8)
+            : const Color(0xFF1A1A1A);
+        final bodySize = readingMode ? 18.0 : 15.0;
+        final bodyStyle = TextStyle(
+          fontSize: bodySize,
+          height: readingMode ? 1.85 : 1.7,
+          color: bodyColor,
+        );
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: readingMode ? 8 : 6,
+          ),
+          child: MarkdownBody(
+            data: content,
+            selectable: false,
+            styleSheet: MarkdownStyleSheet(
+              p: bodyStyle,
+              listBullet: bodyStyle,
+              strong: bodyStyle.copyWith(fontWeight: FontWeight.w600),
+              em: bodyStyle.copyWith(fontStyle: FontStyle.italic),
+              code: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: bodySize - 1,
+                color: bodyColor,
+                backgroundColor: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFF0F0F3),
+              ),
+              h1: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+                color: headingColor,
+              ),
+              h2: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+                color: headingColor,
+              ),
+              h3: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+                color: headingColor,
+              ),
+              h4: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+                color: headingColor,
+              ),
+              h5: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: headingColor,
+              ),
+              h6: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: headingColor,
+              ),
+              blockquote: TextStyle(
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+                color: bodyColor,
+              ),
+              blockquoteDecoration: BoxDecoration(
+                border: const Border(
+                  left: BorderSide(color: Color(0xFF6366F1), width: 3),
+                ),
+                color: isDark
+                    ? const Color(0xFF1A1A35)
+                    : const Color(0xFFEEF0FF),
+              ),
+              horizontalRuleDecoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF3A3A5C)
+                        : const Color(0xFFE0E0E0),
+                    width: 0.5,
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
 
     case 'reference':
       return _buildReferenceList(context, content, readingMode);
