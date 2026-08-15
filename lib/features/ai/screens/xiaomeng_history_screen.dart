@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../../shared/widgets/confirm_sheet.dart';
 import '../models/ai_conversation_model.dart';
 
@@ -80,9 +81,7 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
     if (res.success) {
       setState(() => _conversations.removeWhere((c) => c.id == conv.id));
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message ?? '删除失败，请稍后重试')));
+      showAppToast(context, res.message ?? '删除失败，请稍后重试');
     }
   }
 
@@ -104,15 +103,13 @@ class _XiaomengHistoryScreenState extends ConsumerState<XiaomengHistoryScreen> {
     if (!mounted) return;
     if (res.success) {
       setState(() => _conversations = []);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)!.chatHistoryCleared),
-        ),
+      showAppToast(
+        context,
+        AppLocalizations.of(context)!.chatHistoryCleared,
+        ok: true,
       );
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message ?? '清空失败，请稍后重试')));
+      showAppToast(context, res.message ?? '清空失败，请稍后重试');
     }
   }
 
